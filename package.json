@@ -1,0 +1,55 @@
+{
+  "name": "finance-os",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run --project unit",
+    "test:property": "vitest run --project property",
+    "test:integration": "vitest run --project integration",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx scripts/db-migrate.ts",
+    "db:rollback": "tsx scripts/db-rollback.ts",
+    "db:seed": "tsx scripts/db-seed.ts",
+    "db:studio": "drizzle-kit studio",
+    "auth:create-user": "node --conditions=react-server --import tsx scripts/create-user.ts",
+    "check:no-client-secrets": "tsx scripts/check-no-client-secrets.ts"
+  },
+  "dependencies": {
+    "@node-rs/argon2": "^2.0.2",
+    "drizzle-orm": "^0.45.2",
+    "next": "^16.3.0",
+    "otpauth": "^9.5.1",
+    "pg": "^8.23.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "server-only": "^0.0.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.3",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^22.20.1",
+    "@types/pg": "^8.15.7",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "drizzle-kit": "^0.31.10",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.3.0",
+    "fast-check": "^4.9.0",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.20.7",
+    "typescript": "5.9.3",
+    "vitest": "^4.1.10"
+  }
+}

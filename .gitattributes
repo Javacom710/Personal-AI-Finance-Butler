@@ -1,0 +1,13 @@
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.pdf binary
+*.zip binary
+
+# Generated migrations are reviewed as SQL and never reformatted (SCHEMA.md §13)
+src/server/db/migrations/**/*.sql -diff=auto linguist-generated=false

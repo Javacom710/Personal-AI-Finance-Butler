@@ -1,0 +1,95 @@
+@import 'tailwindcss';
+
+/*
+ * Tailwind 4 CSS-first configuration.
+ *
+ * The palette is deliberately small. A financial interface earns its clarity
+ * from typography, alignment and density — not from colour, which here is
+ * reserved for meaning: positive, negative, and warning. Everything else is
+ * neutral (ARCHITECTURE.md §8).
+ */
+
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  /* Figures are read in columns, so they must be tabular and monospaced. */
+  --font-mono: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', Menlo, Consolas, monospace;
+
+  --color-surface: oklch(100% 0 0);
+  --color-surface-raised: oklch(98.4% 0.002 250);
+  --color-surface-sunken: oklch(96.5% 0.003 250);
+  --color-border: oklch(90% 0.004 250);
+  --color-border-strong: oklch(82% 0.006 250);
+
+  --color-ink: oklch(21% 0.012 250);
+  --color-ink-muted: oklch(48% 0.011 250);
+  --color-ink-faint: oklch(62% 0.009 250);
+
+  --color-accent: oklch(52% 0.15 250);
+  --color-accent-ink: oklch(100% 0 0);
+
+  --color-positive: oklch(48% 0.13 155);
+  --color-negative: oklch(52% 0.16 25);
+  --color-warning: oklch(58% 0.13 75);
+}
+
+@layer theme {
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-surface: oklch(17% 0.009 250);
+      --color-surface-raised: oklch(21% 0.011 250);
+      --color-surface-sunken: oklch(14% 0.008 250);
+      --color-border: oklch(29% 0.011 250);
+      --color-border-strong: oklch(38% 0.013 250);
+
+      --color-ink: oklch(95% 0.004 250);
+      --color-ink-muted: oklch(72% 0.009 250);
+      --color-ink-faint: oklch(58% 0.009 250);
+
+      --color-accent: oklch(70% 0.13 250);
+      --color-accent-ink: oklch(17% 0.009 250);
+
+      --color-positive: oklch(74% 0.15 155);
+      --color-negative: oklch(70% 0.16 25);
+      --color-warning: oklch(78% 0.13 75);
+    }
+  }
+}
+
+@layer base {
+  html {
+    color-scheme: light dark;
+  }
+
+  body {
+    background-color: var(--color-surface);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Every monetary figure is tabular, so digits align down a column. */
+  .tabular {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* Respect a user who has asked for less motion. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}

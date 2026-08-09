@@ -1,0 +1,101 @@
+name: CI
+
+# The pipeline from TESTING.md §10. Any failure blocks the merge; there is no
+# `--passWithNoTests` and no skipped test left in the tree.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        # Pinned to the major version the schema targets. Integration tests need
+        # a real Postgres because half the invariants are database constraints.
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
+
+    env:
+      # Two roles, as in production: the application role holds no DDL rights,
+      # so a missing grant fails a test here rather than in production.
+      DATABASE_URL: postgres://financeos_app:ci_app@127.0.0.1:5432/financeos
+      DATABASE_MIGRATION_URL: postgres://financeos_migrator:ci_migrator@127.0.0.1:5432/financeos
+      TEST_DATABASE_URL: postgres://financeos_migrator:ci_migrator@127.0.0.1:5432/financeos_test
+      TEST_DATABASE_APP_URL: postgres://financeos_app:ci_app@127.0.0.1:5432/financeos_test
+      APP_ORIGIN: http://localhost:3000
+      LOG_LEVEL: error
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Generate ephemeral secrets
+        # Real values live in the deployment environment; CI only needs
+        # well-formed ones, and generating them here keeps them out of the repo.
+        run: |
+          echo "APP_ENCRYPTION_KEY=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
+          echo "SESSION_COOKIE_SECRET=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
+
+      - name: Provision database roles
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE financeos_migrator LOGIN PASSWORD 'ci_migrator';
+          CREATE ROLE financeos_app      LOGIN PASSWORD 'ci_app';
+          CREATE DATABASE financeos      OWNER financeos_migrator;
+          CREATE DATABASE financeos_test OWNER financeos_migrator;
+          SQL
+          for db in financeos financeos_test; do
+            psql -h 127.0.0.1 -U postgres -d "$db" -v ON_ERROR_STOP=1 \
+              -c "REVOKE ALL ON SCHEMA public FROM PUBLIC;" \
+              -c "GRANT USAGE ON SCHEMA public TO financeos_app;" \
+              -c "GRANT ALL ON SCHEMA public TO financeos_migrator;"
+          done
+
+      - run: npm ci
+
+      - run: npm run typecheck
+
+      - run: npm run lint
+
+      - name: Migrate and seed
+        run: |
+          npm run db:migrate
+          npm run db:seed
+
+      - run: npm run test:unit
+
+      - run: npm run test:property
+
+      - run: npm run test:integration
+
+      - run: npm run build
+
+      - name: Assert no secret reached a client bundle
+        run: npm run check:no-client-secrets
+
+      - name: Audit dependencies
+        # SECURITY.md §11 — a high or critical advisory fails the build.
+        run: npm audit --audit-level=high

@@ -1,0 +1,46 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.*
+
+# next.js
+.next/
+out/
+next-env.d.ts
+
+# production
+build/
+dist/
+
+# testing
+coverage/
+test-results/
+playwright-report/
+.vitest-reports/
+
+# environment — SECURITY.md §3: .env* is git-ignored, .env.example is not
+.env
+.env.*
+!.env.example
+
+# local database / tooling scratch
+/.pgdata/
+/tmp/
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# claude code — settings.json is shared, settings.local.json is per-machine
+.claude/settings.local.json
+
+# editor / os
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# typescript
+*.tsbuildinfo
