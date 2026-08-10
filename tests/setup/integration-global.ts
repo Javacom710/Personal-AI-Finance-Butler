@@ -7,10 +7,13 @@
  * subject to the same privileges production runs under — which is how a missing
  * grant becomes a failing test instead of a production incident.
  *
- * TESTING.md §1 prefers `testcontainers`. Docker is not present on this machine
- * (decision D-4's fallback), so this targets a dedicated `financeos_test`
- * database on the local instance instead. The two paths differ only in where
- * the connection string points.
+ * TESTING.md §1 prefers `testcontainers`. Docker is not present on this machine,
+ * so this targets a dedicated `financeos_test` database on the local PostgreSQL
+ * service instead (decision D-23). The two paths differ only in where the
+ * connection string points.
+ *
+ * Nothing here starts the database: it is a Windows service with `Automatic`
+ * start, so it is already running.
  */
 
 import { loadDotEnv } from '../../src/lib/env';

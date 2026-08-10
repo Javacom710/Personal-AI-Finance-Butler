@@ -59,18 +59,18 @@ Corollaries that follow from the above:
 
 ## Local environment — how to run it
 
-The Phase 2 blocker (no PostgreSQL, no Docker) was resolved without Docker Desktop, using the documented fallback in decision **D-4** (native PostgreSQL 17).
-
 | | |
 |---|---|
-| PostgreSQL | **17.7**, portable binaries at `E:\Claude\_tools\pg17\pgsql`, data at `E:\Claude\_tools\pgdata`. No installer, no admin rights, no Windows service. |
-| Start / stop | `npm run db:ensure` starts it if it is down (see the note below). `pg_ctl.exe -D E:\Claude\_tools\pgdata stop` stops it. **It does not start on boot.** |
+| PostgreSQL | **18.4**, installed at `C:\Program Files\PostgreSQL\18`, data at `C:\Program Files\PostgreSQL\18\data`. |
+| Service | **`postgresql-x64-18`**, start type `Automatic`, running as `NT AUTHORITY\NetworkService`. **Starts with Windows.** Nothing in this project starts or stops it. |
+| Start / stop | `Start-Service postgresql-x64-18` / `Stop-Service postgresql-x64-18` from an elevated shell. Ordinarily neither is needed. |
 | Databases | `financeos` (development), `financeos_test` (integration tests, truncated between test files) |
 | Roles | `financeos_migrator` owns the schema and is the only role with DDL. `financeos_app` has DML only, INSERT/SELECT on `audit_log`, SELECT on `currencies`. |
 | Credentials | Development-only, in `.env` (git-ignored). Regenerate for production. |
 
+Also installed by the PostgreSQL 18 installer and **not used by this application**: `pgagent-pg18`, and PgBouncer on port 6432. The application connects directly to 5432 — connection pooling is deferred until there is a measured need ([ARCHITECTURE.md §10](docs/ARCHITECTURE.md)).
+
 ```
-npm run db:ensure             # start PostgreSQL if it is not already up
 npm run db:migrate            # apply migrations + re-apply grants
 npm run db:seed               # idempotent reference data + default categories
 npm run db:rollback           # reverse the newest migration
@@ -81,11 +81,13 @@ npm run dev | build | start
 npm test                      # unit + property + integration
 ```
 
-**`npm run db:ensure` exists because the postmaster kept dying.** It is started
-through WMI so it does not belong to the calling shell's process tree — a server
-started as a child of a terminal is killed when that terminal closes, which
-during Phase 3 repeatedly took the database down in the middle of a test run and
-looked like a test failure. Run it before `npm test` or `npm run dev`.
+**The database needs no babysitting.** It runs under the Windows Service Control
+Manager (`postgres.exe ← pg_ctl.exe ← services.exe ← wininit.exe`), so it is not
+in any shell's process tree and survives a terminal closing, a tool teardown and
+a reboot alike. During Phase 3 the database was a portable instance started by
+hand; it was repeatedly killed by console-close events mid-test-run, and a
+`db:ensure` script existed to resurrect it. Both the script and the problem are
+gone — see **D-23**.
 
 There is **no signup page**. The account is provisioned from the host, which makes login the only unauthenticated endpoint in the application.
 
@@ -111,7 +113,7 @@ Each is reversible; the reasoning is recorded so it can be challenged.
 
 | # | Decision | Why |
 |---|---|---|
-| **D-9** | Portable PostgreSQL 17 rather than Docker Desktop | D-4's documented fallback. No admin rights, no reboot, no hypervisor dependency. Only the connection string differs from a container. |
+| **D-9** | ~~Portable PostgreSQL 17 rather than Docker Desktop~~ — **superseded by D-23** | Was D-4's documented fallback, chosen because it needed no admin rights, no reboot and no hypervisor. It worked, but a postmaster with no service manager behind it is killed whenever the console that started it closes. Kept here rather than deleted, because the reasoning explains why the project ran on a portable instance for its first two phases. |
 | **D-10** | Two database roles from day one | SECURITY.md §2 requires it in production; doing it in development means a missing grant fails a test rather than a deploy. Integration tests run as the application role. |
 | **D-11** | Auth rate limits derived from `auth_events` | SECURITY.md §6 requires Postgres-backed limits. Every attempt already writes a row, so counting rows in a window needs no new table and cannot drift from the audit trail. |
 | **D-12** | Account provisioning by CLI, no signup route | Single-user application. A registration endpoint would be an unauthenticated write path existing only to be attacked. |
@@ -149,6 +151,12 @@ Each is reversible; the reasoning is recorded so it can be challenged.
 | **D-21** | `postOccurrence` claims and posts inside a **savepoint** | Returning an error from an open transaction does not undo the writes already in it. Without the savepoint a failed posting left the occurrence marked `posted` with no transaction — I-9 violated and a commitment silently never paid. Caught by an integration test. |
 | **D-22** | `db:seed` tops up default categories for existing users | The account provisioned in Phase 2 had none, which left the money pages with no category to offer. Idempotent, so an account that already has them is untouched. |
 
+### Decision taken after Phase 3
+
+| # | Decision | Why |
+|---|---|---|
+| **D-23** | **PostgreSQL 18.4 as a Windows service, replacing the portable 17.7 (supersedes D-9)** | A postmaster started by hand belongs to the process tree of whatever started it, and dies with that console. It happened four times during Phase 3, each time looking like a test failure rather than an environment failure, and each recovery cost a manual restart. A service is owned by the Service Control Manager, starts with Windows, and cannot be reaped by a terminal closing. The migration was a logical dump and restore — verified metric-by-metric against the source, with roles, grants, schema, Drizzle history and data all preserved — so no connection string in `.env` changed. The 17.7 data directory is retained as a rollback until the new instance has some mileage. |
+
 ## Open decisions
 
 | # | Decision | Blocks |
@@ -177,7 +185,9 @@ Recorded so these are not rediscovered as bugs.
 - **4 moderate `npm audit` advisories**, all one advisory (GHSA-67mh-4wv8-2f99, esbuild dev-server CORS) reaching us through `drizzle-kit → @esbuild-kit/*`, which upstream has deprecated. Development-only, never in a runtime bundle, and below the `high` threshold SECURITY.md §11 sets. `npm audit fix --force` would downgrade drizzle-kit to 0.18.1 — a breaking change for a vulnerability we are not exposed to. Re-check when drizzle-kit drops the dependency.
 - **Session revocation UI is not built.** `revokeSession` / `revokeOtherSessions` exist and are tested; Settings lists active sessions but offers no revoke button until Phase 10.
 - **No E2E suite yet.** Playwright is Phase 12; Phase 2 workflow verification was done by hand in a browser and is recorded below.
-- **PostgreSQL does not start automatically.** Start it with `npm run db:ensure` before `npm run dev` or `npm test`.
+- **~~PostgreSQL does not start automatically.~~** Resolved by D-23 — it is a Windows service with `Automatic` start.
+- **A PostgreSQL 17.7 rollback is still on disk**, unused: the old data directory `E:\Claude\_tools\pgdata` (91 MB) and the portable install `E:\Claude\_tools\pg17` (897 MB), plus logical dumps under `E:\Claude\_tools\pg-migration-backup-20260810-233153\`. Delete once PostgreSQL 18 has proven itself. The dumps contain a password hash and an encrypted TOTP secret, so they are deliberately outside the repository and must never be committed.
+- **CI still tests against `postgres:17`** (`.github/workflows/ci.yml`), while development is now 18.4. Not changed here because it decides what the suite is tested against, which is a call worth making deliberately rather than as cleanup.
 
 **New in Phase 3**
 - **Deleting a user is not one statement.** `SCHEMA.md`'s conventions claim it is, and it is not: `users → accounts` cascades, but `transaction_entries.account_id` is `ON DELETE RESTRICT`, and Postgres does not order cascades so it can hit the restricted edge first. Deleting a user therefore fails unless `transactions` are deleted first. **`RESTRICT` is the right rule** — it is what stops an account with history being deleted — so the fix belongs in the deletion *service* (delete transactions, then the user, in one transaction), not in the schema. Nothing depends on this until data deletion is built in Phase 11; recorded so it is not rediscovered as a bug then.
@@ -260,7 +270,7 @@ Run on 2026-08-10.
 
 | Question | File |
 |---|---|
-| Why was X decided that way? | [docs/DECISIONS.md](docs/DECISIONS.md) — 21 ADRs with rejected alternatives, plus D-9…D-16 above |
+| Why was X decided that way? | [docs/DECISIONS.md](docs/DECISIONS.md) — 21 ADRs with rejected alternatives, plus D-9…D-23 above |
 | What are the tables and invariants? | [docs/SCHEMA.md](docs/SCHEMA.md) — 14 invariants |
 | How does money behave? | [docs/FINANCIAL-DOMAIN.md](docs/FINANCIAL-DOMAIN.md) |
 | How do holdings and returns behave? | [docs/INVESTMENT-DOMAIN.md](docs/INVESTMENT-DOMAIN.md) |

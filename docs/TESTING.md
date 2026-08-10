@@ -15,7 +15,7 @@ The bar: **a feature is not done until the calculation behind it is tested, incl
 | Model eval | Live provider | Model quality per tier — **manual, never in CI** (§7a) | minutes | Phase 8, quarterly |
 | E2E | Playwright | The handful of flows a broken build must not ship | < 3 min | pre-deploy |
 
-Integration tests require a Postgres instance. Preferred: `testcontainers` against Docker (decision **D-4**). If Docker is not available, a dedicated `financeos_test` database on the local instance with a per-test-file schema and truncation between tests.
+Integration tests require a Postgres instance. `testcontainers` was the original preference (decision **D-4**), but Docker was never installed, so they run against a dedicated `financeos_test` database on the local **PostgreSQL 18.4 service** (**D-23**), truncated between test files. The database is always available — it starts with Windows — so no test setup starts or waits for it.
 
 ## 2. Priority order
 

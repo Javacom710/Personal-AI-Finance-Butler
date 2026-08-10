@@ -288,7 +288,7 @@ Per `CLAUDE.md <decision_policy>`, these were resolved rather than escalated. Ea
 | # | Decision | Taken | Reversal cost |
 |---|---|---|---|
 | D-1 | Canonical phase map | `Workflow Setup.txt`, 15 phases ([ADR-20](#adr-20--workflow-setuptxt-is-the-canonical-phase-map)) | Trivial — renumber `ROADMAP.md` |
-| D-4 | Local development database | Docker Desktop for Windows. Hypervisor and WSL are already present; it gives production parity and `testcontainers`. Native PostgreSQL 17 is the documented fallback. | Low — a connection string |
+| D-4 | Local development database | ~~Docker Desktop for Windows~~ — **superseded.** Docker was never installed; Phase 2 used the documented fallback of a native PostgreSQL 17 (**D-9**), and after Phase 3 that became PostgreSQL 18.4 running as a Windows service (**D-23**, [PROJECT-STATE.md](../PROJECT-STATE.md)). Integration tests therefore use a dedicated `financeos_test` database rather than `testcontainers`. | Low — a connection string |
 | D-5 | Production hosting | Self-hosted VPS ([ADR-13](#adr-13--self-hosted-deployment-on-a-single-vps-data-under-user-control)) | Low — application code is identical on Vercel; only `DEPLOYMENT.md` changes |
 | D-6 | Base currency / locale / timezone | `INR` / `en-IN` / `Asia/Kolkata` as **defaults in `settings`**, user-editable from day one, never hard-coded | None — it is a settings row |
 | D-7 | Equity price provider | Deferred to Phase 6. `ManualProvider` + AMFI (free, no key, official) ship first; the abstraction makes the choice late-binding | None by design |

@@ -4,9 +4,9 @@
 
 | Environment | Purpose | Database | AI |
 |---|---|---|---|
-| `local` | Development on Windows | Postgres 17 via Docker (decision **D-4**) | Real key, low daily budget |
-| `test` | CI and integration tests | Ephemeral Postgres, per-run | Mocked; no network |
-| `production` | The user's domain | Postgres 17 on the same host | Real API key, real budget |
+| `local` | Development on Windows | **Postgres 18.4 as the `postgresql-x64-18` Windows service** (decision **D-23**) | Real key, low daily budget |
+| `test` | CI and integration tests | Ephemeral Postgres container, per-run | Mocked; no network |
+| `production` | The user's domain | Postgres on the same host | Real API key, real budget |
 
 There is deliberately no staging environment. For a single-user application it would be a third copy of production data to secure and back up, for a rehearsal that a golden-scenario suite already covers.
 
@@ -19,31 +19,27 @@ There is deliberately no staging environment. For a single-user application it w
 | Node.js ≥ 20 | ✅ v26.3.0 | none |
 | npm | ✅ 11.16.0 | none |
 | git | ✅ 2.55.0 | **`git init` — the project directory is not yet a repository** |
-| PostgreSQL 17 | ❌ not installed | install via Docker (decision **D-4**) |
-| Docker Desktop | ❌ not installed | **required** — hypervisor + WSL already present, so it will install cleanly |
+| PostgreSQL | ✅ **18.4**, `postgresql-x64-18` service, `Automatic` | none |
+| Docker Desktop | ❌ not installed | **not required** — see D-4 below |
 | `NVIDIA_API_KEY` | ❌ not set | decision **OD-1** — blocks Phase 7 onward |
 | NVIDIA Build reachable | ✅ `HTTP 200`, 0.67 s | none |
 | `ANTHROPIC_BASE_URL` | ⚠️ set in this shell | Claude Code's own config — the application must **not** read it |
 
-### D-4: local database
+### D-4: local database — settled
 
-**Recommended — Docker Desktop for Windows.** Matches production exactly and enables `testcontainers` for integration tests.
+Docker was never installed. The project ran on a **portable PostgreSQL 17** for Phases 2 and 3 (**D-9**), and now runs on **PostgreSQL 18.4 installed as the `postgresql-x64-18` Windows service** (**D-23**), which is what the machine has today:
 
-```yaml
-# docker-compose.dev.yml
-services:
-  db:
-    image: postgres:17-alpine
-    environment:
-      POSTGRES_USER: financeos
-      POSTGRES_PASSWORD: dev_only_not_a_secret
-      POSTGRES_DB: financeos_dev
-    ports: ["5432:5432"]
-    volumes: ["pgdata:/var/lib/postgresql/data"]
-volumes: { pgdata: {} }
-```
+| | |
+|---|---|
+| Install | `C:\Program Files\PostgreSQL\18` |
+| Data | `C:\Program Files\PostgreSQL\18\data` |
+| Service | `postgresql-x64-18`, `Automatic`, `NT AUTHORITY\NetworkService` |
+| Port | 5432 |
+| Databases | `financeos`, `financeos_test` |
 
-**Fallback — native PostgreSQL 17 for Windows** (EDB installer). Works fine; integration tests then use a dedicated `financeos_test` database with per-file schemas instead of `testcontainers`.
+Because there is no Docker, integration tests use a dedicated `financeos_test` database — truncated between test files — rather than `testcontainers`. Nothing in the repository starts or stops the database: it is a service, and it starts with Windows.
+
+The reason a service was chosen over a hand-started instance is worth keeping: a postmaster launched from a terminal belongs to that terminal's process group and is killed when it closes. That happened repeatedly during Phase 3 and presented as intermittent test failures.
 
 ### First run
 
