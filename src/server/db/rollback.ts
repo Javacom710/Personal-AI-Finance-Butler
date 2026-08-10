@@ -34,14 +34,20 @@ export async function rollbackLast(connectionString: string): Promise<RollbackRe
   const pool = new Pool({ connectionString, max: 1 });
   try {
     const applied = await pool.query<{ id: string }>(
-      'select id from drizzle.__drizzle_migrations order by created_at desc limit 1',
+      'select id from drizzle.__drizzle_migrations order by created_at desc',
     );
     const newest = applied.rows[0];
     if (!newest) return { rolledBack: null };
 
-    const entry = journal.entries.at(-1);
+    // Index by how many migrations are applied, not by the end of the journal:
+    // after the first rollback the journal still ends with the migration that
+    // was just reversed, and re-applying its `down` would drop the wrong tables.
+    const entry = journal.entries[applied.rowCount! - 1];
     if (!entry) {
-      throw new Error('Migration journal is empty but the database reports an applied migration.');
+      throw new Error(
+        `The database reports ${applied.rowCount} applied migrations but the journal has ` +
+          `${journal.entries.length}. Refusing to guess which one to reverse.`,
+      );
     }
 
     const downFile = path.join(DOWN_DIR, `${entry.tag}.down.sql`);

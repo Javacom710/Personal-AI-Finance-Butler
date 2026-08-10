@@ -22,6 +22,9 @@
     "db:rollback": "tsx scripts/db-rollback.ts",
     "db:seed": "tsx scripts/db-seed.ts",
     "db:studio": "drizzle-kit studio",
+    "db:ensure": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ensure-postgres.ps1",
+    "verify:integrity": "tsx scripts/verify-integrity.ts",
+    "jobs:run": "node --conditions=react-server --import tsx scripts/run-jobs.ts",
     "auth:create-user": "node --conditions=react-server --import tsx scripts/create-user.ts",
     "check:no-client-secrets": "tsx scripts/check-no-client-secrets.ts"
   },

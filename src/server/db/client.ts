@@ -20,6 +20,16 @@ import * as schema from './schema';
 
 export type Database = ReturnType<typeof createDb>;
 
+/** The handle inside `withTransaction`. Application services are the only layer that holds one. */
+export type DbTransaction = Parameters<Parameters<Database['transaction']>[0]>[0];
+
+/**
+ * Either handle. Used by helpers that must work both standalone and inside a
+ * transaction — a seed run from a script, and the same seed run as part of
+ * account provisioning.
+ */
+export type DbExecutor = Database | DbTransaction;
+
 function createDb(connectionString: string) {
   const pool = new Pool({
     connectionString,

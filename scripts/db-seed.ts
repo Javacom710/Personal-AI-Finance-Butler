@@ -19,7 +19,9 @@ async function main(): Promise<void> {
   if (!url) throw new Error('DATABASE_MIGRATION_URL is not set — see .env.example');
 
   const result = await seed(url);
-  console.log(`Seed complete: ${result.currencies} currencies.`);
+  console.log(
+    `Seed complete: ${result.currencies} currencies, ${result.categories} categories added.`,
+  );
 }
 
 main().catch((error: unknown) => {

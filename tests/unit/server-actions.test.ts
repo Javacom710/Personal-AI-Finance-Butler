@@ -53,8 +53,12 @@ describe("'use server' modules", () => {
     }
 
     // If this drops to zero the test has stopped testing anything — the login
-    // actions and the sign-out action are both 'use server' modules.
-    expect(checked, "no 'use server' modules were found to check").toBeGreaterThanOrEqual(2);
+    // actions, the sign-out action and the money actions are all 'use server'
+    // modules.
+    expect(checked, "no 'use server' modules were found to check").toBeGreaterThanOrEqual(3);
     expect(offenders).toEqual([]);
-  });
+    // Importing each module pulls in whatever it depends on. The money actions
+    // reach the whole service layer and Drizzle, so this is seconds of transform
+    // work rather than milliseconds — hence the generous timeout below.
+  }, 60_000);
 });

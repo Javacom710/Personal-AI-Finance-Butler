@@ -17,6 +17,7 @@ import { eq, sql } from 'drizzle-orm';
 
 import { db } from '../db/client';
 import { settings, users, userState } from '../db/schema';
+import { seedDefaultCategories } from '../db/seed';
 import { encryptSecret } from './crypto';
 import { checkPasswordPolicy, hashPassword, verifyPassword, type PasswordPolicyFailure } from './password';
 import { revokeOtherSessions } from './session-store';
@@ -70,9 +71,10 @@ export async function createAccount(
   const recovery = await generateRecoveryCodes();
   const passwordHash = await hashPassword(password);
 
-  // One transaction: a user without settings or without a `user_state` row
-  // would be a half-provisioned account that every later phase has to defend
-  // against.
+  // One transaction: a user without settings, without a `user_state` row, or
+  // without categories would be a half-provisioned account that every later
+  // phase has to defend against — and there is no signup flow in which to
+  // repair it.
   const account = await db().transaction(async (tx) => {
     const [created] = await tx
       .insert(users)
@@ -92,6 +94,10 @@ export async function createAccount(
       baseCurrency: options.baseCurrency ?? 'INR',
     });
     await tx.insert(userState).values({ userId: created.id });
+
+    // The default category set (FINANCIAL-DOMAIN.md §5). Editable afterwards —
+    // seeded here so the first transaction can be entered without a setup step.
+    await seedDefaultCategories(tx, created.id);
 
     return created;
   });

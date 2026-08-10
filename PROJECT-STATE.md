@@ -2,7 +2,7 @@
 
 Durable status record. Conversation history is temporary; this file is not. Read this first after any context reset, then verify it against `docs/`, the source tree, and the tests before trusting it.
 
-**Last updated:** 2026-08-09 · **Current phase:** 2 complete, 3 not started
+**Last updated:** 2026-08-10 · **Current phase:** 3 complete, 4 not started
 
 ---
 
@@ -38,7 +38,7 @@ Corollaries that follow from the above:
 | `docs/` | 11 architecture documents. Baseline, approved. |
 | `CLAUDE.md` / `AGENTS.md` | The specification. Byte-identical duplicates (see OD-2). |
 | `Workflow Setup.txt` | Canonical 15-phase map ([ADR-20](docs/DECISIONS.md)) |
-| Application code | **Phase 2 foundation.** Next.js 16, exact-money primitives, database, auth, app shell, tests. |
+| Application code | **Phases 2–3.** Next.js 16, exact-money primitives, database, auth, app shell — plus the whole money core: accounts, categories, tags, transactions, transfers, budgets, recurring rules, the job runner and the Money UI. |
 | Git repository | Initialised, `core.autocrlf=input`. **No commit yet** — the working tree is the state. |
 
 ## Phases
@@ -48,8 +48,8 @@ Corollaries that follow from the above:
 | 0 — Environment & Repository | ✅ complete |
 | 1 — Architecture | ✅ complete, **approved** |
 | 2 — Foundation | ✅ complete, verified |
-| 3 — Financial Core | not started; **unblocked** |
-| 4 — Investment Engine | not started |
+| 3 — Financial Core | ✅ complete, verified |
+| 4 — Investment Engine | not started; **unblocked** |
 | 5 — Net Worth | not started |
 | 6 — Market Data | not started (OD-3 affects completion, not start) |
 | 7 — AI Infrastructure | **blocked** on OD-1 (`NVIDIA_API_KEY`) |
@@ -64,19 +64,28 @@ The Phase 2 blocker (no PostgreSQL, no Docker) was resolved without Docker Deskt
 | | |
 |---|---|
 | PostgreSQL | **17.7**, portable binaries at `E:\Claude\_tools\pg17\pgsql`, data at `E:\Claude\_tools\pgdata`. No installer, no admin rights, no Windows service. |
-| Start / stop | `E:\Claude\_tools\pg17\pgsql\bin\pg_ctl.exe -D E:\Claude\_tools\pgdata -l E:\Claude\_tools\pg.log start` (and `stop`). **It does not start on boot** — start it before `npm run dev`. |
+| Start / stop | `npm run db:ensure` starts it if it is down (see the note below). `pg_ctl.exe -D E:\Claude\_tools\pgdata stop` stops it. **It does not start on boot.** |
 | Databases | `financeos` (development), `financeos_test` (integration tests, truncated between test files) |
 | Roles | `financeos_migrator` owns the schema and is the only role with DDL. `financeos_app` has DML only, INSERT/SELECT on `audit_log`, SELECT on `currencies`. |
 | Credentials | Development-only, in `.env` (git-ignored). Regenerate for production. |
 
 ```
+npm run db:ensure             # start PostgreSQL if it is not already up
 npm run db:migrate            # apply migrations + re-apply grants
-npm run db:seed               # idempotent reference data
+npm run db:seed               # idempotent reference data + default categories
 npm run db:rollback           # reverse the newest migration
 npm run auth:create-user -- --email you@example.com     # password in FOS_PASSWORD
+npm run verify:integrity      # check the financial invariants against real data
+npm run jobs:run              # drain the job queue once (cron drives this)
 npm run dev | build | start
 npm test                      # unit + property + integration
 ```
+
+**`npm run db:ensure` exists because the postmaster kept dying.** It is started
+through WMI so it does not belong to the calling shell's process tree — a server
+started as a child of a terminal is killed when that terminal closes, which
+during Phase 3 repeatedly took the database down in the middle of a test run and
+looked like a test failure. Run it before `npm test` or `npm run dev`.
 
 There is **no signup page**. The account is provisioned from the host, which makes login the only unauthenticated endpoint in the application.
 
@@ -113,6 +122,33 @@ Each is reversible; the reasoning is recorded so it can be challenged.
 
 ---
 
+## What Phase 3 delivered
+
+| Area | Where |
+|---|---|
+| Schema | `src/server/db/schema/money.ts` — 9 tables, 7 enums, migration `0001`, hand-written down migration |
+| Shape triggers | `check_transaction_shape()` (deferred constraint trigger, I-1/I-2/I-3) and `check_category_shape()` (two levels, matching kind) |
+| Engine | `src/server/domain/` — `buildEntries`, `assertEntryInvariants`, `deriveBalance`, cash flow, budget status, category rollup, FX selection, the one `ratio()` |
+| Recurrence | `src/lib/date/rrule.ts` — RFC 5545 subset, with month-end **clamping** rather than skipping |
+| Periods | `src/lib/date/periods.ts` — monthly, fiscal-aligned quarters, fiscal years |
+| Services | `src/server/services/` — accounts, categories, tags, transactions, transfers, budgets, recurring, cash flow, reference; `ReadCtx`/`WriteCtx` as the write boundary |
+| Jobs | `src/server/jobs/` — `FOR UPDATE SKIP LOCKED` runner + `recurring.post` |
+| Formatting | `src/lib/format/` — exact digit grouping, Indian and Western, no float in the path |
+| Integrity | `src/server/db/integrity.ts` + `npm run verify:integrity` — I-1…I-4, I-9, I-11 checked; the rest reported as not yet applicable |
+| UI | `app/(app)/money/` — hub, accounts + ledger, transactions with filters, categories, budgets, recurring |
+| Tests | 663 across unit / property / integration, including golden scenario **G1** |
+
+### Decisions taken during implementation
+
+| # | Decision | Why |
+|---|---|---|
+| **D-17** | `transactions.ai_proposal_id` and `recurring_occurrences.investment_transaction_id` deferred | Both are foreign keys to tables that do not exist until Phases 7 and 4. Adding the column early would ship half of an unreviewed phase. |
+| **D-18** | Cash-flow totals are summed in the engine over fetched rows, not in SQL | The headline figure and every breakdown are then the same sum over the same array, so a category total that disagreed with the expense total would be arithmetically impossible rather than merely unlikely. Escape hatch if it ever gets slow: a roll-up keyed by `money_ledger_version`. |
+| **D-19** | `MetricUnavailable` gained `out_of_range` | A property test produced a savings rate too large for `NUMERIC(20,10)` — ₹0.0001 of income against real spending. The previous code threw a `RangeError` out of a page render. Clamping was rejected: a clamped ratio is a wrong number that looks right. |
+| **D-20** | The default expense category is **Business expenses**, not Business | `UNIQUE (user_id, parent_id, name)` does not include `kind`, so a top-level income *Business* and expense *Business* cannot coexist; `ON CONFLICT DO NOTHING` silently dropped one. Renamed rather than widening a reviewed constraint. `seedDefaultCategories` now refuses a list with duplicate top-level names. |
+| **D-21** | `postOccurrence` claims and posts inside a **savepoint** | Returning an error from an open transaction does not undo the writes already in it. Without the savepoint a failed posting left the occurrence marked `posted` with no transaction — I-9 violated and a commitment silently never paid. Caught by an integration test. |
+| **D-22** | `db:seed` tops up default categories for existing users | The account provisioned in Phase 2 had none, which left the money pages with no category to offer. Idempotent, so an account that already has them is untouched. |
+
 ## Open decisions
 
 | # | Decision | Blocks |
@@ -141,7 +177,14 @@ Recorded so these are not rediscovered as bugs.
 - **4 moderate `npm audit` advisories**, all one advisory (GHSA-67mh-4wv8-2f99, esbuild dev-server CORS) reaching us through `drizzle-kit → @esbuild-kit/*`, which upstream has deprecated. Development-only, never in a runtime bundle, and below the `high` threshold SECURITY.md §11 sets. `npm audit fix --force` would downgrade drizzle-kit to 0.18.1 — a breaking change for a vulnerability we are not exposed to. Re-check when drizzle-kit drops the dependency.
 - **Session revocation UI is not built.** `revokeSession` / `revokeOtherSessions` exist and are tested; Settings lists active sessions but offers no revoke button until Phase 10.
 - **No E2E suite yet.** Playwright is Phase 12; Phase 2 workflow verification was done by hand in a browser and is recorded below.
-- **PostgreSQL does not start automatically.** Start it before `npm run dev` (command above).
+- **PostgreSQL does not start automatically.** Start it with `npm run db:ensure` before `npm run dev` or `npm test`.
+
+**New in Phase 3**
+- **Deleting a user is not one statement.** `SCHEMA.md`'s conventions claim it is, and it is not: `users → accounts` cascades, but `transaction_entries.account_id` is `ON DELETE RESTRICT`, and Postgres does not order cascades so it can hit the restricted edge first. Deleting a user therefore fails unless `transactions` are deleted first. **`RESTRICT` is the right rule** — it is what stops an account with history being deleted — so the fix belongs in the deletion *service* (delete transactions, then the user, in one transaction), not in the schema. Nothing depends on this until data deletion is built in Phase 11; recorded so it is not rediscovered as a bug then.
+- **A transfer cannot be edited from the transactions page.** `updateTransfer` exists, is tested, and rebuilds both legs together; the transactions table offers only Delete for a transfer, because a two-leg edit form is UI work Phase 3 did not need. Deleting and re-entering is correct in the meantime.
+- **No inline edit in the transactions table.** ROADMAP listed it; the table is read-and-delete plus the quick-add composer. Deferred to the Phase 10 UX pass rather than half-built.
+- **`recurring.post` is driven by cron, not by an in-process scheduler.** `npm run jobs:run` drains the queue; nothing schedules it automatically yet. Deployment (Phase 13) owns the cron entry.
+- **The dev server logs CSP violations for inline styles.** They come from Turbopack's HMR client in development only; the production build's styles are in a stylesheet and the nonce-based CSP is unaffected.
 
 ---
 
@@ -172,11 +215,44 @@ Run on 2026-08-09 against the production build, not the dev server.
 | Mobile at 375 px | ✅ sidebar hidden, bottom nav fixed, no horizontal overflow |
 | `GET /api/health` | ✅ `200 {"status":"ok"}` |
 
-**Bugs found and fixed during verification** (recorded because each passed an earlier gate):
+**Bugs found and fixed during Phase 2 verification** (recorded because each passed an earlier gate):
 1. `app/(auth)/login/actions.ts` exported a constant from a `'use server'` module — accepted by `tsc` and by `next build`, HTTP 500 on the first POST. Fixed by moving the state shape to `form-state.ts`; `tests/unit/server-actions.test.ts` now guards the rule and was itself verified to fail on a deliberate violation.
 2. The authenticated layout redirected to `/login` without the return path. Fixed by passing the pathname through an `x-pathname` request header from `proxy.ts`.
 3. `Money.parseUserInput` accepted `1,5` as fifteen. Fixed to validate digit grouping (D-16).
 4. Argon2id at 64 MiB measured 158 ms against a ≥250 ms requirement, and the source comment claimed 310 ms without having measured. Fixed to 128 MiB and the real measurement table recorded.
+
+---
+
+## Phase 3 verification record
+
+Run on 2026-08-10.
+
+| Check | Result |
+|---|---|
+| `npm test` | ✅ **663 passed** — 433 unit + property, 230 integration |
+| `npm run typecheck` | ✅ clean |
+| `npm run lint` | ✅ clean |
+| `npm run build` | ✅ 15 routes, 6 of them money |
+| `npm run check:no-client-secrets` | ✅ no secret in 18 client files |
+| `npm run verify:integrity` | ✅ 8 passed, 0 failed, 7 not yet applicable |
+| Migrate → roll back → migrate | ✅ fingerprint identical, now including constraints, triggers and functions |
+| Golden scenario **G1** | ✅ 14 assertions against hand-computed figures |
+| Transfer excluded from income/expense | ✅ in the engine, in the services, in a tag report, and on screen |
+| 200-transaction fixture | ✅ balance matches the hand-computed ₹49,985.0000 |
+| Recurring 31st across February | ✅ 28 Feb 2026 and 29 Feb 2028, clamped rather than skipped |
+| Double post, same occurrence | ✅ one transaction, in tests and through the real UI |
+| Two concurrent job runners | ✅ each job and each occurrence handled exactly once |
+| Live workflow | ✅ account → expense → income → transfer → budget → recurring rule → post, in a browser |
+| Savings rate with zero income | ✅ renders `—` with "the denominator is zero", never `0%` |
+| Mobile at 375 px | ✅ no horizontal overflow, sidebar hidden, bottom nav fixed |
+
+**Bugs found and fixed during Phase 3 verification:**
+1. **A failed recurring posting kept its claim** — the occurrence was marked `posted` with no transaction behind it (I-9 violated, commitment silently skipped). Found by an integration test; fixed with a savepoint (D-21).
+2. **An extreme savings rate threw out of a page render** — found by a property test; fixed by returning `out_of_range` (D-19).
+3. **A duplicate default category name was silently dropped** by `ON CONFLICT DO NOTHING` — found by asserting the seeded count; fixed by renaming and by refusing a list with duplicates (D-20).
+4. **`quarterRange` stepped back to the fiscal year start instead of the quarter start** — found by a unit test before anything consumed it.
+5. **A render-prop form crashed every page that used one** — "Functions are not valid as a child of Client Components". It typechecked, linted and built; only loading the page in a browser caught it. Fixed by making each form a concrete client component.
+6. **`rollbackLast` reversed the newest migration twice** when two existed, because it indexed the end of the journal rather than the applied count.
 
 ---
 
@@ -190,4 +266,4 @@ Run on 2026-08-09 against the production build, not the dev server.
 | How do holdings and returns behave? | [docs/INVESTMENT-DOMAIN.md](docs/INVESTMENT-DOMAIN.md) |
 | How does the AI layer work and what can't it do? | [docs/AI-SYSTEM.md](docs/AI-SYSTEM.md) |
 | What must be tested before a phase is done? | [docs/TESTING.md](docs/TESTING.md) and each phase's "Done when" |
-| What am I building next? | [docs/ROADMAP.md](docs/ROADMAP.md) — Phase 3, Financial Core |
+| What am I building next? | [docs/ROADMAP.md](docs/ROADMAP.md) — Phase 4, Investment Engine |

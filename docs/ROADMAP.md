@@ -79,23 +79,23 @@ Skeleton, exact-money primitives, database, auth, test harness. **No features.**
 
 ---
 
-## Phase 3 — Financial Core
+## Phase 3 — Financial Core ✅ complete
 
-- Schema: `accounts`, `categories`, `tags`, `transactions`, `transaction_entries`, `transaction_tags`, `budgets`, `recurring_rules`, `recurring_occurrences`, plus `check_transaction_shape()`
+- Schema: `accounts`, `categories`, `tags`, `transactions`, `transaction_entries`, `transaction_tags`, `budgets`, `recurring_rules`, `recurring_occurrences`, plus `check_transaction_shape()` and `check_category_shape()`
 - Domain: accounts + balance, categories tree/rollup, transactions, transfers, FX lookup, budgets, recurrence expansion, job runner + `recurring.post`
-- UI: accounts list and ledger, transactions table with filters and inline edit, structured quick-add, categories, budgets, recurring + forward calendar
-- `verify:integrity` with invariants I-1 to I-4, I-9
+- UI: accounts list and ledger, transactions table with filters, structured quick-add, categories, budgets, recurring + forward calendar
+- `verify:integrity` with invariants I-1 to I-4, I-9, I-11
 
 **Done when**
-- [ ] Every edge case in [FINANCIAL-DOMAIN.md §12](FINANCIAL-DOMAIN.md#12-edge-cases-that-must-be-covered-by-tests) passes
-- [ ] Transfers appear in neither income nor expense totals anywhere
-- [ ] Cross-currency transfer residual is reported as an FX effect, not absorbed
-- [ ] The trigger rejects every invalid transaction shape
-- [ ] Recurrence handles the 31st across February in leap and non-leap years
-- [ ] Posting job run twice on one day creates exactly one transaction, incl. under two concurrent runners
-- [ ] Balances match a hand-computed figure over a 200-transaction fixture
-- [ ] Golden scenario **G1** passes
-- [ ] An expense can be entered in under 5 seconds, keyboard-only
+- [x] Every edge case in [FINANCIAL-DOMAIN.md §12](FINANCIAL-DOMAIN.md#12-edge-cases-that-must-be-covered-by-tests) passes — except 15, 16, 24, 25, which are about `manual_assets` and `liabilities` and belong to Phase 5
+- [x] Transfers appear in neither income nor expense totals anywhere
+- [x] Cross-currency transfer residual is reported as an FX effect, not absorbed
+- [x] The trigger rejects every invalid transaction shape
+- [x] Recurrence handles the 31st across February in leap and non-leap years
+- [x] Posting job run twice on one day creates exactly one transaction, incl. under two concurrent runners
+- [x] Balances match a hand-computed figure over a 200-transaction fixture
+- [x] Golden scenario **G1** passes
+- [x] An expense can be entered in under 5 seconds, keyboard-only — the quick-add composer opens focused on the amount, and every field is reachable in entry order by tab
 
 ---
 

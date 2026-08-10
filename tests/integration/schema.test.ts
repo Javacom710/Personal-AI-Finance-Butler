@@ -2,14 +2,15 @@ import { sql } from 'drizzle-orm';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { db } from '@/server/db/client';
-import { currencies, settings, userState, users } from '@/server/db/schema';
+import { categories, currencies, settings, userState, users } from '@/server/db/schema';
+import { DEFAULT_CATEGORIES, seedDefaultCategories } from '@/server/db/seed';
 import { closeHarness, createTestUser, truncateAll } from './harness';
 
 beforeEach(truncateAll);
 afterAll(closeHarness);
 
 describe('migration', () => {
-  it('created every Phase 2 table and nothing from a later phase', async () => {
+  it('created every Phase 2 and Phase 3 table, and nothing from a later phase', async () => {
     const result = await db().execute<{ tablename: string }>(
       sql`select tablename from pg_tables where schemaname = 'public' order by tablename`,
     );
@@ -17,6 +18,7 @@ describe('migration', () => {
 
     expect(tables).toEqual(
       expect.arrayContaining([
+        // Phase 2 — foundation
         'audit_log',
         'auth_events',
         'currencies',
@@ -26,12 +28,22 @@ describe('migration', () => {
         'settings',
         'user_state',
         'users',
+        // Phase 3 — the money core
+        'accounts',
+        'budgets',
+        'categories',
+        'recurring_occurrences',
+        'recurring_rules',
+        'tags',
+        'transaction_entries',
+        'transaction_tags',
+        'transactions',
       ]),
     );
 
-    // Phase 3+ tables must not exist yet — building ahead of the phase is how a
+    // Phase 4+ tables must not exist yet — building ahead of the phase is how a
     // reviewed schema turns into an unreviewed one.
-    for (const later of ['accounts', 'transactions', 'instruments', 'positions', 'ai_proposals']) {
+    for (const later of ['instruments', 'positions', 'tax_lots', 'manual_assets', 'liabilities', 'ai_proposals']) {
       expect(tables, `${later} belongs to a later phase`).not.toContain(later);
     }
   });
@@ -41,7 +53,31 @@ describe('migration', () => {
       sql`select typname from pg_type where typtype = 'e' order by typname`,
     );
     const types = result.rows.map((r) => r.typname);
-    expect(types).toEqual(expect.arrayContaining(['audit_actor', 'auth_event_kind', 'job_status']));
+    expect(types).toEqual(
+      expect.arrayContaining([
+        'audit_actor',
+        'auth_event_kind',
+        'job_status',
+        'account_kind',
+        'budget_period',
+        'category_kind',
+        'occurrence_status',
+        'record_source',
+        'recurring_kind',
+        'transaction_kind',
+      ]),
+    );
+  });
+
+  it('created the shape triggers that enforce I-1 to I-3 below the application', async () => {
+    const result = await db().execute<{ tgname: string }>(
+      sql`select tgname from pg_trigger where not tgisinternal order by tgname`,
+    );
+    expect(result.rows.map((r) => r.tgname)).toEqual([
+      'categories_shape_check',
+      'transaction_entries_shape_check',
+      'transactions_shape_check',
+    ]);
   });
 
   it('rejects a value outside an enum', async () => {
@@ -138,4 +174,40 @@ describe('seed', () => {
     expect(inr?.minorUnits).toBe(2);
     expect(inr?.symbol).toBe('₹');
   });
+
+  it('gives a new account its default categories, so the first transaction needs no setup', async () => {
+    const user = await createTestUser('categories@example.com');
+
+    const rows = await db()
+      .select({ name: categories.name, kind: categories.kind, parentId: categories.parentId })
+      .from(categories)
+      .where(sql`${categories.userId} = ${user.userId}`);
+
+    const childCount = DEFAULT_CATEGORIES.reduce((n, c) => n + (c.children?.length ?? 0), 0);
+    // Every default must land. `ON CONFLICT DO NOTHING` makes re-seeding safe
+    // and would also swallow a duplicate name, so the count is asserted rather
+    // than assumed — a missing category is invisible until it is needed.
+    expect(rows.length).toBe(DEFAULT_CATEGORIES.length + childCount);
+    expect(rows.some((r) => r.name === 'Food' && r.parentId === null)).toBe(true);
+    // The parents matter, not only the leaves: "how much did I spend on food?"
+    // needs a Food parent for Groceries and Dining to roll up into.
+    expect(rows.some((r) => r.name === 'Dining' && r.parentId !== null)).toBe(true);
+    expect(rows.some((r) => r.name === 'Salary' && r.kind === 'income')).toBe(true);
+  });
+
+  it('is idempotent per user — re-seeding creates no duplicates', async () => {
+    const user = await createTestUser('reseed@example.com');
+    const before = await categoryCount(user.userId);
+
+    await seedDefaultCategories(db(), user.userId);
+    expect(await categoryCount(user.userId)).toBe(before);
+  });
 });
+
+async function categoryCount(userId: string): Promise<number> {
+  const [row] = await db()
+    .select({ n: sql<number>`count(*)::int` })
+    .from(categories)
+    .where(sql`${categories.userId} = ${userId}`);
+  return row?.n ?? 0;
+}
