@@ -43,14 +43,18 @@ The one stored derivation is `transaction_entries.base_amount` (= `amount × fx_
 ```ts
 const MONEY_SCALE = 4;     // 4 decimal places, all currencies
 const QTY_SCALE   = 8;
+const PRICE_SCALE = 8;
 const RATE_SCALE  = 10;
 
 type CurrencyCode = string & { readonly __brand: 'CurrencyCode' };
 
-interface Money    { readonly minor: bigint; readonly currency: CurrencyCode }  // scale 4
-interface Quantity { readonly units: bigint }                                    // scale 8
-interface Rate     { readonly value: bigint }                                    // scale 10
+interface Money     { readonly minor: bigint; readonly currency: CurrencyCode }  // scale 4
+interface Quantity  { readonly units: bigint }                                    // scale 8
+interface UnitPrice { readonly units: bigint }                                    // scale 8
+interface Rate      { readonly value: bigint }                                    // scale 10
 ```
+
+**`UnitPrice` is a separate type from `Money`, not a convenience alias.** Every per-unit figure in the schema is `numeric(20,8)` — `investment_transactions.price`, `instrument_prices.close`, `instrument_quotes.price`, and the derived `cost_per_unit`. Reading a NAV of `123.45678900` into a scale-4 `Money` **truncates it to `123.4568`** at the read boundary. It is distinct from `Quantity` for the same reason `Quantity` is distinct from `Money`: multiplying two prices, or adding a price to a quantity, is meaningless and should not compile.
 
 ### API surface
 
@@ -68,6 +72,11 @@ mulQty(m: Money, q: Quantity, rounding: Rounding): Money
 mulRate(m: Money, r: Rate, rounding: Rounding): Money
 divInt(m: Money, n: number, rounding: Rounding): Money
 allocate(m: Money, weights: bigint[]): Money[]         // exact split, remainder distributed
+
+// per-unit — src/lib/decimal/price.ts
+valueOf(q: Quantity, p: UnitPrice, c: CurrencyCode, rounding: Rounding): Money   // qty × price
+perUnit(m: Money, q: Quantity, rounding: Rounding): UnitPrice                    // money ÷ qty
+mulQtyRatio(m: Money, num: Quantity, den: Quantity, rounding: Rounding): Money   // exact share
 
 // comparison
 cmp(a, b): -1 | 0 | 1;  isZero(m); isNegative(m); eq(a, b)
@@ -121,6 +130,14 @@ balance(account, asOf?) =
 ```
 
 `opening_balance` is not an exception to the rule: it is the declared position *before* the ledger begins, not a running total. Nothing updates it after creation.
+
+**Every term is in the account's own currency.** That sum is unconditional — it has no currency argument and no filter — so three things follow, and each is enforced rather than assumed:
+
+- `investment_transactions.net_amount` is denominated in the **account's** currency, not the instrument's (decision **OD-5**, [SCHEMA.md §6](SCHEMA.md#6-investment-ledger)). A USD ETF bought from an INR brokerage account records its cash effect in rupees; the instrument-currency figures live in `price` / `gross_amount` / `fees` / `taxes` alongside it. Were it otherwise, this sum would add dollars to rupees and produce a number that is money in no currency at all — silently, with no constraint able to detect it.
+- The instrument→account conversion, where the two differ, is **explicit and dated** through [§2](#2-fx): exact `as_of`, else the most recent earlier rate, else reject with `no_rate`. Never a default of 1.
+- An `investment_transactions` row with `cash_settled = false` carries `net_amount = 0` (invariant I-16). The sum does not filter on `cash_settled`, so an unsettled row with a non-zero amount would move a balance that no cash ever moved.
+
+**An account's `currency_code` is immutable once it carries ledger rows.** Changing it would silently reinterpret every historical amount above. There is no supported operation to do so.
 
 Consequences that follow, and are relied on elsewhere:
 
@@ -331,15 +348,21 @@ Three mechanisms, because a rule stated in prose is not a rule:
 ### 9.3 Calculation
 
 ```
-assets = Σ balance(a) for active accounts where balance > 0 and kind ∉ {credit_card, loan}
+assets = Σ balance(a, asOf) for ALL accounts where balance > 0 and kind ∉ {credit_card, loan}
        + Σ marketValue(position) over all positions            -- priced holdings only
-       + Σ valuationInForce(asset, asOf) over active manual assets
+       + Σ valuationInForce(asset, asOf) over manual assets not disposed as of asOf
 
-liabilities = Σ |balance(a)| for accounts of kind credit_card/loan with balance < 0
+liabilities = Σ |balance(a, asOf)| for accounts of kind credit_card/loan with balance < 0
             + Σ outstanding(liability, asOf) for liabilities with no linked account
 
 netWorth = assets - liabilities
 ```
+
+**Every filter here is date-driven. None is a current-state flag.** `is_active` describes an entity *today*; net worth is computed *as of* a date, and mixing the two silently rewrites history — an account closed this morning would vanish from last year's net worth, and the series would change shape every time the user tidies up.
+
+This is why the account term filters on `balance(a, asOf) > 0` and not on `is_active`. The flag is redundant for a closed-and-emptied account (its balance is already zero, contributing nothing) and actively wrong for a closed account that still carried a balance on `asOf`. It is the same rule as [§12 edge case 7](#12-edge-cases-that-must-be-covered-by-tests) — *"still counted historically"* — and as [§3](#3-accounts): *"Historical records remain and remain in historical totals."*
+
+For manual assets the equivalent is `manual_assets.disposed_on` (nullable): the asset contributes while `disposed_on IS NULL OR disposed_on > asOf`. `is_active` remains a UI convenience derived from it, never an input to a calculation.
 
 All terms converted to base currency using rates in force on `asOf`. The result carries `priceCoverage` — the fraction of position market value that had a usable price. A coverage below 1.0 is displayed; it is never silently rounded away ([ADR-11](DECISIONS.md#adr-11--market-data-behind-a-provider-abstraction-with-an-always-available-manual-provider)).
 
@@ -375,8 +398,11 @@ create      manual_assets row + a first asset_valuations row (both required; an 
             no valuation contributes zero and is listed as unvalued)
 revalue     INSERT a new asset_valuations row. Never UPDATE an existing one — that would
             retroactively rewrite historical net worth.
-dispose     is_active = false, plus the sale recorded as ordinary income into an account.
-            The asset stops contributing from the disposal date; history is unchanged.
+dispose     SET disposed_on = <date> (and is_active = false, for the UI only), plus the
+            sale recorded as ordinary income into an account. The asset stops
+            contributing from disposed_on; every earlier net-worth figure is unchanged.
+            The DATE is what the calculation reads -- a flag alone would erase the asset
+            from history the moment it was sold (§9.3).
 delete      permitted only when the asset has no valuations outside its creation date;
             otherwise archive. Deleting valuation history destroys past net-worth figures.
 ```
@@ -410,7 +436,7 @@ Every function in `src/server/domain/calc/` and every derivation in the lot engi
 
 - **Pure where possible.** A calculation takes data and returns a result. `replay()` (lot engine), `xirr()`, `twr()`, `allocation()`, `cashflow()`, `budgetStatus()`, and `netWorthBridge()` take arrays and return values — no database handle, no clock, no I/O.
 - **Time is injected.** Functions that need "now" take it as a parameter (`ctx.now`). No `new Date()` inside a calculation. This makes every time-dependent result testable without mocking the global clock.
-- **Ordering is total.** Any replay over records uses a total order (`date, created_at, id`), never a partial one. Two records on the same date must sort identically on every run, on every machine.
+- **Ordering is total, and orders *events* rather than *rows*.** Any replay uses a total order — `(date, created_at, id)`, and for the lot engine `(trade_date, kind_rank, created_at, id)`, which places corporate actions after same-day trades ([INVESTMENT-DOMAIN.md §3](INVESTMENT-DOMAIN.md#ordering)). Two records on the same date must sort identically on every run, on every machine. `created_at` alone is a total order over rows but **not** over economic events: it lets the answer depend on the order the user happened to enter things.
 - **Same inputs → identical bytes out.** Asserted as a property test. This is what makes the derived-and-cached design of [ADR-06](DECISIONS.md#adr-06--holdings-are-derived-cached-and-rebuildable) safe.
 
 ### 10.2 Rounding
@@ -419,6 +445,8 @@ Every function in `src/server/domain/calc/` and every derivation in the lot engi
 - Every lossy operation names its scale and mode explicitly; there is no default ([ADR-04](DECISIONS.md#adr-04--money-is-an-exact-scaled-integer-never-a-float)).
 - Per-unit values are carried at scale 8, monetary totals at scale 4, rates at scale 10.
 - A split of one amount into parts uses `allocate`, which distributes the remainder deterministically so the parts sum back **exactly**. Never `amount / n` applied n times.
+  This is normative for the lot engine, not only for bill-splitting. A sale spanning three lots allocates the net proceeds across them by quantity; computing a per-unit proceeds figure once and multiplying it per lot rounds twice and leaves a residue in **realised P&L — a tax figure** ([INVESTMENT-DOMAIN.md §4](INVESTMENT-DOMAIN.md#why-disposal-allocates-instead-of-dividing)).
+- **Prefer holding money exactly and deriving the rate, over holding the rate and deriving money.** A lot stores `cost_total` and `remaining_cost`; `cost_per_unit` is derived. The inverse arrangement forces a rounded multiplication on every read and recomputes the rate on every corporate action, compounding error — which is why invariant I-6 could previously only hold "within one minor unit per lot". An invariant with a tolerance is not an invariant.
 
 ### 10.3 Missing data propagates as `null`, never as zero
 
@@ -478,6 +506,15 @@ src/server/domain/              FINANCIAL ENGINE — pure, total, no I/O
   ledger/     buildEntries, assertEntryInvariants, deriveBalance
   calc/       cashflow.ts, periods.ts, budget.ts, recurrence.ts
   networth/   contributions map, bridge/attribution arithmetic
+```
+
+The investment engine occupies the same two layers and obeys the same contract; its modules are listed in [INVESTMENT-ENGINE-DESIGN.md §6](INVESTMENT-ENGINE-DESIGN.md) and arrive in Phase 4:
+
+```
+src/server/domain/lots/         replay, the FIFO MatchingStrategy, replay ordering
+src/server/domain/pricing/      valuation, allocation, concentration
+src/server/domain/calc/         portfolio.ts, xirr.ts, twr.ts
+src/server/services/            instruments.ts, investments.ts, positions.ts, portfolio.ts
 ```
 
 Every service function takes a context as its first argument, and **the context type is the write boundary**:

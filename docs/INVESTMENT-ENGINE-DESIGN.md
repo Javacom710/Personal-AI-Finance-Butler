@@ -1,9 +1,35 @@
 # Investment Engine — Implementation Review & Design
 
-**Status:** review complete, awaiting approval. **No code or schema has been changed.**
+**Status:** **approved 2026-08-11 (OD-4, OD-5). Corrections applied to the canonical documents.** No code or schema has been changed.
 **Date:** 2026-08-11 · **Reviewed against:** `CLAUDE.md`, `docs/FINANCIAL-DOMAIN.md`, `docs/INVESTMENT-DOMAIN.md`, `docs/ARCHITECTURE.md`, `docs/SCHEMA.md`, `docs/DECISIONS.md`, `docs/TESTING.md`, the Phase 2 migration, `src/lib/decimal/`, and the 282 existing tests.
 
-This document exists because `PROJECT-STATE.md`'s working protocol makes a design correction a **stop-and-explain event**, not an implementation detail. The approved baseline documents (`INVESTMENT-DOMAIN.md`, `SCHEMA.md`) are therefore **left untouched**; every correction below is proposed here and applied to them only after approval.
+This document exists because `PROJECT-STATE.md`'s working protocol makes a design correction a **stop-and-explain event**. It was written with the baseline untouched, the corrections were approved, and they are now **applied**.
+
+> **Read this document as the review record and the rationale, not as the specification.**
+> The normative rules now live in the canonical documents — `INVESTMENT-DOMAIN.md`, `SCHEMA.md`, `FINANCIAL-DOMAIN.md`, `TESTING.md`, `ARCHITECTURE.md`, `DECISIONS.md`, `ROADMAP.md`. Where this file and a canonical document differ, **the canonical document wins**; report the divergence as a defect in this file.
+
+**Where each correction landed:**
+
+| | Correction | Applied to |
+|---|---|---|
+| D1 | Income accrues gross; fees and withholding accrue separately | INVESTMENT-DOMAIN §3, §4 |
+| D2 | Lots store `cost_total` / `remaining_cost`; `cost_per_unit` derived; I-6 exact | INVESTMENT-DOMAIN §4, SCHEMA §6.1, §12, TESTING §3 |
+| D3 | Disposal allocates proceeds; cost consumed exactly | INVESTMENT-DOMAIN §4, FINANCIAL-DOMAIN §10.2 |
+| D4 | `transfer_out` realises zero by construction | INVESTMENT-DOMAIN §3, §4 |
+| D5 | `acquired_on` survives transfers | INVESTMENT-DOMAIN §3, §11, SCHEMA §6.1 |
+| D6 | FX decomposition; `fx_rate_to_base` + `base_fx_component` on disposals | INVESTMENT-DOMAIN §6.4, SCHEMA §6.1, §12 |
+| D7 | Fee/tax accrual table; trade fees never in `fees_total` | INVESTMENT-DOMAIN §3, §6.3 |
+| D8 | `CHECK (cash_settled OR net_amount = 0)` | SCHEMA §6, §12, FINANCIAL-DOMAIN §3 |
+| D9 | `UnitPrice` at `PRICE_SCALE = 8` | FINANCIAL-DOMAIN §1, INVESTMENT-DOMAIN §5, TESTING §3 |
+| D10 | `ledger_version` is a provenance stamp | ARCHITECTURE §6, SCHEMA §6.1, DECISIONS ADR-06 |
+| D11 | `kind_rank` orders corporate actions last within a date | INVESTMENT-DOMAIN §3, §11, SCHEMA §6 |
+| D12 | `lot_disposals.user_id` + three indexes; `inv_txn_user_date_idx`; `positions_instrument_idx` | SCHEMA §6, §6.1 |
+| D13 | Seven `CHECK` constraints; account-level fee/interest handling | SCHEMA §6, INVESTMENT-DOMAIN §6.2 |
+| D14 | XIRR scope rules; TWR boundary convention and OD-3 limitation | INVESTMENT-DOMAIN §7, §8, TESTING §3 |
+| D15 | Two explicit non-invariants | SCHEMA §12, INVESTMENT-DOMAIN §4, TESTING §3 |
+| OD-5 | `net_amount` in account currency; account currency immutable | SCHEMA §4, §6, FINANCIAL-DOMAIN §3, DECISIONS ADR-12 |
+
+**One correction was made during the pass, beyond D1–D15.** Applying OD-5 naively broke the per-kind cash identities: `net_amount = gross_amount − fees − taxes` equates an account-currency column with an instrument-currency expression, which is false for every foreign-currency row and would have made a USD dividend paid into an INR account **unrecordable by the database** — the very case golden scenario `G3` asserts. The fix carries the cash effect at three checked denominations (`net_amount_instrument` → `net_amount` → `base_net_amount`), following `transaction_entries`' existing ADR-12 pattern one link further. It was found by the post-correction consistency audit, not by the original review.
 
 ---
 
@@ -484,13 +510,13 @@ Three rules the database cannot express, enforced in step 2 and by `verify:integ
 
 - `investment_transactions.currency_code` **must equal** `instruments.currency_code`.
 - `instrument_quotes.currency_code` **must equal** `instruments.currency_code`. A provider returning a price in another currency is a `status: 'missing', reason: 'provider_error'`, not a silently mixed multiplication (D8's valuation analogue).
-- The account's currency need **not** match — buying a USD ETF from an INR brokerage account is legitimate; `net_amount` is in the instrument currency and `deriveBalance()` already sums the account's own currency, so this is a Phase 3 contract to confirm (§11).
+- The account's currency need **not** match — buying a USD ETF from an INR brokerage account is legitimate. **Superseded by OD-5, approved 2026-08-11:** the cash effect is carried at three denominations — `net_amount_instrument` (instrument currency, where the per-kind identities hold), `net_amount` (account currency, what `deriveBalance()` sums), and `base_net_amount` — each a `CHECK`ed derivation of the one before. The normative text is [SCHEMA.md §6](SCHEMA.md#6-investment-ledger) and [INVESTMENT-DOMAIN.md §2.1](INVESTMENT-DOMAIN.md#21-two-currencies-per-transaction-and-which-one-net_amount-is-in). The sentence above is retained only to show what the review originally proposed.
 
 ### 6.3 Cache invalidation (fixes D10)
 
 `positions.ledger_version` is a **provenance stamp**, not a staleness check. Nothing compares it to `user_state.investment_ledger_version` to decide whether to rebuild, because a single global counter makes every non-rebuilt position look stale after any trade. Correctness comes from the rebuild sharing the mutation's transaction (§5.6). The stamp answers *"which ledger state produced this row"* for audit and for `verify:integrity`.
 
-`ARCHITECTURE.md` §6's table needs its "version mismatch" trigger corrected to say this.
+Applied: [ARCHITECTURE.md §6](ARCHITECTURE.md#6-cache-invalidation) and its §5 read-path diagram now say this.
 
 ---
 
@@ -668,7 +694,7 @@ Consequences of this review that land on the **Financial Core**, not on Phase 4:
 2. **`recurring_occurrences.investment_transaction_id`** — create the column nullable, **without** the FK. Phase 4 adds the constraint (§0.1).
 3. **`transactions.ai_proposal_id`** — same treatment; Phase 7 adds the constraint.
 4. **`record_source` enum** must be created in Phase 3, since both ledgers use it.
-5. **Confirm the account-currency contract** (§6.2): `deriveBalance()` sums `net_amount` in the account's currency, so a foreign-currency instrument bought from an INR account needs its cash effect expressed in the account's currency. Phase 3 should decide whether `net_amount` is instrument-currency or account-currency. **Recommendation: account currency**, with the instrument-currency gross retained on the row — otherwise the balance sums two currencies. *This is the one open item this review could not close from the documents alone.*
+5. **The account-currency contract is settled (OD-5, approved).** `net_amount` is denominated in the **account's** currency; `price` / `gross_amount` / `fees` / `taxes` stay in the instrument's. `deriveBalance()` therefore sums one currency, and an account's `currency_code` is **immutable once it carries ledger rows** — a service-layer rule Phase 3 must enforce, and which the account edit form must respect. Normative text: [FINANCIAL-DOMAIN.md §3](FINANCIAL-DOMAIN.md#3-accounts), [SCHEMA.md §6](SCHEMA.md#6-investment-ledger), [DECISIONS.md ADR-12](DECISIONS.md#adr-12--base-currency-with-dated-fx-stored-alongside-native-amounts).
 
 ---
 
@@ -695,7 +721,7 @@ Consequences of this review that land on the **Financial Core**, not on Phase 4:
 
 ## 13. Test strategy
 
-All 20 edge cases in `INVESTMENT-DOMAIN.md` §12 are adopted as named tests. Phase 4's `ROADMAP` gate covers 1–14 and 18–19; 15–17 and 20 need prices and move to Phase 6. The engine is pure, so each is an array of transactions in, expected lots/disposals/position out — no database, no mocks.
+The edge cases in `INVESTMENT-DOMAIN.md` §12 are adopted as named tests. Of the original 20, Phase 4's `ROADMAP` gate covers 1–14 and 18–19; 15–17 and 20 need prices and move to Phase 6. The 11 tests proposed below were added to that document as **cases 21–31** and are all in the Phase 4 gate. The engine is pure, so each is an array of transactions in, expected lots/disposals/position out — no database, no mocks.
 
 **Tests this review adds**, each mapping to a defect that would otherwise ship:
 
@@ -719,7 +745,7 @@ All 20 edge cases in `INVESTMENT-DOMAIN.md` §12 are adopted as named tests. Pha
 - Incremental rebuild output is byte-identical to a full rebuild — the `ROADMAP` Phase 4 gate.
 - Replay is order-stable: shuffling same-`trade_date` insertion order changes nothing after §5.1's `kind_rank`.
 
-**Golden scenarios:** `L0` (average-cost drift) and `G2` (20 buys, 8 partial sells, 2 splits, 1 bonus, 6 dividends, fees) are hand-computed and checked into `tests/golden/`. `G3` (multi-currency) needs prices and moves to Phase 6. Per `TESTING.md`, every golden scenario asserts `unexplained ≈ 0` in the net-worth bridge.
+**Golden scenarios:** `L0` (average-cost drift), the new **`L1`** (the §7.2 fee double-count fixture) and `G2` (20 buys, 8 partial sells, 2 splits, 1 bonus, 6 dividends, fees) are hand-computed and checked into `tests/golden/`; `L1` and `G2` are both in the Phase 4 gate. `G3` (multi-currency) needs prices and moves to Phase 6. Per `TESTING.md`, every golden scenario asserts `unexplained ≈ 0` in the net-worth bridge.
 
 **Not tested at Phase 4** and stated so the gate is honest: market value, unrealised P&L, allocation weights, XIRR and TWR against real prices. Phase 4 asserts they return `null` with reason `no_price` / `insufficient_price_history`. Each `null` test asserts **the reason**, never merely `null` — a test asserting only `null` passes against a function that always fails.
 
@@ -730,7 +756,7 @@ All 20 edge cases in `INVESTMENT-DOMAIN.md` §12 are adopted as named tests. Pha
 | Risk | Severity | Mitigation |
 |---|---|---|
 | **Phase 3 does not exist**; Phase 4 cannot begin | **blocking** | Build Phase 3 first, with §11's five amendments |
-| The `INVESTMENT-DOMAIN.md` §4 pseudocode is copied verbatim into the engine | **high** | D1, D3, D4 are wrong in the approved baseline; correct the document **before** implementing, not after |
+| ~~The `INVESTMENT-DOMAIN.md` §4 pseudocode is copied verbatim into the engine~~ | ~~high~~ | **Retired.** D1, D3 and D4 were corrected in that document on 2026-08-11; its §4 pseudocode is now the one to copy |
 | Trade fees double-subtracted in `totalReturn` | high | §5.4's accrual table + T-9's cash cross-check |
 | Cost-basis drift across corporate actions | high | §5.5 touches no money at all; T-3 asserts byte-identity |
 | Holding period lost across transfers → wrong LTCG/STCG | high | `acquired_on` (§4.1); T-4 |
@@ -743,12 +769,12 @@ All 20 edge cases in `INVESTMENT-DOMAIN.md` §12 are adopted as named tests. Pha
 
 ---
 
-## 15. Decisions needed
+## 15. Decisions
 
-Everything else in this document is an engineering call already made. These three are not mine to make.
+**1. Sequencing — ✅ approved 2026-08-11.** Phase 3 (Financial Core) is built in full with §11's amendments folded in, then Phase 4. Recorded in [ROADMAP.md](ROADMAP.md) Phase 3 and Phase 4.
 
-**1. Sequencing.** Phase 4 cannot start. The options are (a) build Phase 3 — Financial Core in full, then return to Phase 4 with this design applied, or (b) apply only the document corrections in §2 now and defer all implementation. **Recommendation: (a)**, with §11's amendments folded into Phase 3 so nothing has to be widened later.
+**2. `settlement_date` semantics — ⏳ still open (OD-6).** The column exists; `deriveBalance()` uses `trade_date`. In a T+1 market the cash actually moves a day later. **Recommendation: keep `trade_date` as the cash date** — the divergence lasts one day, affects no realised figure, no cost basis and no P&L, and modelling settlement means a second date dimension on every balance query. Keep the column as a recorded fact and state in the UI that balances are trade-dated. Confirm, or drop the column.
 
-**2. `settlement_date` semantics.** The column exists; `deriveBalance()` uses `trade_date`. In a T+1 market the cash actually moves a day later. **Recommendation: keep `trade_date` as the cash date** — the divergence lasts one day, affects no realised figure, and modelling settlement means a second date dimension on every balance query. Keep the column as a recorded fact and state in the UI that balances are trade-dated. Confirm, or drop the column.
+*This does not block Phase 3*, which does not read the column. It must be settled before Phase 4 writes it.
 
-**3. Amending the approved baseline.** `PROJECT-STATE.md`'s protocol makes a design correction a stop-and-explain event, which is why `INVESTMENT-DOMAIN.md` and `SCHEMA.md` are untouched. On approval, D1–D15 are applied to those documents and this file becomes the review record. **Confirm before those edits are made.**
+**3. Amending the approved baseline — ✅ approved 2026-08-11 (OD-4).** D1–D15 and OD-5 are applied to the canonical documents; the landing table at the top of this file records where each one went. This file is now the review record and rationale, not the specification.

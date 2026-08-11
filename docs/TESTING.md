@@ -45,6 +45,13 @@ Table-driven, covering:
 - `toMinorNumber` throws above `Number.MAX_SAFE_INTEGER`.
 - `NUMERIC(20,4)` upper bound: no overflow, no silent truncation.
 
+### `UnitPrice`
+
+- A NAV of `123.45678900` round-trips through `UnitPrice` without loss. **The same value through `Money` is asserted to lose precision** — proving the test detects the truncation rather than passing vacuously.
+- `valueOf(quantity, price)` at the `.5` boundary in both signs; `perUnit` throws on a zero quantity.
+- `mulQtyRatio(m, num, den)` — the property that matters: consuming a lot in any sequence of partial slices, with the final slice taking the remainder verbatim, sums back to the original exactly.
+- `NUMERIC(20,8)` boundary, same as `Money`.
+
 ### Property tests (fast-check)
 
 ```
@@ -62,12 +69,20 @@ Table-driven, covering:
 
 ∀ txns : valid investment transaction sequence
   Σ tax_lots.remaining_quantity === positions.quantity
-  Σ (remaining_quantity × cost_per_unit) === positions.cost_basis  (± 1 minor unit per lot)
+  Σ tax_lots.remaining_cost === positions.cost_basis            -- EXACT, no tolerance (I-6)
+  Σ cost_consumed + remaining_cost === cost_total   per lot     -- I-20, holds after any
+                                                                -- sequence of buys, sells,
+                                                                -- splits and bonuses
   replay(txns) === replay(txns)                     -- determinism
   replay(txns) === rebuildIncrementally(txns)       -- incremental === full
+  replay(shuffleWithinTradeDate(txns)) === replay(txns)   -- entry order is not an input
 ```
 
-The last two are the properties that catch the class of bug where a rebuild produces a different answer than the incremental path.
+The last three are the properties that catch the classes of bug where a rebuild produces a different answer than the incremental path, and where the answer depends on the order rows happened to be entered.
+
+`Σ remaining_cost === cost_basis` is asserted **exactly**. The former `± 1 minor unit per lot` tolerance was a consequence of storing `cost_per_unit` and multiplying it on read; lots now store money exactly and derive the rate, so there is nothing to drift ([INVESTMENT-DOMAIN.md §4](INVESTMENT-DOMAIN.md#rounding-in-the-engine)). A property test with a tolerance would pass against an engine that leaks a paisa per disposal.
+
+**Not asserted, deliberately:** `Σ lot_disposals.quantity + remaining_quantity === original_quantity`. It is false after a corporate action touches a partially disposed lot — see the non-invariants table in [SCHEMA.md §12](SCHEMA.md#12-invariants-summary).
 
 ### Lot engine
 
@@ -75,16 +90,24 @@ Every case listed in [INVESTMENT-DOMAIN.md §12](INVESTMENT-DOMAIN.md#12-edge-ca
 
 Hand-verified reference cases (computed independently in a spreadsheet, checked into `tests/golden/`):
 - **L0 — the average-cost drift case (minimal, run first).** Buy 100 @ ₹100, buy 100 @ ₹150 → quantity 200, `cost_basis` ₹25,000, derived average ₹125. Then sell 100 @ ₹200 → FIFO closes the ₹100 lot entirely, realised P&L ₹10,000, remaining `cost_basis` ₹15,000, **derived average jumps to ₹150 with nothing purchased**. Asserts that average cost is computed from surviving lots, never carried forward. A stored average would report ₹125 and a realised P&L of ₹7,500 — wrong by ₹2,500 on a taxable gain.
-- 3 buys at ₹100/₹150/₹200, sell 150 units of 300 — FIFO realised P&L to the paisa.
-- Buy, 1:5 split, sell — realised P&L must be identical to the no-split equivalent at the adjusted price.
-- Buy, 1:1 bonus, sell half — average cost halves, basis unchanged, realised P&L exact.
-- Buy in USD with an FX move, sell — base-currency P&L splits correctly into price and FX components.
+- 3 buys at ₹100/₹150/₹200, sell 150 units of 300 — FIFO realised P&L to the paisa, and `Σ realized_pnl = netProceeds − Σ cost_consumed` **exactly** across the three lots.
+- Buy, 1:5 split, sell — realised P&L must be identical to the no-split equivalent at the adjusted price, and `Σ cost_total` byte-identical before and after the split.
+- Buy, 1:1 bonus, sell half — derived average cost halves, basis unchanged, realised P&L exact.
+- Buy in USD with an FX move, sell — base-currency P&L splits correctly into price and FX components, and the two sum back to `base_realized_pnl` exactly (I-18).
+- **L1 — the fee double-count case.** The worked fixture in [INVESTMENT-DOMAIN.md §6.3](INVESTMENT-DOMAIN.md#63-worked-verification-that-nothing-is-counted-twice): buy 100 @ ₹100 + ₹50 fee, ₹500 dividend with ₹50 TDS, sell 40 @ ₹150 + ₹30 fee, remainder at ₹160. Asserts `totalReturn = ₹5,970` by **both** the component sum and the cash cross-check, `totalReturnPct = 59.40%` on `costDeployed`, and `unrealizedReturnPct = 59.20%` on `investedCapital`. Accruing trade fees to `fees_total` as well gives ₹5,890; using one denominator for both gives 99.00%.
+
+Every case in [INVESTMENT-DOMAIN.md §12](INVESTMENT-DOMAIN.md#12-edge-cases-that-must-be-covered-by-tests) is a named test, including cases **21–31** added by the Phase 4 design review — each guards a specific defect that the pre-review documents would have produced.
 
 ### XIRR / TWR
 
 - Known-answer tests against Excel/LibreOffice `XIRR` for 10 cash-flow series, agreeing to 6 decimal places.
 - Convergence: a series with a −95% return (near the bracket edge) resolves via bisection.
 - All `null` paths: fewer than 2 flows, single-sign flows, same-date flows, non-convergence, insufficient price history for TWR. Each asserts `null` **and** the stated reason — a test that only asserts `null` would pass if the function always returned `null`.
+- **Scope construction**, which is where the series is most easily built wrong ([INVESTMENT-DOMAIN.md §7](INVESTMENT-DOMAIN.md#7-xirr)):
+  - Brokerage cash is **excluded** from the terminal value; a dividend reinvested the same day contributes `+500` then `−500` and nets to zero, while an un-reinvested one remains a return.
+  - A matched `transfer_out`/`transfer_in` pair is **excluded** at portfolio scope and produces the same XIRR as if the transfer had never happened.
+  - The same unmatched leg at **account** and **instrument** scope enters at `gross_amount` — asserted against a fixture where treating it as a zero flow yields a divergent or infinite return.
+- **TWR boundary convention:** a flow dated `D` belongs to the period *starting* at `D`. A fixture with one flow is asserted against the hand-computed figure under that convention, and against the figure the opposite convention would produce — so the choice is pinned, not accidental.
 
 ### Recurrence
 
@@ -102,6 +125,10 @@ Against a real Postgres, because half the invariants are database constraints an
 - A failed write inside an application service rolls back completely (the service owns the transaction boundary): no orphan entries, no bumped `ledger_version`, no audit row.
 - `rebuildPosition` is idempotent: running it twice produces identical rows.
 - Full rebuild equals incremental rebuild across a 500-transaction fixture.
+- **Investment `CHECK` constraints reject at the database, not merely at the service.** Each asserted by a direct `INSERT` that bypasses the service layer: `cash_settled = false` with a non-zero `net_amount` (I-16); `realized_pnl ≠ proceeds − cost_consumed` (I-15); a lot with `remaining_quantity = 0` but non-zero `remaining_cost` (I-19); a `split` carrying a quantity or a price; `gross_amount` disagreeing with `|quantity| × price`. A rule enforced only in TypeScript is not enforced against a restore, a script, or `psql`.
+- **The three-denomination cash chain (OD-5).** A USD instrument bought, and a USD dividend received, into an **INR** brokerage account: both rows insert successfully; `net_amount_instrument` satisfies its per-kind identity in USD; `net_amount = round(net_amount_instrument × fx_rate_instrument_to_account, 4)` in INR; `base_net_amount` follows from that; and `deriveBalance()` returns rupees throughout. **A regression test asserts the row is not rejected** — stating the identity on `net_amount` instead makes every foreign-currency dividend and trade unrecordable, which is a schema-level failure no engine test would catch.
+- **Same-currency collapse.** With instrument and account currency equal, `fx_rate_instrument_to_account = 1` and `net_amount_instrument = net_amount` exactly — asserted so the common path cannot drift from the general one.
+- **A backdated oversell rolls back completely.** Inserting a sell dated before existing purchases such that the position goes short at that instant leaves lots, disposals, positions and `investment_ledger_version` byte-identical to before — the rebuild shares the mutation's transaction ([INVESTMENT-DOMAIN.md §4](INVESTMENT-DOMAIN.md#rebuild)).
 - Job claiming with `FOR UPDATE SKIP LOCKED` under two concurrent runners: each job executes exactly once.
 - `verify:integrity` passes on a freshly seeded database and fails on a deliberately corrupted one (a test that asserts the checker actually catches something).
 
@@ -112,8 +139,8 @@ Multi-year fixtures with every figure verified by hand once and then frozen. The
 | Scenario | Exercises |
 |---|---|
 | **G1 — Salaried year** | 12 monthly salaries, ~200 expenses, 2 transfers, 3 budgets. Asserts: monthly and annual income/expense/savings/savings rate, budget utilisation, account balances, net-worth series. |
-| **G2 — Equity investor** | 20 buys, 8 partial sells, 2 splits, 1 bonus, 6 dividends, brokerage fees. Asserts: FIFO realised P&L, holdings, allocation, XIRR, TWR. |
-| **G3 — Mixed portfolio** | Equity + mutual funds + gold + a USD ETF + a fixed deposit. Asserts: multi-currency valuation, per-class allocation, FX component in attribution. |
+| **G2 — Equity investor** | 20 buys, 8 partial sells, 2 splits, 1 bonus, 6 dividends, brokerage fees. Asserts: FIFO realised P&L, holdings, allocation, XIRR, TWR. Also asserts `Σ cost_total` is unchanged by both splits and the bonus, that trade fees appear in **no** `fees_total`, and that a split sharing a `trade_date` with a buy gives the same result under both insertion orders. |
+| **G3 — Mixed portfolio** | Equity + mutual funds + gold + a USD ETF + a fixed deposit. Asserts: multi-currency valuation, per-class allocation, FX component in attribution summing back to `base_realized_pnl` exactly, and that the USD ETF bought from an INR brokerage account leaves the account balance in rupees throughout (OD-5). |
 | **G4 — Debt and liabilities** | Home loan with EMIs, a credit card carrying a balance, a car loan closed mid-period. Asserts: liability totals, no double counting, net-worth attribution split into principal and interest. |
 | **G5 — Sparse data** | 3 unpriced instruments, a manual asset with no valuation, a missing FX rate, a stale price. Asserts: coverage < 1, correct `null` propagation, nothing silently zeroed, the UI-facing warnings present. |
 | **G6 — Corrections** | A transaction edited, one deleted, an investment transaction back-dated before existing ones. Asserts: derived state rebuilt correctly, historical snapshots recomputed, audit trail complete. |
