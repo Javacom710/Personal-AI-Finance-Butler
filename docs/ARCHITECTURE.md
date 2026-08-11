@@ -61,7 +61,7 @@ flowchart TB
     O --> R
   end
 
-  DB[("PostgreSQL 17 — the only source of financial truth<br/>Ledger transactions are source. Balances are derived.<br/>no stored balance column · positions are a rebuildable replay cache, not a record<br/>invariants I-1 to I-14 · append-only audit")]
+  DB[("PostgreSQL 17 — the only source of financial truth<br/>Ledger transactions are source. Balances are derived.<br/>no stored balance column · positions are a rebuildable replay cache, not a record<br/>invariants I-1 to I-20 · append-only audit")]
 
   MD["Market data — via MarketDataProvider<br/>manual (always registered) · AMFI · FX<br/>PriceResult: live / cached / stale / missing"]
   JB["Jobs and backup — Postgres queue, SKIP LOCKED<br/>recurring · prices · fx · snapshot · verify<br/>pg_dump → age → off-site"]
@@ -254,7 +254,8 @@ tests/
 Server Component
   → application service        portfolioSummary(ctx)
       → authorize              ownership check
-      → repository             ledger rows, positions cache (rebuilt if version changed)
+      → repository             ledger rows, positions cache (read as-is; never rebuilt
+                               on a read — rebuilds happen in the write transaction, §6)
       → market-data registry   PriceResult per instrument
       → DOMAIN (pure)          valuation, allocation, metrics — data in, values out
   → typed result incl. coverage + staleness
@@ -309,12 +310,18 @@ Derived artefacts record the version they were computed from:
 
 | Artefact | Depends on | Rebuild trigger |
 |---|---|---|
-| `positions` | investment ledger | version mismatch, or targeted rebuild for the mutated `(account, instrument)` |
+| `positions` | investment ledger | targeted rebuild for the mutated `(account, instrument)`, **inside the mutation's own transaction** |
 | `tax_lots`, `lot_disposals` | investment ledger | same |
-| `net_worth_snapshots` | both, plus prices, assets, liabilities | nightly job; on-demand recompute for a date range |
+| `net_worth_snapshots` | both, plus prices, assets, liabilities | nightly job; on-demand recompute for a date range; version mismatch |
 | Account balances | money ledger | computed on read (indexed `SUM`; fast enough — measure before caching) |
 
 Rebuilds are idempotent and complete: rebuilding a `(account, instrument)` pair deletes and re-derives all of its lots and disposals from the ledger. There is no incremental-patch path, because incremental patching is where derived state drifts.
+
+**`positions.ledger_version` is a provenance stamp, not a staleness check.** Nothing compares it against `user_state.investment_ledger_version` to decide whether to rebuild, and it must not be used that way. `investment_ledger_version` is a **single counter per user**, so the moment any position is mutated every *other* position carries a lower value — a mismatch comparison would report the entire portfolio stale forever and trigger endless full rebuilds.
+
+Correctness comes from somewhere better: the rebuild runs **inside the same database transaction as the ledger mutation that triggered it**, so there is no window in which `positions` disagrees with the ledger, and a replay that fails rolls the mutation back rather than leaving derived state behind. The stamp answers *"which ledger state produced this row"* for audit and `verify:integrity`.
+
+`net_worth_snapshots` is the artefact for which a version comparison **is** meaningful: it is computed per date from the whole portfolio, so a bumped counter genuinely invalidates it.
 
 ## 7. Error handling
 

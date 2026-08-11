@@ -2,7 +2,9 @@
 
 Durable status record. Conversation history is temporary; this file is not. Read this first after any context reset, then verify it against `docs/`, the source tree, and the tests before trusting it.
 
-**Last updated:** 2026-08-10 · **Current phase:** 3 complete, 4 not started
+**Last updated:** 2026-08-11 · **Current phase:** 3 complete, 4 in progress
+
+Sequence approved 2026-08-11: **Phase 3 — Money Management → Phase 4 — Investment Engine.**
 
 ---
 
@@ -39,7 +41,7 @@ Corollaries that follow from the above:
 | `CLAUDE.md` / `AGENTS.md` | The specification. Byte-identical duplicates (see OD-2). |
 | `Workflow Setup.txt` | Canonical 15-phase map ([ADR-20](docs/DECISIONS.md)) |
 | Application code | **Phases 2–3.** Next.js 16, exact-money primitives, database, auth, app shell — plus the whole money core: accounts, categories, tags, transactions, transfers, budgets, recurring rules, the job runner and the Money UI. |
-| Git repository | Initialised, `core.autocrlf=input`. **No commit yet** — the working tree is the state. |
+| Git repository | Initialised, `core.autocrlf=input`. Phase 2 and Phase 3 are committed; the Phase 4 design review and its documentation correction pass were merged in from `claude/investment-engine-review-3ed9bd`. |
 
 ## Phases
 
@@ -49,7 +51,7 @@ Corollaries that follow from the above:
 | 1 — Architecture | ✅ complete, **approved** |
 | 2 — Foundation | ✅ complete, verified |
 | 3 — Financial Core | ✅ complete, verified |
-| 4 — Investment Engine | not started; **unblocked** |
+| 4 — Investment Engine | **designed, reviewed, corrections applied; implementation in progress** |
 | 5 — Net Worth | not started |
 | 6 — Market Data | not started (OD-3 affects completion, not start) |
 | 7 — AI Infrastructure | **blocked** on OD-1 (`NVIDIA_API_KEY`) |
@@ -157,6 +159,41 @@ Each is reversible; the reasoning is recorded so it can be challenged.
 |---|---|---|
 | **D-23** | **PostgreSQL 18.4 as a Windows service, replacing the portable 17.7 (supersedes D-9)** | A postmaster started by hand belongs to the process tree of whatever started it, and dies with that console. It happened four times during Phase 3, each time looking like a test failure rather than an environment failure, and each recovery cost a manual restart. A service is owned by the Service Control Manager, starts with Windows, and cannot be reaped by a terminal closing. The migration was a logical dump and restore — verified metric-by-metric against the source, with roles, grants, schema, Drizzle history and data all preserved — so no connection string in `.env` changed. The 17.7 data directory is retained as a rollback until the new instance has some mileage. |
 
+---
+
+## Documentation correction pass — 2026-08-11
+
+The Phase 4 design review found 15 defects (D1–D15) in the approved baseline. Under **OD-4** they were applied to the canonical documents; under **OD-5** the `net_amount` currency question was settled. No application code or schema changed.
+
+| Document | What changed |
+|---|---|
+| `docs/INVESTMENT-DOMAIN.md` | Lot model (`cost_total` / `remaining_cost`, `cost_per_unit` derived); corrected FIFO engine (allocate, exact drain, gross income, zero-P&L transfers); `kind_rank` ordering; new §2.1 currency, §6.2 account-level charges, §6.3 worked verification, §6.4 FX decomposition; `UnitPrice`; XIRR scope; TWR boundary + OD-3 limit; edge cases 21–31 |
+| `docs/SCHEMA.md` | `tax_lots` and `lot_disposals` DDL rewritten; 8 new `CHECK` constraints; 5 new indexes; `lot_disposals.user_id`; invariants I-15…I-20; two explicit non-invariants; OD-5 currency rules; forward-reference migration policy |
+| `docs/FINANCIAL-DOMAIN.md` | Balance formula's currency contract (OD-5); account currency immutability; `UnitPrice` in §1; `allocate` rule made normative for the lot engine; investment module map |
+| `docs/TESTING.md` | I-6 asserted exactly, tolerance removed; `UnitPrice` tests; order-independence property; DB-level constraint tests; XIRR scope and TWR boundary tests; golden **L1**; G2/G3 extended |
+| `docs/ARCHITECTURE.md` | §6 rebuild trigger corrected — `positions.ledger_version` is a provenance stamp, not a staleness check; invariant count |
+| `docs/DECISIONS.md` | ADR-06 (rebuild transaction + stamp), ADR-07 (I-6 restatement), ADR-12 (OD-5) |
+| `docs/ROADMAP.md` | Phase 3 gains the five carried amendments and two gates; Phase 4 gains `UnitPrice`, the new edge cases and invariants, and its Phase 3 block |
+
+**Verification run after the pass:** 154 anchored cross-document links and 67 plain file links all resolve; invariants I-1…I-20 are each defined once in `SCHEMA.md` §12 and referenced consistently; no stale `cost_per_unit`-as-column, `± 1 minor unit`, `(trade_date, created_at, id)` or `income += net` remains in a normative position. A seven-lens consistency audit with adversarial verification then ran across all nine documents.
+
+### Corrections the audit forced — beyond D1–D15
+
+| | Defect | Fix |
+|---|---|---|
+| **Blocking** | Applying OD-5 naively broke every per-kind cash identity. `net_amount = gross_amount − fees − taxes` equates an **account-currency** column with an **instrument-currency** expression — false for any foreign-currency row, so a USD dividend paid into an INR account would have been **rejected by the database**. Golden scenario `G3` asserts exactly that case | The cash effect is carried at three `CHECK`ed denominations: `net_amount_instrument` (where the identities hold) → `net_amount` (what `deriveBalance()` sums) → `base_net_amount`. Extends `transaction_entries`' ADR-12 pattern by one link |
+| High | `positions.fees_total` / `taxes_total` accrued instrument-currency `fees` from dividends and account-currency `\|net_amount\|` from standalone `fee` rows — two currencies in one column | All `positions` totals are instrument currency; standalone rows accrue `\|net_amount_instrument\|` |
+| High | `ARCHITECTURE.md` §5's read-path diagram still rebuilt positions "if version changed", which §6 of the same file forbids | Read path reads the cache as-is; rebuilds happen only in the write transaction |
+| High | `FINANCIAL-DOMAIN.md` §10.1 still fixed replay order at `(date, created_at, id)`, omitting `kind_rank`, while explicitly naming the lot engine | Restated, with why `created_at` orders rows but not economic events |
+| High | `PortfolioSummary` mixed base-currency `realizedPnl` with instrument-currency `investedCapital` | Every `PortfolioSummary` field is base currency; `HoldingView` stays instrument currency |
+| High | *(pre-existing)* Net worth filtered accounts and assets on the current-state `is_active` flag inside an `asOf` calculation — an account closed today vanished from last year's figure, contradicting §12 edge case 7 | Every filter is date-driven; `manual_assets` gains `disposed_on` |
+| Medium | `CLAUDE.md` requires "portfolio growth" with no canonical source defined | New [INVESTMENT-DOMAIN.md §8.1](docs/INVESTMENT-DOMAIN.md) — derived, one SQL pass, gaps shown as gaps |
+| Medium | `ROADMAP.md` Phase 6 said "all ten invariants"; `PROJECT-STATE.md` said "14 invariants" and "no commit yet" | Corrected to twenty and to the actual history |
+
+**One new rule decided during the pass:** a `transfer_in` / `transfer_out` carries **no fees or taxes** (`CHECK`), because a fee on a transfer-in contradicts "no cash effect", and one on a transfer-out has no basis to capitalise into and no realised P&L to reduce — it would vanish from total return. Demat transfer charges are a separate `fee` row.
+
+---
+
 ## Open decisions
 
 | # | Decision | Blocks |
@@ -164,6 +201,14 @@ Each is reversible; the reasoning is recorded so it can be challenged.
 | **OD-1** | `NVIDIA_API_KEY` — needed to verify the model catalogue authenticated and to run the eval harness | Phases 7–9 |
 | **OD-2** | `AGENTS.md` is byte-identical to `CLAUDE.md`. Two copies of a 2,181-line spec will drift. Recommendation: reduce `AGENTS.md` to a pointer — not done unilaterally, as another tool may require full content at that path | Nothing technically; an instruction-correctness risk |
 | **OD-3** | Equity/ETF market-data provider and its terms | Phase 6 completion |
+| **OD-6** | `settlement_date` — keep `trade_date` as the cash date (recommended: the divergence lasts one day and affects no realised figure, cost basis or P&L), model settlement, or drop the column. **Does not block Phase 3**, which never reads it; settle before Phase 4 writes it | Phase 4 schema |
+
+### Resolved
+
+| # | Decision | Outcome |
+|---|---|---|
+| **OD-4** | Amend the approved baseline with the Phase 4 review's D1–D15 | ✅ **Approved and applied 2026-08-11.** The corrections are in the canonical documents; the landing table is at the top of [INVESTMENT-ENGINE-DESIGN.md](docs/INVESTMENT-ENGINE-DESIGN.md), which is now a review record, not a specification |
+| **OD-5** | `investment_transactions.net_amount` currency | ✅ **Approved 2026-08-11: the account's currency.** `price` / `gross_amount` / `fees` / `taxes` stay in the instrument's. `deriveBalance()` therefore never mixes currencies, and an account's `currency_code` is immutable once it carries ledger rows. See [FINANCIAL-DOMAIN.md §3](docs/FINANCIAL-DOMAIN.md), [SCHEMA.md §6](docs/SCHEMA.md), [ADR-12](docs/DECISIONS.md) |
 
 ---
 
@@ -175,7 +220,7 @@ Recorded so these are not rediscovered as bugs.
 - **`instruments` is per-user** (`UNIQUE (user_id, symbol, exchange)`). Correct at one user, wrong at ~10k — a migration, not a redesign.
 - **Balances are computed on every read**, no stored column. Escape hatch pre-designed: a materialised roll-up keyed by `money_ledger_version`.
 - **No Row-Level Security.** Fine single-user; the priority item if this ever becomes multi-tenant.
-- **`PortfolioSnapshot`** folded into `net_worth_snapshots.breakdown` (JSONB). Flagged for a decision before Phase 6.
+- ~~**`PortfolioSnapshot`** folded into `net_worth_snapshots.breakdown` (JSONB). Flagged for a decision before Phase 6.~~ **Resolved 2026-08-11**: no `portfolio_snapshots` table. Historical portfolio value is derivable from `investment_transactions` + `instrument_prices` in a single SQL pass; the escape hatch is a roll-up keyed by `investment_ledger_version`, never a mutable record ([INVESTMENT-ENGINE-DESIGN.md §8.3](docs/INVESTMENT-ENGINE-DESIGN.md)).
 - **Tier 5 embeddings deferred** with written activation criteria ([ADR-19](docs/DECISIONS.md)).
 - **Liability `interest_rate` / `emi_amount` are descriptive only** — no amortisation schedule is computed, and the UI must not imply one.
 
@@ -271,9 +316,10 @@ Run on 2026-08-10.
 | Question | File |
 |---|---|
 | Why was X decided that way? | [docs/DECISIONS.md](docs/DECISIONS.md) — 21 ADRs with rejected alternatives, plus D-9…D-23 above |
-| What are the tables and invariants? | [docs/SCHEMA.md](docs/SCHEMA.md) — 14 invariants |
+| What are the tables and invariants? | [docs/SCHEMA.md](docs/SCHEMA.md) — 20 invariants (I-1 … I-20) plus two explicit non-invariants |
 | How does money behave? | [docs/FINANCIAL-DOMAIN.md](docs/FINANCIAL-DOMAIN.md) |
-| How do holdings and returns behave? | [docs/INVESTMENT-DOMAIN.md](docs/INVESTMENT-DOMAIN.md) |
+| How do holdings and returns behave? | [docs/INVESTMENT-DOMAIN.md](docs/INVESTMENT-DOMAIN.md) — corrected and authoritative |
+| Why does the investment engine work that way? | [docs/INVESTMENT-ENGINE-DESIGN.md](docs/INVESTMENT-ENGINE-DESIGN.md) — the Phase 4 review record and rationale. **Non-normative**: where it and a canonical document differ, the canonical document wins |
 | How does the AI layer work and what can't it do? | [docs/AI-SYSTEM.md](docs/AI-SYSTEM.md) |
 | What must be tested before a phase is done? | [docs/TESTING.md](docs/TESTING.md) and each phase's "Done when" |
 | What am I building next? | [docs/ROADMAP.md](docs/ROADMAP.md) — Phase 4, Investment Engine |

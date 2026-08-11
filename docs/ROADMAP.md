@@ -86,6 +86,14 @@ Skeleton, exact-money primitives, database, auth, test harness. **No features.**
 - UI: accounts list and ledger, transactions table with filters, structured quick-add, categories, budgets, recurring + forward calendar
 - `verify:integrity` with invariants I-1 to I-4, I-9, I-11
 
+**Five amendments carried from the Phase 4 design review** ([INVESTMENT-ENGINE-DESIGN.md §11](INVESTMENT-ENGINE-DESIGN.md)). Each exists so Phase 4 does not have to widen a Phase 3 contract:
+
+1. **`deriveBalance()` takes investment-ledger rows from the outset.** [FINANCIAL-DOMAIN.md §3](FINANCIAL-DOMAIN.md#3-accounts) already defines a balance as summing both ledgers. A money-only signature would have to change in Phase 4, and every caller with it.
+2. **`recurring_occurrences.investment_transaction_id`** — created nullable and **without** its foreign key; Phase 4's migration adds the constraint. A migration cannot reference a table that does not exist yet.
+3. **`transactions.ai_proposal_id`** — same treatment; Phase 7 adds the constraint.
+4. **The `record_source` enum is created in Phase 3**, since both ledgers use it.
+5. **`accounts.currency_code` is immutable once the account carries ledger rows** (OD-5). Enforced at the service layer, and the account form must not offer to change it after the first transaction.
+
 **Done when**
 - [x] Every edge case in [FINANCIAL-DOMAIN.md §12](FINANCIAL-DOMAIN.md#12-edge-cases-that-must-be-covered-by-tests) passes — except 15, 16, 24, 25, which are about `manual_assets` and `liabilities` and belong to Phase 5
 - [x] Transfers appear in neither income nor expense totals anywhere
@@ -97,25 +105,41 @@ Skeleton, exact-money primitives, database, auth, test harness. **No features.**
 - [x] Golden scenario **G1** passes
 - [x] An expense can be entered in under 5 seconds, keyboard-only — the quick-add composer opens focused on the amount, and every field is reachable in entry order by tab
 
+**Amendment status at the Phase 3/4 boundary.** Phase 3 shipped on a branch that did not carry the Phase 4 design review, so amendments 2 and 3 landed differently. Recorded rather than papered over:
+
+| # | Phase 3 outcome | Closed by |
+|---|---|---|
+| 1 | ✅ `deriveBalance(opening, entryAmounts, investmentNetAmounts)` — the third parameter shipped in Phase 3, empty until Phase 4 fills it | — |
+| 2 | `recurring_occurrences.investment_transaction_id` not created (D-17) | Phase 4 adds the column **and** its FK in one migration — legal now that `investment_transactions` exists |
+| 3 | `transactions.ai_proposal_id` not created (D-17) | Phase 7, unchanged |
+| 4 | ✅ `record_source` enum created in Phase 3 (`src/server/db/schema/enums.ts`) | — |
+| 5 | ✅ `accounts.currency_code` immutable — `updateAccount` never patches it | — |
+
 ---
 
 ## Phase 4 — Investment Engine
 
 No prices yet. Cost basis, lots, realised P&L — all of which are price-independent.
 
+**Blocked until Phase 3 ships**: `investment_transactions.account_id` references `accounts`, and the engine's cash effects land through `deriveBalance()`. The design is settled — [INVESTMENT-ENGINE-DESIGN.md](INVESTMENT-ENGINE-DESIGN.md), with its corrections applied to `INVESTMENT-DOMAIN.md` and `SCHEMA.md` under OD-4.
+
+- `src/lib/decimal/price.ts` — the `UnitPrice` primitive, `valueOf` / `perUnit` / `mulQtyRatio`
 - Schema: `instruments`, `investment_transactions`, `tax_lots`, `lot_disposals`, `positions`
 - The pure `replay()` FIFO engine; corporate actions (split, bonus, transfer in/out)
-- Rebuild (targeted and full); `investment_ledger_version` invalidation
+- Rebuild (targeted and full), inside the mutation's transaction; `investment_ledger_version` stamping
 - UI: instruments, investment transaction entry and ledger, holdings **at cost**
 
 **Done when**
-- [ ] Edge cases 1–14 and 18–19 in [INVESTMENT-DOMAIN.md §12](INVESTMENT-DOMAIN.md#12-edge-cases-that-must-be-covered-by-tests) pass
-- [ ] Splits and bonuses preserve total cost basis exactly
-- [ ] Oversell is rejected with `shortBy` and writes nothing
+- [ ] Edge cases 1–14, 18–19 and **21–31** in [INVESTMENT-DOMAIN.md §12](INVESTMENT-DOMAIN.md#12-edge-cases-that-must-be-covered-by-tests) pass
+- [ ] Splits and bonuses preserve total cost basis **exactly** — `Σ cost_total` byte-identical before and after
+- [ ] Oversell is rejected with `shortBy` and writes nothing, including when introduced by a backdated sell
 - [ ] Incremental rebuild output is byte-identical to a full rebuild (property test)
-- [ ] Invariants I-5, I-6, I-7 pass
-- [ ] Golden scenario **G2** passes at cost basis (market-value assertions deferred to Phase 6)
+- [ ] Replay is independent of insertion order within a `trade_date` (property test; needs `kind_rank`)
+- [ ] Invariants I-5, I-6, I-7, **I-15, I-16, I-18, I-19, I-20** pass; I-6 asserted **exactly**, with no tolerance
+- [ ] The `CHECK` constraints reject at the database, asserted by direct `INSERT`s that bypass the service
+- [ ] Golden scenarios **G2** and **L1** pass at cost basis (market-value assertions deferred to Phase 6)
 - [ ] Market-value, unrealised P&L, and return metrics return `null` with reason `no_price` — not `0`
+- [ ] `verify:integrity` does **not** assert either non-invariant in [SCHEMA.md §12](SCHEMA.md#12-invariants-summary)
 
 ---
 
@@ -154,7 +178,7 @@ No prices yet. Cost basis, lots, realised P&L — all of which are price-indepen
 - [ ] XIRR matches a spreadsheet reference to 6 decimal places across 10 series
 - [ ] Every `null` metric carries its reason
 - [ ] Golden scenarios **G3**, **G5**, **G6** pass; **G2** now passes on market value
-- [ ] All ten invariants pass in `verify:integrity`
+- [ ] All twenty invariants (I-1 … I-20) pass in `verify:integrity`, and neither declared non-invariant is asserted ([SCHEMA.md §12](SCHEMA.md#12-invariants-summary))
 
 ---
 

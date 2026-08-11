@@ -69,9 +69,13 @@ One entry per material decision. Each states the decision, why, and what was rej
 
 ## ADR-06 — Holdings are derived, cached, and rebuildable
 
-**Decision.** `investment_transactions` is the only investment truth. `tax_lots`, `lot_disposals`, and `positions` are **derived tables** produced by a deterministic replay of the ledger in `(trade_date, created_at, id)` order. They are rebuilt on every ledger mutation for the affected `(account, instrument)` pair, and can be fully rebuilt from scratch by a single command.
+**Decision.** `investment_transactions` is the only investment truth. `tax_lots`, `lot_disposals`, and `positions` are **derived tables** produced by a deterministic replay of the ledger in `(trade_date, kind_rank, created_at, id)` order. They are rebuilt on every ledger mutation for the affected `(account, instrument)` pair, and can be fully rebuilt from scratch by a single command.
 
-**Why.** Recomputing every position on every page load is too slow once there are thousands of transactions; treating positions as independently editable truth guarantees they will eventually disagree with the ledger. Derive-and-cache with a forced rebuild path gives read speed without a second source of truth. A `ledger_version` counter per user invalidates dependent caches (`positions`, `net_worth_snapshots`).
+`kind_rank` places corporate actions **after** same-day trades. Ordering on `created_at` alone is a total order over *rows*, not over *economic events*: a split and a buy sharing a `trade_date` would replay in whichever order the rows happened to be entered, so one ledger could yield two answers ([INVESTMENT-DOMAIN.md §3](INVESTMENT-DOMAIN.md#ordering)).
+
+**Why.** Recomputing every position on every page load is too slow once there are thousands of transactions; treating positions as independently editable truth guarantees they will eventually disagree with the ledger. Derive-and-cache with a forced rebuild path gives read speed without a second source of truth.
+
+**How the cache stays honest.** The rebuild runs **inside the same transaction as the ledger mutation**, so `positions` never disagrees with the ledger and a failed replay rolls the mutation back. `user_state.investment_ledger_version` invalidates `net_worth_snapshots`, which is computed per date over the whole portfolio; on `positions` the recorded version is a **provenance stamp only**, because a single per-user counter would mark every non-mutated position stale forever ([ARCHITECTURE.md §6](ARCHITECTURE.md#6-cache-invalidation)).
 
 **Rejected.** Recompute-on-read only (too slow, and repeated identical work). Positions as editable primary records (unauditable — you can no longer answer "why is this the average price").
 
@@ -81,7 +85,7 @@ One entry per material decision. Each states the decision, why, and what was rej
 
 **Decision.** One cost basis engine whose **disposal-matching strategy is a parameter**, with FIFO as the default and the only implemented strategy at launch. `instruments.cost_basis_method` carries the setting per instrument (`fifo` | `average` | `specific_id`), so a jurisdiction change or a single instrument needing different treatment is a data change, not an engine rewrite. Average cost is reported as `cost_basis / quantity`, derived from the same lots.
 
-**Why the seam is exactly there.** Matching is the *only* thing that varies between methods. Lot opening, fee capitalisation, corporate actions, income accrual, position totals, and the `Σ(remaining × cost_per_unit) = cost_basis` invariant are all method-independent. Isolating one `select()` call means a second method is a new strategy plus its own test table — not a second engine to keep in sync.
+**Why the seam is exactly there.** Matching is the *only* thing that varies between methods. Lot opening, fee capitalisation, corporate actions, income accrual, position totals, and the `Σ remaining_cost = cost_basis` invariant are all method-independent. Isolating one `select()` call means a second method is a new strategy plus its own test table — not a second engine to keep in sync.
 
 **Why FIFO is the default.** It matches Indian tax treatment for listed equity and mutual funds, and it is strictly the most informative: average cost falls out of FIFO lots for free, while FIFO cannot be recovered from an average-cost position. Changing an instrument's method triggers a full rebuild of its positions and rewrites realised P&L on closed disposals, so the UI warns first and the change is audited.
 
@@ -208,6 +212,20 @@ Valuation functions MUST NOT throw on `missing`; they return a partial valuation
 ## ADR-12 — Base currency with dated FX, stored alongside native amounts
 
 **Decision.** The user picks one base currency (`settings.base_currency`, default `INR`). Every monetary row stores the native `amount` + `currency_code` + the `fx_rate_to_base` used + the derived `base_amount`. Aggregations run on `base_amount`. Historical revaluation uses dated rates from `fx_rates`.
+
+**"Native" means the account's currency for any figure that a balance sums** (decision **OD-5**, approved 2026-08-11). `deriveBalance()` adds `transaction_entries.amount` and `investment_transactions.net_amount` into one figure with no currency argument, so both must be denominated in the account's currency or the sum mixes currencies undetectably.
+
+An investment transaction genuinely straddles two currencies, so it extends this pattern by **one link** rather than departing from it:
+
+```
+transaction_entries      amount ──fx_rate_to_base──> base_amount
+investment_transactions  net_amount_instrument ──fx_rate_instrument_to_account──>
+                         net_amount ──fx_rate_to_base──> base_net_amount
+```
+
+Every arrow is a `CHECK`ed `round(x × rate, 4)`. The middle column exists because the per-kind cash identities (`net = gross − fees − taxes` and siblings) relate the cash effect to **instrument-currency** figures; stated on the account-currency column they would be false for every foreign-currency row, making a USD dividend into an INR account unrecordable. The account-currency column exists because `deriveBalance()` must not add dollars to rupees. `fx_rate_instrument_to_account` is exactly `1` in the common same-currency case.
+
+An account's currency is immutable once it carries ledger rows. See [SCHEMA.md §6](SCHEMA.md#6-investment-ledger), [INVESTMENT-DOMAIN.md §2.1](INVESTMENT-DOMAIN.md#21-two-currencies-per-transaction-and-which-one-net_amount-is-in) and [FINANCIAL-DOMAIN.md §3](FINANCIAL-DOMAIN.md#3-accounts).
 
 **Why.** Storing only the native amount makes every aggregate a join against a rate table with date resolution — slow and easy to get wrong. Storing only the base amount loses the original record. Storing both plus the rate makes the conversion auditable and lets a later rate correction be a targeted recompute.
 
