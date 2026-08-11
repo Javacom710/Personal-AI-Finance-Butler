@@ -5,10 +5,22 @@
  * different question: **is the data that is already there still consistent?** It
  * runs against production, after a restore, and in CI against a seeded database.
  *
- * Phase 3 covers I-1, I-2, I-3, I-4, I-9 and I-11. I-5 to I-8 and I-10 arrive
- * with the tables they describe, and are listed as `skipped` rather than
- * silently omitted — a checker that quietly covers less than it claims is worse
- * than no checker.
+ * Phase 3 covered I-1, I-2, I-3, I-4, I-9 and I-11; Phase 4 adds I-5, I-6, I-7,
+ * I-12, I-13 and I-15 to I-20. I-8 (Phase 5) and I-10/I-14 (Phase 9) arrive with
+ * the tables they describe, and are listed as `skipped` rather than silently
+ * omitted — a checker that quietly covers less than it claims is worse than no
+ * checker.
+ *
+ * **Two relations are deliberately NOT checked**, because both are intuitive,
+ * will be assumed, and are **false** (SCHEMA.md §12, non-invariants):
+ *
+ * - `Σ lot_disposals.quantity + remaining_quantity = original_quantity`. A split
+ *   or bonus rescales a partially disposed lot's quantities, and already-settled
+ *   disposal rows are historical records that are not rewritten. The **money**
+ *   form (I-20) holds unconditionally and is the one below.
+ * - `positions.ledger_version = user_state.investment_ledger_version`. The
+ *   counter is global per user, so after any trade every position but the one
+ *   just rebuilt carries a lower value. It is a provenance stamp.
  *
  * A library, not a CLI: the command lives in `scripts/verify-integrity.ts`.
  */
@@ -142,7 +154,7 @@ const CHECKS: readonly Check[] = [
     `,
   },
   {
-    invariant: 'I-13',
+    invariant: 'I-9b',
     description: 'A recurring occurrence never points at a transaction from another rule',
     query: sql`
       select o.id, o.rule_id, t.recurring_rule_id
@@ -151,16 +163,196 @@ const CHECKS: readonly Check[] = [
        where t.recurring_rule_id is distinct from o.rule_id
     `,
   },
+
+  // ------------------------------------------------------- investments (Phase 4)
+
+  {
+    invariant: 'I-5',
+    description: 'Σ tax_lots.remaining_quantity = positions.quantity, per position',
+    query: sql`
+      select p.user_id, p.account_id, p.instrument_id,
+             p.quantity                        as position_quantity,
+             coalesce(l.total, 0)              as lot_quantity
+        from positions p
+        left join (
+          select user_id, account_id, instrument_id, sum(remaining_quantity) as total
+            from tax_lots
+           group by user_id, account_id, instrument_id
+        ) l on l.user_id = p.user_id
+           and l.account_id = p.account_id
+           and l.instrument_id = p.instrument_id
+       where p.quantity <> coalesce(l.total, 0)
+    `,
+  },
+  {
+    invariant: 'I-6',
+    // An EXACT equality, with no tolerance. Lots hold money exactly and derive
+    // the per-unit rate, so there is nothing to drift — the previous
+    // formulation multiplied a rounded rate by a quantity on every read.
+    description: 'positions.cost_basis = Σ tax_lots.remaining_cost — exactly, no tolerance',
+    query: sql`
+      select p.user_id, p.account_id, p.instrument_id,
+             p.cost_basis                      as position_cost_basis,
+             coalesce(l.total, 0)              as lot_cost_basis
+        from positions p
+        left join (
+          select user_id, account_id, instrument_id, sum(remaining_cost) as total
+            from tax_lots
+           group by user_id, account_id, instrument_id
+        ) l on l.user_id = p.user_id
+           and l.account_id = p.account_id
+           and l.instrument_id = p.instrument_id
+       where p.cost_basis <> coalesce(l.total, 0)
+    `,
+  },
+  {
+    invariant: 'I-7',
+    description: 'No lot or position holds a negative quantity — shorting is out of scope',
+    query: sql`
+      select 'tax_lot' as kind, id::text as id, remaining_quantity as quantity
+        from tax_lots where remaining_quantity < 0
+      union all
+      select 'position', account_id::text || ':' || instrument_id::text, quantity
+        from positions where quantity < 0
+    `,
+  },
+  {
+    invariant: 'I-11b',
+    description:
+      'The investment cash chain: net_amount = round(net_amount_instrument × rate, 4), and base likewise',
+    query: sql`
+      select id, net_amount_instrument, fx_rate_instrument_to_account, net_amount,
+             fx_rate_to_base, base_net_amount
+        from investment_transactions
+       where net_amount <> round(net_amount_instrument * fx_rate_instrument_to_account, 4)
+          or base_net_amount <> round(net_amount * fx_rate_to_base, 4)
+    `,
+  },
+  {
+    invariant: 'I-12',
+    description:
+      'Dividend/interest: net_amount_instrument = gross − fees − taxes, in the instrument currency',
+    query: sql`
+      select id, kind, gross_amount, fees, taxes, net_amount_instrument
+        from investment_transactions
+       where kind in ('dividend', 'interest')
+         and (gross_amount is null
+              or net_amount_instrument <> gross_amount - fees - taxes
+              or net_amount_instrument <= 0)
+    `,
+  },
+  {
+    invariant: 'I-13',
+    // Every rupee of movement is recorded in exactly one ledger. A mirroring
+    // row would credit the account twice, because deriveBalance() sums both.
+    description: 'No cash movement is recorded in both ledgers on the same day for the same account',
+    query: sql`
+      select i.id as investment_transaction_id, t.id as transaction_id, i.trade_date, i.net_amount
+        from investment_transactions i
+        join transaction_entries e on e.account_id = i.account_id
+                                  and e.amount = i.net_amount
+        join transactions t on t.id = e.transaction_id
+                           and t.booked_on = i.trade_date
+                           and t.user_id = i.user_id
+       where i.cash_settled = true
+         and i.net_amount <> 0
+         and t.description = coalesce(i.notes, '')
+    `,
+  },
+  {
+    invariant: 'I-15',
+    description: 'lot_disposals.realized_pnl = proceeds − cost_consumed',
+    query: sql`
+      select id, proceeds, cost_consumed, realized_pnl
+        from lot_disposals
+       where realized_pnl <> proceeds - cost_consumed
+    `,
+  },
+  {
+    invariant: 'I-16',
+    description: 'cash_settled = false ⟹ net_amount = 0 AND net_amount_instrument = 0',
+    query: sql`
+      select id, kind, cash_settled, net_amount, net_amount_instrument
+        from investment_transactions
+       where cash_settled = false and (net_amount <> 0 or net_amount_instrument <> 0)
+    `,
+  },
+  {
+    invariant: 'I-17',
+    // Summed PER LOT, because lots acquired at different times carry different
+    // rates. It is not `cost_basis × today's rate`.
+    description: 'positions.base_cost_basis = Σ (remaining_cost × lot.fx_rate_to_base), per lot',
+    query: sql`
+      select p.user_id, p.account_id, p.instrument_id,
+             p.base_cost_basis, coalesce(l.total, 0) as lot_base_cost_basis
+        from positions p
+        left join (
+          select user_id, account_id, instrument_id,
+                 sum(round(remaining_cost * fx_rate_to_base, 4)) as total
+            from tax_lots
+           group by user_id, account_id, instrument_id
+        ) l on l.user_id = p.user_id
+           and l.account_id = p.account_id
+           and l.instrument_id = p.instrument_id
+       where p.base_cost_basis <> coalesce(l.total, 0)
+    `,
+  },
+  {
+    invariant: 'I-18',
+    // The price component is DERIVED as the difference, so the two cannot fail
+    // to sum. What this checks is that the FX component is not larger than the
+    // total in a way that implies a sign error, and that a same-rate disposal
+    // carries no FX component at all.
+    description: 'base_fx_component is zero when the acquisition and disposal rates are equal',
+    query: sql`
+      select d.id, d.base_fx_component, d.fx_rate_to_base as disposal_rate, l.fx_rate_to_base as lot_rate
+        from lot_disposals d
+        join tax_lots l on l.id = d.lot_id
+       where d.fx_rate_to_base = l.fx_rate_to_base and d.base_fx_component <> 0
+    `,
+  },
+  {
+    invariant: 'I-19',
+    description: 'Per lot, (remaining_quantity = 0) = (remaining_cost = 0) — units and basis drain together',
+    query: sql`
+      select id, remaining_quantity, remaining_cost
+        from tax_lots
+       where (remaining_quantity = 0) <> (remaining_cost = 0)
+    `,
+  },
+  {
+    invariant: 'I-20',
+    // The money form of the relation. Its quantity counterpart is FALSE after a
+    // corporate action and is deliberately not asserted anywhere.
+    description: 'Per lot, Σ lot_disposals.cost_consumed + remaining_cost = cost_total',
+    query: sql`
+      select l.id, l.cost_total, l.remaining_cost, coalesce(d.consumed, 0) as consumed
+        from tax_lots l
+        left join (
+          select lot_id, sum(cost_consumed) as consumed from lot_disposals group by lot_id
+        ) d on d.lot_id = l.id
+       where coalesce(d.consumed, 0) + l.remaining_cost <> l.cost_total
+    `,
+  },
+  {
+    invariant: 'I-4b',
+    description: 'Every investment transaction belongs to the same user as its account and instrument',
+    query: sql`
+      select i.id, i.user_id, a.user_id as account_user, ins.user_id as instrument_user
+        from investment_transactions i
+        join accounts a on a.id = i.account_id
+        left join instruments ins on ins.id = i.instrument_id
+       where a.user_id <> i.user_id
+          or (ins.id is not null and ins.user_id <> i.user_id)
+          or (ins.id is not null and ins.currency_code <> i.currency_code)
+    `,
+  },
 ];
 
 /** Invariants defined in SCHEMA.md whose tables do not exist yet. Reported, never assumed. */
 const DEFERRED: readonly { invariant: string; description: string; note: string }[] = [
-  { invariant: 'I-5', description: 'Σ tax_lots.remaining_quantity = positions.quantity', note: 'Phase 4' },
-  { invariant: 'I-6', description: 'positions.cost_basis = Σ remaining × cost_per_unit', note: 'Phase 4' },
-  { invariant: 'I-7', description: 'No lot or position holds a negative quantity', note: 'Phase 4' },
   { invariant: 'I-8', description: 'Every credit_card/loan account counted once in net worth', note: 'Phase 5' },
   { invariant: 'I-10', description: 'Applied AI proposals have an ai_confirmed audit entry', note: 'Phase 9' },
-  { invariant: 'I-12', description: 'Dividend/interest: net = gross − fees − taxes', note: 'Phase 4' },
   { invariant: 'I-14', description: 'One AI proposal produces at most one record', note: 'Phase 9' },
 ];
 

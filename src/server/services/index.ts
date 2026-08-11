@@ -10,7 +10,7 @@ import 'server-only';
  */
 
 export type { ReadCtx, WriteCtx } from './_ctx';
-export { createReadCtx, withWriteCtx } from './_ctx';
+export { createReadCtx, withWriteCtx, withWriteCtxResult } from './_ctx';
 
 export type { BudgetStatus } from '../domain/calc/budget';
 export type { CashflowSummary, CashflowComparison, PeriodDelta } from '../domain/calc/cashflow';
@@ -19,10 +19,28 @@ export type { AccountKind, AccountRole } from '../domain/ledger/balance';
 export type { CategoryKind, TransactionKind } from '../domain/ledger/entries';
 export type { DateRange, PeriodKind } from '../../lib/date/periods';
 
+// Investment engine types a page renders without importing the engine itself.
+export type { InvestmentKind } from '../domain/lots/order';
+export type { CostBasisMethod } from '../domain/lots/fifo';
+export type { PriceResult, MissingPriceReason } from '../domain/pricing/price-result';
+export type { AssetClass, HoldingView, PortfolioValuation } from '../domain/pricing/valuation';
+export type {
+  Allocation,
+  AllocationDimension,
+  AllocationSlice,
+  Concentration,
+} from '../domain/pricing/allocation';
+export type { PortfolioSummary, GrowthPoint, GrowthSeries } from '../domain/calc/portfolio';
+
 export * from './accounts';
 export * from './budgets';
 export * from './cashflow';
 export * from './categories';
+export * from './instruments';
+export * from './investments';
+export * from './portfolio';
+export * from './positions';
+export * from './prices';
 export * from './recurring';
 export * from './reference';
 export * from './tags';

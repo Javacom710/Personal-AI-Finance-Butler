@@ -1,5 +1,5 @@
 {
-  "id": "fb6ab9dc-6204-4da2-9bdc-38f01c447bce",
+  "id": "117ac4d5-b964-4276-8942-fe075a96042c",
   "prevId": "490a39aa-a282-453b-ae3a-b62b1856007e",
   "version": "7",
   "dialect": "postgresql",
@@ -2883,6 +2883,10 @@
         "inv_txn_original_acquired_only_on_transfer_in": {
           "name": "inv_txn_original_acquired_only_on_transfer_in",
           "value": "\"investment_transactions\".\"kind\" = 'transfer_in' or \"investment_transactions\".\"original_acquired_on\" is null"
+        },
+        "inv_txn_original_acquired_not_in_future": {
+          "name": "inv_txn_original_acquired_not_in_future",
+          "value": "\"investment_transactions\".\"original_acquired_on\" is null or \"investment_transactions\".\"original_acquired_on\" <= \"investment_transactions\".\"trade_date\""
         },
         "inv_txn_account_amount_consistent": {
           "name": "inv_txn_account_amount_consistent",

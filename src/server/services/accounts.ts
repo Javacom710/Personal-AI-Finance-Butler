@@ -29,7 +29,14 @@ import {
   type AccountKind,
   type AccountRole,
 } from '../domain/ledger/balance';
-import { accounts, categories, transactionEntries, transactions } from '../db/schema';
+import {
+  accounts,
+  categories,
+  instruments,
+  investmentTransactions,
+  transactionEntries,
+  transactions,
+} from '../db/schema';
 import type { ReadCtx, WriteCtx } from './_ctx';
 import { bumpMoneyLedgerVersion } from './_ctx';
 import { requireOwnership } from './_guards';
@@ -122,7 +129,10 @@ export async function getAccount(
 }
 
 interface EntryTotal {
+  /** `Σ transaction_entries.amount` — the money ledger. */
   readonly total: string;
+  /** `Σ investment_transactions.net_amount` — the investment ledger. */
+  readonly investmentTotal: string;
   readonly lastActivityOn: string | null;
   readonly entryCount: number;
 }
@@ -135,8 +145,16 @@ interface EntryTotal {
  * range instead of reporting them at their opening balance, which is the
  * classic way this query loses an empty account.
  *
- * Phase 4 unions `investment_transactions.net_amount` into `movements`. The
- * engine's `deriveBalance` already takes that sum as a parameter.
+ * **Phase 4 unions `investment_transactions.net_amount` into `movements`.** The
+ * two ledgers are summed in one pass and kept as separate columns, because
+ * `deriveBalance()` takes them as separate parameters — every rupee of movement
+ * lives in exactly one ledger (I-13), and a mirroring row in the other would
+ * credit the account twice.
+ *
+ * The union has **no `cash_settled` filter**, deliberately: `deriveBalance()`
+ * sums `net_amount` unconditionally, and the `CHECK` behind invariant I-16
+ * guarantees an unsettled row carries zero. Filtering here as well would hide a
+ * broken constraint instead of surfacing it.
  */
 async function entryTotals(
   ctx: ReadCtx,
@@ -146,20 +164,27 @@ async function entryTotals(
   const result = await ctx.db.execute<{
     account_id: string;
     total: string;
+    investment_total: string;
     last_activity_on: string | null;
     entry_count: string;
   }>(sql`
-    select a.id                                as account_id,
-           coalesce(sum(m.amount), 0)::text    as total,
-           max(m.booked_on)::text              as last_activity_on,
-           count(m.amount)::text               as entry_count
+    select a.id                                                          as account_id,
+           coalesce(sum(m.amount) filter (where not m.is_investment), 0)::text as total,
+           coalesce(sum(m.amount) filter (where m.is_investment), 0)::text     as investment_total,
+           max(m.booked_on)::text                                        as last_activity_on,
+           count(m.amount)::text                                         as entry_count
       from ${accounts} a
       left join (
-        select e.account_id, e.amount, t.booked_on
+        select e.account_id, e.amount, t.booked_on, false as is_investment
           from ${transactionEntries} e
           join ${transactions} t on t.id = e.transaction_id
          where t.user_id = ${ctx.userId}
            ${asOf === null ? sql`` : sql`and t.booked_on <= ${asOf}`}
+        union all
+        select i.account_id, i.net_amount, i.trade_date, true
+          from ${investmentTransactions} i
+         where i.user_id = ${ctx.userId}
+           ${asOf === null ? sql`` : sql`and i.trade_date <= ${asOf}`}
       ) m on m.account_id = a.id
      where a.user_id = ${ctx.userId}
        ${accountId === undefined ? sql`` : sql`and a.id = ${accountId}`}
@@ -171,6 +196,7 @@ async function entryTotals(
       row.account_id,
       {
         total: row.total,
+        investmentTotal: row.investment_total,
         lastActivityOn: row.last_activity_on,
         entryCount: Number(row.entry_count),
       },
@@ -182,8 +208,16 @@ function toView(ctx: ReadCtx, row: AccountRow, total: EntryTotal | undefined): A
   const accountCurrency = currency(row.currencyCode.trim());
   const opening = Money.fromDbString(row.openingBalance, accountCurrency);
 
+  // Both sums are already in the account's own currency: `transaction_entries`
+  // by its own currency column, and `investment_transactions.net_amount` by
+  // OD-5. That is what lets `deriveBalance` add them without a currency
+  // argument — and why `net_amount` is not the instrument's currency.
   const entries = total && total.total !== '0' ? [Money.fromDbString(total.total, accountCurrency)] : [];
-  const balance = deriveBalance(opening, entries);
+  const investmentEntries =
+    total && total.investmentTotal !== '0'
+      ? [Money.fromDbString(total.investmentTotal, accountCurrency)]
+      : [];
+  const balance = deriveBalance(opening, entries, investmentEntries);
 
   const limit = row.creditLimit === null ? null : Money.fromDbString(row.creditLimit, accountCurrency);
   const converted = ctx.fx.toBase(balance, ctx.today);
@@ -404,9 +438,11 @@ export async function deleteAccount(ctx: WriteCtx, id: string): Promise<Result<v
 export interface LedgerLine {
   readonly entryId: string;
   readonly transactionId: string;
+  /** Which ledger the movement came from. A row is in exactly one (I-13). */
+  readonly ledger: 'money' | 'investment';
   readonly bookedOn: IsoDate;
   readonly description: string;
-  readonly kind: 'income' | 'expense' | 'transfer';
+  readonly kind: string;
   readonly categoryName: string | null;
   readonly counterAccountName: string | null;
   readonly amount: Money;
@@ -415,6 +451,13 @@ export interface LedgerLine {
 
 /**
  * An account's ledger with a running balance.
+ *
+ * **Both ledgers**, unioned. A brokerage account's cash moves through
+ * `investment_transactions.net_amount`, and `deriveBalance()` sums it — so a
+ * ledger showing only `transaction_entries` would end on a running balance that
+ * disagreed with the balance printed at the top of the same page. The union is a
+ * *read* over two tables, not a second row: reporting may combine the ledgers,
+ * and I-13 forbids a movement existing in both.
  *
  * Ordered ascending by the same total order the engine assumes
  * (`booked_on, created_at, id`), because a running balance over a partial order
@@ -433,21 +476,26 @@ export async function accountLedger(
   const result = await ctx.db.execute<{
     entry_id: string;
     transaction_id: string;
+    ledger: 'money' | 'investment';
     booked_on: string;
     description: string;
-    kind: 'income' | 'expense' | 'transfer';
+    kind: string;
     category_name: string | null;
     counter_account_name: string | null;
     amount: string;
+    sort_order: number;
   }>(sql`
-    select e.id                as entry_id,
-           t.id                as transaction_id,
+    select e.id::text          as entry_id,
+           t.id::text          as transaction_id,
+           'money'             as ledger,
            t.booked_on::text   as booked_on,
            t.description       as description,
-           t.kind              as kind,
+           t.kind::text        as kind,
            c.name              as category_name,
            counter.name        as counter_account_name,
-           e.amount::text      as amount
+           e.amount::text      as amount,
+           t.created_at        as created_at,
+           e.sort_order        as sort_order
       from ${transactionEntries} e
       join ${transactions} t on t.id = e.transaction_id
       left join ${categories} c on c.id = t.category_id
@@ -455,7 +503,22 @@ export async function accountLedger(
              on other.transaction_id = t.id and other.id <> e.id
       left join ${accounts} counter on counter.id = other.account_id
      where e.account_id = ${id} and t.user_id = ${ctx.userId}
-     order by t.booked_on asc, t.created_at asc, t.id asc, e.sort_order asc
+    union all
+    select i.id::text          as entry_id,
+           i.id::text          as transaction_id,
+           'investment'        as ledger,
+           i.trade_date::text  as booked_on,
+           coalesce(i.notes, '') as description,
+           i.kind::text        as kind,
+           null                as category_name,
+           ins.symbol          as counter_account_name,
+           i.net_amount::text  as amount,
+           i.created_at        as created_at,
+           0                   as sort_order
+      from ${investmentTransactions} i
+      left join ${instruments} ins on ins.id = i.instrument_id
+     where i.account_id = ${id} and i.user_id = ${ctx.userId}
+     order by booked_on asc, created_at asc, transaction_id asc, sort_order asc
      limit ${limit}
   `);
 
@@ -468,8 +531,12 @@ export async function accountLedger(
   const lines = withRunningBalance(account.value.openingBalance, movements).map((line) => ({
     entryId: line.row.entry_id,
     transactionId: line.row.transaction_id,
+    ledger: line.row.ledger,
     bookedOn: isoDate(line.row.booked_on),
-    description: line.row.description,
+    description:
+      line.row.ledger === 'investment' && line.row.description === ''
+        ? investmentLineDescription(line.row.kind, line.row.counter_account_name)
+        : line.row.description,
     kind: line.row.kind,
     categoryName: line.row.category_name,
     counterAccountName: line.row.counter_account_name,
@@ -478,6 +545,27 @@ export async function accountLedger(
   }));
 
   return ok({ account: account.value, lines });
+}
+
+const INVESTMENT_KIND_LABELS: Record<string, string> = {
+  buy: 'Buy',
+  sell: 'Sell',
+  mf_purchase: 'Purchase',
+  mf_redemption: 'Redemption',
+  dividend: 'Dividend',
+  interest: 'Interest',
+  fee: 'Fee',
+  tax: 'Tax',
+  split: 'Split',
+  bonus: 'Bonus',
+  transfer_in: 'Transfer in',
+  transfer_out: 'Transfer out',
+};
+
+/** A readable line for an investment row the user left unannotated. */
+function investmentLineDescription(kind: string, symbol: string | null): string {
+  const label = INVESTMENT_KIND_LABELS[kind] ?? kind;
+  return symbol === null ? label : `${label} · ${symbol}`;
 }
 
 // -------------------------------------------------------------------- helpers

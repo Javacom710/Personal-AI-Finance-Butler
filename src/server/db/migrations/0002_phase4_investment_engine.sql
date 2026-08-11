@@ -99,6 +99,7 @@ CREATE TABLE "investment_transactions" (
               and "investment_transactions"."fees" = 0 and "investment_transactions"."taxes" = 0)),
 	CONSTRAINT "inv_txn_ratio_only_on_corporate_actions" CHECK ("investment_transactions"."kind" in ('split','bonus') or ("investment_transactions"."ratio_num" is null and "investment_transactions"."ratio_den" is null)),
 	CONSTRAINT "inv_txn_original_acquired_only_on_transfer_in" CHECK ("investment_transactions"."kind" = 'transfer_in' or "investment_transactions"."original_acquired_on" is null),
+	CONSTRAINT "inv_txn_original_acquired_not_in_future" CHECK ("investment_transactions"."original_acquired_on" is null or "investment_transactions"."original_acquired_on" <= "investment_transactions"."trade_date"),
 	CONSTRAINT "inv_txn_account_amount_consistent" CHECK ("investment_transactions"."net_amount" = round("investment_transactions"."net_amount_instrument" * "investment_transactions"."fx_rate_instrument_to_account", 4)),
 	CONSTRAINT "inv_txn_base_amount_consistent" CHECK ("investment_transactions"."base_net_amount" = round("investment_transactions"."net_amount" * "investment_transactions"."fx_rate_to_base", 4))
 );

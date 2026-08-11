@@ -344,6 +344,14 @@ export const investmentTransactions = pgTable(
       'inv_txn_original_acquired_only_on_transfer_in',
       sql`${t.kind} = 'transfer_in' or ${t.originalAcquiredOn} is null`,
     ),
+    // Shares cannot have been acquired after they were transferred in. Without
+    // this, `holding_days` on the eventual sale would be negative, and the
+    // `lot_disposals_holding_days_non_negative` CHECK would fail mid-rebuild —
+    // reporting the fault against the wrong row.
+    check(
+      'inv_txn_original_acquired_not_in_future',
+      sql`${t.originalAcquiredOn} is null or ${t.originalAcquiredOn} <= ${t.tradeDate}`,
+    ),
 
     // I-11, the full chain. Each denomination is a stored derivation of the one
     // above it, so neither can drift. round() on numeric is immutable and rounds

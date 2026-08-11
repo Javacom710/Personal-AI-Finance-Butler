@@ -151,6 +151,53 @@ export async function withWriteCtx<T>(
   });
 }
 
+/** Carries a domain error out of a transaction so the transaction rolls back with it. */
+class CommandFailed extends Error {
+  constructor(readonly domainError: DomainError) {
+    super(domainError.message);
+    this.name = 'CommandFailed';
+  }
+}
+
+/**
+ * `withWriteCtx` for a command that returns a `Result` — **and rolls back when
+ * the result is an error.**
+ *
+ * Returning an error value from inside an open transaction does **not** undo the
+ * writes already made in it: the callback resolved, so the driver commits. That
+ * is fine for a command that fails before writing anything, and wrong for one
+ * that fails after — which is exactly the shape of an investment mutation, where
+ * the row is inserted and the ledger version bumped *before* the rebuild can
+ * discover an oversell.
+ *
+ * Phase 3 met the same problem inside `postOccurrence` and solved it with a
+ * savepoint (D-21). This is the general form: the error is thrown so the
+ * transaction unwinds, then caught here and returned as the value the caller
+ * expected. TESTING.md §4's requirement — *"a failed write inside an application
+ * service rolls back completely: no orphan entries, no bumped `ledger_version`,
+ * no audit row"* — is a property of this function rather than of each service.
+ */
+export async function withWriteCtxResult<T>(
+  ctx: ReadCtx,
+  fn: (write: WriteCtx) => Promise<Result<T, DomainError>>,
+  options: { readonly requestId?: string } = {},
+): Promise<Result<T, DomainError>> {
+  try {
+    return await withWriteCtx(
+      ctx,
+      async (write) => {
+        const result = await fn(write);
+        if (!result.ok) throw new CommandFailed(result.error);
+        return result;
+      },
+      options,
+    );
+  } catch (error) {
+    if (error instanceof CommandFailed) return { ok: false, error: error.domainError };
+    throw error;
+  }
+}
+
 /**
  * Bump `money_ledger_version` (ARCHITECTURE.md §6).
  *
@@ -178,6 +225,44 @@ export async function bumpMoneyLedgerVersion(ctx: WriteCtx): Promise<bigint> {
 export async function currentMoneyLedgerVersion(ctx: ReadCtx): Promise<bigint> {
   const [row] = await ctx.db
     .select({ version: userState.moneyLedgerVersion })
+    .from(userState)
+    .where(eq(userState.userId, ctx.userId))
+    .limit(1);
+  return row?.version ?? 0n;
+}
+
+/**
+ * Bump `investment_ledger_version` — the investment ledger's counterpart.
+ *
+ * Bumped by any change to `investment_transactions`, and by a change to an
+ * instrument's `cost_basis_method`, which rewrites derived history just as a
+ * trade does (ARCHITECTURE.md §6).
+ *
+ * The returned version is stamped onto every `positions` row the same
+ * transaction rebuilds. That stamp is **provenance, not staleness**: nothing
+ * compares it against this counter to decide whether to rebuild, because the
+ * counter is global per user and every position but the rebuilt one would look
+ * stale forever. Correctness comes from the rebuild sharing this transaction.
+ */
+export async function bumpInvestmentLedgerVersion(ctx: WriteCtx): Promise<bigint> {
+  const [row] = await ctx.tx
+    .update(userState)
+    .set({ investmentLedgerVersion: sql`${userState.investmentLedgerVersion} + 1` })
+    .where(eq(userState.userId, ctx.userId))
+    .returning({ version: userState.investmentLedgerVersion });
+
+  if (!row) {
+    throw new Error(
+      `No user_state row for ${ctx.userId}. Every account is provisioned with one; ` +
+        'its absence means a half-created user.',
+    );
+  }
+  return row.version;
+}
+
+export async function currentInvestmentLedgerVersion(ctx: ReadCtx): Promise<bigint> {
+  const [row] = await ctx.db
+    .select({ version: userState.investmentLedgerVersion })
     .from(userState)
     .where(eq(userState.userId, ctx.userId))
     .limit(1);
