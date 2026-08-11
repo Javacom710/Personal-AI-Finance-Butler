@@ -2,7 +2,7 @@
 
 Durable status record. Conversation history is temporary; this file is not. Read this first after any context reset, then verify it against `docs/`, the source tree, and the tests before trusting it.
 
-**Last updated:** 2026-08-11 · **Current phase:** 3 complete, 4 in progress
+**Last updated:** 2026-08-11 · **Current phase:** 4 complete, 5 not started
 
 Sequence approved 2026-08-11: **Phase 3 — Money Management → Phase 4 — Investment Engine.**
 
@@ -40,7 +40,7 @@ Corollaries that follow from the above:
 | `docs/` | 11 architecture documents. Baseline, approved. |
 | `CLAUDE.md` / `AGENTS.md` | The specification. Byte-identical duplicates (see OD-2). |
 | `Workflow Setup.txt` | Canonical 15-phase map ([ADR-20](docs/DECISIONS.md)) |
-| Application code | **Phases 2–3.** Next.js 16, exact-money primitives, database, auth, app shell — plus the whole money core: accounts, categories, tags, transactions, transfers, budgets, recurring rules, the job runner and the Money UI. |
+| Application code | **Phases 2–4.** Next.js 16, exact-money primitives, database, auth, app shell; the money core (accounts, categories, tags, transactions, transfers, budgets, recurring rules, the job runner and the Money UI); and the investment engine (instruments, the investment ledger, the FIFO lot engine, positions, valuation, allocation, XIRR/TWR and the Investments UI). |
 | Git repository | Initialised, `core.autocrlf=input`. Phase 2 and Phase 3 are committed; the Phase 4 design review and its documentation correction pass were merged in from `claude/investment-engine-review-3ed9bd`. |
 
 ## Phases
@@ -51,8 +51,8 @@ Corollaries that follow from the above:
 | 1 — Architecture | ✅ complete, **approved** |
 | 2 — Foundation | ✅ complete, verified |
 | 3 — Financial Core | ✅ complete, verified |
-| 4 — Investment Engine | **designed, reviewed, corrections applied; implementation in progress** |
-| 5 — Net Worth | not started |
+| 4 — Investment Engine | ✅ complete, verified |
+| 5 — Net Worth | not started; **unblocked** |
 | 6 — Market Data | not started (OD-3 affects completion, not start) |
 | 7 — AI Infrastructure | **blocked** on OD-1 (`NVIDIA_API_KEY`) |
 | 8–14 | not started |
@@ -158,6 +158,26 @@ Each is reversible; the reasoning is recorded so it can be challenged.
 | # | Decision | Why |
 |---|---|---|
 | **D-23** | **PostgreSQL 18.4 as a Windows service, replacing the portable 17.7 (supersedes D-9)** | A postmaster started by hand belongs to the process tree of whatever started it, and dies with that console. It happened four times during Phase 3, each time looking like a test failure rather than an environment failure, and each recovery cost a manual restart. A service is owned by the Service Control Manager, starts with Windows, and cannot be reaped by a terminal closing. The migration was a logical dump and restore — verified metric-by-metric against the source, with roles, grants, schema, Drizzle history and data all preserved — so no connection string in `.env` changed. The 17.7 data directory is retained as a rollback until the new instance has some mileage. |
+
+---
+
+## What Phase 4 delivered
+
+| Area | Where |
+|---|---|
+| Primitive | `src/lib/decimal/price.ts` — `UnitPrice` at scale 8, `valueOf` / `perUnit` / `mulQtyRatio`. `Money` is scale 4 and truncates a NAV at the read boundary. |
+| Schema | `src/server/db/schema/investments.ts` — 7 tables, 3 enums, migration `0002`, hand-written down migration. Purely additive; no destructive statement. |
+| Lot engine | `src/server/domain/lots/` — `replay()`, the FIFO `MatchingStrategy` (ADR-07's one seam), `kind_rank` ordering |
+| Pricing | `src/server/domain/pricing/` — `PriceResult`, valuation with coverage, allocation across five dimensions, concentration with HHI |
+| Metrics | `src/server/domain/calc/` — `portfolio.ts` (two denominators), `xirr.ts` (Newton + bisection), `twr.ts` (Modified Dietz, chain-linked) |
+| Services | `src/server/services/` — instruments, investments, positions, portfolio, prices. Rebuild shares the mutation's transaction. |
+| Integrity | I-5, I-6, I-7, I-12, I-13, I-15…I-20 added to `verify:integrity`; 21 checked, 3 deferred, both non-invariants deliberately unasserted |
+| UI | `app/(app)/investments/` — overview, holdings, instrument detail with lots, ledger, allocation, performance, instruments |
+| Tests | 210 added — 150 unit, 13 property, 47 integration — including golden **G2** and **L1** |
+
+### Decisions taken during implementation
+
+Recorded in full in [ROADMAP.md](docs/ROADMAP.md) Phase 4. In brief: **D-24** partial cost consumption floors rather than rounding half-up, because only `floor` keeps invariant I-19; **D-25** three new `CHECK` constraints; **D-26** `withWriteCtxResult`, so a command that returns an error writes nothing; **D-27** `ProportionBar`, because the CSP blocks inline `style` attributes — a defect Phase 3's budget bar shared and which is now fixed in both.
 
 ---
 
@@ -315,11 +335,11 @@ Run on 2026-08-10.
 
 | Question | File |
 |---|---|
-| Why was X decided that way? | [docs/DECISIONS.md](docs/DECISIONS.md) — 21 ADRs with rejected alternatives, plus D-9…D-23 above |
+| Why was X decided that way? | [docs/DECISIONS.md](docs/DECISIONS.md) — 21 ADRs with rejected alternatives, plus D-9…D-23 above and D-24…D-27 in [ROADMAP.md](docs/ROADMAP.md) Phase 4 |
 | What are the tables and invariants? | [docs/SCHEMA.md](docs/SCHEMA.md) — 20 invariants (I-1 … I-20) plus two explicit non-invariants |
 | How does money behave? | [docs/FINANCIAL-DOMAIN.md](docs/FINANCIAL-DOMAIN.md) |
 | How do holdings and returns behave? | [docs/INVESTMENT-DOMAIN.md](docs/INVESTMENT-DOMAIN.md) — corrected and authoritative |
 | Why does the investment engine work that way? | [docs/INVESTMENT-ENGINE-DESIGN.md](docs/INVESTMENT-ENGINE-DESIGN.md) — the Phase 4 review record and rationale. **Non-normative**: where it and a canonical document differ, the canonical document wins |
 | How does the AI layer work and what can't it do? | [docs/AI-SYSTEM.md](docs/AI-SYSTEM.md) |
 | What must be tested before a phase is done? | [docs/TESTING.md](docs/TESTING.md) and each phase's "Done when" |
-| What am I building next? | [docs/ROADMAP.md](docs/ROADMAP.md) — Phase 4, Investment Engine |
+| What am I building next? | [docs/ROADMAP.md](docs/ROADMAP.md) — Phase 5, Net Worth |

@@ -107,7 +107,32 @@ describe('a healthy database', () => {
     const skipped = report.checks.filter((c) => c.status === 'skipped').map((c) => c.invariant);
 
     // A checker that silently covers less than it claims is worse than none.
-    expect(skipped).toEqual(expect.arrayContaining(['I-5', 'I-6', 'I-7', 'I-8', 'I-10', 'I-12', 'I-14']));
+    // Phase 4 moved I-5, I-6, I-7 and I-12 out of this list by implementing the
+    // tables they describe; what remains is net worth (Phase 5) and AI (Phase 9).
+    expect(skipped).toEqual(expect.arrayContaining(['I-8', 'I-10', 'I-14']));
+    expect(skipped).not.toContain('I-5');
+    expect(skipped).not.toContain('I-6');
+    expect(skipped).not.toContain('I-7');
+    expect(skipped).not.toContain('I-12');
+  });
+
+  it('checks every investment invariant Phase 4 is responsible for', async () => {
+    const report = await verifyIntegrity(url);
+    const checked = report.checks.filter((c) => c.status !== 'skipped').map((c) => c.invariant);
+
+    for (const invariant of ['I-5', 'I-6', 'I-7', 'I-12', 'I-13', 'I-15', 'I-16', 'I-17', 'I-18', 'I-19', 'I-20']) {
+      expect(checked, `${invariant} must be checked, not skipped`).toContain(invariant);
+    }
+  });
+
+  it('asserts NEITHER declared non-invariant', async () => {
+    // Both are intuitive, will be assumed, and are false (SCHEMA.md §12).
+    // Asserting either would fail on legitimate data after a corporate action,
+    // or report the whole portfolio stale forever.
+    const report = await verifyIntegrity(url);
+    const descriptions = report.checks.map((c) => c.description).join(' | ');
+    expect(descriptions).not.toMatch(/lot_disposals\.quantity \+ .*original_quantity/);
+    expect(descriptions).not.toMatch(/ledger_version\s*=\s*.*investment_ledger_version/);
   });
 });
 

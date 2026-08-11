@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
-import { PageHeader } from '../../../_components/page-shell';
+import { PageHeader, ProportionBar } from '../../../_components/page-shell';
 import { listBudgetStatuses, listCategories, listCurrencies } from '@/server/services';
 import { Disclosure, InlineAction } from '../_components';
 import { BudgetForm } from '../_forms';
@@ -107,16 +107,16 @@ export default async function BudgetsPage() {
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-2">
-                        <div
-                          className="h-1.5 w-24 overflow-hidden rounded-full bg-surface-sunken"
-                          role="img"
-                          aria-label={`${format.metricPercent(used, 0)} of budget used`}
-                        >
-                          <div
-                            className={`h-full ${budget.status.isOverBudget ? 'bg-negative' : 'bg-accent'}`}
-                            style={{ width: `${Math.min(Math.max(percent * 100, 0), 100)}%` }}
-                          />
-                        </div>
+                        {/* Was an inline `style={{ width }}`, which the CSP in
+                            proxy.ts blocks — the bar rendered at zero width in
+                            every browser, with a console violation and no other
+                            symptom. `ProportionBar` uses static classes. */}
+                        <ProportionBar
+                          fraction={percent}
+                          label={`${format.metricPercent(used, 0)} of budget used`}
+                          tone={budget.status.isOverBudget ? 'negative' : 'accent'}
+                          className="w-24"
+                        />
                         <span className="tabular text-xs text-ink-muted">
                           {format.metricPercent(used, 0)}
                         </span>

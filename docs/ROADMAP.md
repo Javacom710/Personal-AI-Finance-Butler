@@ -117,29 +117,44 @@ Skeleton, exact-money primitives, database, auth, test harness. **No features.**
 
 ---
 
-## Phase 4 — Investment Engine
+## Phase 4 — Investment Engine ✅ complete
 
-No prices yet. Cost basis, lots, realised P&L — all of which are price-independent.
-
-**Blocked until Phase 3 ships**: `investment_transactions.account_id` references `accounts`, and the engine's cash effects land through `deriveBalance()`. The design is settled — [INVESTMENT-ENGINE-DESIGN.md](INVESTMENT-ENGINE-DESIGN.md), with its corrections applied to `INVESTMENT-DOMAIN.md` and `SCHEMA.md` under OD-4.
+The design was settled before implementation — [INVESTMENT-ENGINE-DESIGN.md](INVESTMENT-ENGINE-DESIGN.md), with its corrections applied to `INVESTMENT-DOMAIN.md` and `SCHEMA.md` under OD-4.
 
 - `src/lib/decimal/price.ts` — the `UnitPrice` primitive, `valueOf` / `perUnit` / `mulQtyRatio`
-- Schema: `instruments`, `investment_transactions`, `tax_lots`, `lot_disposals`, `positions`
-- The pure `replay()` FIFO engine; corporate actions (split, bonus, transfer in/out)
-- Rebuild (targeted and full), inside the mutation's transaction; `investment_ledger_version` stamping
-- UI: instruments, investment transaction entry and ledger, holdings **at cost**
+- Schema `0002`: `instruments`, `instrument_prices`, `instrument_quotes`, `investment_transactions`, `tax_lots`, `lot_disposals`, `positions`; `recurring_occurrences.investment_transaction_id` gains its deferred FK
+- `src/server/domain/lots/` — the pure `replay()` FIFO engine, `kind_rank` ordering, corporate actions
+- `src/server/domain/pricing/` — `PriceResult`, valuation with coverage, allocation, concentration
+- `src/server/domain/calc/` — `portfolio.ts`, `xirr.ts`, `twr.ts`
+- Services: `instruments`, `investments`, `positions`, `portfolio`, `prices`; rebuild inside the mutation's transaction with `investment_ledger_version` stamping
+- UI: overview, holdings, instrument detail with lots, the ledger, allocation, performance, instruments
 
 **Done when**
-- [ ] Edge cases 1–14, 18–19 and **21–31** in [INVESTMENT-DOMAIN.md §12](INVESTMENT-DOMAIN.md#12-edge-cases-that-must-be-covered-by-tests) pass
-- [ ] Splits and bonuses preserve total cost basis **exactly** — `Σ cost_total` byte-identical before and after
-- [ ] Oversell is rejected with `shortBy` and writes nothing, including when introduced by a backdated sell
-- [ ] Incremental rebuild output is byte-identical to a full rebuild (property test)
-- [ ] Replay is independent of insertion order within a `trade_date` (property test; needs `kind_rank`)
-- [ ] Invariants I-5, I-6, I-7, **I-15, I-16, I-18, I-19, I-20** pass; I-6 asserted **exactly**, with no tolerance
-- [ ] The `CHECK` constraints reject at the database, asserted by direct `INSERT`s that bypass the service
-- [ ] Golden scenarios **G2** and **L1** pass at cost basis (market-value assertions deferred to Phase 6)
-- [ ] Market-value, unrealised P&L, and return metrics return `null` with reason `no_price` — not `0`
-- [ ] `verify:integrity` does **not** assert either non-invariant in [SCHEMA.md §12](SCHEMA.md#12-invariants-summary)
+- [x] Edge cases 1–14, 18–19 and **21–31** in [INVESTMENT-DOMAIN.md §12](INVESTMENT-DOMAIN.md#12-edge-cases-that-must-be-covered-by-tests) pass
+- [x] Splits and bonuses preserve total cost basis **exactly** — `Σ cost_total` byte-identical before and after
+- [x] Oversell is rejected with `shortBy` and writes nothing, including when introduced by a backdated sell
+- [x] Incremental rebuild output is byte-identical to a full rebuild (property test **and** integration test)
+- [x] Replay is independent of insertion order within a `trade_date` (property test; needs `kind_rank`)
+- [x] Invariants I-5, I-6, I-7, **I-15, I-16, I-18, I-19, I-20** pass; I-6 asserted **exactly**, with no tolerance
+- [x] The `CHECK` constraints reject at the database, asserted by 30 direct `INSERT`s that bypass the service
+- [x] Golden scenarios **G2** and **L1** pass; market value asserted against manually entered prices
+- [x] Market-value, unrealised P&L, and return metrics return `null` with reason `no_price` — not `0`
+- [x] `verify:integrity` does **not** assert either non-invariant in [SCHEMA.md §12](SCHEMA.md#12-invariants-summary), and a test asserts their absence
+
+### Corrections made during implementation
+
+Each was forced by a test rather than found by reading. Recorded here because each changes something a canonical document states.
+
+| # | What | Why |
+|---|---|---|
+| **D-24** | Partial cost consumption rounds **`floor`**, not `half_up` | [INVESTMENT-DOMAIN.md §4](INVESTMENT-DOMAIN.md#fifo-matching-strategy)'s pseudocode says `half_up`; its own prose two paragraphs later says the residue is *retained*. Only `floor` does both — and only `floor` keeps invariant **I-19**, which is a database `CHECK`. A lot with ₹0.0001 of basis over 10 units, selling 6, drains to zero basis with units remaining under `half_up`. Found by a property test. No documented figure changes: every worked example divides exactly. |
+| **D-25** | Three new `CHECK` constraints | `inv_txn_acquisition_has_cost` (a dust purchase would open a lot with units and no basis, failing I-19 mid-rebuild), `inv_txn_original_acquired_not_in_future` (would make `holding_days` negative and fail against the wrong table), and `positions_units_and_basis_agree`. |
+| **D-26** | `withWriteCtxResult` | Returning an error from inside an open transaction does not undo the writes already in it. An investment mutation inserts its row and bumps the version *before* the rebuild can discover an oversell, so edge case 30 was unreachable without this. Generalises Phase 3's D-21 savepoint into the write boundary. |
+| **D-27** | `ProportionBar`, replacing inline `style={{ width }}` | The CSP in `proxy.ts` sets `style-src 'self' 'nonce-…'`, which blocks style **attributes**. Phase 3's budget bar had the same defect and rendered at zero width in every browser, with only a console violation to show for it. Both are now static Tailwind classes. |
+
+`ai_proposal_id` on `investment_transactions` is deliberately absent, following the precedent D-17 set on `transactions.ai_proposal_id`: Phase 7 adds both columns with their foreign keys and the partial unique index invariant I-14 needs.
+
+**Deferred to Phase 6, as designed:** the `MarketDataProvider` registry and its adapters, the `prices.refresh` job, and `instrument_prices` history. Prices are entered by hand; TWR therefore returns `null` with `insufficient_price_history` for every instrument, which is [INVESTMENT-DOMAIN.md §8](INVESTMENT-DOMAIN.md#8-time-weighted-return)'s documented launch behaviour and not a defect.
 
 ---
 
