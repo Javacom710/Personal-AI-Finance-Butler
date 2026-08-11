@@ -2,7 +2,7 @@
 
 Durable status record. Conversation history is temporary; this file is not. Read this first after any context reset, then verify it against `docs/`, the source tree, and the tests before trusting it.
 
-**Last updated:** 2026-08-09 · **Current phase:** 2 complete, 3 not started
+**Last updated:** 2026-08-11 · **Current phase:** 2 complete, 3 not started · Phase 4 **designed, not started** ([INVESTMENT-ENGINE-DESIGN.md](docs/INVESTMENT-ENGINE-DESIGN.md))
 
 ---
 
@@ -48,8 +48,8 @@ Corollaries that follow from the above:
 | 0 — Environment & Repository | ✅ complete |
 | 1 — Architecture | ✅ complete, **approved** |
 | 2 — Foundation | ✅ complete, verified |
-| 3 — Financial Core | not started; **unblocked** |
-| 4 — Investment Engine | not started |
+| 3 — Financial Core | not started; **unblocked**. Five amendments required by the Phase 4 review — [INVESTMENT-ENGINE-DESIGN.md §11](docs/INVESTMENT-ENGINE-DESIGN.md) |
+| 4 — Investment Engine | **designed and reviewed 2026-08-11; blocked on Phase 3.** 15 defects found in the approved baseline; corrections proposed but **not applied** pending approval (OD-4) |
 | 5 — Net Worth | not started |
 | 6 — Market Data | not started (OD-3 affects completion, not start) |
 | 7 — AI Infrastructure | **blocked** on OD-1 (`NVIDIA_API_KEY`) |
@@ -120,6 +120,9 @@ Each is reversible; the reasoning is recorded so it can be challenged.
 | **OD-1** | `NVIDIA_API_KEY` — needed to verify the model catalogue authenticated and to run the eval harness | Phases 7–9 |
 | **OD-2** | `AGENTS.md` is byte-identical to `CLAUDE.md`. Two copies of a 2,181-line spec will drift. Recommendation: reduce `AGENTS.md` to a pointer — not done unilaterally, as another tool may require full content at that path | Nothing technically; an instruction-correctness risk |
 | **OD-3** | Equity/ETF market-data provider and its terms | Phase 6 completion |
+| **OD-4** | **Approval to amend the approved baseline.** The Phase 4 review found 15 defects in `INVESTMENT-DOMAIN.md` / `SCHEMA.md` — including engine pseudocode that contradicts invariant I-12 and would fail edge case 5b. Corrections are recorded in [INVESTMENT-ENGINE-DESIGN.md §2](docs/INVESTMENT-ENGINE-DESIGN.md); the baseline docs are **untouched** per the working protocol's stop-and-explain rule | Phase 4 implementation |
+| **OD-5** | `investment_transactions.net_amount` — instrument currency or account currency? `deriveBalance()` sums it into an account-currency balance, so a foreign-currency instrument bought from an INR account would mix currencies. Recommendation: **account currency**, gross retained in instrument currency | Phase 3 schema |
+| **OD-6** | `settlement_date` — keep `trade_date` as the cash date (recommended) or model settlement, or drop the column | Phase 4 schema |
 
 ---
 
@@ -131,7 +134,7 @@ Recorded so these are not rediscovered as bugs.
 - **`instruments` is per-user** (`UNIQUE (user_id, symbol, exchange)`). Correct at one user, wrong at ~10k — a migration, not a redesign.
 - **Balances are computed on every read**, no stored column. Escape hatch pre-designed: a materialised roll-up keyed by `money_ledger_version`.
 - **No Row-Level Security.** Fine single-user; the priority item if this ever becomes multi-tenant.
-- **`PortfolioSnapshot`** folded into `net_worth_snapshots.breakdown` (JSONB). Flagged for a decision before Phase 6.
+- ~~**`PortfolioSnapshot`** folded into `net_worth_snapshots.breakdown` (JSONB). Flagged for a decision before Phase 6.~~ **Resolved 2026-08-11**: no `portfolio_snapshots` table. Historical portfolio value is derivable from `investment_transactions` + `instrument_prices` in a single SQL pass; the escape hatch is a roll-up keyed by `investment_ledger_version`, never a mutable record ([INVESTMENT-ENGINE-DESIGN.md §8.3](docs/INVESTMENT-ENGINE-DESIGN.md)).
 - **Tier 5 embeddings deferred** with written activation criteria ([ADR-19](docs/DECISIONS.md)).
 - **Liability `interest_rate` / `emi_amount` are descriptive only** — no amortisation schedule is computed, and the UI must not imply one.
 
@@ -187,7 +190,8 @@ Run on 2026-08-09 against the production build, not the dev server.
 | Why was X decided that way? | [docs/DECISIONS.md](docs/DECISIONS.md) — 21 ADRs with rejected alternatives, plus D-9…D-16 above |
 | What are the tables and invariants? | [docs/SCHEMA.md](docs/SCHEMA.md) — 14 invariants |
 | How does money behave? | [docs/FINANCIAL-DOMAIN.md](docs/FINANCIAL-DOMAIN.md) |
-| How do holdings and returns behave? | [docs/INVESTMENT-DOMAIN.md](docs/INVESTMENT-DOMAIN.md) |
+| How do holdings and returns behave? | [docs/INVESTMENT-DOMAIN.md](docs/INVESTMENT-DOMAIN.md) — **read with [INVESTMENT-ENGINE-DESIGN.md §2](docs/INVESTMENT-ENGINE-DESIGN.md); its §4 pseudocode has known defects** |
+| What is actually being built in Phase 4, and why not as written? | [docs/INVESTMENT-ENGINE-DESIGN.md](docs/INVESTMENT-ENGINE-DESIGN.md) — review, schema delta, methodology, test strategy |
 | How does the AI layer work and what can't it do? | [docs/AI-SYSTEM.md](docs/AI-SYSTEM.md) |
 | What must be tested before a phase is done? | [docs/TESTING.md](docs/TESTING.md) and each phase's "Done when" |
 | What am I building next? | [docs/ROADMAP.md](docs/ROADMAP.md) — Phase 3, Financial Core |
