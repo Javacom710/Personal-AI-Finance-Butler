@@ -173,7 +173,7 @@ Each is reversible; the reasoning is recorded so it can be challenged.
 | Services | `src/server/services/` — instruments, investments, positions, portfolio, prices. Rebuild shares the mutation's transaction. |
 | Integrity | I-5, I-6, I-7, I-12, I-13, I-15…I-20 added to `verify:integrity`; 21 checked, 3 deferred, both non-invariants deliberately unasserted |
 | UI | `app/(app)/investments/` — overview, holdings, instrument detail with lots, ledger, allocation, performance, instruments |
-| Tests | 210 added — 150 unit, 13 property, 47 integration — including golden **G2** and **L1** |
+| Tests | **249 added** — 150 unit, 13 property, 86 integration — taking the suite from 663 to **912**. Includes golden **G2** and **L1**. |
 
 ### Decisions taken during implementation
 
