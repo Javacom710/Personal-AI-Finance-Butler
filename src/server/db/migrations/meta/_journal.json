@@ -15,6 +15,13 @@
       "when": 1786365111420,
       "tag": "0001_phase3_financial_core",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786453579356,
+      "tag": "0002_phase4_investment_engine",
+      "breakpoints": true
     }
   ]
 }

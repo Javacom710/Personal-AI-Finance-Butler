@@ -93,7 +93,11 @@ async function tableCount(): Promise<number> {
 }
 
 /** Every migration in the journal, newest last. */
-const MIGRATIONS = ['0000_phase2_foundation', '0001_phase3_financial_core'] as const;
+const MIGRATIONS = [
+  '0000_phase2_foundation',
+  '0001_phase3_financial_core',
+  '0002_phase4_investment_engine',
+] as const;
 
 /**
  * ROADMAP Phase 2: "migrations apply and roll back cleanly".
@@ -106,6 +110,12 @@ const MIGRATIONS = ['0000_phase2_foundation', '0001_phase3_financial_core'] as c
  * so the fingerprint now covers them too. A `check_transaction_shape()` left
  * behind by an incomplete rollback is exactly the kind of residue that makes a
  * re-migration fail on a different machine than the one it was tested on.
+ *
+ * Phase 4's down migration is the first with an `ALTER TABLE … DROP COLUMN`
+ * (`recurring_occurrences.investment_transaction_id`). The fingerprint covers
+ * exactly that case: a rollback that dropped the tables but left the column
+ * would re-migrate into a schema with a duplicate column error, or worse,
+ * silently diverge — and only the before/after comparison sees it.
  */
 describe('migrate and roll back', () => {
   it('rolls back every migration, newest first, and re-applies to an identical schema', async () => {

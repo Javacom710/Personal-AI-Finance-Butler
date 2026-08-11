@@ -10,7 +10,7 @@ beforeEach(truncateAll);
 afterAll(closeHarness);
 
 describe('migration', () => {
-  it('created every Phase 2 and Phase 3 table, and nothing from a later phase', async () => {
+  it('created every Phase 2, 3 and 4 table, and nothing from a later phase', async () => {
     const result = await db().execute<{ tablename: string }>(
       sql`select tablename from pg_tables where schemaname = 'public' order by tablename`,
     );
@@ -38,12 +38,28 @@ describe('migration', () => {
         'transaction_entries',
         'transaction_tags',
         'transactions',
+        // Phase 4 — instruments, prices and the investment ledger
+        'instruments',
+        'instrument_prices',
+        'instrument_quotes',
+        'investment_transactions',
+        'tax_lots',
+        'lot_disposals',
+        'positions',
       ]),
     );
 
-    // Phase 4+ tables must not exist yet — building ahead of the phase is how a
+    // Phase 5+ tables must not exist yet — building ahead of the phase is how a
     // reviewed schema turns into an unreviewed one.
-    for (const later of ['instruments', 'positions', 'tax_lots', 'manual_assets', 'liabilities', 'ai_proposals']) {
+    for (const later of [
+      'manual_assets',
+      'asset_valuations',
+      'liabilities',
+      'liability_balances',
+      'net_worth_snapshots',
+      'ai_proposals',
+      'ai_conversations',
+    ]) {
       expect(tables, `${later} belongs to a later phase`).not.toContain(later);
     }
   });
@@ -65,6 +81,9 @@ describe('migration', () => {
         'record_source',
         'recurring_kind',
         'transaction_kind',
+        'asset_class',
+        'cost_basis_method',
+        'investment_kind',
       ]),
     );
   });

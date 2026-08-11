@@ -47,6 +47,22 @@ export {
 } from './quantity';
 
 export {
+  UnitPrice,
+  PRICE_SCALE,
+  PRICE_MAX_UNITS,
+  valueOf,
+  perUnit,
+  mulQtyRatio,
+  pCmp,
+  pEq,
+  pIsZero,
+  pIsPositive,
+  pScale,
+  pToDbString,
+  pToNumber,
+} from './price';
+
+export {
   Rate,
   RATE_SCALE,
   RATE_MAX_VALUE,

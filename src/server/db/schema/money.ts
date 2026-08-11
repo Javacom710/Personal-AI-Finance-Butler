@@ -13,11 +13,12 @@
  *    lives in `transaction_entries.amount`, so a header and its entries cannot
  *    disagree — the header holds no number to disagree with.
  *
- * Two columns named in SCHEMA.md are deliberately absent until the tables they
- * point at exist: `transactions.ai_proposal_id` (Phase 7) and
- * `recurring_occurrences.investment_transaction_id` (Phase 4). A foreign key to
- * a table that does not exist cannot be written, and building the column ahead
- * of its referent would put an unreviewed half of a later phase into this one.
+ * One column named in SCHEMA.md is deliberately still absent until the table it
+ * points at exists: `transactions.ai_proposal_id` (Phase 7). A foreign key to a
+ * table that does not exist cannot be written, and building the column ahead of
+ * its referent would put an unreviewed half of a later phase into this one.
+ * `recurring_occurrences.investment_transaction_id` was in that position until
+ * Phase 4 created `investment_transactions`; it now carries its foreign key.
  */
 
 import { relations, sql } from 'drizzle-orm';
@@ -52,6 +53,11 @@ import {
 } from './enums';
 import { currencies } from './reference';
 import { users } from './identity';
+// Circular by necessity: an investment transaction belongs to an `accounts` row,
+// and a recurring occurrence may have produced one. Both directions are behind
+// drizzle's lazy `references(() => …)` thunks, so neither module dereferences
+// the other while it is still evaluating.
+import { investmentTransactions } from './investments';
 
 /** `numeric(20,4)` — the money column shape fixed by ADR-04. Read as a string, never a float. */
 const money = (name: string) => numeric(name, { precision: 20, scale: 4 });
@@ -345,6 +351,19 @@ export const recurringOccurrences = pgTable(
     transactionId: uuid('transaction_id').references(() => transactions.id, {
       onDelete: 'set null',
     }),
+
+    /**
+     * A recurring SIP posts into the **investment** ledger, not the money one
+     * ([INVESTMENT-ENGINE-DESIGN.md §10.1](../../../../docs/INVESTMENT-ENGINE-DESIGN.md)).
+     * An occurrence therefore points at whichever ledger produced it. The
+     * `investment` recurring kind is still refused by the service layer, so
+     * nothing writes this column yet — but the constraint exists from the moment
+     * its referent does, rather than being added later against live rows.
+     */
+    investmentTransactionId: uuid('investment_transaction_id').references(
+      (): AnyPgColumn => investmentTransactions.id,
+      { onDelete: 'set null' },
+    ),
 
     postedAt: timestamp('posted_at', { withTimezone: true }),
   },

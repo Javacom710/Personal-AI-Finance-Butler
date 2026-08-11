@@ -73,3 +73,46 @@ export const recurringKind = pgEnum('recurring_kind', [
 
 /** SCHEMA.md §4.3 */
 export const occurrenceStatus = pgEnum('occurrence_status', ['pending', 'posted', 'skipped']);
+
+// ------------------------------------------------------- investments (Phase 4)
+
+/**
+ * SCHEMA.md §5. Adding a class later is a migration on this one enum plus an
+ * allocation label — the lot engine is class-agnostic and does not change.
+ */
+export const assetClass = pgEnum('asset_class', [
+  'equity',
+  'mutual_fund',
+  'etf',
+  'bond',
+  'fixed_deposit',
+  'gold',
+  'crypto',
+  'cash_equivalent',
+  'other',
+]);
+
+/**
+ * SCHEMA.md §5, ADR-07. The disposal-matching strategy is the only thing that
+ * varies between cost-basis methods, which is why it is one enum and one
+ * `select()` implementation rather than a second engine. Only `fifo` is
+ * implemented at launch; the other two are interface-only
+ * ([INVESTMENT-DOMAIN.md §4](../../../../docs/INVESTMENT-DOMAIN.md#4-cost-basis-engine-default-fifo)).
+ */
+export const costBasisMethod = pgEnum('cost_basis_method', ['fifo', 'average', 'specific_id']);
+
+/** SCHEMA.md §6. */
+export const investmentKind = pgEnum('investment_kind', [
+  'buy',
+  'sell',
+  'dividend',
+  'interest',
+  'fee',
+  'tax',
+  'bonus',
+  'split',
+  'mf_purchase',
+  'mf_redemption',
+  'transfer_in',
+  'transfer_out',
+]);
