@@ -2,7 +2,9 @@
 
 Durable status record. Conversation history is temporary; this file is not. Read this first after any context reset, then verify it against `docs/`, the source tree, and the tests before trusting it.
 
-**Last updated:** 2026-08-11 · **Current phase:** 4 complete, 5 not started
+**Last updated:** 2026-08-11 · **Current phase:** 4 complete and verified · **Phase 5 — Net Worth is next, and not started**
+
+This is the **Phase 4 completion checkpoint**. Phases 0–4 are done; the verification that closed Phase 4 is recorded below under *Phase 4 final verification*, along with the scope boundaries that are intentional roadmap limits rather than defects.
 
 Sequence approved 2026-08-11: **Phase 3 — Money Management → Phase 4 — Investment Engine.**
 
@@ -52,9 +54,9 @@ Corollaries that follow from the above:
 | 2 — Foundation | ✅ complete, verified |
 | 3 — Financial Core | ✅ complete, verified |
 | 4 — Investment Engine | ✅ complete, verified |
-| 5 — Net Worth | not started; **unblocked** |
+| 5 — Net Worth | not started; **unblocked, and next** |
 | 6 — Market Data | not started (OD-3 affects completion, not start) |
-| 7 — AI Infrastructure | **blocked** on OD-1 (`NVIDIA_API_KEY`) |
+| 7 — AI Infrastructure | not started; **blocked** on OD-1 (`NVIDIA_API_KEY`) |
 | 8–14 | not started |
 
 ---
@@ -175,9 +177,60 @@ Each is reversible; the reasoning is recorded so it can be challenged.
 | UI | `app/(app)/investments/` — overview, holdings, instrument detail with lots, ledger, allocation, performance, instruments |
 | Tests | **249 added** — 150 unit, 13 property, 86 integration — taking the suite from 663 to **912**. Includes golden **G2** and **L1**. |
 
+### Phase 4 final verification — 2026-08-11
+
+The results the completion gate actually produced, not a summary of intent.
+
+| Gate | Result |
+|---|---|
+| Unit | **549 passed** |
+| Property | **47 passed** |
+| Integration | **316 passed** |
+| **Total** | **912 passed**, 0 failed |
+| Typecheck (`tsc --noEmit`, strict) | clean |
+| Lint (`eslint .`) | clean |
+| Production build (`next build`) | clean |
+| Migration apply → rollback → re-apply | **byte-identical schema fingerprint** — columns, constraints, triggers and functions |
+| `verify:integrity` | **21 passing, 0 failing, 3 deferred** |
+| Live browser workflow | **passed** — sign-in, instrument creation through the server action, a seeded ledger, and every Investments page rendering its hand-verified figures |
+
+**Every Phase 3 financial test continues to pass.** Three Phase 3 test files changed, and in each case only because a phase-boundary expectation was **superseded by Phase 4** — none was weakened, and no assertion about a financial calculation was altered:
+
+| File | What was superseded |
+|---|---|
+| `tests/integration/integrity.test.ts` | Asserted I-5, I-6, I-7 and I-12 were reported `skipped`. Phase 4 implements the tables they describe, so they are now checked. The test now asserts the opposite, plus that neither declared non-invariant is asserted. |
+| `tests/integration/schema.test.ts` | Asserted `instruments`, `positions` and `tax_lots` did **not** exist. Phase 4 creates them; the guard now points at the Phase 5 and Phase 9 tables instead. |
+| `tests/integration/migrations.test.ts` | Its `MIGRATIONS` list ended at `0001`. It now includes `0002`, so the rollback/re-apply fingerprint covers Phase 4 — including the first `ALTER TABLE … DROP COLUMN` in a down migration. |
+
+`verify:integrity` checks **I-1, I-2, I-2b, I-3, I-4, I-4b, I-5, I-6, I-7, I-9, I-9b, I-11, I-11b, I-12, I-13, I-15, I-16, I-17, I-18, I-19, I-20**. I-6 is asserted **exactly, with no tolerance**. Three remain deferred and are reported as `skipped` rather than silently omitted: **I-8** (Phase 5), **I-10** and **I-14** (Phase 9).
+
 ### Decisions taken during implementation
 
-Recorded in full in [ROADMAP.md](docs/ROADMAP.md) Phase 4. In brief: **D-24** partial cost consumption floors rather than rounding half-up, because only `floor` keeps invariant I-19; **D-25** three new `CHECK` constraints; **D-26** `withWriteCtxResult`, so a command that returns an error writes nothing; **D-27** `ProportionBar`, because the CSP blocks inline `style` attributes — a defect Phase 3's budget bar shared and which is now fixed in both.
+Each was forced by a test rather than found by reading. Full rationale in [ROADMAP.md](docs/ROADMAP.md) Phase 4.
+
+| # | Decision | Why |
+|---|---|---|
+| **D-24** | Partial cost consumption uses **flooring**, not `half_up` | [INVESTMENT-DOMAIN.md §4](docs/INVESTMENT-DOMAIN.md)'s pseudocode says `half_up`; its own prose says the residue is *retained*. Only `floor` does both, and only `floor` preserves **I-19** — a database `CHECK`. A lot with ₹0.0001 of basis over 10 units, selling 6, drains to zero basis with units remaining under `half_up`, and the row is rejected mid-rebuild. Found by a property test. No documented figure changes: every worked example divides exactly. |
+| **D-25** | Three new database `CHECK` constraints | `inv_txn_acquisition_has_cost` (a purchase whose total rounds to zero would open a lot with units and no basis, failing I-19 mid-rebuild), `inv_txn_original_acquired_not_in_future` (would make `holding_days` negative and surface against `lot_disposals` rather than the row at fault), and `positions_units_and_basis_agree`. |
+| **D-26** | `withWriteCtxResult` — atomic rollback for a command that returns an error | Returning an error from inside an open transaction does not undo the writes already in it. An investment mutation inserts its row and bumps `investment_ledger_version` **before** the rebuild can discover an oversell, so edge case 30 was unreachable without this. Generalises Phase 3's D-21 savepoint into the write boundary itself. |
+| **D-27** | `ProportionBar` — static width classes instead of inline `style={{ width }}` | The CSP in `proxy.ts` sets `style-src 'self' 'nonce-…'`, which governs style **attributes**. The bars rendered at zero width in every browser with only a console violation to show for it. Phase 3's budget bar shared the defect; both now use `ProportionBar`. |
+
+### Phase 4 scope boundaries and known limitations
+
+Each of these is an **intentional roadmap boundary**, not a defect.
+
+| Limitation | Where it is settled |
+|---|---|
+| **TWR returns `null` with reason `insufficient_price_history`** for every instrument. `instrument_prices` is empty because it is populated by `getHistoricalPrices()`, which needs the provider blocked on **OD-3**. The algorithm, its Modified Dietz form and its boundary convention are implemented and pinned by a test asserting both the correct figure and the figure the opposite convention would give. | [INVESTMENT-DOMAIN.md §8](docs/INVESTMENT-DOMAIN.md#8-time-weighted-return) |
+| **No `MarketDataProvider` registry.** The `PriceResult` union and the staleness classification exist — they are the contract every future adapter returns — but nothing resolves an instrument to a provider. | Phase 6 |
+| **No market-data adapters.** No AMFI, no FX, no commercial equity source. Prices are entered by hand into `instrument_quotes` through `setManualPrice`. | Phase 6, gated on OD-3 |
+| **No `prices.refresh` job** and no scheduled price fetching. A read never triggers a network call, and there is no network call to trigger. | Phase 6 |
+| **AI functionality is outside Phase 4 entirely.** No orchestrator, no tools, no proposals. Every investment figure is produced by `src/server/domain/`, which is what will make an AI answer unable to disagree with a screen when Phase 7 arrives. | Phases 7–9 |
+| **`ai_proposal_id` is absent from `investment_transactions`**, following the precedent D-17 set on `transactions.ai_proposal_id`. Phase 7 adds both columns with their foreign keys and the partial unique index invariant **I-14** needs. | Phase 7 |
+| **I-8 deferred to Phase 5; I-10 and I-14 deferred to Phase 9.** Reported by `verify:integrity` as `skipped` with the phase named. | [SCHEMA.md §12](docs/SCHEMA.md#12-invariants-summary) |
+| **Unrealised FX is not separated** from unrealised price movement. `marketValue` uses the current rate while `investedCapital` uses acquisition rates, so `unrealizedPnl` legitimately contains both. Realised P&L **is** decomposed (I-18). | [INVESTMENT-DOMAIN.md §6.4](docs/INVESTMENT-DOMAIN.md#64-foreign-currency-positions) |
+| **`average` and `specific_id` cost-basis methods are interface-only.** `strategyFor` rejects them rather than silently falling back to FIFO. | [ADR-07](docs/DECISIONS.md), [INVESTMENT-DOMAIN.md §4](docs/INVESTMENT-DOMAIN.md#4-cost-basis-engine-default-fifo) |
+| **Recurring SIPs are not wired.** `recurring_occurrences.investment_transaction_id` and its foreign key exist; the `investment` recurring kind is still refused by the service layer, exactly as in Phase 3. | Not yet scheduled |
 
 ---
 
@@ -220,8 +273,8 @@ The Phase 4 design review found 15 defects (D1–D15) in the approved baseline. 
 |---|---|---|
 | **OD-1** | `NVIDIA_API_KEY` — needed to verify the model catalogue authenticated and to run the eval harness | Phases 7–9 |
 | **OD-2** | `AGENTS.md` is byte-identical to `CLAUDE.md`. Two copies of a 2,181-line spec will drift. Recommendation: reduce `AGENTS.md` to a pointer — not done unilaterally, as another tool may require full content at that path | Nothing technically; an instruction-correctness risk |
-| **OD-3** | Equity/ETF market-data provider and its terms | Phase 6 completion |
-| **OD-6** | `settlement_date` — keep `trade_date` as the cash date (recommended: the divergence lasts one day and affects no realised figure, cost basis or P&L), model settlement, or drop the column. **Does not block Phase 3**, which never reads it; settle before Phase 4 writes it | Phase 4 schema |
+| **OD-3** | Equity/ETF market-data provider and its terms. **Phase 4 consequence:** `instrument_prices` stays empty, so TWR returns `null` with `insufficient_price_history` and portfolio growth renders as gaps. Both are the documented behaviour, not defects | Phase 6 completion; TWR and the growth series until then |
+| **OD-6** | `settlement_date` — keep `trade_date` as the cash date (recommended: the divergence lasts one day and affects no realised figure, cost basis or P&L), model settlement, or drop the column. **Still open.** Phase 4 has now written the column and, in the absence of a decision, implements the recommended option: `settlement_date` is recorded as a fact and read by nothing — `deriveBalance()`, the account ledger and `replay()` all use `trade_date`. Confirming the recommendation is a documentation change only; choosing to model settlement would be a schema and query change. The recommendation's second half — stating in the UI that balances are trade-dated — is **not** implemented | Nothing today; a settlement model would touch every balance query |
 
 ### Resolved
 

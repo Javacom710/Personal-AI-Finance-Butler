@@ -12,6 +12,24 @@ A phase is complete only when every box is ticked — including tests, type chec
 
 ---
 
+## Where the project stands — Phase 4 checkpoint, 2026-08-11
+
+| Phase | Status |
+|---|---|
+| 0 — Environment & Repository | ✅ complete |
+| 1 — Architecture | ✅ complete, **approved** |
+| 2 — Foundation | ✅ complete, verified |
+| 3 — Financial Core | ✅ complete, verified |
+| 4 — Investment Engine | ✅ **complete, verified** |
+| 5 — Net Worth | not started — **next** |
+| 6 — Market Data | not started (OD-3 affects completion, not start) |
+| 7 — AI Infrastructure | not started; **blocked** on OD-1 (`NVIDIA_API_KEY`) |
+| 8–14 | not started |
+
+**912 tests pass** — 549 unit, 47 property, 316 integration. Typecheck, lint and the production build are clean; `verify:integrity` reports 21 invariants passing, 0 failing and 3 deferred. The per-gate results, the Phase 4 scope boundaries, and decisions D-24…D-27 are recorded in [PROJECT-STATE.md](../PROJECT-STATE.md).
+
+---
+
 ## A consequence of this ordering, stated up front
 
 Market Data is **Phase 6**, after Investments (4) and Net Worth (5). That is deliberate and correct — cost basis, realised P&L, and the lot engine need no prices at all — but it has a visible consequence:
@@ -143,22 +161,26 @@ The design was settled before implementation — [INVESTMENT-ENGINE-DESIGN.md](I
 
 ### Corrections made during implementation
 
-Each was forced by a test rather than found by reading. Recorded here because each changes something a canonical document states.
+Four, each forced by a test rather than found by reading, and each changing something a canonical document states:
 
-| # | What | Why |
-|---|---|---|
-| **D-24** | Partial cost consumption rounds **`floor`**, not `half_up` | [INVESTMENT-DOMAIN.md §4](INVESTMENT-DOMAIN.md#fifo-matching-strategy)'s pseudocode says `half_up`; its own prose two paragraphs later says the residue is *retained*. Only `floor` does both — and only `floor` keeps invariant **I-19**, which is a database `CHECK`. A lot with ₹0.0001 of basis over 10 units, selling 6, drains to zero basis with units remaining under `half_up`. Found by a property test. No documented figure changes: every worked example divides exactly. |
-| **D-25** | Three new `CHECK` constraints | `inv_txn_acquisition_has_cost` (a dust purchase would open a lot with units and no basis, failing I-19 mid-rebuild), `inv_txn_original_acquired_not_in_future` (would make `holding_days` negative and fail against the wrong table), and `positions_units_and_basis_agree`. |
-| **D-26** | `withWriteCtxResult` | Returning an error from inside an open transaction does not undo the writes already in it. An investment mutation inserts its row and bumps the version *before* the rebuild can discover an oversell, so edge case 30 was unreachable without this. Generalises Phase 3's D-21 savepoint into the write boundary. |
-| **D-27** | `ProportionBar`, replacing inline `style={{ width }}` | The CSP in `proxy.ts` sets `style-src 'self' 'nonce-…'`, which blocks style **attributes**. Phase 3's budget bar had the same defect and rendered at zero width in every browser, with only a console violation to show for it. Both are now static Tailwind classes. |
+- **D-24** — partial cost consumption uses **flooring**, not `half_up`, because only flooring preserves the remaining basis and therefore invariant **I-19**.
+- **D-25** — three new database `CHECK` constraints.
+- **D-26** — **`withWriteCtxResult`**, giving atomic rollback to a mutation whose rebuild can fail after the row is written.
+- **D-27** — **`ProportionBar`**, replacing CSP-incompatible inline dynamic width styling with compliant static classes.
+
+They are recorded in full, with their rationale, in [PROJECT-STATE.md](../PROJECT-STATE.md) alongside D-9…D-23 — the D-series lives there, and keeping a second copy here would give two records free to drift.
 
 `ai_proposal_id` on `investment_transactions` is deliberately absent, following the precedent D-17 set on `transactions.ai_proposal_id`: Phase 7 adds both columns with their foreign keys and the partial unique index invariant I-14 needs.
 
-**Deferred to Phase 6, as designed:** the `MarketDataProvider` registry and its adapters, the `prices.refresh` job, and `instrument_prices` history. Prices are entered by hand; TWR therefore returns `null` with `insufficient_price_history` for every instrument, which is [INVESTMENT-DOMAIN.md §8](INVESTMENT-DOMAIN.md#8-time-weighted-return)'s documented launch behaviour and not a defect.
+**Deferred to Phase 6, as designed:** the `MarketDataProvider` registry and its adapters, the `prices.refresh` job, and `instrument_prices` history. Prices are entered by hand; TWR therefore returns `null` with `insufficient_price_history` for every instrument, which is [INVESTMENT-DOMAIN.md §8](INVESTMENT-DOMAIN.md#8-time-weighted-return)'s documented launch behaviour and not a defect. The full list of Phase 4 scope boundaries — each an intentional roadmap limit rather than a defect — is in [PROJECT-STATE.md](../PROJECT-STATE.md).
+
+**Final verification, 2026-08-11.** Unit **549**, property **47**, integration **316** — **912 passed, 0 failed**. Typecheck, lint and production build clean. Migration `0002` applies, rolls back and re-applies to a **byte-identical schema fingerprint**. `verify:integrity`: **21 passing, 0 failing, 3 deferred** (I-8 Phase 5; I-10, I-14 Phase 9). Live browser workflow passed. Every Phase 3 financial test continues to pass; three Phase 3 test files changed only because a phase-boundary expectation was superseded by Phase 4, and none was weakened.
 
 ---
 
-## Phase 5 — Net Worth
+## Phase 5 — Net Worth — **next, not started**
+
+Unblocked by Phase 4: `positions`, `tax_lots` and `lot_disposals` exist, so the change bridge has `Σ lot_disposals.base_realized_pnl` by `closed_on` to draw on, and the single-counting rule has a real `positions.marketValue` to keep separate from a brokerage account's cash balance ([INVESTMENT-ENGINE-DESIGN.md §10.2](INVESTMENT-ENGINE-DESIGN.md)). Investments contribute **at cost** until Phase 6, with `null` and reason `no_price` wherever market value is required.
 
 - Schema: `manual_assets`, `asset_valuations`, `liabilities`, `liability_balances`, `net_worth_snapshots`
 - Domain: assets, valuation-in-force, liabilities, the `contributions` map and single-counting assertion, net worth, snapshots, change attribution
