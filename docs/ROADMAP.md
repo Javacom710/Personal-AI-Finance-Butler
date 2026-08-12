@@ -178,23 +178,35 @@ They are recorded in full, with their rationale, in [PROJECT-STATE.md](../PROJEC
 
 ---
 
-## Phase 5 — Net Worth — **next, not started**
+## Phase 5 — Net Worth — **designed, not started**
 
-Unblocked by Phase 4: `positions`, `tax_lots` and `lot_disposals` exist, so the change bridge has `Σ lot_disposals.base_realized_pnl` by `closed_on` to draw on, and the single-counting rule has a real `positions.marketValue` to keep separate from a brokerage account's cash balance ([INVESTMENT-ENGINE-DESIGN.md §10.2](INVESTMENT-ENGINE-DESIGN.md)). Investments contribute **at cost** until Phase 6, with `null` and reason `no_price` wherever market value is required.
+**Design review complete 2026-08-12** ([NET-WORTH-DESIGN.md](NET-WORTH-DESIGN.md)). No Phase 5 code, schema, migration, service, API or UI exists. **Implementation is gated on OD-7, OD-8 and OD-9** ([PROJECT-STATE.md](../PROJECT-STATE.md)); the full gate list is [NET-WORTH-DESIGN.md §19](NET-WORTH-DESIGN.md#19-phase-5-implementation-gates), which supersedes the "Done when" list below by extending it — nothing here is removed.
 
-- Schema: `manual_assets`, `asset_valuations`, `liabilities`, `liability_balances`, `net_worth_snapshots`
-- Domain: assets, valuation-in-force, liabilities, the `contributions` map and single-counting assertion, net worth, snapshots, change attribution
-- `networth.snapshot` job
+Unblocked by Phase 4: `positions`, `tax_lots` and `lot_disposals` exist, so the change bridge has `Σ lot_disposals.base_realized_pnl` by `closed_on` to draw on, and the single-counting rule has a real position cost basis to keep separate from a brokerage account's cash balance ([INVESTMENT-ENGINE-DESIGN.md §10.2](INVESTMENT-ENGINE-DESIGN.md)). Investments contribute **at cost** until Phase 6, with `null` and reason `no_price` wherever market value is required.
+
+- Schema: `manual_assets`, `asset_valuations`, `liabilities`, `liability_balances`, `user_state.valuation_version`; `net_worth_snapshots` **pending OD-8**
+- Domain: `src/server/domain/networth/` — source keys and the `contributions` map, date-driven eligibility, composition, the change bridge, reconciliation
+- Services: `assets.ts`, `liabilities.ts` (the only writers) and a **read-only** `networth.ts` with no `WriteCtx` signature
+- `networth.snapshot` job — **pending OD-8**; the review recommends deferring it to Phase 6
 - UI: net worth current + history + attribution waterfall
+
+**Two findings from the review that change the work** ([§14](NET-WORTH-DESIGN.md#14-defects-found-in-the-baseline-n1n19)):
+
+- **The as-of investment figure cannot come from `positions`**, which is today's cache. It is derived from `tax_lots` / `lot_disposals` bounded by `opened_on` / `closed_on` — exact, because splits and bonuses touch no money and I-20 makes the subtraction residue-free.
+- **Two as-of defects sit in the Phase 3 read path** and must be fixed before anything consumes it: `opening_balance` is added regardless of `opening_date` (N2), and `AccountView.baseBalance` converts at today's rate even when `asOf` was supplied (N3).
 
 **Done when**
 - [ ] The double-counting guard in [FINANCIAL-DOMAIN.md §9.2](FINANCIAL-DOMAIN.md#92-enforcement) throws on a duplicated source key (tested by deliberately duplicating one)
 - [ ] A credit-card account also present as a `liabilities` row is caught
 - [ ] Net worth on a past date uses the valuation in force on that date
-- [ ] `unexplained ≈ 0` in the bridge across every golden scenario
+- [ ] An account created after the requested `asOf` contributes nothing, **including its opening balance** (N2)
+- [ ] No calculation reads `is_active` on any table — asserted by a source scan (NW-6)
+- [ ] `unexplained` is **exactly** zero on single-currency golden scenarios, within one base unit otherwise
 - [ ] Golden scenario **G4** passes
-- [ ] Snapshot job is idempotent
+- [ ] `verify:integrity` reports **I-8 passing** rather than `skipped`, plus NW-2, NW-4, NW-7, NW-8, NW-11, NW-13
+- [ ] Snapshot job is idempotent — **only if OD-8 is declined**; if approved, this item moves to Phase 6
 - [ ] The UI states that investments are at cost until Phase 6
+- [ ] Balances derived from the investment ledger are marked **trade-dated** ([ADR-22](DECISIONS.md#adr-22--financial-recognition-is-trade-dated-settlement_date-is-informational-metadata)'s carried UI requirement)
 
 ---
 
