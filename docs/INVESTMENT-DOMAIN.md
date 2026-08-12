@@ -122,6 +122,8 @@ Accruing income **net** of tax *and* recording the tax subtracts it twice (₹40
 
 The engine replays in `(trade_date, kind_rank, created_at, id)` order — a total order, so two transactions on the same date replay identically on every rebuild. This is why `inv_txn_replay_idx` exists.
 
+**The date is always `trade_date`** ([ADR-22](DECISIONS.md#adr-22--financial-recognition-is-trade-dated-settlement_date-is-informational-metadata), resolving OD-6). It is the financial recognition date and the cash date for every kind in the table above. `settlement_date` is informational metadata: it is recorded, and it controls no recognition, no cash effect, no ordering and no rebuild. `ReplayTxn` carries no settlement field, so the engine cannot read it. No settlement-date-based cash movement exists, and settlement-aware accounting logic is out of scope for the current architecture.
+
 **`kind_rank` puts corporate actions last within a `trade_date`:**
 
 | Rank | Kinds |

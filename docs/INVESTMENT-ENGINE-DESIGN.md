@@ -765,7 +765,7 @@ The edge cases in `INVESTMENT-DOMAIN.md` §12 are adopted as named tests. Of the
 | Performance chart is 365 replays | medium | §8.3's single-pass SQL; measure before caching |
 | `instruments` is per-user (`UNIQUE (user_id, symbol, exchange)`) | low | Carried Phase 1 debt. Correct at one user; a migration, not a redesign |
 | Unrealised FX not separated from price movement | low | §9 states it as a known limitation |
-| `settlement_date` stored but unused | low | See §15 decision 2 |
+| `settlement_date` stored but unused | low | **Resolved (OD-6, [ADR-22](DECISIONS.md#adr-22--financial-recognition-is-trade-dated-settlement_date-is-informational-metadata)).** Recorded fact, controls nothing; recognition is trade-dated by decision. See §15 decision 2 |
 
 ---
 
@@ -773,8 +773,10 @@ The edge cases in `INVESTMENT-DOMAIN.md` §12 are adopted as named tests. Of the
 
 **1. Sequencing — ✅ approved 2026-08-11.** Phase 3 (Financial Core) is built in full with §11's amendments folded in, then Phase 4. Recorded in [ROADMAP.md](ROADMAP.md) Phase 3 and Phase 4.
 
-**2. `settlement_date` semantics — ⏳ still open (OD-6).** The column exists; `deriveBalance()` uses `trade_date`. In a T+1 market the cash actually moves a day later. **Recommendation: keep `trade_date` as the cash date** — the divergence lasts one day, affects no realised figure, no cost basis and no P&L, and modelling settlement means a second date dimension on every balance query. Keep the column as a recorded fact and state in the UI that balances are trade-dated. Confirm, or drop the column.
+**2. `settlement_date` semantics — ✅ resolved 2026-08-11 (OD-6).** The recommendation below was accepted: **`trade_date` is the financial recognition date and the cash date**, and `settlement_date` is a recorded factual attribute that controls nothing — not recognition, not cash-balance derivation, not ledger dating, not replay, not historical or `asOf` calculations. No settlement-date-based cash movement exists, and settlement-aware accounting logic is out of scope for the current architecture. Because balances are trade-dated, the UI should make clear that displayed balances are trade-dated rather than settlement-dated.
 
-*This does not block Phase 3*, which does not read the column. It must be settled before Phase 4 writes it.
+The normative record is [ADR-22](DECISIONS.md#adr-22--financial-recognition-is-trade-dated-settlement_date-is-informational-metadata); the rule is restated in [FINANCIAL-DOMAIN.md §3](FINANCIAL-DOMAIN.md#3-accounts), [SCHEMA.md §6](SCHEMA.md#6-investment-ledger) and [INVESTMENT-DOMAIN.md §3](INVESTMENT-DOMAIN.md#ordering). The original recommendation, kept for its reasoning:
+
+> The column exists; `deriveBalance()` uses `trade_date`. In a T+1 market the cash actually moves a day later. **Recommendation: keep `trade_date` as the cash date** — the divergence lasts one day, affects no realised figure, no cost basis and no P&L, and modelling settlement means a second date dimension on every balance query. Keep the column as a recorded fact and state in the UI that balances are trade-dated. Confirm, or drop the column.
 
 **3. Amending the approved baseline — ✅ approved 2026-08-11 (OD-4).** D1–D15 and OD-5 are applied to the canonical documents; the landing table at the top of this file records where each one went. This file is now the review record and rationale, not the specification.

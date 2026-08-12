@@ -368,8 +368,8 @@ CREATE TABLE investment_transactions (
   account_id        uuid NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
   instrument_id     uuid REFERENCES instruments(id) ON DELETE RESTRICT,
   kind              investment_kind NOT NULL,
-  trade_date        date NOT NULL,
-  settlement_date   date,
+  trade_date        date NOT NULL,          -- the financial recognition AND cash date (ADR-22)
+  settlement_date   date,                   -- informational metadata; controls nothing (ADR-22)
   quantity          numeric(28,8),          -- signed: + acquire, - dispose
   price             numeric(20,8),          -- per unit, INSTRUMENT currency
   gross_amount      numeric(20,4),          -- |quantity| * price, INSTRUMENT currency
@@ -478,6 +478,8 @@ CREATE INDEX inv_txn_replay_idx ON investment_transactions
 CREATE INDEX inv_txn_user_date_idx ON investment_transactions
   (user_id, trade_date DESC, id DESC);
 ```
+
+**`trade_date` is the only date any calculation reads** ([ADR-22](DECISIONS.md#adr-22--financial-recognition-is-trade-dated-settlement_date-is-informational-metadata), resolving OD-6). It is the financial recognition date and the cash date: `deriveBalance()` bounds on it, `replay()` orders by it, and every historical or `asOf` figure is derived from it. `settlement_date` is a recorded factual attribute — typically transcribed from a contract note — and controls no recognition, no balance, no ledger dating and no replay. The engine's `ReplayTxn` has no settlement field at all, so replay cannot read it even by accident. No settlement-date-based cash movement exists, and settlement-aware accounting logic is out of scope for the current architecture.
 
 `inv_txn_replay_idx` is the ordering the lot engine replays in — deterministic, and total even when several transactions share a `trade_date`. The engine sorts by `(trade_date, kind_rank, created_at, id)`, where `kind_rank` places corporate actions **after** same-day trades; it is derived from `kind` in the engine rather than stored, so the index is unchanged ([INVESTMENT-DOMAIN.md §3](INVESTMENT-DOMAIN.md#ordering)).
 

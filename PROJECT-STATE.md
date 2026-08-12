@@ -232,6 +232,8 @@ Each of these is an **intentional roadmap boundary**, not a defect.
 | **`average` and `specific_id` cost-basis methods are interface-only.** `strategyFor` rejects them rather than silently falling back to FIFO. | [ADR-07](docs/DECISIONS.md), [INVESTMENT-DOMAIN.md §4](docs/INVESTMENT-DOMAIN.md#4-cost-basis-engine-default-fifo) |
 | **Recurring SIPs are not wired.** `recurring_occurrences.investment_transaction_id` and its foreign key exist; the `investment` recurring kind is still refused by the service layer, exactly as in Phase 3. | Not yet scheduled |
 
+**One consequence of ADR-22 is documented but not yet implemented.** The decision requires the UI to make clear that displayed balances are **trade-dated rather than settlement-dated**; no screen says so today. The engine behaviour is already correct and needs no change — this is a copy addition on the surfaces that show a balance derived from the investment ledger (the accounts list, the account ledger, and the investment ledger's cash column). Recorded here rather than done as part of the OD-6 resolution, because resolving a decision is a documentation act and this is a UI change; it should be picked up by the next piece of work that touches those screens.
+
 ---
 
 ## Documentation correction pass — 2026-08-11
@@ -274,7 +276,6 @@ The Phase 4 design review found 15 defects (D1–D15) in the approved baseline. 
 | **OD-1** | `NVIDIA_API_KEY` — needed to verify the model catalogue authenticated and to run the eval harness | Phases 7–9 |
 | **OD-2** | `AGENTS.md` is byte-identical to `CLAUDE.md`. Two copies of a 2,181-line spec will drift. Recommendation: reduce `AGENTS.md` to a pointer — not done unilaterally, as another tool may require full content at that path | Nothing technically; an instruction-correctness risk |
 | **OD-3** | Equity/ETF market-data provider and its terms. **Phase 4 consequence:** `instrument_prices` stays empty, so TWR returns `null` with `insufficient_price_history` and portfolio growth renders as gaps. Both are the documented behaviour, not defects | Phase 6 completion; TWR and the growth series until then |
-| **OD-6** | `settlement_date` — keep `trade_date` as the cash date (recommended: the divergence lasts one day and affects no realised figure, cost basis or P&L), model settlement, or drop the column. **Still open.** Phase 4 has now written the column and, in the absence of a decision, implements the recommended option: `settlement_date` is recorded as a fact and read by nothing — `deriveBalance()`, the account ledger and `replay()` all use `trade_date`. Confirming the recommendation is a documentation change only; choosing to model settlement would be a schema and query change. The recommendation's second half — stating in the UI that balances are trade-dated — is **not** implemented | Nothing today; a settlement model would touch every balance query |
 
 ### Resolved
 
@@ -282,6 +283,7 @@ The Phase 4 design review found 15 defects (D1–D15) in the approved baseline. 
 |---|---|---|
 | **OD-4** | Amend the approved baseline with the Phase 4 review's D1–D15 | ✅ **Approved and applied 2026-08-11.** The corrections are in the canonical documents; the landing table is at the top of [INVESTMENT-ENGINE-DESIGN.md](docs/INVESTMENT-ENGINE-DESIGN.md), which is now a review record, not a specification |
 | **OD-5** | `investment_transactions.net_amount` currency | ✅ **Approved 2026-08-11: the account's currency.** `price` / `gross_amount` / `fees` / `taxes` stay in the instrument's. `deriveBalance()` therefore never mixes currencies, and an account's `currency_code` is immutable once it carries ledger rows. See [FINANCIAL-DOMAIN.md §3](docs/FINANCIAL-DOMAIN.md), [SCHEMA.md §6](docs/SCHEMA.md), [ADR-12](docs/DECISIONS.md) |
+| **OD-6** | `settlement_date` semantics | ✅ **Resolved 2026-08-11: financial recognition is trade-dated.** `trade_date` is the financial recognition date and the cash date; `settlement_date` is a recorded factual attribute of the transaction and controls nothing — not recognition, not cash-balance derivation, not ledger dating, not replay, and not historical or `asOf` calculations. `deriveBalance()` and `replay()` continue to use the trade-dated ledger. **No settlement-date-based cash movement is to be introduced, and settlement-aware accounting logic is out of scope for the current architecture.** Because balances are trade-dated, a displayed balance can differ from the broker's cleared cash for up to one settlement cycle, so **the UI should make clear that displayed balances are trade-dated rather than settlement-dated**. Normative record: [ADR-22](docs/DECISIONS.md#adr-22--financial-recognition-is-trade-dated-settlement_date-is-informational-metadata), with the rule restated in [FINANCIAL-DOMAIN.md §3](docs/FINANCIAL-DOMAIN.md#3-accounts), [SCHEMA.md §6](docs/SCHEMA.md#6-investment-ledger) and [INVESTMENT-DOMAIN.md §3](docs/INVESTMENT-DOMAIN.md#ordering) |
 
 ---
 

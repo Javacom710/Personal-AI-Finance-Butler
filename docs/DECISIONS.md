@@ -299,6 +299,33 @@ An account's currency is immutable once it carries ledger rows. See [SCHEMA.md �
 
 ---
 
+## ADR-22 — Financial recognition is trade-dated; `settlement_date` is informational metadata
+
+**Decision.** Resolves **OD-6**, approved 2026-08-11.
+
+`investment_transactions.trade_date` is the **financial recognition date and the cash date**. `settlement_date` is a recorded factual attribute of the transaction and **controls nothing**:
+
+| Concern | Date used |
+|---|---|
+| Financial recognition | `trade_date` |
+| Cash-balance derivation — `deriveBalance()` | `trade_date` |
+| Ledger dating and the running-balance order | `trade_date` |
+| Transaction replay — `replay()` and every rebuild | `trade_date` |
+| Historical and `asOf` calculations | `trade_date` |
+| `settlement_date` | **none — informational only** |
+
+No settlement-date-based cash movement exists, and none is to be introduced. **Settlement-aware accounting logic is out of scope** for the current architecture; adding it later is a deliberate architectural change, not an incremental fix.
+
+**Why.** In a T+1 market the cash genuinely moves a day after the trade, so the two dates differ — but the divergence lasts one day and affects **no realised figure, no cost basis and no P&L**. Modelling settlement properly means carrying a second date dimension through every balance query, every `asOf` bound and every replay ordering, to move a number by one day. That is a large, permanent complexity cost for an accuracy gain the product does not need.
+
+Recording the column rather than dropping it keeps a fact the user may have entered from a contract note, and leaves the option open: a future settlement model would read a column that already holds real data instead of starting from nothing.
+
+**Consequence the UI must carry.** Because balances are trade-dated, a displayed balance can differ from the broker's cleared cash for up to one settlement cycle. **The UI should make clear that displayed balances are trade-dated rather than settlement-dated**, wherever an account balance derived from the investment ledger is shown.
+
+**Rejected.** *Modelling settlement* — a second date dimension on every balance query, `asOf` bound and replay ordering, for a one-day divergence in a figure no downstream calculation depends on. *Dropping the column* — it is a real attribute of a real transaction, printed on every contract note; discarding user-entered facts to save a nullable date is the wrong trade, and it would foreclose a settlement model that later data could support.
+
+---
+
 ## Decisions taken independently in Phase 1
 
 Per `CLAUDE.md <decision_policy>`, these were resolved rather than escalated. Each is reversible at low cost; the reasoning is recorded so it can be challenged.

@@ -131,6 +131,10 @@ balance(account, asOf?) =
 
 `opening_balance` is not an exception to the rule: it is the declared position *before* the ledger begins, not a running total. Nothing updates it after creation.
 
+**Balances are trade-dated** ([ADR-22](DECISIONS.md#adr-22--financial-recognition-is-trade-dated-settlement_date-is-informational-metadata), resolving OD-6). The investment term above is bounded by `trade_date`, never by `settlement_date`: `trade_date` is the financial recognition date and the cash date, and `settlement_date` is a recorded fact that controls nothing. The same applies to `replay()`, to every rebuild, and to every historical or `asOf` calculation.
+
+In a T+1 market this means a displayed balance can differ from the broker's cleared cash for up to one settlement cycle. That is a deliberate simplification — the divergence affects no realised figure, no cost basis and no P&L — and **the UI should make clear that displayed balances are trade-dated rather than settlement-dated** wherever a balance derived from the investment ledger is shown. No settlement-date-based cash movement exists, and settlement-aware accounting logic is out of scope for the current architecture.
+
 **Every term is in the account's own currency.** That sum is unconditional — it has no currency argument and no filter — so three things follow, and each is enforced rather than assumed:
 
 - `investment_transactions.net_amount` is denominated in the **account's** currency, not the instrument's (decision **OD-5**, [SCHEMA.md §6](SCHEMA.md#6-investment-ledger)). A USD ETF bought from an INR brokerage account records its cash effect in rupees; the instrument-currency figures live in `price` / `gross_amount` / `fees` / `taxes` alongside it. Were it otherwise, this sum would add dollars to rupees and produce a number that is money in no currency at all — silently, with no constraint able to detect it.
