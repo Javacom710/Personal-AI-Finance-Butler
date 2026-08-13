@@ -2,11 +2,11 @@
 
 Durable status record. Conversation history is temporary; this file is not. Read this first after any context reset, then verify it against `docs/`, the source tree, and the tests before trusting it.
 
-**Last updated:** 2026-08-12 · **Current phase:** 4 complete and verified · **Phase 5 — Net Worth: design review complete 2026-08-12, implementation NOT started**
+**Last updated:** 2026-08-12 · **Current phase:** 4 complete and verified · **Phase 5 — Net Worth at Cost: designed, decided and documented; implementation NOT started**
 
-This is the **Phase 4 completion checkpoint**, plus the **Phase 5 design review**. Phases 0–4 are done; the verification that closed Phase 4 is recorded below under *Phase 4 final verification*, along with the scope boundaries that are intentional roadmap limits rather than defects.
+This is the **Phase 4 completion checkpoint**, plus the **Phase 5 design review and its correction pass**. Phases 0–4 are done; the verification that closed Phase 4 is recorded below under *Phase 4 final verification*, along with the scope boundaries that are intentional roadmap limits rather than defects.
 
-**No Phase 5 code, schema, migration, service, API or UI exists.** The design review produced documentation only — [docs/NET-WORTH-DESIGN.md](docs/NET-WORTH-DESIGN.md) — and three open decisions (OD-7, OD-8, OD-9) that gate the start of implementation.
+**No Phase 5 code, schema, migration, service, API, UI or test exists.** The review and the correction pass produced documentation only. **OD-7, OD-8 and OD-9 are resolved** and their outcomes are in the canonical documents; **N1–N19 are applied**. Phase 5 is ready to implement — the gates are in [ROADMAP.md](docs/ROADMAP.md) Phase 5 and [NET-WORTH-DESIGN.md §19](docs/NET-WORTH-DESIGN.md#19-phase-5-implementation-gates).
 
 Sequence approved 2026-08-11: **Phase 3 — Money Management → Phase 4 — Investment Engine.**
 
@@ -56,7 +56,7 @@ Corollaries that follow from the above:
 | 2 — Foundation | ✅ complete, verified |
 | 3 — Financial Core | ✅ complete, verified |
 | 4 — Investment Engine | ✅ complete, verified |
-| 5 — Net Worth | **design review complete 2026-08-12; implementation NOT started.** Blocked on OD-7, OD-8, OD-9 |
+| 5 — Net Worth at Cost | **designed, decided and documented 2026-08-12; implementation NOT started.** Unblocked — OD-7, OD-8 and OD-9 resolved |
 | 6 — Market Data | not started (OD-3 affects completion, not start) |
 | 7 — AI Infrastructure | not started; **blocked** on OD-1 (`NVIDIA_API_KEY`) |
 | 8–14 | not started |
@@ -283,24 +283,32 @@ The Phase 4 design review found 15 defects (D1–D15) in the approved baseline. 
 | **Account classification** | **By sign, not by kind.** `balance > 0` → asset, `< 0` → liability, `= 0` → neither. Kind decides the display group and the expected sign only |
 | **Historical / as-of** | One eligibility table, every row date-driven. `is_active` is read by **no** calculation, on any table — asserted by a source scan, not by review |
 | **Investments as of `T`** | Derived from `tax_lots` / `lot_disposals` bounded by `opened_on` / `closed_on` — **not** from `positions`, which is today's cache. Exact for three reasons: splits and bonuses touch no money, FIFO has a prefix property, and I-20 makes the subtraction residue-free |
-| **Valuation basis** | `basis ∈ {'cost','market'}`; Phase 5 implements `'cost'`, Phase 6 adds `'market'` and flips the default |
+| **Valuation basis** | `basis ∈ {'cost','market'}`; Phase 5 implements `'cost'` and presents **Net Worth at Cost**, Phase 6 adds `'market'` as a distinct calculation and flips the default. The two are **never mixed inside one figure** |
 | **Liabilities** | Two shapes. Transacted (linked account) contributes **nothing** — the account does. Scheduled contributes from an append-only balance series. Interest stays descriptive; no amortisation is computed |
 | **Manual assets** | The existing model is sufficient. Valuations are a series, not a field. Four corrections, none of them an expansion |
-| **Snapshots** | **Recommended out of Phase 5.** The history series is five set-based queries, so the performance case disappears — and the cache as specified cannot tell when it is stale (N13) |
+| **Snapshots** | **Moved to Phase 6.** The history series is five set-based queries, so the performance case disappears — and the cache as specified cannot tell when it is stale (N13). Phase 5 derives everything; no gate depends on a snapshot |
 | **Service shape** | `networth.ts` is read-only and exports **no** `WriteCtx` signature. Net Worth introduces no ledger and cannot mutate anything |
 
-### 19 defects found in the baseline
+### 19 defects found in the baseline — **all applied 2026-08-12**
 
-Recorded as **N1–N19** in [NET-WORTH-DESIGN.md §14](docs/NET-WORTH-DESIGN.md). None is a live bug — no caller passes `asOf` and the Phase 5 tables do not exist — which is why they survived four completion gates. The two material ones:
+Recorded as **N1–N19** in [NET-WORTH-DESIGN.md §14](docs/NET-WORTH-DESIGN.md#14-defects-found-in-the-baseline-n1n19), with a per-finding disposition table. None was a live bug — no caller passes `asOf` and the Phase 5 tables do not exist — which is why they survived four completion gates. The three that mattered:
 
-- **N2 (high).** `deriveBalance()` adds `opening_balance` unconditionally, so an account opened in 2026 contributes its opening balance to net worth **as of 2020**. The date bound in `entryTotals()` correctly bounds *movements*; an opening position is not a movement.
-- **N6 (high).** [FINANCIAL-DOMAIN.md §9.3](docs/FINANCIAL-DOMAIN.md#93-calculation)'s *"Σ marketValue — priced holdings only"* reports investments as **₹0** in the current price-free state, directly contradicting `ROADMAP.md`'s *"net worth is an at-cost figure"*. A contradiction inside the canonical set, surfaced rather than resolved unilaterally.
+- **N2 (high).** `deriveBalance()` added `opening_balance` unconditionally, so an account opened in 2026 contributed its opening balance to net worth **as of 2020**. The date bound in `entryTotals()` correctly bounds *movements*; an opening position is not a movement. → [ADR-26](docs/DECISIONS.md#adr-26--an-as-of-financial-figure-is-computed-from-dated-facts-only-no-current-state-flag-participates), and the balance formula in [FINANCIAL-DOMAIN.md §3](docs/FINANCIAL-DOMAIN.md#3-accounts) now carries the gate.
+- **N6 (high).** §9.3's *"Σ marketValue — priced holdings only"* would have reported investments as **₹0** in the current price-free state, directly contradicting `ROADMAP.md`'s *"net worth is an at-cost figure"* — a contradiction inside the canonical set. → [ADR-23](docs/DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost): a **declared basis**, `cost` in Phase 5, never mixed with market value.
+- **N1 (high, and live).** `FINANCIAL-DOMAIN.md` §3 and `src/server/domain/ledger/balance.ts:88` disagreed about an overpaid credit card: §9.3 dropped it from net worth entirely, `accountRole()` reported it as a debt — a ₹10,000 spread on a ₹5,000 balance. → [ADR-25](docs/DECISIONS.md#adr-25--net-worth-classification-is-by-the-economic-sign-of-the-balance-not-by-account-kind): classification by **sign**. **This is the one code change the correction pass implies, and it is Phase 5 implementation work — no source file was touched.**
 
-Also live today: **N1** — `FINANCIAL-DOMAIN.md` §3 and `src/server/domain/ledger/balance.ts:88` disagree about an overpaid credit card. §9.3 drops it from net worth entirely; `accountRole()` reports it as a debt. Same row, a ₹10,000 spread on a ₹5,000 balance.
+### Added to the canonical documents, not implemented
 
-### Proposed additions, not implemented
+**12 new invariants — I-21 … I-32** — plus **I-8 restated**, in [SCHEMA.md §12](docs/SCHEMA.md#12-invariants-summary). The draft `NW-n` labels were folded into the canonical numbering so there is one authoritative scheme; draft `NW-11` was **dissolved**, because N11's correction (dropping the redundant `currency_code`) removes the disagreement it would have policed. Also: six explicit **non-invariants**, 43 adversarial scenarios mapped to named tests, twelve new net-worth edge cases in [FINANCIAL-DOMAIN.md §12](docs/FINANCIAL-DOMAIN.md#12-edge-cases-that-must-be-covered-by-tests), and an entirely additive schema delta ([§15](docs/NET-WORTH-DESIGN.md#15-schema-delta-proposal)).
 
-13 invariants (**I-8 restated**, plus **NW-1 … NW-13**), five explicit **non-invariants**, 43 adversarial scenarios each mapped to a named test, a schema delta ([§15](docs/NET-WORTH-DESIGN.md#15-schema-delta-proposal)) that is entirely additive, and the implementation gates in [§19](docs/NET-WORTH-DESIGN.md#19-phase-5-implementation-gates).
+### Four new ADRs
+
+| | Decision |
+|---|---|
+| [**ADR-23**](docs/DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost) | Net worth carries a **declared valuation basis**; Phase 5 ships **Net Worth at Cost**; the two bases are never mixed in one figure |
+| [**ADR-24**](docs/DECISIONS.md#adr-24--net-worth-is-derived-on-demand-snapshots-are-deferred-to-phase-6) | Net worth is **derived on demand**; snapshots deferred to Phase 6, with four rules attached if they are ever built |
+| [**ADR-25**](docs/DECISIONS.md#adr-25--net-worth-classification-is-by-the-economic-sign-of-the-balance-not-by-account-kind) | Classification is by the **economic sign** of the balance, not by account kind |
+| [**ADR-26**](docs/DECISIONS.md#adr-26--an-as-of-financial-figure-is-computed-from-dated-facts-only-no-current-state-flag-participates) | An `asOf` figure is computed **from dated facts only**; no current-state flag participates |
 
 ---
 
@@ -311,9 +319,6 @@ Also live today: **N1** — `FINANCIAL-DOMAIN.md` §3 and `src/server/domain/led
 | **OD-1** | `NVIDIA_API_KEY` — needed to verify the model catalogue authenticated and to run the eval harness | Phases 7–9 |
 | **OD-2** | `AGENTS.md` is byte-identical to `CLAUDE.md`. Two copies of a 2,181-line spec will drift. Recommendation: reduce `AGENTS.md` to a pointer — not done unilaterally, as another tool may require full content at that path | Nothing technically; an instruction-correctness risk |
 | **OD-3** | Equity/ETF market-data provider and its terms. **Phase 4 consequence:** `instrument_prices` stays empty, so TWR returns `null` with `insufficient_price_history` and portfolio growth renders as gaps. Both are the documented behaviour, not defects | Phase 6 completion; TWR and the growth series until then |
-| **OD-7** | **Phase 5 values investments at cost, even where a manual price exists.** `setManualPrice` already works, so a user can price a holding today and the Investments pages show market value — if Net Worth values the same securities at cost, two pages report two numbers for the same holdings. **Recommended: yes**, `basis: 'cost'` (ROADMAP's stated Phase 4–6 consequence), with the page stating the basis and linking to Investments. A partial market valuation would be a total in no basis at all. Alternative worth considering: a user-visible basis toggle in Phase 5 rather than Phase 6 | The meaning of the Phase 5 headline figure, and its UI copy |
-| **OD-8** | **`net_worth_snapshots` and the `networth.snapshot` job move to Phase 6.** **Recommended: yes** — the history series is five set-based queries, so the performance case for a cache disappears, and the cache as specified stamps only the two ledger counters: nothing covers `asset_valuations`, `liability_balances`, `instrument_quotes` or `fx_rates`, so a snapshot can be stale with both stamps matching (N13). Removes two ROADMAP "Done when" items, which is why it needs approval rather than being an implementation call | The Phase 5 schema delta and two Phase 5 gates |
-| **OD-9** | **Apply N1–N19 to the canonical documents before Phase 5 implementation begins**, following the OD-4 precedent. Documentation only; no code or schema changes in the pass. **Recommended: yes** — implementing against documents known to contain N2 and N6 would put those defects into the code | Phase 5 implementation start |
 
 ### Resolved
 
@@ -321,6 +326,9 @@ Also live today: **N1** — `FINANCIAL-DOMAIN.md` §3 and `src/server/domain/led
 |---|---|---|
 | **OD-4** | Amend the approved baseline with the Phase 4 review's D1–D15 | ✅ **Approved and applied 2026-08-11.** The corrections are in the canonical documents; the landing table is at the top of [INVESTMENT-ENGINE-DESIGN.md](docs/INVESTMENT-ENGINE-DESIGN.md), which is now a review record, not a specification |
 | **OD-5** | `investment_transactions.net_amount` currency | ✅ **Approved 2026-08-11: the account's currency.** `price` / `gross_amount` / `fees` / `taxes` stay in the instrument's. `deriveBalance()` therefore never mixes currencies, and an account's `currency_code` is immutable once it carries ledger rows. See [FINANCIAL-DOMAIN.md §3](docs/FINANCIAL-DOMAIN.md), [SCHEMA.md §6](docs/SCHEMA.md), [ADR-12](docs/DECISIONS.md) |
+| **OD-7** | Net-worth valuation basis before market data exists | ✅ **Approved 2026-08-12: Net Worth at Cost.** Phase 5 calculates and presents net worth **at cost**; investment positions contribute the **exact Phase 4 cost basis**; market value and cost are **never mixed inside one figure**; no screen shows an unqualified "Net worth" that could imply a current market valuation. Phase 6 introduces market-value net worth as a **distinct** calculation. **No valuation toggle in Phase 5** — the existing design does not need one. Normative: [ADR-23](docs/DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost) |
+| **OD-8** | `net_worth_snapshots` and the `networth.snapshot` job | ✅ **Approved 2026-08-12: moved to Phase 6.** Phase 5 uses deterministic derivation; **every Phase 5 gate requiring a snapshot is removed**; `user_state.valuation_version` is deferred with them. Phase 6 may still introduce snapshots if measurement justifies it, under four stated rules. Normative: [ADR-24](docs/DECISIONS.md#adr-24--net-worth-is-derived-on-demand-snapshots-are-deferred-to-phase-6) |
+| **OD-9** | Apply the Net Worth review's N1–N19 to the canonical documents | ✅ **Approved and applied 2026-08-12.** The normative rules were **reconciled**, not appended to — each now has one authoritative statement. Four findings became ADRs ([ADR-23](docs/DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost), [ADR-24](docs/DECISIONS.md#adr-24--net-worth-is-derived-on-demand-snapshots-are-deferred-to-phase-6), [ADR-25](docs/DECISIONS.md#adr-25--net-worth-classification-is-by-the-economic-sign-of-the-balance-not-by-account-kind), [ADR-26](docs/DECISIONS.md#adr-26--an-as-of-financial-figure-is-computed-from-dated-facts-only-no-current-state-flag-participates)); the rest were folded into `FINANCIAL-DOMAIN.md`, `SCHEMA.md`, `INVESTMENT-DOMAIN.md`, `ARCHITECTURE.md` and `TESTING.md`. Per-finding disposition: [NET-WORTH-DESIGN.md §14](docs/NET-WORTH-DESIGN.md#14-defects-found-in-the-baseline-n1n19). **No source file, schema, migration or test was touched** |
 | **OD-6** | `settlement_date` semantics | ✅ **Resolved 2026-08-11: financial recognition is trade-dated.** `trade_date` is the financial recognition date and the cash date; `settlement_date` is a recorded factual attribute of the transaction and controls nothing — not recognition, not cash-balance derivation, not ledger dating, not replay, and not historical or `asOf` calculations. `deriveBalance()` and `replay()` continue to use the trade-dated ledger. **No settlement-date-based cash movement is to be introduced, and settlement-aware accounting logic is out of scope for the current architecture.** Because balances are trade-dated, a displayed balance can differ from the broker's cleared cash for up to one settlement cycle, so **the UI should make clear that displayed balances are trade-dated rather than settlement-dated**. Normative record: [ADR-22](docs/DECISIONS.md#adr-22--financial-recognition-is-trade-dated-settlement_date-is-informational-metadata), with the rule restated in [FINANCIAL-DOMAIN.md §3](docs/FINANCIAL-DOMAIN.md#3-accounts), [SCHEMA.md §6](docs/SCHEMA.md#6-investment-ledger) and [INVESTMENT-DOMAIN.md §3](docs/INVESTMENT-DOMAIN.md#ordering) |
 
 ---
@@ -428,12 +436,12 @@ Run on 2026-08-10.
 
 | Question | File |
 |---|---|
-| Why was X decided that way? | [docs/DECISIONS.md](docs/DECISIONS.md) — 21 ADRs with rejected alternatives, plus D-9…D-23 above and D-24…D-27 in [ROADMAP.md](docs/ROADMAP.md) Phase 4 |
-| What are the tables and invariants? | [docs/SCHEMA.md](docs/SCHEMA.md) — 20 invariants (I-1 … I-20) plus two explicit non-invariants |
+| Why was X decided that way? | [docs/DECISIONS.md](docs/DECISIONS.md) — 26 ADRs with rejected alternatives, plus D-9…D-23 above and D-24…D-27 in [ROADMAP.md](docs/ROADMAP.md) Phase 4 |
+| What are the tables and invariants? | [docs/SCHEMA.md](docs/SCHEMA.md) — 32 invariants (I-1 … I-32) plus six explicit non-invariants |
 | How does money behave? | [docs/FINANCIAL-DOMAIN.md](docs/FINANCIAL-DOMAIN.md) |
 | How do holdings and returns behave? | [docs/INVESTMENT-DOMAIN.md](docs/INVESTMENT-DOMAIN.md) — corrected and authoritative |
 | Why does the investment engine work that way? | [docs/INVESTMENT-ENGINE-DESIGN.md](docs/INVESTMENT-ENGINE-DESIGN.md) — the Phase 4 review record and rationale. **Non-normative**: where it and a canonical document differ, the canonical document wins |
-| How is net worth meant to work, and what is wrong with the baseline? | [docs/NET-WORTH-DESIGN.md](docs/NET-WORTH-DESIGN.md) — the Phase 5 design review: single counting, as-of methodology, FX, liabilities, reconciliation, the schema delta, 13 invariants, 43 edge cases, defects N1–N19. **Non-normative**, same rule |
+| How is net worth meant to work, and why? | [docs/NET-WORTH-DESIGN.md](docs/NET-WORTH-DESIGN.md) — the Phase 5 design review: single counting, as-of methodology, FX, liabilities, reconciliation, the schema delta, 43 edge cases, and the N1–N19 disposition table. **Non-normative** — the rules themselves now live in `FINANCIAL-DOMAIN.md` §9, `SCHEMA.md` §7–9/§12 and ADR-23…ADR-26 |
 | How does the AI layer work and what can't it do? | [docs/AI-SYSTEM.md](docs/AI-SYSTEM.md) |
 | What must be tested before a phase is done? | [docs/TESTING.md](docs/TESTING.md) and each phase's "Done when" |
-| What am I building next? | [docs/ROADMAP.md](docs/ROADMAP.md) — Phase 5, Net Worth. **Designed, not started**: OD-7, OD-8 and OD-9 gate the first line of code |
+| What am I building next? | [docs/ROADMAP.md](docs/ROADMAP.md) — Phase 5, **Net Worth at Cost**. Designed, decided, documented; **implementation not started and unblocked** |

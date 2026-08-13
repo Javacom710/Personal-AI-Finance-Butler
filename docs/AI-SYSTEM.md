@@ -337,8 +337,8 @@ Each is defined once as a Zod schema and converted with `z.toJSONSchema()` — o
 | `get_categories` | id, name, kind, parent | 200 |
 | `get_assets` | name, kind, value, valuationDate | 100 |
 | `get_liabilities` | name, kind, outstanding, rate, emi | 100 |
-| `get_net_worth` | assets, liabilities, netWorth, breakdown, coverage | 1 |
-| `get_net_worth_history` | series by month/quarter/year | 120 |
+| `get_net_worth` | **basis**, assets, liabilities, netWorth, breakdown, assetCoverage, liabilityCoverage, excluded | 1 |
+| `get_net_worth_history` | **basis**, series by month/quarter/year | 120 |
 | `get_investment_assets` | id, symbol, name, class, currency, priceStatus | 500 |
 | `get_holdings` | qty, avgCost, invested, price + status, marketValue, unrealisedPnl, return%, weight% | 500 |
 | `get_investment_transactions` | full ledger rows | 200 |
@@ -394,6 +394,10 @@ Two properties, both asserted by test, both load-bearing:
 Without both, "how much on food" over a `Food → {Groceries, Dining}` tree becomes: model receives three rows, adds two of them, and hopes it picked the right two. That is the model doing financial arithmetic — forbidden by `CLAUDE.md <investment_management>` ("do not rely on an AI model for calculations that deterministic application code can perform correctly") and unverifiable when it goes wrong.
 
 The same `total` contract applies to `get_income_summary`, `get_asset_allocation`, and `get_net_worth_history`. Any future tool returning rows that a user might want summed **must** carry the sum.
+
+**The net-worth tools carry their valuation `basis`, and the model must state it** ([ADR-23](DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost)). Until Phase 6 the basis is `cost`, and an answer that calls an at-cost figure "your net worth" without qualification presents an acquisition-cost total as a current market valuation — the same class of error as reporting a `null` metric as zero. `assetCoverage` and `liabilityCoverage` are reported **separately** for the same reason they are on screen: an excluded asset makes the figure look lower, an excluded liability makes it look higher, and one blended number hides which.
+
+**The AI is never authoritative for a net-worth figure.** `get_net_worth` calls the same read-only service the UI calls, which has no `WriteCtx` signature at all — so the model can neither compute its own total nor mutate an input to one.
 
 ### Data minimisation (`CLAUDE.md <ai_data_access>`)
 

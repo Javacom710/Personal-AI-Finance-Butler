@@ -26,7 +26,7 @@ There is no separate investment account table. A brokerage or demat account is a
 
 - The cash sitting in a brokerage account is a normal account balance and appears in "liquid cash" if the user classifies it that way.
 - Transferring money from a bank account into a brokerage account is an ordinary transfer — not an expense, not an investment transaction.
-- Buying an instrument reduces the brokerage account's cash and creates a position. Net worth is unchanged by the purchase itself (cash → asset), which is the correct accounting.
+- Buying an instrument reduces the brokerage account's cash and creates a position. Net worth is unchanged by the purchase itself (cash → asset), which is the correct accounting — and it is **exact**, not approximate, because one ledger row carries `net_amount = −(gross + fees + taxes)` and opens a lot with `cost_total = gross + fees + taxes`. The cash falls by exactly what the lot gains, because they are two halves of one row ([FINANCIAL-DOMAIN.md §9.1](FINANCIAL-DOMAIN.md#91-the-single-counting-rule), invariant **I-25**).
 
 ### 2.1 Two currencies per transaction, and which one `net_amount` is in
 
@@ -570,14 +570,34 @@ TWR requires valuations at sub-period boundaries, which requires `instrument_pri
 
 ```
 portfolioValueOn(d) = Σ over instruments:
-      quantityHeldOn(instrument, d)          -- running sum over the ledger, replayed to d
+      quantityHeldOn(instrument, d)          -- see below: NOT a plain running sum
     × priceOn(instrument, d)                 -- instrument_prices row with the greatest as_of <= d
     × fxRateOn(instrument.currency, base, d)
 ```
 
-Both inputs are already stored — `investment_transactions` and `instrument_prices` — so a snapshot table would be a cache of a derivable value, which [ADR-06](DECISIONS.md#adr-06--holdings-are-derived-cached-and-rebuildable) and [FINANCIAL-DOMAIN.md §3](FINANCIAL-DOMAIN.md#3-accounts) both say not to build until measurement demands it. `net_worth_snapshots.breakdown` already carries the daily headline for the Net Worth page.
+Both inputs are already stored — `investment_transactions` and `instrument_prices` — so a snapshot table would be a cache of a derivable value, which [ADR-06](DECISIONS.md#adr-06--holdings-are-derived-cached-and-rebuildable) and [FINANCIAL-DOMAIN.md §3](FINANCIAL-DOMAIN.md#3-accounts) both say not to build until measurement demands it.
 
-**Implementation constraint, because the naive form is a trap.** A 365-point chart must be **one SQL pass** — a running quantity per instrument per day joined to `instrument_prices` — not 365 position replays. If that measures slow, the escape hatch is the one already designed for balances: a derived roll-up keyed by `investment_ledger_version`, invalidatable and rebuildable, **never** a mutable record.
+**`quantityHeldOn` is not `Σ quantity where trade_date <= d`.** A `split` and a `bonus` carry `quantity IS NULL` and a **ratio**, so a plain running sum over the ledger silently ignores them and reports the pre-split quantity forever after. Two correct forms:
+
+```
+quantityHeldOn(i, d) = Σ_{txn ≤ d} txn.quantity × Π{ ratio of every corporate action in (txn.trade_date, d] }
+```
+
+— a cumulative ratio product per instrument, expressible as one window pass — **or** `replay()` bounded at `d`, which is exact by construction but is one replay per point. Whichever is used, the split must be applied; a chart that is silently wrong after every corporate action is worse than no chart.
+
+**The money form has no such hazard, which is why Phase 5 uses it.** `replay()` leaves `cost_total` and `remaining_cost` **untouched** by both `split` and `bonus` ([§4](#4-cost-basis-engine-default-fifo)) — the basis is spread over more or fewer units and only the *derived* per-unit cost changes. So a cost-basis-as-of figure needs no ratio arithmetic at all:
+
+```
+baseCostBasisAsOf(d) = Σ over tax_lots ℓ with ℓ.opened_on <= d:
+      (ℓ.cost_total − Σ lot_disposals.cost_consumed where lot_id = ℓ AND closed_on <= d)
+    × ℓ.fx_rate_to_base
+```
+
+This is exact, not approximate, for three reasons: money is invariant under corporate actions; FIFO's total order `(trade_date, kind_rank, created_at, id)` gives replay a **prefix property**, so the disposals dated `≤ d` in a full replay are exactly those a replay bounded at `d` would produce; and invariant **I-20** makes the subtraction residue-free. At `d = today` it reproduces `Σ positions.base_cost_basis` exactly (**I-24**).
+
+Eligibility is by **`opened_on`**, never `acquired_on` — a `transfer_in` carries the original acquisition date back, and using it would place the destination lot in the destination account while the source lot is still open, double-counting the whole intervening period (**I-23**).
+
+**Implementation constraint, because the naive form is a trap.** A 365-point chart must be **one SQL pass** — not 365 position replays. If that measures slow, the escape hatch is the one already designed for balances: a derived roll-up keyed by `investment_ledger_version`, invalidatable and rebuildable, **never** a mutable record.
 
 **Days with no price are gaps, not zeros.** The series is only as complete as `instrument_prices`, which is empty until **OD-3** is resolved. A gap renders as a break in the line with the affected instruments named — never interpolated, never zero, and never silently omitted from the total ([§5](#5-valuation), [FINANCIAL-DOMAIN.md §10.4](FINANCIAL-DOMAIN.md#104-partial-results-are-labelled-not-hidden)).
 

@@ -75,7 +75,11 @@ One entry per material decision. Each states the decision, why, and what was rej
 
 **Why.** Recomputing every position on every page load is too slow once there are thousands of transactions; treating positions as independently editable truth guarantees they will eventually disagree with the ledger. Derive-and-cache with a forced rebuild path gives read speed without a second source of truth.
 
-**How the cache stays honest.** The rebuild runs **inside the same transaction as the ledger mutation**, so `positions` never disagrees with the ledger and a failed replay rolls the mutation back. `user_state.investment_ledger_version` invalidates `net_worth_snapshots`, which is computed per date over the whole portfolio; on `positions` the recorded version is a **provenance stamp only**, because a single per-user counter would mark every non-mutated position stale forever ([ARCHITECTURE.md §6](ARCHITECTURE.md#6-cache-invalidation)).
+**How the cache stays honest.** The rebuild runs **inside the same transaction as the ledger mutation**, so `positions` never disagrees with the ledger and a failed replay rolls the mutation back. On `positions` the recorded version is a **provenance stamp only**, because a single per-user counter would mark every non-mutated position stale forever ([ARCHITECTURE.md §6](ARCHITECTURE.md#6-cache-invalidation)).
+
+**`positions` answers a question about *today*.** It carries no date bound and must never be given one. A historical or `asOf` investment figure is derived instead from `tax_lots` and `lot_disposals` bounded by `opened_on` / `closed_on` ([FINANCIAL-DOMAIN.md §9.3](FINANCIAL-DOMAIN.md#93-calculation)) — which is exact rather than approximate, because money is invariant under corporate actions, FIFO's total order gives replay a prefix property, and invariant I-20 makes the subtraction residue-free.
+
+`net_worth_snapshots` is **not** part of this design at launch: net worth is derived on demand and snapshots are deferred to Phase 6 ([ADR-24](#adr-24--net-worth-is-derived-on-demand-snapshots-are-deferred-to-phase-6)).
 
 **Rejected.** Recompute-on-read only (too slow, and repeated identical work). Positions as editable primary records (unauditable — you can no longer answer "why is this the average price").
 
@@ -245,7 +249,9 @@ An account's currency is immutable once it carries ledger rows. See [SCHEMA.md �
 
 ## ADR-14 — Background work via a Postgres job table, not a queue service
 
-**Decision.** A `jobs` table plus a single in-process runner using `SELECT ... FOR UPDATE SKIP LOCKED`. Jobs: recurring-transaction posting, price refresh, nightly net-worth snapshot, backup verification.
+**Decision.** A `jobs` table plus a single in-process runner using `SELECT ... FOR UPDATE SKIP LOCKED`. Jobs: recurring-transaction posting, price refresh, FX refresh, backup verification, audit retention.
+
+*A nightly net-worth snapshot was originally on this list. It is not built: net worth is derived on demand ([ADR-24](#adr-24--net-worth-is-derived-on-demand-snapshots-are-deferred-to-phase-6)), and the job returns only if a Phase 6 measurement justifies it.*
 
 **Why.** Job volume is a handful per day. `CLAUDE.md` explicitly excludes Redis and message queues without a concrete requirement. A Postgres-backed queue is transactional with the data it mutates, which is the property that actually matters for "did the recurring rent posting run exactly once".
 
@@ -326,6 +332,109 @@ Recording the column rather than dropping it keeps a fact the user may have ente
 
 ---
 
+## ADR-23 — Net worth carries a declared valuation basis; Phase 5 ships **Net Worth at Cost**
+
+**Decision.** Resolves **OD-7**, approved 2026-08-12. Supersedes the market-value formulation previously in [FINANCIAL-DOMAIN.md §9.3](FINANCIAL-DOMAIN.md#93-calculation).
+
+Net worth is computed at a **declared basis**, and the basis is part of the answer rather than an implementation detail:
+
+| Basis | Investment contribution | Available |
+|---|---|---|
+| `cost` | the exact Phase 4 cost basis — `Σ tax_lots.remaining_cost × lot.fx_rate_to_base`, per lot | **Phase 5** |
+| `market` | `Σ marketValue(position)`, unpriced holdings **excluded** and named, with a coverage ratio | Phase 6 |
+
+**Phase 5 computes and presents `cost` only, and names it "Net Worth at Cost" wherever the unqualified term could imply a current market valuation.** Phase 6 introduces `market` as a distinct calculation.
+
+**A single net-worth figure never mixes the two bases.** A total that is part market value and part acquisition cost is a number in no basis at all: it cannot be explained, cannot be reconciled against either source, and changes meaning as price coverage varies. Where a holding cannot be priced under `market`, it is excluded and named ([ADR-11](#adr-11--market-data-behind-a-provider-abstraction-with-an-always-available-manual-provider), [FINANCIAL-DOMAIN.md §10.4](FINANCIAL-DOMAIN.md#104-partial-results-are-labelled-not-hidden)) — never silently backfilled with its cost.
+
+**Why the basis is explicit rather than implied by the phase.** `setManualPrice` already exists, so a user can price a holding today and the Investments pages already show market value with coverage. Without a declared basis, Net Worth and Investments would report two different numbers for the same securities with nothing on either screen saying why. Naming the basis makes the difference a stated fact instead of a discrepancy.
+
+**Consequences.**
+- The investment block of `basis: 'cost'` carries **no unrealised gain and no unrealised FX**. Currency movement on a foreign holding surfaces only on disposal, as `base_fx_component` (I-18).
+- The change bridge's unrealised-gain line is **zero by construction** at `basis: 'cost'` — arithmetically, because `Δcost = purchases − consumed` exactly — and must be rendered as *"not measured — holdings valued at cost"*, never as `₹0`, which would read as *"the portfolio did not move"*.
+- Coverage for the investment block is `1.0` under `cost`: acquisition cost is always known.
+- When Phase 6 makes `market` the default, net worth moves for two reasons at once — price, and the FX basis shift from acquisition rates to spot ([FINANCIAL-DOMAIN.md §9.3](FINANCIAL-DOMAIN.md#93-calculation)). That belongs in the Phase 6 release note.
+
+**No valuation toggle in Phase 5.** The parameter exists in the calculator's signature so Phase 6 is a new valuation function and a changed default rather than re-plumbing; it is not surfaced in the UI, because Phase 5 has exactly one basis to offer.
+
+**Rejected.** *Market where priced, cost where not* — one number, two bases, unstateable, and it drifts silently as coverage changes. *Market with unpriced holdings excluded, in Phase 5* — honest under ADR-11, but with `instrument_prices` empty and no provider (OD-3) it reports investments as **₹0** for any user who has not hand-entered prices. *Leaving the basis implicit* — the defect this ADR resolves: `FINANCIAL-DOMAIN.md` §9.3 said market value while `ROADMAP.md` said at cost, and both were normative.
+
+---
+
+## ADR-24 — Net worth is derived on demand; snapshots are deferred to Phase 6
+
+**Decision.** Resolves **OD-8**, approved 2026-08-12.
+
+Phase 5 computes every net-worth figure — current, historical, series, and bridge — **by derivation from dated rows**. `net_worth_snapshots` and the `networth.snapshot` job move to **Phase 6**. No Phase 5 gate depends on a snapshot.
+
+**Why.**
+
+1. **The performance case does not hold.** A month-end series is **five set-based queries** — accounts by cumulative movement, lots and disposals bucketed by month, valuations and liability balances by greatest-`as_of`-per-bucket, and one FX row per currency per bucket — followed by one pure fold through the same `compose()` the single-date path uses. Snapshots exist to avoid *N* point computations; there are none. `CLAUDE.md` and [FINANCIAL-DOMAIN.md §3](FINANCIAL-DOMAIN.md#3-accounts) both say to measure before caching.
+2. **The cache as specified cannot tell when it is stale.** `net_worth_snapshots` stamps `money_ledger_version` and `investment_ledger_version`. Nothing covers `asset_valuations`, `liability_balances`, `instrument_quotes` or `fx_rates` — so a snapshot goes stale behind two matching stamps. Shipping it would mean shipping a cache that is confidently wrong.
+3. **Corrections are normal operations.** Editing a transaction dated last March makes every derived figure from March onward correct on the next read ([FINANCIAL-DOMAIN.md §3](FINANCIAL-DOMAIN.md#3-accounts)). With snapshots, the same edit silently invalidates every stored point from that date forward — the failure golden scenario **G6** exists to catch.
+
+**Preserved for Phase 6.** Nothing here forecloses snapshots. If a market-valued series — which joins a price per instrument per date — misses [ARCHITECTURE.md §9](ARCHITECTURE.md#9-performance-targets), Phase 6 may introduce them **under four rules**:
+
+- The **current** figure is always derived. A snapshot is never read for today.
+- A historical point is read from a snapshot **only** when every stamped input version matches; otherwise it is derived and the row rewritten.
+- The stamp set is completed first — `user_state.valuation_version`, bumped by every write to `manual_assets`, `asset_valuations`, `liabilities` and `liability_balances`, plus whatever covers prices and FX.
+- `verify:integrity` asserts **snapshot = derivation** for a sample of dates, making the cache a checked artefact rather than a trusted one.
+
+`user_state.valuation_version` is **not** added in Phase 5: nothing in Phase 5 reads it, and Phase 6 ships a migration anyway.
+
+**Rejected.** *Snapshots in Phase 5 under the four rules* — buildable, but it adds a cache, a job, an invalidation counter and an integrity check to a phase whose figures are all derivable in five queries. *A `portfolio_snapshots` table* — already rejected for the same reason ([INVESTMENT-DOMAIN.md §8.1](INVESTMENT-DOMAIN.md#81-portfolio-growth-over-time)).
+
+---
+
+## ADR-25 — Net-worth classification is by the economic sign of the balance, not by account kind
+
+**Decision.** Approved 2026-08-12, resolving finding **N1**. Supersedes the kind-driven table previously in [FINANCIAL-DOMAIN.md §3](FINANCIAL-DOMAIN.md#3-accounts).
+
+> `balance > 0` → **asset** contribution of `balance`.
+> `balance < 0` → **liability** contribution of `|balance|`.
+> `balance = 0` → **no contribution to either subtotal**; the account still occupies its key in the contributions map.
+
+`accounts.kind` decides **which group the row is displayed in** and **which sign is expected** — a `bank` account in credit, or a `credit_card` in debit, is flagged on screen. It does **not** decide which side of the balance sheet the money lands on.
+
+**Why.** The kind-driven rule had two failure modes, and they disagreed with each other:
+
+- **An overpaid credit card vanished.** §9.3's asset term excluded `credit_card`/`loan` kinds and its liability term required `balance < 0`, so a card at `+₹5,000` was in **neither**.
+- **The same row was simultaneously a debt.** `accountRole()` classified `credit_card` as a liability regardless of sign, so a calculator built on it plus `abs()` reported the ₹5,000 credit as a ₹5,000 **debt** — a ₹10,000 spread on one row, from two implementations of one rule.
+- **An overdrawn bank account was a negative asset**, which leaves net worth correct but both subtotals understated.
+
+Sign-based classification removes all three and buys a structural property: `Σ contribution(a,T) = Σ balance(a,T)` over **all** accounts. The account block of net worth is a plain sum of balances — nothing can be dropped or duplicated by a kind test, because there is no kind test.
+
+**Credit available on a card remains excluded from every total.** `credit_limit − |balance|` is shown on the account row so the figure is visible without being counted.
+
+**Rejected.** *Kind decides the side, sign decides nothing* — the status quo, which loses an overpayment. *Kind decides the side and an overpayment is clamped to zero* — silently discards real money. *A per-account `sheet_side` column* — a stored classification that can disagree with the balance it classifies.
+
+---
+
+## ADR-26 — An as-of financial figure is computed from dated facts only; no current-state flag participates
+
+**Decision.** Approved 2026-08-12, resolving findings **N2**, **N4**, **N7** and **N10** as one rule rather than four patches.
+
+> **Every filter in an `asOf` calculation is a date comparison against a recorded fact. `is_active` — on `accounts`, `manual_assets`, `liabilities` or `instruments` — is read by no calculation, ever.**
+
+`is_active` describes an entity *today*. Net worth is computed *as of* a date. Mixing the two rewrites history silently: an account closed this morning vanishes from last year's figure, and the series changes shape every time the user tidies up.
+
+Four consequences, each of which was a separate latent defect:
+
+| | Rule | Was |
+|---|---|---|
+| **N2** | An account contributes only when `opening_date <= asOf`, and its **opening balance is gated by the same test**. An excluded account is **absent** from the map, not present at zero | `deriveBalance()` added `opening_balance` unconditionally, so an account opened in 2026 contributed ₹50,000 to net worth as of 2020 — the date bound covered *movements*, and an opening position is not a movement |
+| **N4** | The calculator considers **every** account regardless of `is_active` | the default `listAccounts` argument excludes inactive accounts, so a calculator written against the default silently dropped every closed account from every historical figure |
+| **N7** | An **eligible** asset with no valuation in force at `asOf` is **excluded and named**, reducing coverage | *"contributes zero and is listed as unvalued"* — a ₹80 lakh flat contributing ₹0 to a headline figure, contradicting [§10.3](FINANCIAL-DOMAIN.md#103-missing-data-propagates-as-null-never-as-zero) and golden scenario **G5** |
+| **N10** | Closing a scheduled liability **writes a terminal `liability_balances` row with `outstanding = 0`** dated on the closing date | `is_active = false` alone changed nothing under a date-driven rule, so the last non-zero balance stayed in force forever |
+
+**Enforcement is mechanical, not editorial.** Invariant **I-26** is a **source scan** — the same technique [TESTING.md §7](TESTING.md#7-ai-tests--all-offline) uses to keep model identifiers out of the orchestrator — asserting that no file under `src/server/domain/networth/**` or the net-worth read path references `is_active`. A rule that depends on every future reader remembering it is not a rule.
+
+**The eligibility table this produces is normative** and lives in [FINANCIAL-DOMAIN.md §9.3](FINANCIAL-DOMAIN.md#93-calculation).
+
+**Rejected.** *Filtering on `is_active` and accepting that history moves* — the defect. *A `closed_on` column on `accounts` mirroring `manual_assets.disposed_on`* — unnecessary: a closed account's balance is already the right answer at every date, and adding a second lifecycle date invites a filter on it.
+
+---
+
 ## Decisions taken independently in Phase 1
 
 Per `CLAUDE.md <decision_policy>`, these were resolved rather than escalated. Each is reversible at low cost; the reasoning is recorded so it can be challenged.
@@ -346,3 +455,14 @@ Per `CLAUDE.md <decision_policy>`, these were resolved rather than escalated. Ea
 | **OD-1** | **`NVIDIA_API_KEY`** | The candidate list in `CLAUDE.md` does not fully match the live catalogue (5 of 13 identifiers differ or are absent — see [AI-SYSTEM.md §2.3](AI-SYSTEM.md#23-model-catalogue-reality-check)). The unauthenticated catalogue may be partial. Tier membership cannot be finalised without an authenticated read, and the evaluation harness cannot run at all. | Phase 7 (AI infrastructure) onward. Phases 1–6 are unblocked. |
 | **OD-2** | **`AGENTS.md` duplication** | `AGENTS.md` is byte-identical to `Claude.md` (46,058 bytes each). Two copies of a 2,181-line specification will drift, and drift in the spec is worse than drift in code. Recommendation: reduce `AGENTS.md` to a one-line pointer. Not done unilaterally — the file may exist because another tool requires full content at that path. | Nothing technically; it is a correctness-of-instructions risk |
 | **OD-3** | **Equity/ETF market-data provider terms** | Needed by Phase 6. Free sources cover Indian mutual funds (AMFI) and FX; listed equities generally need a paid API whose terms are a commercial choice, not an engineering one. | Phase 6 completion (not its start) |
+
+### Resolved
+
+| # | Decision | Outcome |
+|---|---|---|
+| **OD-4** | Amend the approved baseline with the Phase 4 review's D1–D15 | ✅ Approved and applied 2026-08-11 |
+| **OD-5** | `investment_transactions.net_amount` currency | ✅ Approved 2026-08-11: the **account's** currency ([ADR-12](#adr-12--base-currency-with-dated-fx-stored-alongside-native-amounts)) |
+| **OD-6** | `settlement_date` semantics | ✅ Resolved 2026-08-11: recognition is trade-dated ([ADR-22](#adr-22--financial-recognition-is-trade-dated-settlement_date-is-informational-metadata)) |
+| **OD-7** | Net-worth valuation basis before market data exists | ✅ Approved 2026-08-12: **Net Worth at Cost** in Phase 5; market value is a distinct Phase 6 calculation; the two are never mixed in one figure ([ADR-23](#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost)) |
+| **OD-8** | `net_worth_snapshots` and the `networth.snapshot` job | ✅ Approved 2026-08-12: **moved to Phase 6.** Phase 5 derives every figure; snapshots remain available to Phase 6 under four stated rules ([ADR-24](#adr-24--net-worth-is-derived-on-demand-snapshots-are-deferred-to-phase-6)) |
+| **OD-9** | Apply the Net Worth review's N1–N19 to the canonical documents | ✅ Approved and applied 2026-08-12. The normative rules were **reconciled**, not appended to: [ADR-23](#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost), [ADR-25](#adr-25--net-worth-classification-is-by-the-economic-sign-of-the-balance-not-by-account-kind) and [ADR-26](#adr-26--an-as-of-financial-figure-is-computed-from-dated-facts-only-no-current-state-flag-participates) carry the four architectural findings; the rest are folded into `FINANCIAL-DOMAIN.md`, `SCHEMA.md`, `INVESTMENT-DOMAIN.md` and `TESTING.md`. Disposition table in [NET-WORTH-DESIGN.md §14](NET-WORTH-DESIGN.md#14-defects-found-in-the-baseline-n1n19) |

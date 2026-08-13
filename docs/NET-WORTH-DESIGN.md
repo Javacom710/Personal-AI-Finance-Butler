@@ -1,10 +1,27 @@
 # Net Worth — Phase 5 architecture and design review
 
-**Status:** design review complete, 2026-08-12. **Phase 5 implementation has not started.**
+**Status:** design review complete 2026-08-12; **corrections applied to the canonical documents the
+same day** under OD-9. **Phase 5 implementation has not started.**
+
 **Nature of this document:** a review record and rationale, like
 [INVESTMENT-ENGINE-DESIGN.md](INVESTMENT-ENGINE-DESIGN.md). **Non-normative** — where it and a
-canonical document differ, the canonical document wins until the corrections in
-[§14](#14-defects-found-in-the-baseline-n1n19) are approved and applied.
+canonical document differ, the canonical document wins. Everything here that became a rule now lives
+in `FINANCIAL-DOMAIN.md`, `SCHEMA.md`, `INVESTMENT-DOMAIN.md`, `ARCHITECTURE.md`, `TESTING.md` and
+four new ADRs; this document records *why*, and the disposition of every finding is
+[§14](#14-defects-found-in-the-baseline-n1n19).
+
+**The three open decisions are resolved** ([§18](#18-open-decisions--resolved)):
+
+| | Outcome | Normative record |
+|---|---|---|
+| **OD-7** | **Net Worth at Cost** in Phase 5; market value is a distinct Phase 6 calculation; the two are never mixed in one figure | [ADR-23](DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost) |
+| **OD-8** | `net_worth_snapshots` and `networth.snapshot` **moved to Phase 6**; Phase 5 derives everything | [ADR-24](DECISIONS.md#adr-24--net-worth-is-derived-on-demand-snapshots-are-deferred-to-phase-6) |
+| **OD-9** | N1–N19 **applied**, by reconciling the normative rules rather than appending a list | [ADR-25](DECISIONS.md#adr-25--net-worth-classification-is-by-the-economic-sign-of-the-balance-not-by-account-kind), [ADR-26](DECISIONS.md#adr-26--an-as-of-financial-figure-is-computed-from-dated-facts-only-no-current-state-flag-participates), and the per-finding table in [§14](#14-defects-found-in-the-baseline-n1n19) |
+
+**Invariants use the canonical `I-nn` numbering** from [SCHEMA.md §12](SCHEMA.md#12-invariants-summary).
+The draft `NW-n` labels this document first used were folded into `I-21 … I-32` so there is one
+authoritative numbering; the draft `NW-11` was **dissolved** rather than renumbered, because N11's
+correction — dropping the redundant `currency_code` — removes the disagreement it would have policed.
 
 **Baseline reviewed:** commit `8b60a6d` — Phases 0–4 complete and verified (912 tests, 21 invariants
 passing, 3 deferred). Canonical documents read: `CLAUDE.md`, `PROJECT-STATE.md`, `ROADMAP.md`,
@@ -43,16 +60,18 @@ Four conclusions drive the design:
    basis is cheap and correct, and why the market-value form is Phase 6 work.
 3. **Nothing needs to be stored.** Every figure is derivable in a small number of set-based queries,
    including the month-end history series. Snapshots are therefore recommended **out** of Phase 5
-   ([OD-8](#od-8--net_worth_snapshots-and-the-networthsnapshot-job-move-to-phase-6)).
-4. **The baseline has nineteen defects that Phase 5 would otherwise walk into**, two of them
-   material: an as-of balance that adds an account's opening balance to dates *before the account
-   existed* (N2), and a §9.3 formula that would report investments as **zero** in the current
-   price-free state (N6). Neither is a live bug today — no caller passes `asOf` — which is exactly
-   why they survived four phases.
+   ([OD-8](#od-8--snapshots-approved-moved-to-phase-6)).
+4. **The baseline had nineteen defects that Phase 5 would otherwise have walked into**, two of them
+   material: an as-of balance that added an account's opening balance to dates *before the account
+   existed* (N2), and a §9.3 formula that would have reported investments as **zero** in the current
+   price-free state (N6). None was a live bug — no caller passes `asOf` — which is exactly why they
+   survived four phases and four completion gates. **All nineteen are now applied**
+   ([§14](#14-defects-found-in-the-baseline-n1n19)); four of them became ADRs because they were
+   architectural rules rather than local corrections.
 
-Phase 5 ships **at cost**, deterministically, with `null`-and-a-reason wherever a figure is genuinely
-unavailable, and with a reconciliation that can answer *"why is my net worth ₹X"* down to the
-individual row.
+Phase 5 ships **Net Worth at Cost**, deterministically, with `null`-and-a-reason wherever a figure is
+genuinely unavailable, and with a reconciliation that can answer *"why is my net worth ₹X"* down to
+the individual row.
 
 ---
 
@@ -217,7 +236,7 @@ balance(a,T) + Σ_{lots ℓ in a} remainingCost(ℓ,T)
 ```
 
 Buys and sells cancel out of the right-hand side entirely. That identity is the single-counting
-rule, and it is directly testable — see NW-5 in [§11](#11-invariants).
+rule, and it is directly testable — see I-25 in [§11](#11-invariants).
 
 The corollary that matters for the UI: **a purchase moves net worth by exactly zero, and a sale moves
 it by exactly the realised P&L.** A dividend moves it by the *net* received. A fee moves it by
@@ -326,7 +345,7 @@ lot over its whole life, unconditionally, because the slice that drains a lot ta
 verbatim. So `cost_total − Σ(consumed ≤ T)` is the true remaining basis at `T`, with no residue.
 
 At `T = today` the derivation must reproduce `Σ positions.base_cost_basis` exactly. That equality is
-invariant **NW-4** and ties the as-of path to the Phase 4 cache — if either drifts, the check fires.
+invariant **I-24** and ties the as-of path to the Phase 4 cache — if either drifts, the check fires.
 
 ### 4.2 `opened_on`, not `acquired_on` — the transfer trap
 
@@ -337,7 +356,7 @@ As-of eligibility must use **`opened_on`**. Using `acquired_on` would place the 
 the destination account from the original purchase date — while the source account's lot is *also*
 still open until its `transfer_out` — and the same value would be counted **twice** for the entire
 intervening period. This is the one place in the whole design where a plausible column choice
-produces a silent double count, and it earns its own invariant (**NW-3**).
+produces a silent double count, and it earns its own invariant (**I-23**).
 
 The matched pair is otherwise self-cancelling: at the transfer date the source lot's basis drains to
 the disposal (`proceeds = cost_consumed`, realised P&L exactly zero by construction) and the
@@ -364,12 +383,16 @@ Consequences:
   because every holding is unpriced. That is the opposite of ROADMAP's stated Phase 4–6 consequence,
   *"holdings are valued at cost and net worth is an at-cost figure."* One of the two is wrong (N6).
 
-**Recommendation, and it needs approval** — see
-[OD-7](#od-7--phase-5-values-investments-at-cost-even-where-a-manual-price-exists):
+**Resolved — OD-7, approved 2026-08-12, normative in
+[ADR-23](DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost):**
 
-> Phase 5 computes `basis: 'cost'`. `positions.base_cost_basis` (or its as-of derivation) is the
+> Phase 5 computes `basis: 'cost'` and calls the result **Net Worth at Cost** wherever the
+> unqualified term could imply a current market valuation. The exact Phase 4 cost basis is the
 > investment contribution, coverage for the investment block is `1.0` because cost is always known,
 > and the Net Worth page states the basis in one line and links to Investments for the market view.
+> **A single figure never mixes the two bases.** No valuation toggle ships in Phase 5 — the `basis`
+> parameter exists in the calculator's signature so Phase 6 is a new valuation function and a changed
+> default, and it is not surfaced in the UI, because Phase 5 has one basis to offer.
 
 Zero-quantity and fully-sold positions contribute **nothing** at `basis: 'cost'` —
 `remaining_cost = 0` by I-19, so they fall out arithmetically rather than by a filter. They are
@@ -443,7 +466,7 @@ Three enforcement gaps in the current specification:
 - **Nothing constrains the linked account's kind (N8).** A liability linked to a `bank` account with
   a positive balance contributes nothing *and* the account contributes as an **asset** — the debt
   disappears. A cross-table rule cannot be a `CHECK`, so it is a service guard plus an integrity
-  check (**NW-7**).
+  check (**I-27**).
 - **`ON DELETE SET NULL` silently changes the shape (N9).** Deleting the account converts a
   transacted liability into a scheduled one with no balance rows, which then contributes zero.
   `RESTRICT` is correct; accounts with ledger history already cannot be deleted, so the change costs
@@ -452,7 +475,7 @@ Three enforcement gaps in the current specification:
   `is_active = false` changes nothing, so the last non-zero `liability_balances` row stays in force
   forever. `close` must `INSERT` a final `outstanding = 0` row dated on the closing date. Then a
   closed loan is correctly present in every earlier figure and correctly absent from every later one,
-  with no flag involved (**NW-8**).
+  with no flag involved (**I-28**).
 
 **Is interest required in Phase 5?** No. `interest_rate`, `emi_amount`, `started_on` and `ends_on`
 stay **descriptive only**, exactly as `PROJECT-STATE.md` already carries them. Nothing derives an
@@ -501,7 +524,7 @@ historical net worth built on `baseBalance` would price 2021's rupee balance at 
 Phase 5 therefore takes `AccountView.balance` (native, correct) and converts it itself at `T`. The
 Phase 3 defect is recorded rather than fixed inside Phase 5, because no current caller passes `asOf`
 and changing a Phase 3 read path is out of Phase 5's scope
-([OD-9](#od-9--apply-n1n19-to-the-canonical-documents)).
+([OD-9](#od-9--the-correction-pass-approved-and-applied)).
 
 ### 6.3 The FX asymmetry, stated because it is real
 
@@ -558,7 +581,7 @@ uses a different rate. Summing unrounded products would mean the displayed compo
 add up to the displayed total, which is worse than a fraction of a paisa.
 
 Because the subtotals sum the same rounded values the map holds, `assets − liabilities = Σ map`
-**exactly**, with no tolerance. That is invariant **NW-2**.
+**exactly**, with no tolerance. That is invariant **I-22**.
 
 ---
 
@@ -598,10 +621,10 @@ A series over month-ends `D₁…Dₙ` is **five set-based queries**, none of wh
 
 Then one pure fold in the engine builds a `NetWorthResult` per point, through the **same**
 `compose()` the single-date path uses. There is no second implementation of net worth for the chart,
-which is what makes the chart's last point provably equal to the headline figure (**NW-9**).
+which is what makes the chart's last point provably equal to the headline figure (**I-29**).
 
 This is why snapshots are recommended out of Phase 5
-([OD-8](#od-8--net_worth_snapshots-and-the-networthsnapshot-job-move-to-phase-6)): the performance
+([OD-8](#od-8--snapshots-approved-moved-to-phase-6)): the performance
 problem they exist to solve does not exist once the series is set-based, and a cache that is not
 needed is a second source of truth waiting to drift.
 
@@ -677,8 +700,8 @@ bridge that is hiding an error.*
 | Auditability | every figure traces to rows | traces to a row that traces to rows that may have changed |
 | Performance | 5 queries per series ([§7.2](#72-the-history-series-is-one-pass-per-component-not-n-point-computations)) | 1 query |
 
-**Recommendation: Phase 5 derives everything, and `net_worth_snapshots` + `networth.snapshot` move to
-Phase 6** ([OD-8](#od-8--net_worth_snapshots-and-the-networthsnapshot-job-move-to-phase-6)). Three
+**Resolved — OD-8, approved 2026-08-12, normative in [ADR-24](DECISIONS.md#adr-24--net-worth-is-derived-on-demand-snapshots-are-deferred-to-phase-6):
+Phase 5 derives everything, and `net_worth_snapshots` + `networth.snapshot` move to Phase 6.** Three
 reasons:
 
 1. The performance case evaporates once the series is set-based. `CLAUDE.md` and
@@ -686,24 +709,21 @@ reasons:
 2. **The stamp is incomplete (N13).** `net_worth_snapshots` records `money_ledger_version` and
    `investment_ledger_version`. It does not record anything covering `asset_valuations`,
    `liability_balances`, `instrument_quotes` or `fx_rates` — so a snapshot can be stale with both
-   stamps matching. Shipping it in Phase 5 means shipping a cache that cannot tell when it is wrong.
+   stamps matching. Shipping it in Phase 5 would mean shipping a cache that cannot tell when it is
+   wrong.
 3. Phase 6 is where the cost genuinely arrives: a market-valued series joins a price per instrument
    per date. That is the right moment to measure, and by then the counter set can be completed.
 
-**If the table ships in Phase 5 anyway**, the rules are non-negotiable:
+**No Phase 5 gate depends on a snapshot.** The four rules that would apply if Phase 6 introduces one
+are recorded in [ADR-24](DECISIONS.md#adr-24--net-worth-is-derived-on-demand-snapshots-are-deferred-to-phase-6)
+and [SCHEMA.md §9](SCHEMA.md#9-net-worth-snapshots--phase-6-not-built-at-launch): the current figure
+is always derived; a historical point is read only on a full version match; the stamp set is
+completed first; and `verify:integrity` asserts snapshot = derivation.
 
-- The **current** figure is always derived. A snapshot is never read for today.
-- A historical point is read from a snapshot **only** when every stamped input version matches;
-  otherwise it is derived and the row rewritten.
-- `verify:integrity` asserts **snapshot = derivation** for a sample of dates. The cache is then a
-  checked artefact rather than a trusted one.
-- Stored: `total_assets`, `total_liabilities`, `net_worth`, `breakdown` (group subtotals),
-  `price_coverage`, and every input version. Derived, never stored: the contributions map, the
-  bridge, and anything that names a row.
-
-Independently of OD-8, Phase 5 should add **`user_state.valuation_version`**, bumped by every write to
-`manual_assets`, `asset_valuations`, `liabilities` and `liability_balances`. One column, in the Phase
-5 migration rather than a later one, and it is what any future cache — or Phase 6's — will need.
+**`user_state.valuation_version` is deferred with them.** The review originally proposed adding it in
+Phase 5 "so a later migration does not have to". Nothing in Phase 5 reads it — net worth is derived,
+so there is no cache to invalidate — and Phase 6 ships a migration anyway. Adding a counter no code
+consumes is exactly the speculative complexity `CLAUDE.md <engineering_rules>` warns against.
 
 ---
 
@@ -790,19 +810,18 @@ Continuing the numbering in [SCHEMA.md §12](SCHEMA.md#12-invariants-summary). *
 | # | Invariant | Domain rule | DB constraint | Test |
 |---|---|---|---|---|
 | **I-8** | No account is counted twice: every `liabilities` row with `linked_account_id` set contributes **zero**, and no two rows claim one account | [§5.2](#52-liabilities--two-shapes-discriminated-by-linked_account_id) | `UNIQUE (linked_account_id)` | integration + `verify:integrity` + **G4** |
-| **NW-1** | The contributions map is injective — no `SourceKey` is inserted twice | [§3.2](#32-the-contributions-map) | — (engine throws) | unit: deliberately duplicate a key and assert the throw |
-| **NW-2** | `netWorth = Σ map = assets − liabilities`, computed by two independent paths | [§6.5](#65-rounding) | — | unit + `verify:integrity` |
-| **NW-3** | A lot contributes at `T` iff `opened_on <= T` — never `acquired_on` | [§4.2](#42-opened_on-not-acquired_on--the-transfer-trap) | — | integration: a `transfer_in` carrying a 2-year-old `acquired_on` contributes to neither account before its `opened_on` |
-| **NW-4** | `investmentCostBasisAsOf(today) = Σ positions.base_cost_basis`, exactly | [§4.1](#41-phase-5-does-not-recompute-positions-it-bounds-them-by-date) | — | `verify:integrity` + property |
-| **NW-5** | A `buy` leaves `netWorth(T)` unchanged for every `T ≥ trade_date`; a `sell` changes it by exactly the realised P&L; a `dividend` by exactly the net received | [§3.1](#31-why-the-sum-is-non-overlapping--the-proof-not-the-promise) | — | property test over generated ledgers |
-| **NW-6** | No calculation reads `is_active` on `accounts`, `manual_assets`, `liabilities` or `instruments` | [§7.1](#71-the-eligibility-table--the-normative-core-of-phase-5) | — | source scan, like the model-identifier scan in TESTING §7 |
-| **NW-7** | `liabilities.linked_account_id` references an account of kind `credit_card` or `loan` | [§5.2](#52-liabilities--two-shapes-discriminated-by-linked_account_id) | cross-table → service guard | integration + `verify:integrity` |
-| **NW-8** | Every inactive scheduled liability has a terminal `liability_balances` row with `outstanding = 0` | [§5.2](#52-liabilities--two-shapes-discriminated-by-linked_account_id) | — | integration + `verify:integrity` |
-| **NW-9** | The last point of `netWorthSeries` equals `netWorthAsOf(today)`, byte-identical | [§7.2](#72-the-history-series-is-one-pass-per-component-not-n-point-computations) | — | integration |
-| **NW-10** | The bridge closes: `ΔNW − Σ lines = 0` **exactly** for single-currency data, and within one base unit with FX | [§7.3](#73-the-change-bridge) | — | every golden scenario |
-| **NW-11** | `asset_valuations.currency_code = manual_assets.currency_code`; likewise for liabilities | [§5.1](#51-manual-assets--the-existing-model-is-sufficient-with-four-corrections) | cross-table → service guard, or drop the column | integration + `verify:integrity` |
-| **NW-12** | An account contributes at `T` iff `opening_date <= T` | [§2.3](#23-historical-eligibility--the-account-lifecycle-rule) | — | integration + property |
-| **NW-13** | Every row read by a net-worth query is the session user's | [§9](#9-service-and-api-architecture) | `user_id` columns | integration: a second user's data is invisible |
+| **I-21** | The contributions map is injective — no `SourceKey` is inserted twice | [§3.2](#32-the-contributions-map) | — (engine throws) | unit: deliberately duplicate a key and assert the throw |
+| **I-22** | `netWorth = Σ map = assets − liabilities`, computed by two independent paths | [§6.5](#65-rounding) | — | unit + `verify:integrity` |
+| **I-23** | A lot contributes at `T` iff `opened_on <= T` — never `acquired_on` | [§4.2](#42-opened_on-not-acquired_on--the-transfer-trap) | — | integration: a `transfer_in` carrying a 2-year-old `acquired_on` contributes to neither account before its `opened_on` |
+| **I-24** | `investmentCostBasisAsOf(today) = Σ positions.base_cost_basis`, exactly | [§4.1](#41-phase-5-does-not-recompute-positions-it-bounds-them-by-date) | — | `verify:integrity` + property |
+| **I-25** | A `buy` leaves `netWorth(T)` unchanged for every `T ≥ trade_date`; a `sell` changes it by exactly the realised P&L; a `dividend` by exactly the net received | [§3.1](#31-why-the-sum-is-non-overlapping--the-proof-not-the-promise) | — | property test over generated ledgers |
+| **I-26** | No calculation reads `is_active` on `accounts`, `manual_assets`, `liabilities` or `instruments` | [§7.1](#71-the-eligibility-table--the-normative-core-of-phase-5) | — | source scan, like the model-identifier scan in TESTING §7 |
+| **I-27** | `liabilities.linked_account_id` references an account of kind `credit_card` or `loan` | [§5.2](#52-liabilities--two-shapes-discriminated-by-linked_account_id) | cross-table → service guard | integration + `verify:integrity` |
+| **I-28** | Every inactive scheduled liability has a terminal `liability_balances` row with `outstanding = 0` | [§5.2](#52-liabilities--two-shapes-discriminated-by-linked_account_id) | — | integration + `verify:integrity` |
+| **I-29** | The last point of `netWorthSeries` equals `netWorthAsOf(today)`, byte-identical | [§7.2](#72-the-history-series-is-one-pass-per-component-not-n-point-computations) | — | integration |
+| **I-30** | The bridge closes: `ΔNW − Σ lines = 0` **exactly** for single-currency data, and within one base unit with FX | [§7.3](#73-the-change-bridge) | — | every golden scenario |
+| **I-31** | An account contributes at `T` iff `opening_date <= T` | [§2.3](#23-historical-eligibility--the-account-lifecycle-rule) | — | integration + property |
+| **I-32** | Every row read by a net-worth query is the session user's | [§9](#9-service-and-api-architecture) | `user_id` columns | integration: a second user's data is invisible |
 
 ### Explicit non-invariants
 
@@ -831,8 +850,8 @@ produces it. Each becomes a named test.
 | 3 | Investments only | `= Σ base_cost_basis` at `basis:'cost'` | §4.1 |
 | 4 | Cash + investments | the sum of both, no interaction | disjoint source keys |
 | 5 | Brokerage cash + securities | `cash + basis`, never `cash + basis + cash` | §3.1 — the ledger, not a subtraction |
-| 6 | Buy | **ΔNW = 0** | NW-5. Same-currency case exact; cross-currency differs only by the two rates |
-| 7 | Sell | ΔNW = realised P&L | NW-5 |
+| 6 | Buy | **ΔNW = 0** | I-25. Same-currency case exact; cross-currency differs only by the two rates |
+| 7 | Sell | ΔNW = realised P&L | I-25 |
 | 8 | Dividend | ΔNW = net received (`gross − fees − taxes`) | I-12; bridge splits it into income and costs |
 | 9 | Transfer into brokerage | ΔNW = 0 | both legs are accounts; Σ Δbalance = 0 |
 | 10 | Transfer out of brokerage | ΔNW = 0 | same |
@@ -841,7 +860,7 @@ produces it. Each becomes a named test.
 | 13 | Multiple currencies | each component converted independently, summed after rounding | §6.5 |
 | 14 | Missing FX rate | that component `excluded`, coverage < 1 on **its own side**, named | §6.4. Never zero, never a whole-figure `null` |
 | 15 | Missing historical price | irrelevant at `basis:'cost'`; at `'market'` the holding is excluded with `no_price` | Phase 6 |
-| 16 | Closed account | still contributes its balance on `T`; contributes `0` once emptied | NW-6 — `is_active` unread |
+| 16 | Closed account | still contributes its balance on `T`; contributes `0` once emptied | I-26 — `is_active` unread |
 | 17 | Account closed **after** `T` | fully present at `T` | §2.3 |
 | 18 | Account created **after** `T` | **absent**, opening balance included | **N2** — the highest-value fix in this review |
 | 19 | Manual asset disposed | absent from `T ≥ disposed_on` | `disposed_on` is a date, not a flag |
@@ -852,14 +871,14 @@ produces it. Each becomes a named test.
 | 24 | Same-day transactions | order-independent | every bound is `≤ date`; FIFO order within a day is already fixed by `kind_rank` |
 | 25 | Corrected / replayed ledger | the next read is correct; **no snapshot to invalidate** | the strongest argument for OD-8; **G6** |
 | 26 | Rebuilt positions | identical net worth before and after `rebuildAllPositions` | rebuild is byte-identical (Phase 4 property) |
-| 27 | Historical NW before / after a purchase | before: cash. after: cash − X + basis X. Equal | NW-5 |
+| 27 | Historical NW before / after a purchase | before: cash. after: cash − X + basis X. Equal | I-25 |
 | 28 | Historical NW before / after a disposal | before: asset at valuation. after: cash at proceeds. Δ = gain | §5.1; and see N18 on the savings-rate artefact |
 | 29 | Transfer between two owned accounts | ΔNW = 0 same-currency; = the FX residual cross-currency | the residual is the bridge's FX line, never income |
 | 30 | Brokerage cash → investment position | ΔNW = 0 | the brief's central case; §3.1 |
 | 31 | Partial FX data | converted components counted, others excluded, coverage per side | §6.4 |
 | 32 | Negative net worth | reported as negative | no `abs()` anywhere on the total |
 | 33 | Large values / precision | exact to `NUMERIC(20,4)`; `Money` is bigint throughout | no float on any path |
-| 34 | User isolation | a second user's rows are invisible | `user_id` filtered from the session; NW-13; needs N12's added columns |
+| 34 | User isolation | a second user's rows are invisible | `user_id` filtered from the session; I-32; needs N12's added columns |
 | 35 | Double counting of brokerage cash | impossible | ledger coupling + the map's duplicate-key throw |
 
 **Additional cases surfaced by this review**, not in the brief:
@@ -869,10 +888,10 @@ produces it. Each becomes a named test.
 | 36 | Overpaid credit card (balance `> 0`) | counted as an **asset** at `+balance` | N1 — currently vanishes, or is reported as a debt |
 | 37 | Overdrawn bank account | counted as a **liability** at `|balance|` | N1 |
 | 38 | Unmatched `transfer_in` (gifted or migrated shares) | net worth **rises** by the lot's basis; the bridge carries it on its own line | N15 |
-| 39 | `transfer_in` whose `acquired_on` predates `opened_on` by years | contributes only from `opened_on` | **NW-3** — the silent-double-count trap |
+| 39 | `transfer_in` whose `acquired_on` predates `opened_on` by years | contributes only from `opened_on` | **I-23** — the silent-double-count trap |
 | 40 | Manual asset with no valuation in force at `T`, but eligible | **excluded**, named, coverage reduced — not zero | N7; **G5** already asserts nothing is silently zeroed |
-| 41 | Scheduled liability closed with no terminal zero row | its last balance would stay in force forever | NW-8 — `close` must write the zero row |
-| 42 | Liability linked to a `bank` account | rejected at creation | NW-7 — otherwise the debt disappears |
+| 41 | Scheduled liability closed with no terminal zero row | its last balance would stay in force forever | I-28 — `close` must write the zero row |
+| 42 | Liability linked to a `bank` account | rejected at creation | I-27 — otherwise the debt disappears |
 | 43 | Fixed deposit modelled as an instrument with a manual price | in net worth throughout at cost until Phase 6 | INVESTMENT-DOMAIN §12 case 20 |
 
 ---
@@ -889,15 +908,15 @@ endpoints with `unexplained` asserted **exactly zero**; per-side coverage arithm
 
 **Property (fast-check).**
 - `∀ ledgers, ∀ T` : `netWorth(T)` is independent of the order rows were entered.
-- `∀ buy` : `netWorth(T)` unchanged for every `T ≥ trade_date` (NW-5).
+- `∀ buy` : `netWorth(T)` unchanged for every `T ≥ trade_date` (I-25).
 - `∀ sell` : `ΔnetWorth` = realised P&L exactly.
-- `∀ T` : `assets(T) − liabilities(T) = Σ map(T)` (NW-2), with no tolerance.
+- `∀ T` : `assets(T) − liabilities(T) = Σ map(T)` (I-22), with no tolerance.
 - `∀ T ≤ today` : `investmentCostBasisAsOf(T)` computed from the cache equals a bounded `replay()` of
   the same ledger (the prefix property in [§4.1](#41-phase-5-does-not-recompute-positions-it-bounds-them-by-date)).
 
 **Integration (real Postgres).** The eligibility table, row by row, with an account, an asset, a
 liability and a lot each crossing `T`; N2's account-created-after-`T` case as an explicit regression;
-`includeInactive` omitted must be caught by NW-6's source scan rather than by a reviewer;
+`includeInactive` omitted must be caught by I-26's source scan rather than by a reviewer;
 `verify:integrity` fails on a deliberately corrupted database (a liability linked to a bank account, a
 duplicate source key, a closed liability with no zero row); user isolation.
 
@@ -905,7 +924,7 @@ duplicate source key, a closed liability with no zero row); user isolation.
 carrying a balance, a car loan closed mid-period. Asserts liability totals, no double counting, and
 the principal/interest split where recorded. **G1** gains its net-worth series assertions. Every
 golden scenario asserts `unexplained` — exactly `0` where single-currency, within one base unit
-otherwise (NW-10).
+otherwise (I-30).
 
 **Deferred to Phase 6, deliberately:** G3 (multi-currency valuation) and G5 (sparse data) both need
 prices. Phase 5 asserts the `basis:'cost'` behaviour they will later extend.
@@ -915,25 +934,54 @@ prices. Phase 5 asserts the `basis:'cost'` behaviour they will later extend.
 ## 14. Defects found in the baseline (N1–N19)
 
 Found by this review against the current canonical documents and the Phase 3/4 implementation.
-**None is a live bug today** — no caller passes `asOf`, and Phase 5's tables do not exist — which is
+**None was a live bug** — no caller passes `asOf`, and Phase 5's tables do not exist — which is
 precisely why they survived four phases and four completion gates.
 
-Applying these to the canonical documents requires approval
-([OD-9](#od-9--apply-n1n19-to-the-canonical-documents)), following the OD-4 precedent.
+**All nineteen were applied to the canonical documents on 2026-08-12 under OD-9**, following the OD-4
+precedent. The rules were *reconciled* rather than appended to: four became ADRs because they were
+architectural rules rather than local corrections, and the rest were folded into the sections that
+already governed them, so each has exactly one authoritative statement.
+
+| Finding | Now lives in | Disposition |
+|---|---|---|
+| **N1** | [ADR-25](DECISIONS.md#adr-25--net-worth-classification-is-by-the-economic-sign-of-the-balance-not-by-account-kind), `FINANCIAL-DOMAIN.md` §3 + §9.1, `SCHEMA.md` §4, edge cases 29–30, **I-31** | ✅ applied |
+| **N2** | [ADR-26](DECISIONS.md#adr-26--an-as-of-financial-figure-is-computed-from-dated-facts-only-no-current-state-flag-participates), `FINANCIAL-DOMAIN.md` §3 balance formula + §9.3, `SCHEMA.md` §4, edge cases 31–33, **I-31** | ✅ applied |
+| **N3** | `FINANCIAL-DOMAIN.md` §3 — *"a base-currency conversion of an `asOf` balance uses the rate in force on `asOf`"* | ✅ applied |
+| **N4** | [ADR-26](DECISIONS.md#adr-26--an-as-of-financial-figure-is-computed-from-dated-facts-only-no-current-state-flag-participates), `FINANCIAL-DOMAIN.md` §3 lifecycle table + §9.3, **I-26** (a source scan) | ✅ applied |
+| **N5** | [ADR-06](DECISIONS.md#adr-06--holdings-are-derived-cached-and-rebuildable), `FINANCIAL-DOMAIN.md` §9.3, `INVESTMENT-DOMAIN.md` §8.1, **I-24** | ✅ applied |
+| **N6** | [ADR-23](DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost), `FINANCIAL-DOMAIN.md` §9 preamble + §9.3, `ROADMAP.md`, `ARCHITECTURE.md` §8 | ✅ applied — the §9.3-vs-ROADMAP contradiction is gone |
+| **N7** | [ADR-26](DECISIONS.md#adr-26--an-as-of-financial-figure-is-computed-from-dated-facts-only-no-current-state-flag-participates), `FINANCIAL-DOMAIN.md` §9.3 + §9.4, `SCHEMA.md` §7, edge case 15 | ✅ applied |
+| **N8** | `FINANCIAL-DOMAIN.md` §9.2 + §9.4, `SCHEMA.md` §8, **I-27**, edge case 38 | ✅ applied |
+| **N9** | `SCHEMA.md` §8 — `ON DELETE RESTRICT`, with the reason in the DDL comment | ✅ applied |
+| **N10** | [ADR-26](DECISIONS.md#adr-26--an-as-of-financial-figure-is-computed-from-dated-facts-only-no-current-state-flag-participates), `FINANCIAL-DOMAIN.md` §9.4 `close` step, `SCHEMA.md` §8, **I-28**, edge case 37 | ✅ applied |
+| **N11** | `SCHEMA.md` §7 + §8 — **`currency_code` dropped** from `asset_valuations` and `liability_balances`; `FINANCIAL-DOMAIN.md` §9.4 | ✅ applied — dissolves the invariant instead of adding one |
+| **N12** | `SCHEMA.md` §7 + §8 — `user_id` added to both, with the lookup indexes; **I-32** | ✅ applied |
+| **N13** | [ADR-24](DECISIONS.md#adr-24--net-worth-is-derived-on-demand-snapshots-are-deferred-to-phase-6), `SCHEMA.md` §9, `ARCHITECTURE.md` §6, and a non-invariant in `SCHEMA.md` §12 | ✅ applied — resolved by deferral, not by completing the stamp |
+| **N14** | `INVESTMENT-DOMAIN.md` §8.1 — the cumulative-ratio form, and why the money form has no such hazard | ✅ applied (Phase 6 consumer) |
+| **N15** | `FINANCIAL-DOMAIN.md` §9.3 bridge — *Investment transfers in/out* | ✅ applied |
+| **N16** | [ADR-23](DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost), `FINANCIAL-DOMAIN.md` §9.3 bridge — zero **by construction**, rendered *"not measured"* | ✅ applied |
+| **N17** | `FINANCIAL-DOMAIN.md` §9.3 *Currency*; the Phase 6 basis-shift consequence stated | ✅ applied |
+| **N18** | `FINANCIAL-DOMAIN.md` §5 (seed category), §8 (the savings-rate artefact), §9.4 (`dispose`) | ✅ applied; a structural fix remains **deferred** with its criterion |
+| **N19** | `SCHEMA.md` §7 + §8 — `UNIQUE (user_id, name)` on both | ✅ applied |
+
+Nothing is deferred except the two items named as such: the structural handling of manual-asset
+disposal proceeds (N18), and `user_state.valuation_version` with the snapshots that need it (N13).
+
+The table below is the original finding list, retained as the record of what was wrong.
 
 | # | Severity | Defect | Where | Correction |
 |---|---|---|---|---|
 | **N1** | High | §9.3 classifies accounts by **kind**: an overpaid credit card is in neither term and vanishes; an overdrawn bank account is misclassified as a negative asset. `accountRole()` classifies a card as a liability regardless of sign, so a calculator using it plus `abs()` reports an overpayment as a debt | `FINANCIAL-DOMAIN.md` §3 + §9.3; `domain/ledger/balance.ts:88` | Classify by **sign**. Kind decides the display group and the expected sign only |
 | **N2** | **High** | The as-of balance adds `opening_balance` unconditionally, so an account contributes its opening balance to dates **before it existed** | `domain/ledger/balance.ts:35`, `services/accounts.ts:220` | Eligibility predicate `opening_date <= T`; the account is **absent**, not zero |
 | **N3** | High | `AccountView.baseBalance` converts at `ctx.today` even when `asOf` was supplied — the native figure honours the date, the base figure does not | `services/accounts.ts:223` | Phase 5 converts from `balance` itself at `T`; record the Phase 3 defect |
-| **N4** | High | `listAccounts` excludes inactive accounts by default, so a historical figure written against the default silently drops every closed account | `services/accounts.ts:96` | Phase 5 must pass `includeInactive: true`; NW-6 asserts no calculation reads the flag |
-| **N5** | High | There is no as-of position, and `positions` must not be given one | `services/portfolio.ts`, `services/positions.ts` | Derive from `tax_lots`/`lot_disposals` bounded by date; NW-4 ties it to the cache |
+| **N4** | High | `listAccounts` excludes inactive accounts by default, so a historical figure written against the default silently drops every closed account | `services/accounts.ts:96` | Phase 5 must pass `includeInactive: true`; I-26 asserts no calculation reads the flag |
+| **N5** | High | There is no as-of position, and `positions` must not be given one | `services/portfolio.ts`, `services/positions.ts` | Derive from `tax_lots`/`lot_disposals` bounded by date; I-24 ties it to the cache |
 | **N6** | **High** | §9.3's *"Σ marketValue — priced holdings only"* reports investments as **₹0** in the current price-free state, contradicting ROADMAP's *"net worth is an at-cost figure"* | `FINANCIAL-DOMAIN.md` §9.3 vs `ROADMAP.md` | Declare `basis`; Phase 5 is `'cost'`; Phase 6 adds `'market'` with coverage — see **OD-7** |
 | **N7** | High | §9.3 says an unvalued manual asset *"contributes zero"*, contradicting §10.3, §10.4 and **G5**'s *"nothing silently zeroed"* | `FINANCIAL-DOMAIN.md` §9.3 | Exclude it, name it, reduce coverage |
-| **N8** | Medium | Nothing constrains `linked_account_id` to a `credit_card`/`loan` account — a link to a bank account makes the debt disappear | `SCHEMA.md` §8 | Service guard + NW-7 |
+| **N8** | Medium | Nothing constrains `linked_account_id` to a `credit_card`/`loan` account — a link to a bank account makes the debt disappear | `SCHEMA.md` §8 | Service guard + I-27 |
 | **N9** | Medium | `linked_account_id ON DELETE SET NULL` silently converts a transacted liability into a scheduled one that then contributes zero | `SCHEMA.md` §8 | `RESTRICT` |
-| **N10** | Medium | Closing a scheduled liability by flag alone leaves its last non-zero balance in force forever under a date-driven rule | `FINANCIAL-DOMAIN.md` §9.4 | `close` writes a terminal `outstanding = 0` row; NW-8 |
-| **N11** | Medium | `asset_valuations.currency_code` / `liability_balances.currency_code` may disagree with the parent's currency; nothing prevents it | `SCHEMA.md` §7, §8 | Drop the column (it is the parent's fact), or guard it; NW-11 |
+| **N10** | Medium | Closing a scheduled liability by flag alone leaves its last non-zero balance in force forever under a date-driven rule | `FINANCIAL-DOMAIN.md` §9.4 | `close` writes a terminal `outstanding = 0` row; I-28 |
+| **N11** | Medium | `asset_valuations.currency_code` / `liability_balances.currency_code` may disagree with the parent's currency; nothing prevents it | `SCHEMA.md` §7, §8 | **Column dropped.** The currency is the parent.s fact; storing it again is a second figure free to drift, and no cross-table CHECK could stop it. Dropping it dissolves the invariant rather than adding one |
 | **N12** | Medium | `asset_valuations` and `liability_balances` carry no `user_id`, against SCHEMA.md's own convention and the `lot_disposals` precedent set by the Phase 4 review | `SCHEMA.md` §7, §8 | Add `user_id`, with the index |
 | **N13** | Medium | `net_worth_snapshots` stamps only the two ledger counters — nothing covers `asset_valuations`, `liability_balances`, `instrument_quotes` or `fx_rates`, so a snapshot can be stale with matching stamps | `SCHEMA.md` §9, `ARCHITECTURE.md` §6 | Add `user_state.valuation_version`; and see **OD-8** |
 | **N14** | Medium | §8.1's `quantityHeldOn` as *"a running sum over the ledger"* is wrong for any instrument with a split or bonus — those rows carry `quantity IS NULL` and a ratio | `INVESTMENT-DOMAIN.md` §8.1 | Phase 6: apply the cumulative ratio, or replay bounded. Phase 5 is unaffected — cost is ratio-invariant |
@@ -981,7 +1029,7 @@ As `SCHEMA.md` §7, plus:
 | Change | Why | Authoritative or derived |
 |---|---|---|
 | **add `user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE`** | SCHEMA.md's own convention; the `lot_disposals` precedent; without it every as-of query joins through the parent to establish ownership (N12) | authoritative |
-| **drop `currency_code`** | it is the asset's currency, and a stored duplicate is a second figure free to drift (N11). If retained instead, it needs a service guard and NW-11 | — |
+| **drop `currency_code`** | it is the asset.s currency, and a stored duplicate is a second figure free to drift (N11). Dropping it removes the disagreement rather than policing it | — |
 | index `(user_id, asset_id, as_of DESC)` | `valuationInForce` is *"greatest `as_of <= T`"* — this is the index that makes it a seek | — |
 | existing `UNIQUE (asset_id, as_of)` | one valuation per asset per day (edge case 24) | — |
 
@@ -997,7 +1045,7 @@ As `SCHEMA.md` §8, plus:
 | `linked_account_id … ON DELETE **RESTRICT**` | `SET NULL` silently changes the liability's shape (N9) |
 | `UNIQUE (user_id, name)` | N19 |
 | index `(user_id, is_active)` | list views only — never a calculation |
-| **no** kind `CHECK` on the linked account | cross-table; enforced by a service guard and NW-7 (N8) |
+| **no** kind `CHECK` on the linked account | cross-table; enforced by a service guard and I-27 (N8) |
 
 `interest_rate`, `emi_amount`, `started_on`, `ends_on` remain **descriptive**. No column implies a
 computed schedule, and none is added.
@@ -1007,21 +1055,21 @@ computed schedule, and none is added.
 As `SCHEMA.md` §8, plus the same two changes as `asset_valuations`: add `user_id`, drop the redundant
 `currency_code`, and index `(user_id, liability_id, as_of DESC)`.
 
-### 15.6 `user_state.valuation_version`
+### 15.6 `user_state.valuation_version` — **deferred to Phase 6**
 
-```sql
-ALTER TABLE user_state ADD COLUMN valuation_version bigint NOT NULL DEFAULT 0;
-```
+The review originally proposed adding it here, on the reasoning that one column now is cheaper than a
+migration later. **OD-8 removed the need:** nothing in Phase 5 reads it, because net worth is derived
+and there is no cache to invalidate, and Phase 6 ships a migration anyway. A counter no code consumes
+is speculative complexity.
 
-Bumped by every write to `manual_assets`, `asset_valuations`, `liabilities`, `liability_balances`.
-One column, in this migration rather than a later one, and it is the counter N13 shows is missing.
+It remains a **prerequisite for any Phase 6 snapshot** — see
+[ADR-24](DECISIONS.md#adr-24--net-worth-is-derived-on-demand-snapshots-are-deferred-to-phase-6) rule 3.
 
-### 15.7 `net_worth_snapshots` — **derived cache, recommended out of Phase 5**
+### 15.7 `net_worth_snapshots` — **Phase 6, not created by the Phase 5 migration**
 
-See [OD-8](#od-8--net_worth_snapshots-and-the-networthsnapshot-job-move-to-phase-6). If it ships
-anyway, it needs `valuation_version` added to its stamp set and the four rules in
-[§8](#8-snapshots-versus-derivation) enforced — in particular `verify:integrity` asserting
-**snapshot = derivation**.
+Resolved by [ADR-24](DECISIONS.md#adr-24--net-worth-is-derived-on-demand-snapshots-are-deferred-to-phase-6).
+The DDL sketch stays in [SCHEMA.md §9](SCHEMA.md#9-net-worth-snapshots--phase-6-not-built-at-launch)
+with the four rules attached, so Phase 6 can introduce it on measurement rather than on intuition.
 
 ### 15.8 What is deliberately **not** added
 
@@ -1065,9 +1113,9 @@ anyway, it needs `valuation_version` added to its stamp set and the four rules i
 
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
-| **A calculation reads `is_active`** — the single easiest mistake, because the flag is right there on every row and the default argument hides it | high | silently wrong history, and the series changes shape as the user tidies up | NW-6 as a **source scan**, not a code review — the same mechanism TESTING §7 uses for model identifiers |
+| **A calculation reads `is_active`** — the single easiest mistake, because the flag is right there on every row and the default argument hides it | high | silently wrong history, and the series changes shape as the user tidies up | I-26 as a **source scan**, not a code review — the same mechanism TESTING §7 uses for model identifiers |
 | **N2 ships uncaught** — the opening balance is not a movement, so a date bound on movements looks complete | medium | every historical figure before an account's creation is wrong by its opening balance | an explicit regression test named for the defect; case 18 |
-| The bridge's FX line is quietly defined as the residual | medium | `unexplained` becomes trivially zero and the suite's single best regression detector dies | NW-10 asserts **exactly** zero on single-currency data, where a residual definition and a computed one are indistinguishable unless the computation is real |
+| The bridge's FX line is quietly defined as the residual | medium | `unexplained` becomes trivially zero and the suite's single best regression detector dies | I-30 asserts **exactly** zero on single-currency data, where a residual definition and a computed one are indistinguishable unless the computation is real |
 | The at-cost basis is mistaken for a market valuation by the user | medium | a wrong impression of wealth | the basis banner is a ROADMAP gate, not a nicety |
 | Snapshots ship and go stale behind matching version stamps | medium (if OD-8 is declined) | a confidently wrong historical figure | derive-only; or the four rules in §8 plus a snapshot-equals-derivation check |
 | The history series is built pointwise | medium | 30 s page load, then a snapshot table added to "fix" it — a cache introduced to paper over a query shape | §7.2's five-query design, with the target asserted in a test |
@@ -1076,84 +1124,92 @@ anyway, it needs `valuation_version` added to its stamp set and the four rules i
 
 ---
 
-## 18. Open decisions
+## 18. Open decisions — resolved
 
-### OD-7 — Phase 5 values investments **at cost**, even where a manual price exists
+All three were approved on **2026-08-12** and carried into the canonical documents the same day. The
+reasoning below is the record of what was decided and what was turned down.
 
-`setManualPrice` already exists, so a user can price a holding today, and the Investments pages
-already show market value with coverage. If Net Worth values the same holdings at cost, **two pages
-report two different numbers for the same securities.**
+### OD-7 — the valuation basis: approved as Net Worth at Cost
 
-**Recommended:** yes, `basis: 'cost'` — it is ROADMAP's stated Phase 4–6 consequence and the Phase 5
-gate already requires the UI to say so. A partial market valuation would be a total in no basis at
-all: part market, part cost, with no way to state what the number means. The Net Worth page states
-the basis in one line and links to Investments for the market view.
+Normative: [ADR-23](DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost).
 
-**Alternatives:** (b) market where priced, **excluded** where not, per ADR-11 — honest, but reports
-investments as ₹0 for a user with no manual prices; (c) market where priced, cost where not — one
-number, two bases, unstateable; (d) a user-visible basis toggle in Phase 5 rather than Phase 6 —
-small, and it removes the two-pages problem entirely.
+Phase 5 computes `basis: cost` and presents it as **Net Worth at Cost**, never as an unqualified
+"Net worth" that could imply a current market valuation. Investment positions contribute the exact
+Phase 4 cost basis. **Market value and cost basis are never mixed inside one figure.** Market-value
+net worth is a distinct Phase 6 calculation. No valuation toggle ships in Phase 5 — the existing
+design does not require one, and Phase 5 stays lean.
 
-**Blocks:** the meaning of the Phase 5 headline figure, and Phase 5's UI copy.
+The problem it resolves: `setManualPrice` already exists, so the Investments pages can show market
+value while Net Worth shows cost. Naming the basis makes that a stated fact rather than a
+discrepancy.
 
-### OD-8 — `net_worth_snapshots` and the `networth.snapshot` job move to Phase 6
+**Turned down:** market where priced and excluded where not (honest under ADR-11, but reports
+investments as ₹0 for a user with no manual prices); market where priced and cost where not (one
+number, two bases, unstateable); a user-visible toggle in Phase 5 (defers to Phase 6, where there is
+a second basis worth toggling to).
 
-**Recommended:** yes. Phase 5 derives everything. The performance case for the cache disappears once
-the history series is set-based ([§7.2](#72-the-history-series-is-one-pass-per-component-not-n-point-computations)),
-and the cache as currently specified **cannot tell when it is stale** — its stamp covers neither
-valuations, nor liability balances, nor prices, nor FX (N13). Phase 6 is where a market-valued series
-makes the cost real and where the measurement can be made against real data.
+### OD-8 — snapshots: approved, moved to Phase 6
 
-This removes two items from the Phase 5 "Done when" list (`networth.snapshot` job; *"snapshot job is
-idempotent"*), which is why it needs approval rather than being taken as an implementation decision.
+Normative: [ADR-24](DECISIONS.md#adr-24--net-worth-is-derived-on-demand-snapshots-are-deferred-to-phase-6).
 
-**Alternative:** ship it in Phase 5 under the four rules in [§8](#8-snapshots-versus-derivation) —
-current is always derived, historical reads require a full version match, `verify:integrity` asserts
-snapshot = derivation, and `valuation_version` is added to the stamp set.
+Phase 5 uses deterministic derivation. `net_worth_snapshots` and the `networth.snapshot` job move to
+Phase 6, **and every Phase 5 gate that required a snapshot is removed** — the `networth.snapshot` job
+and *"snapshot job is idempotent"* are gone from the Phase 5 "Done when" list. `user_state.valuation_version`
+is deferred with them.
 
-**Blocks:** the Phase 5 schema delta and two ROADMAP gates.
+Phase 6 may still introduce snapshots if measurement justifies it, under the four rules in ADR-24.
 
-### OD-9 — Apply N1–N19 to the canonical documents
+**Turned down:** shipping the table in Phase 5 under those four rules — buildable, but it adds a
+cache, a job, a counter and an integrity check to a phase whose every figure is derivable in five
+set-based queries.
 
-The Phase 4 review found 15 defects and applied them under **OD-4** before implementation started.
-This review found 19 in the same way, two of them material (N2, N6), and one of them — N1 — a live
-disagreement between `FINANCIAL-DOMAIN.md` §3 and `domain/ledger/balance.ts`.
+### OD-9 — the correction pass: approved and applied
 
-**Recommended:** yes, apply them to `FINANCIAL-DOMAIN.md`, `SCHEMA.md`, `INVESTMENT-DOMAIN.md` and
-`ARCHITECTURE.md` **before** Phase 5 implementation begins, so the implementation baseline is
-corrected rather than worked around. No application code or schema changes as part of the
-correction pass. The one code change implied — `accountRole()`'s kind-first classification (N1) — is
-Phase 5 implementation work, not part of the documentation pass, and is listed in the gates below.
+Normative: [ADR-25](DECISIONS.md#adr-25--net-worth-classification-is-by-the-economic-sign-of-the-balance-not-by-account-kind),
+[ADR-26](DECISIONS.md#adr-26--an-as-of-financial-figure-is-computed-from-dated-facts-only-no-current-state-flag-participates),
+and the per-finding disposition in [§14](#14-defects-found-in-the-baseline-n1n19).
 
-**Blocks:** Phase 5 implementation start. Implementing against documents known to contain N2 and N6
-would put the defects in the code.
+N1–N19 were applied to `FINANCIAL-DOMAIN.md`, `SCHEMA.md`, `INVESTMENT-DOMAIN.md`, `ARCHITECTURE.md`
+and `TESTING.md` **by reconciling the normative rules**, not by appending a correction list: each
+rule now has exactly one authoritative statement, and the four architectural findings became ADRs.
+
+**The one implied code change is Phase 5 implementation work, not part of this pass.**
+`accountRole()` in `src/server/domain/ledger/balance.ts` still classifies by kind; ADR-25 makes that
+wrong, and correcting it is the first item in the gates below. No source file was touched.
 
 ---
 
 ## 19. Phase 5 implementation gates
 
-Phase 5 is complete only when **every** box is ticked. The first four are new; the rest carry forward
-from `ROADMAP.md` Phase 5.
+Phase 5 is complete only when **every** box is ticked. This list and `ROADMAP.md` Phase 5 agree; where
+one is more specific, it is this one.
 
-**Preconditions**
-- [ ] OD-7, OD-8 and OD-9 are decided
-- [ ] If OD-9 is approved: the canonical documents carry N1–N19, and the cross-document link check passes
+**Preconditions — met 2026-08-12**
+- [x] OD-7, OD-8 and OD-9 decided ([§18](#18-open-decisions--resolved))
+- [x] N1–N19 applied to the canonical documents; every cross-document link and anchor resolves
+- [x] ADR-23, ADR-24, ADR-25 and ADR-26 recorded
+
+**The scope this fixes.** Phase 5 owns **Net Worth at Cost**, assets, liabilities, historical/as-of
+calculation, deterministic aggregation, single-counting, reconciliation, currency and FX within the
+approved scope, manual assets, liability balances, and a lean UI. It does **not** own market-data
+providers, market-value net worth, price refresh, price history, snapshot jobs, AI analysis, or any
+autonomous financial action ([§16](#16-boundaries-with-other-phases)).
 
 **Correctness**
 - [ ] `accountRole()` classifies by **sign**; an overpaid credit card is an asset and an overdrawn bank account is a liability, each asserted (N1)
 - [ ] An account created after the requested `asOf` contributes **nothing**, including its opening balance — asserted by a test named for N2
-- [ ] No calculation reads `is_active` on `accounts`, `manual_assets`, `liabilities` or `instruments` — asserted by a **source scan** (NW-6)
-- [ ] `investmentCostBasisAsOf(today)` equals `Σ positions.base_cost_basis` exactly (NW-4)
-- [ ] A `transfer_in` carrying an `acquired_on` years before its `opened_on` contributes to neither account before `opened_on` (NW-3)
+- [ ] No calculation reads `is_active` on `accounts`, `manual_assets`, `liabilities` or `instruments` — asserted by a **source scan** (I-26)
+- [ ] `investmentCostBasisAsOf(today)` equals `Σ positions.base_cost_basis` exactly (I-24)
+- [ ] A `transfer_in` carrying an `acquired_on` years before its `opened_on` contributes to neither account before `opened_on` (I-23)
 - [ ] The double-counting guard throws on a duplicated source key — tested by deliberately duplicating one
 - [ ] A credit-card account also present as a `liabilities` row is caught (I-8)
-- [ ] A liability linked to a non-`credit_card`/`loan` account is rejected (NW-7)
-- [ ] A closed scheduled liability has a terminal zero balance row (NW-8)
+- [ ] A liability linked to a non-`credit_card`/`loan` account is rejected (I-27)
+- [ ] A closed scheduled liability has a terminal zero balance row (I-28)
 - [ ] Net worth on a past date uses the valuation in force on that date
 - [ ] An eligible manual asset with no valuation in force is **excluded and named**, never zeroed (N7)
 - [ ] Asset and liability coverage are reported **separately** and shown whenever either is below 1.0
-- [ ] `unexplained` is **exactly** zero on single-currency golden scenarios, and within one base unit otherwise (NW-10)
-- [ ] The last point of the history series is byte-identical to `netWorthAsOf(today)` (NW-9)
+- [ ] `unexplained` is **exactly** zero on single-currency golden scenarios, and within one base unit otherwise (I-30)
+- [ ] The last point of the history series is byte-identical to `netWorthAsOf(today)` (I-29)
 
 **Scope and structure**
 - [ ] `networth.ts` exports **no** function taking a `WriteCtx` — asserted by a type-level test
@@ -1161,12 +1217,13 @@ from `ROADMAP.md` Phase 5.
 - [ ] The UI contains no subtotal, percentage or currency conversion of its own
 
 **Integrity and tests**
-- [ ] `verify:integrity` reports **I-8 passing** rather than `skipped`, plus NW-2, NW-4, NW-7, NW-8, NW-11, NW-13
+- [ ] `verify:integrity` reports **I-8 passing** rather than `skipped`, plus I-21 … I-32
 - [ ] Every scenario in [§12](#12-adversarial-edge-case-results) — 1–43 — is a named test
-- [ ] Golden scenario **G4** passes; **G1** gains its net-worth series assertions
-- [ ] If OD-8 is declined: the snapshot job is idempotent, and `verify:integrity` asserts snapshot = derivation
+- [ ] Golden scenario **G4** passes; **G1** gains its Net-Worth-at-Cost series assertions
+- [ ] **No gate depends on a snapshot.** `net_worth_snapshots` and `networth.snapshot` are Phase 6 ([ADR-24](DECISIONS.md#adr-24--net-worth-is-derived-on-demand-snapshots-are-deferred-to-phase-6)); if either appears in the Phase 5 diff, the scope boundary has been crossed
 
 **UI**
+- [ ] The figure is labelled **Net Worth at Cost**; no screen shows an unqualified "Net worth" that could be read as a market valuation ([ADR-23](DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost))
 - [ ] The Net Worth page states that investments are valued at cost until Phase 6
 - [ ] Balances derived from the investment ledger are marked **trade-dated** — on the accounts list, the account ledger, the investment ledger's cash column, and Net Worth ([ADR-22](DECISIONS.md#adr-22--financial-recognition-is-trade-dated-settlement_date-is-informational-metadata)'s carried requirement)
 

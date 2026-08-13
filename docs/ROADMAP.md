@@ -21,7 +21,7 @@ A phase is complete only when every box is ticked — including tests, type chec
 | 2 — Foundation | ✅ complete, verified |
 | 3 — Financial Core | ✅ complete, verified |
 | 4 — Investment Engine | ✅ **complete, verified** |
-| 5 — Net Worth | not started — **next** |
+| 5 — Net Worth at Cost | **designed and decided 2026-08-12; implementation not started** — next |
 | 6 — Market Data | not started (OD-3 affects completion, not start) |
 | 7 — AI Infrastructure | not started; **blocked** on OD-1 (`NVIDIA_API_KEY`) |
 | 8–14 | not started |
@@ -34,9 +34,11 @@ A phase is complete only when every box is ticked — including tests, type chec
 
 Market Data is **Phase 6**, after Investments (4) and Net Worth (5). That is deliberate and correct — cost basis, realised P&L, and the lot engine need no prices at all — but it has a visible consequence:
 
-> **Between Phases 4 and 6, holdings are valued at cost and net worth is an at-cost figure.**
+> **Between Phases 4 and 6, holdings are valued at cost, and the Phase 5 figure is "Net Worth at Cost".**
 
-Unrealised P&L, portfolio return, XIRR, TWR, and market-value allocation are **not computable** until Phase 6. Phase 5 therefore ships with those metrics returning `null` with reason `no_price` — which is exactly the behaviour the engine contract requires ([FINANCIAL-DOMAIN.md §10.3](FINANCIAL-DOMAIN.md#103-missing-data-propagates-as-null-never-as-zero)), and it means the missing-price path is exercised for real before any provider exists. The UI must say "valued at cost — market pricing arrives in Phase 6", not show a number that looks like a market valuation.
+Unrealised P&L, portfolio return, XIRR, TWR, and market-value allocation are **not computable** until Phase 6. Phase 5 therefore ships with those metrics returning `null` with reason `no_price` — which is exactly the behaviour the engine contract requires ([FINANCIAL-DOMAIN.md §10.3](FINANCIAL-DOMAIN.md#103-missing-data-propagates-as-null-never-as-zero)), and it means the missing-price path is exercised for real before any provider exists.
+
+This is a **declared valuation basis**, not a temporary approximation ([ADR-23](DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost)): the investment contribution is the exact Phase 4 cost basis, market value and cost are never mixed inside one figure, and the UI says "valued at cost — market pricing arrives in Phase 6" rather than showing a number that looks like a market valuation. Phase 6 adds `basis: 'market'` as a **distinct** calculation and makes it the default.
 
 ---
 
@@ -178,35 +180,40 @@ They are recorded in full, with their rationale, in [PROJECT-STATE.md](../PROJEC
 
 ---
 
-## Phase 5 — Net Worth — **designed, not started**
+## Phase 5 — Net Worth at Cost — **designed and decided; not started**
 
-**Design review complete 2026-08-12** ([NET-WORTH-DESIGN.md](NET-WORTH-DESIGN.md)). No Phase 5 code, schema, migration, service, API or UI exists. **Implementation is gated on OD-7, OD-8 and OD-9** ([PROJECT-STATE.md](../PROJECT-STATE.md)); the full gate list is [NET-WORTH-DESIGN.md §19](NET-WORTH-DESIGN.md#19-phase-5-implementation-gates), which supersedes the "Done when" list below by extending it — nothing here is removed.
+**Design review complete 2026-08-12; OD-7, OD-8 and OD-9 approved and applied the same day** ([NET-WORTH-DESIGN.md](NET-WORTH-DESIGN.md)). **No Phase 5 code, schema, migration, service, API, UI or test exists.** Implementation is unblocked: the gates below and the fuller list in [NET-WORTH-DESIGN.md §19](NET-WORTH-DESIGN.md#19-phase-5-implementation-gates) agree, and where one is more specific it is that one.
 
-Unblocked by Phase 4: `positions`, `tax_lots` and `lot_disposals` exist, so the change bridge has `Σ lot_disposals.base_realized_pnl` by `closed_on` to draw on, and the single-counting rule has a real position cost basis to keep separate from a brokerage account's cash balance ([INVESTMENT-ENGINE-DESIGN.md §10.2](INVESTMENT-ENGINE-DESIGN.md)). Investments contribute **at cost** until Phase 6, with `null` and reason `no_price` wherever market value is required.
+**The figure this phase ships is "Net Worth at Cost"** ([ADR-23](DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost)). Investment positions contribute the **exact Phase 4 cost basis**. Market value and cost basis are never mixed inside one figure, and no screen shows an unqualified "Net worth" that could be read as a current market valuation. Market-value net worth is a distinct Phase 6 calculation.
 
-- Schema: `manual_assets`, `asset_valuations`, `liabilities`, `liability_balances`, `user_state.valuation_version`; `net_worth_snapshots` **pending OD-8**
+Unblocked by Phase 4: `tax_lots` and `lot_disposals` exist, so the change bridge has `Σ lot_disposals.base_realized_pnl` by `closed_on` to draw on, and the single-counting rule has a real position cost basis to keep separate from a brokerage account's cash balance.
+
+- Schema: `manual_assets`, `asset_valuations`, `liabilities`, `liability_balances`. **No `net_worth_snapshots`, no `user_state.valuation_version`** — both moved to Phase 6 ([ADR-24](DECISIONS.md#adr-24--net-worth-is-derived-on-demand-snapshots-are-deferred-to-phase-6))
 - Domain: `src/server/domain/networth/` — source keys and the `contributions` map, date-driven eligibility, composition, the change bridge, reconciliation
 - Services: `assets.ts`, `liabilities.ts` (the only writers) and a **read-only** `networth.ts` with no `WriteCtx` signature
-- `networth.snapshot` job — **pending OD-8**; the review recommends deferring it to Phase 6
-- UI: net worth current + history + attribution waterfall
+- **No `networth.snapshot` job.** Every figure is derived on demand
+- UI: Net Worth at Cost — current, history, attribution waterfall, and assets/liabilities CRUD beneath it
 
-**Two findings from the review that change the work** ([§14](NET-WORTH-DESIGN.md#14-defects-found-in-the-baseline-n1n19)):
+**Three findings from the review that change the work** ([§14](NET-WORTH-DESIGN.md#14-defects-found-in-the-baseline-n1n19)):
 
 - **The as-of investment figure cannot come from `positions`**, which is today's cache. It is derived from `tax_lots` / `lot_disposals` bounded by `opened_on` / `closed_on` — exact, because splits and bonuses touch no money and I-20 makes the subtraction residue-free.
 - **Two as-of defects sit in the Phase 3 read path** and must be fixed before anything consumes it: `opening_balance` is added regardless of `opening_date` (N2), and `AccountView.baseBalance` converts at today's rate even when `asOf` was supplied (N3).
+- **`accountRole()` classifies by kind**, which [ADR-25](DECISIONS.md#adr-25--net-worth-classification-is-by-the-economic-sign-of-the-balance-not-by-account-kind) makes wrong. Classification is by the economic **sign** of the balance. This is the one code change the correction pass implies, and it is Phase 5 work.
 
 **Done when**
+- [ ] `accountRole()` classifies by **sign**: an overpaid credit card at `+₹5,000` contributes a **+₹5,000 asset** — not zero, not a liability — and an overdrawn bank account is a liability ([ADR-25](DECISIONS.md#adr-25--net-worth-classification-is-by-the-economic-sign-of-the-balance-not-by-account-kind), I-31)
+- [ ] An account created after the requested `asOf` contributes nothing, **including its opening balance**; created before, it contributes both; closed after `asOf`, it is fully counted (N2, [ADR-26](DECISIONS.md#adr-26--an-as-of-financial-figure-is-computed-from-dated-facts-only-no-current-state-flag-participates))
+- [ ] No calculation reads `is_active` on any table — asserted by a **source scan** (I-26)
 - [ ] The double-counting guard in [FINANCIAL-DOMAIN.md §9.2](FINANCIAL-DOMAIN.md#92-enforcement) throws on a duplicated source key (tested by deliberately duplicating one)
-- [ ] A credit-card account also present as a `liabilities` row is caught
-- [ ] Net worth on a past date uses the valuation in force on that date
-- [ ] An account created after the requested `asOf` contributes nothing, **including its opening balance** (N2)
-- [ ] No calculation reads `is_active` on any table — asserted by a source scan (NW-6)
-- [ ] `unexplained` is **exactly** zero on single-currency golden scenarios, within one base unit otherwise
-- [ ] Golden scenario **G4** passes
-- [ ] `verify:integrity` reports **I-8 passing** rather than `skipped`, plus NW-2, NW-4, NW-7, NW-8, NW-11, NW-13
-- [ ] Snapshot job is idempotent — **only if OD-8 is declined**; if approved, this item moves to Phase 6
-- [ ] The UI states that investments are at cost until Phase 6
+- [ ] A credit-card account also present as a `liabilities` row is caught (I-8); a liability linked to a non-`credit_card`/`loan` account is rejected (I-27); a closed scheduled liability has its terminal zero row (I-28)
+- [ ] Net worth on a past date uses the valuation in force on that date; an **eligible** asset with no valuation in force is excluded and named, never zeroed
+- [ ] `investmentCostBasisAsOf(today)` equals `Σ positions.base_cost_basis` exactly (I-24)
+- [ ] `unexplained` is **exactly** zero on single-currency golden scenarios, within one base unit otherwise (I-30)
+- [ ] Golden scenario **G4** passes; **G1** gains its Net-Worth-at-Cost series assertions
+- [ ] `verify:integrity` reports **I-8 passing** rather than `skipped`, plus **I-21 … I-32**
+- [ ] The figure is labelled **Net Worth at Cost**, and the UI states that investments are at cost until Phase 6
 - [ ] Balances derived from the investment ledger are marked **trade-dated** ([ADR-22](DECISIONS.md#adr-22--financial-recognition-is-trade-dated-settlement_date-is-informational-metadata)'s carried UI requirement)
+- [ ] **Nothing in the Phase 5 diff touches market data, price refresh, price history, snapshots, or AI.** Those are later phases
 
 ---
 
@@ -216,7 +223,9 @@ Unblocked by Phase 4: `positions`, `tax_lots` and `lot_disposals` exist, so the 
 - `ManualProvider` (always registered), AMFI adapter (Indian MF NAVs), FX adapter
 - `prices.refresh` / `fx.refresh` jobs; caching to `instrument_quotes` / `instrument_prices`
 - Valuation with coverage; XIRR, TWR, allocation, concentration metrics
-- Net worth extended to market value; full attribution bridge
+- **Market-value net worth** — `basis: 'market'` as a distinct calculation alongside Phase 5's `'cost'`, becoming the default; the full attribution bridge with a real unrealised-gain line
+- **Carried from Phase 5 by [ADR-24](DECISIONS.md#adr-24--net-worth-is-derived-on-demand-snapshots-are-deferred-to-phase-6):** `net_worth_snapshots`, the `networth.snapshot` job and `user_state.valuation_version` — **only if measurement justifies them**, and only under ADR-24's four rules
+- `quantityHeldOn` must apply corporate-action ratios, not sum `quantity` ([INVESTMENT-DOMAIN.md §8.1](INVESTMENT-DOMAIN.md#81-portfolio-growth-over-time))
 - UI: staleness indicators, price history, performance page, allocation page
 
 **Done when**
@@ -226,8 +235,12 @@ Unblocked by Phase 4: `positions`, `tax_lots` and `lot_disposals` exist, so the 
 - [ ] No provider credential is reachable from any client bundle
 - [ ] XIRR matches a spreadsheet reference to 6 decimal places across 10 series
 - [ ] Every `null` metric carries its reason
+- [ ] `basis: 'market'` net worth **excludes** unpriced holdings and names them; it never falls back to cost inside the same figure ([ADR-23](DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost))
+- [ ] The release note states that the basis switch moves net worth for **FX reasons alone**, independently of price ([FINANCIAL-DOMAIN.md §9.3](FINANCIAL-DOMAIN.md#93-calculation))
+- [ ] The portfolio growth series is correct across a split and a bonus — a plain running sum of `quantity` is not
 - [ ] Golden scenarios **G3**, **G5**, **G6** pass; **G2** now passes on market value
-- [ ] All twenty invariants (I-1 … I-20) pass in `verify:integrity`, and neither declared non-invariant is asserted ([SCHEMA.md §12](SCHEMA.md#12-invariants-summary))
+- [ ] All invariants (I-1 … I-32) pass in `verify:integrity`, and no declared non-invariant is asserted ([SCHEMA.md §12](SCHEMA.md#12-invariants-summary))
+- [ ] If snapshots are introduced: `verify:integrity` asserts **snapshot = derivation**, and the current figure is still always derived
 
 ---
 

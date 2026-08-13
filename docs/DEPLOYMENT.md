@@ -184,7 +184,7 @@ One in-process runner ([ADR-14](DECISIONS.md#adr-14--background-work-via-a-postg
 | `recurring.post` | daily 00:15 local | Idempotent via `UNIQUE (rule_id, due_on)` |
 | `prices.refresh` | hourly during market hours, else daily | Batched per provider; failures degrade to stale, never break a page |
 | `fx.refresh` | daily | Populates `fx_rates` |
-| `networth.snapshot` | daily 00:30 local | After recurring posting and price refresh |
+| `networth.snapshot` | **not scheduled — Phase 6, if built at all** | Net worth is **derived on demand**; nothing is stored ([ADR-24](DECISIONS.md#adr-24--net-worth-is-derived-on-demand-snapshots-are-deferred-to-phase-6)). If Phase 6 introduces it on measurement, it runs daily 00:30 local, after recurring posting and price refresh |
 | `backup.verify` | monthly | §4 |
 | `audit.retention` | weekly | Trims logs past their retention window |
 

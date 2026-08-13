@@ -145,7 +145,8 @@ CREATE TABLE accounts (
 Notes:
 - A brokerage/demat account is an `accounts` row with `kind='brokerage'`. Its cash balance and its investment transactions therefore live in one place — there is no parallel account system for investments.
 - **`currency_code` is immutable once the account carries ledger rows.** Every `transaction_entries.amount` and every `investment_transactions.net_amount` on the account is denominated in it (OD-5, §6), so changing it would silently reinterpret the entire history. There is no supported operation to do so; the currency is chosen at creation.
-- Credit cards and loans are accounts with a normally-negative balance. They are counted as liabilities in net worth by sign, not by a separate table. Standalone loans with amortisation schedules that are *not* transacted through use `liabilities` (§8).
+- Credit cards and loans are accounts with a **normally**-negative balance. **Net worth classifies every account by the economic sign of its balance, never by `kind`** ([ADR-25](DECISIONS.md#adr-25--net-worth-classification-is-by-the-economic-sign-of-the-balance-not-by-account-kind)) — so a card carrying an overpayment is an **asset** at `+balance`, and an overdrawn bank account is a **liability** at `|balance|`. `kind` drives the display grouping and the expected sign; a row against its expected sign is flagged, never reclassified. Standalone loans with amortisation schedules that are *not* transacted through use `liabilities` (§8).
+- **`opening_date` bounds the opening balance in every `asOf` calculation** ([ADR-26](DECISIONS.md#adr-26--an-as-of-financial-figure-is-computed-from-dated-facts-only-no-current-state-flag-participates), [FINANCIAL-DOMAIN.md §3](FINANCIAL-DOMAIN.md#3-accounts)). An account opened in 2026 contributes nothing — not even its opening balance — to a figure as of 2020. `is_active` is a UI state and is read by **no** calculation (invariant I-26).
 
 ```sql
 CREATE TYPE category_kind AS ENUM ('income','expense');
@@ -654,29 +655,45 @@ CREATE TABLE manual_assets (
   acquisition_cost numeric(20,4),
   -- Point-in-time net worth needs a DATE, not a flag: an asset disposed today must still
   -- appear in last year's figure (FINANCIAL-DOMAIN.md §9.3). `is_active` is derived from
-  -- this for the UI and is never an input to a calculation.
+  -- this for the UI and is never an input to a calculation (ADR-26, invariant I-26).
   disposed_on   date,
   is_active     boolean NOT NULL DEFAULT true,
   CHECK (disposed_on IS NULL OR acquired_on IS NULL OR disposed_on >= acquired_on),
   notes         text,
   created_at    timestamptz NOT NULL DEFAULT now(),
-  updated_at    timestamptz NOT NULL DEFAULT now()
+  updated_at    timestamptz NOT NULL DEFAULT now(),
+  -- Parity with `accounts`. Two rows named "Flat" are almost always one duplicate entry,
+  -- and a duplicate manual asset is a silent double count the schema CAN prevent.
+  UNIQUE (user_id, name)
 );
+-- Every as-of query filters on disposal.
+CREATE INDEX manual_assets_user_disposed_idx ON manual_assets (user_id, disposed_on);
 
 CREATE TABLE asset_valuations (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  -- SCHEMA.md's own convention, and the precedent lot_disposals.user_id set: without it
+  -- every as-of query joins through the parent merely to establish ownership.
+  user_id       uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   asset_id      uuid NOT NULL REFERENCES manual_assets(id) ON DELETE CASCADE,
   as_of         date NOT NULL,
   value         numeric(20,4) NOT NULL CHECK (value >= 0),
-  currency_code char(3) NOT NULL REFERENCES currencies(code),
+  -- NO currency_code. A valuation is denominated in its ASSET's currency; storing it
+  -- again would be a second figure free to disagree with the first, and no cross-table
+  -- CHECK could stop it. The same reasoning that keeps positions.avg_cost out of §6.1.
   source        text NOT NULL DEFAULT 'manual',
   note          text,
   created_at    timestamptz NOT NULL DEFAULT now(),
   UNIQUE (asset_id, as_of)
 );
+-- valuationInForce is "the greatest as_of <= T". This is the index that makes it a seek.
+CREATE INDEX asset_valuations_lookup_idx ON asset_valuations (user_id, asset_id, as_of DESC);
 ```
 
 Valuations are a time series, not a mutable field. Net worth on a past date uses the valuation in force on that date — the most recent `as_of <= date` — so historical net worth does not retroactively change when the user updates a property estimate today.
+
+**There is no `UPDATE` path.** Revaluing inserts; the service exposes no update, and correcting a wrong valuation is a delete plus an insert that the audit log records in full.
+
+**An eligible asset with no valuation in force at `asOf` is excluded and named, never counted as zero** ([FINANCIAL-DOMAIN.md §9.3](FINANCIAL-DOMAIN.md#93-calculation)).
 
 ---
 
@@ -691,37 +708,61 @@ CREATE TABLE liabilities (
   user_id           uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   name              text NOT NULL,
   kind              liability_kind NOT NULL,
-  linked_account_id uuid UNIQUE REFERENCES accounts(id) ON DELETE SET NULL,
+  -- RESTRICT, not SET NULL: nulling this silently converts a TRANSACTED liability into a
+  -- SCHEDULED one with no balance rows, which then contributes zero and the debt vanishes.
+  -- Accounts carrying ledger history already cannot be deleted, so this costs nothing.
+  linked_account_id uuid UNIQUE REFERENCES accounts(id) ON DELETE RESTRICT,
   currency_code     char(3) NOT NULL REFERENCES currencies(code),
   principal_original numeric(20,4),
+  -- DESCRIPTIVE ONLY. Nothing computes an amortisation schedule from these, and the UI
+  -- must not imply one (FINANCIAL-DOMAIN.md §9.4).
   interest_rate     numeric(12,8),          -- annual nominal, decimal fraction
   emi_amount        numeric(20,4),
   started_on        date,
   ends_on           date,
   is_active         boolean NOT NULL DEFAULT true,
   created_at        timestamptz NOT NULL DEFAULT now(),
-  updated_at        timestamptz NOT NULL DEFAULT now()
+  updated_at        timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (user_id, name)
 );
+CREATE INDEX liabilities_user_active_idx ON liabilities (user_id, is_active);
 
 CREATE TABLE liability_balances (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id       uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   liability_id  uuid NOT NULL REFERENCES liabilities(id) ON DELETE CASCADE,
   as_of         date NOT NULL,
   outstanding   numeric(20,4) NOT NULL CHECK (outstanding >= 0),
-  currency_code char(3) NOT NULL REFERENCES currencies(code),
+  -- NO currency_code, for the same reason as asset_valuations: it is the LIABILITY's
+  -- currency, and a stored copy is a second figure free to disagree.
   source        text NOT NULL DEFAULT 'manual',
   created_at    timestamptz NOT NULL DEFAULT now(),
   UNIQUE (liability_id, as_of)
 );
+CREATE INDEX liability_balances_lookup_idx ON liability_balances (user_id, liability_id, as_of DESC);
 ```
 
-**Double-count guard.** If `linked_account_id` is set, the liability's balance comes from the account's (negative) balance and `liability_balances` is ignored. The `UNIQUE` on `linked_account_id` prevents two liabilities claiming one account. The net-worth calculator asserts that each account of kind `credit_card`/`loan` is counted exactly once.
+**Double-count guard.** If `linked_account_id` is set the liability contributes **nothing** to net worth — the account contributes, by sign — and `liability_balances` is ignored entirely. The `UNIQUE` on `linked_account_id` prevents two liabilities claiming one account (invariant **I-8**).
+
+**The linked account must be of kind `credit_card` or `loan`** (invariant **I-27**). A liability linked to a `bank` account would contribute nothing *while the account contributed as an asset*, so the debt would disappear. This is a cross-table rule, so it cannot be a `CHECK`: it is a service guard plus an integrity check.
+
+**Closing a scheduled liability inserts a terminal `liability_balances` row with `outstanding = 0`**, dated on the closing date, *before* `is_active = false` (invariant **I-28**). Under a date-driven rule the flag changes nothing, so without the zero row the last non-zero balance stays in force forever.
 
 ---
 
-## 9. Net worth snapshots
+## 9. Net worth snapshots — **Phase 6, not built at launch**
+
+**Net worth is derived on demand. Nothing about it is stored** ([ADR-24](DECISIONS.md#adr-24--net-worth-is-derived-on-demand-snapshots-are-deferred-to-phase-6)). A month-end series is five set-based queries followed by one pure fold, so the *N*-point-computations problem this table exists to solve does not arise; and as sketched below its stamp covers neither `asset_valuations`, nor `liability_balances`, nor `instrument_quotes`, nor `fx_rates`, so a row could go stale behind two matching versions.
+
+The sketch is retained because Phase 6 may introduce it if a **market-valued** series — which joins a price per instrument per date — misses [ARCHITECTURE.md §9](ARCHITECTURE.md#9-performance-targets). Four rules apply if it does:
+
+1. The **current** figure is always derived; a snapshot is never read for today.
+2. A historical point is read **only** when every stamped input version matches; otherwise it is derived and the row rewritten.
+3. The stamp set is completed first — `user_state.valuation_version`, bumped by every write to `manual_assets`, `asset_valuations`, `liabilities` and `liability_balances`, plus whatever covers prices and FX. **That column is not added in Phase 5**: nothing there reads it.
+4. `verify:integrity` asserts **snapshot = derivation** for a sample of dates, making the cache a checked artefact rather than a trusted one.
 
 ```sql
+-- PHASE 6. Not created by the Phase 5 migration.
 CREATE TABLE net_worth_snapshots (
   id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id           uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -935,7 +976,7 @@ These are checked by database constraints where possible, by the engine always, 
 | I-5 | `Σ tax_lots.remaining_quantity` = `positions.quantity` for every position | integrity command |
 | I-6 | `positions.cost_basis` = `Σ tax_lots.remaining_cost` — an **exact** equality, no tolerance | integrity command |
 | I-7 | No lot has `remaining_quantity < 0`; no position has `quantity < 0` unless the instrument permits shorting (it does not, at launch) | `CHECK` + engine |
-| I-8 | Every `credit_card`/`loan` account is counted in net worth exactly once | net-worth calculator assertion |
+| I-8 | No account is counted twice in net worth: a `liabilities` row with `linked_account_id` set contributes **zero** (the account contributes, by sign), and no two rows claim one account | `UNIQUE (linked_account_id)` + calculator assertion + integrity command |
 | I-9 | `recurring_occurrences` has at most one row per `(rule_id, due_on)` | `UNIQUE` |
 | I-10 | No `ai_proposals` row in status `applied` without a matching `audit_log` entry with `actor='ai_confirmed'` | integrity command |
 | I-11 | `transaction_entries.base_amount` = `round(amount × fx_rate_to_base, 4)`; and on `investment_transactions` the full chain: `net_amount` = `round(net_amount_instrument × fx_rate_instrument_to_account, 4)` and `base_net_amount` = `round(net_amount × fx_rate_to_base, 4)` | `CHECK` + integrity command |
@@ -949,6 +990,25 @@ These are checked by database constraints where possible, by the engine always, 
 | I-19 | Per lot, `(remaining_quantity = 0) = (remaining_cost = 0)` — units and basis drain together | `CHECK` |
 | I-20 | Per lot, `Σ lot_disposals.cost_consumed + remaining_cost` = `cost_total` | integrity command |
 
+### Net worth (Phase 5)
+
+Added by the Phase 5 design review. Every one maps to a rule in [FINANCIAL-DOMAIN.md §9](FINANCIAL-DOMAIN.md#9-net-worth) and to a named test in [TESTING.md](TESTING.md).
+
+| # | Invariant | Enforced by |
+|---|---|---|
+| I-21 | The contributions map is **injective** — no `SourceKey` is inserted twice | engine throws + unit test |
+| I-22 | `netWorth` = `Σ contributions` = `assets − liabilities`, by two independent paths, **exactly** | engine + integrity command |
+| I-23 | A lot contributes at `T` **iff `opened_on <= T`** — never `acquired_on`, which a `transfer_in` carries back and which would double-count the transfer period | engine + integration test |
+| I-24 | `investmentCostBasisAsOf(today)` = `Σ positions.base_cost_basis`, **exactly** — the as-of derivation and the Phase 4 cache agree | integrity command + property |
+| I-25 | A `buy` leaves `netWorth(T)` unchanged for every `T ≥ trade_date`; a `sell` changes it by exactly the realised P&L; a `dividend` by exactly the net received; a `split`/`bonus` by exactly zero | property test |
+| I-26 | **No calculation reads `is_active`** on `accounts`, `manual_assets`, `liabilities` or `instruments` | **source scan** (as TESTING.md §7 does for model identifiers) |
+| I-27 | `liabilities.linked_account_id` references an account of kind `credit_card` or `loan` | service guard + integrity command |
+| I-28 | Every inactive **scheduled** liability has a terminal `liability_balances` row with `outstanding = 0` | service rule + integrity command |
+| I-29 | The last point of the net-worth series equals `netWorthAsOf(today)`, byte-identical | integration test |
+| I-30 | The change bridge closes: `ΔnetWorth − Σ lines` = **exactly 0** for single-currency data, and within one base unit with FX | golden scenarios |
+| I-31 | An account contributes at `T` **iff `opening_date <= T`** — including its opening balance; and its side is chosen by the **sign** of its balance, never by `kind` | engine + integration test |
+| I-32 | Every row read by a net-worth query belongs to the session user; `networth.ts` exports no function taking a `WriteCtx` | `user_id` columns + integration test + type-level test |
+
 ### Explicit non-invariants
 
 Stated because each is intuitive, will be assumed, and is **false**. `verify:integrity` must not assert them.
@@ -957,6 +1017,11 @@ Stated because each is intuitive, will be assumed, and is **false**. `verify:int
 |---|---|
 | `Σ lot_disposals.quantity + tax_lots.remaining_quantity` = `tax_lots.original_quantity` | A `split` or `bonus` rescales a partially disposed lot's quantities; already-settled disposal rows are historical records and are not rewritten. The **money** form (I-20) holds unconditionally and is the one to check. |
 | `positions.ledger_version` = `user_state.investment_ledger_version` | The counter is global per user; after any trade every position but the one just rebuilt carries a lower value. It is a provenance stamp, not a staleness check ([ARCHITECTURE.md §6](ARCHITECTURE.md#6-cache-invalidation)). |
+| `positions.quantity > 0` ⟺ the position contributes to net worth at `T` | `positions` answers a question about **today**. A position sold to zero today still had value at earlier dates, and a lot opened after `T` contributes nothing at `T`. |
+| `Σ liability_balances.outstanding` over active liabilities = total liabilities | **Transacted** liabilities take their figure from the linked account and contribute zero through `liability_balances`. |
+| `assets(T)` = `Σ balance(a,T)` over accounts with a positive balance | True only before any manual asset or investment exists. |
+| `netWorth` is monotone in `T` | Obviously false. Stated so that no series-smoothing "fix" is ever attempted. |
+| A `net_worth_snapshots` row whose two ledger versions match is current | Prices, FX rates, valuations and liability balances are covered by neither counter — which is one of the two reasons snapshots are deferred ([ADR-24](DECISIONS.md#adr-24--net-worth-is-derived-on-demand-snapshots-are-deferred-to-phase-6)). |
 
 ---
 

@@ -23,7 +23,8 @@ Table definitions live in [SCHEMA.md](SCHEMA.md); the **rules** live here. Every
 | Asset valuation | `asset_valuations` | stored, append-only series | insert only; never updated | [§9.4](#94-asset-and-liability-lifecycle) |
 | Liability | `liabilities` | stored | create → repay → close | [§9.4](#94-asset-and-liability-lifecycle) |
 | Liability balance | `liability_balances` | stored, append-only series | insert only; never updated | [§9.4](#94-asset-and-liability-lifecycle) |
-| Net-worth snapshot | `net_worth_snapshots` | **derived cache** | nightly job; deletable and rebuildable | [§9](#9-net-worth) |
+| **Net worth** | — | **derived on demand** | computed per request; nothing is stored ([ADR-24](DECISIONS.md#adr-24--net-worth-is-derived-on-demand-snapshots-are-deferred-to-phase-6)) | [§9](#9-net-worth) |
+| Net-worth snapshot | `net_worth_snapshots` | **derived cache — Phase 6** | not built at launch; deferred with four rules attached | [§9](#9-net-worth), [ADR-24](DECISIONS.md#adr-24--net-worth-is-derived-on-demand-snapshots-are-deferred-to-phase-6) |
 | Ledger version | `user_state` | stored counters | bumped inside every ledger mutation | [§4](#4-transactions) |
 | Settings | `settings` | stored | user-editable | — |
 | Audit entry | `audit_log` | stored, append-only | insert only; no update/delete grant | — |
@@ -124,12 +125,16 @@ There is no `accounts.current_balance` column, and there never will be. A stored
 
 ```
 balance(account, asOf?) =
-    opening_balance                     -- the ONLY stored money figure on an account
+    (opening_date <= asOf ? opening_balance : 0)   -- the ONLY stored money figure on an account
   + Σ transaction_entries.amount         where account_id = account AND booked_on   <= asOf
   + Σ investment_transactions.net_amount where account_id = account AND trade_date <= asOf
 ```
 
 `opening_balance` is not an exception to the rule: it is the declared position *before* the ledger begins, not a running total. Nothing updates it after creation.
+
+**The opening balance is gated by `opening_date`, and this is load-bearing** ([ADR-26](DECISIONS.md#adr-26--an-as-of-financial-figure-is-computed-from-dated-facts-only-no-current-state-flag-participates)). An account opened in 2026 with an opening balance of ₹50,000 must contribute **nothing** to a balance — and therefore to a net worth — as of 2020. Without the gate the date bound covers only the *movements*, and an opening position is not a movement: the ₹50,000 would appear in every historical figure predating the account's existence. The two sums are already empty in that case, because a transaction dated before `opening_date` is rejected ([§12 case 2](#12-edge-cases-that-must-be-covered-by-tests)), so the gate is the only term that matters.
+
+When `asOf` is omitted the bound is "today", and the gate is a no-op for any account whose `opening_date` is not in the future.
 
 **Balances are trade-dated** ([ADR-22](DECISIONS.md#adr-22--financial-recognition-is-trade-dated-settlement_date-is-informational-metadata), resolving OD-6). The investment term above is bounded by `trade_date`, never by `settlement_date`: `trade_date` is the financial recognition date and the cash date, and `settlement_date` is a recorded fact that controls nothing. The same applies to `replay()`, to every rebuild, and to every historical or `asOf` calculation.
 
@@ -156,17 +161,50 @@ One pure function, `deriveBalance()`, in `src/server/domain/ledger/balance.ts`, 
 
 ### Account kinds and net-worth sign
 
-| Kind | Normal sign | Net worth |
+**Classification is by the economic sign of the balance, never by kind** ([ADR-25](DECISIONS.md#adr-25--net-worth-classification-is-by-the-economic-sign-of-the-balance-not-by-account-kind)):
+
+| `balance(a, asOf)` | Net-worth contribution |
+|---|---|
+| `> 0` | **asset** of `balance` |
+| `< 0` | **liability** of `abs(balance)` |
+| `= 0` | **neither subtotal.** The account still occupies its key in the contributions map ([§9.2](#92-enforcement)) |
+
+`kind` decides two things, and neither is the side of the balance sheet:
+
+| Kind | Display group | Expected sign — the opposite is **flagged**, never reclassified |
 |---|---|---|
-| `bank`, `cash`, `wallet`, `brokerage` | positive | asset at balance |
-| `credit_card`, `loan` | negative | liability at `abs(balance)` |
-| `other` | either | asset if ≥ 0, liability if < 0 |
+| `bank`, `cash`, `wallet` | Cash | positive |
+| `brokerage` | Brokerage cash | positive |
+| `credit_card`, `loan` | Debt | negative |
+| `other` | Other | either |
+
+The rule this replaces classified by kind, and lost money in two directions at once. A **credit card carrying an overpayment** — `balance = +₹5,000`, real money the issuer owes back — was excluded from the asset term by its kind and from the liability term by its sign, so it appeared in **neither**; while `accountRole()` classified it as a liability by kind, so a total built on that plus `abs()` reported it as a ₹5,000 **debt**. An overdrawn `bank` account was symmetrically wrong as a negative asset. The required behaviour is stated as an edge case ([§12 case 29](#12-edge-cases-that-must-be-covered-by-tests)) and an invariant (**I-31**).
+
+What sign-based classification buys, beyond correctness on those rows:
+
+```
+Σ over ALL accounts of contribution(a, asOf) = Σ over ALL accounts of balance(a, asOf)
+```
+
+The account block of net worth is a plain sum of balances. Nothing can be dropped or duplicated by a kind test, because there is no kind test.
 
 Credit available on a card is `credit_limit - abs(balance)` and is **not** an asset. It is shown on the account row and excluded from every total.
 
-### Closing an account
+### Account lifecycle — and what an `asOf` calculation may read
 
-`is_active = false`. Historical records remain and remain in historical totals. An inactive account with a non-zero balance is flagged on the accounts page — closing an account does not zero it.
+`is_active = false` closes an account. Historical records remain and remain in historical totals. An inactive account with a non-zero balance is flagged on the accounts page — closing an account does not zero it.
+
+**`is_active` is a UI state. No calculation reads it** ([ADR-26](DECISIONS.md#adr-26--an-as-of-financial-figure-is-computed-from-dated-facts-only-no-current-state-flag-participates), invariant **I-26**). The lifecycle a calculation sees is entirely date-driven:
+
+| Question | Answer | Determined by |
+|---|---|---|
+| Does the account exist at `asOf`? | `opening_date <= asOf` | `opening_date` |
+| What did it hold at `asOf`? | the ledger bounded by `asOf` | `booked_on`, `trade_date` |
+| Was it closed? | irrelevant to any figure | — |
+
+An account excluded because `opening_date > asOf` is **absent** from the net-worth breakdown, not present at zero — so it cannot be confused with an account that genuinely held nothing.
+
+**A base-currency conversion of an `asOf` balance uses the rate in force on `asOf`, never today's** ([§2](#2-fx)). Converting a historical native balance at the current rate prices 2021's rupees at 2026's dollar — the native figure honours the date and the base figure silently does not.
 
 ## 4. Transactions
 
@@ -221,7 +259,9 @@ Categories and tags are both classification, and they are deliberately different
 - Category rollup: a parent's total includes its children's. Reporting queries use a recursive CTE over `categories` limited to depth 2.
 - A category in use cannot be deleted (`ON DELETE RESTRICT`); it can be archived, which hides it from pickers but keeps it in historical reports.
 - Required on `income` and `expense`; **forbidden on `transfer`** ([§4](#4-transactions)).
-- Default seed set (editable): Income — Salary, Business, Interest, Dividend, Rental, Other Income. Expense — **Food** (→ Groceries, Dining), Housing (→ Rent, Maintenance), Transport (→ Fuel, Public transport, Cabs), Utilities, Health, Insurance, Education, Shopping, Entertainment, Travel, Personal, Business, Fees & Charges, Taxes, Gifts & Donations, Other.
+- Default seed set (editable): Income — Salary, Business, Interest, Dividend, Rental, **Other Income** (→ **Asset sale proceeds**, added in Phase 5). Expense — **Food** (→ Groceries, Dining), Housing (→ Rent, Maintenance), Transport (→ Fuel, Public transport, Cabs), Utilities, Health, Insurance, Education, Shopping, Entertainment, Travel, Personal, Business, Fees & Charges, Taxes, Gifts & Donations, Other.
+
+  *Asset sale proceeds* exists so the receipt from disposing of a manual asset is identifiable in a savings-rate reading ([§9.4](#94-asset-and-liability-lifecycle)). It is an ordinary income category and changes no calculation.
 
 The parents matter, not just the leaves. `CLAUDE.md`'s own worked example is *"how much did I spend on food in July?"* — if `Groceries` and `Dining` were top-level siblings with no `Food` parent, that question would have no category to resolve to, and answering it would require summing two rows. Summing rows is the model's job only when the engine has failed to provide the total ([AI-SYSTEM.md](AI-SYSTEM.md#the-arithmetic-boundary--every-summary-returns-its-own-total)).
 
@@ -315,9 +355,21 @@ Notes:
 - **Investment income is not money-domain income by default.** `income` sums `transactions` of kind `income`; a dividend recorded against a tracked instrument lives in `investment_transactions` and is therefore absent from this figure — deliberately, so a ₹500 dividend does not inflate the savings rate as though it were salary. It still raises the brokerage account **balance**, and it is counted in portfolio income and total return.
   Reports that want the combined view take it as an explicit read-time union — `income(period, { includeInvestmentIncome: true })` — never by writing a second row. The net-worth bridge already relies on this: its `Savings` component excludes investment income precisely because `Investment income` is a separate line ([§9](#9-net-worth)).
 - Investment purchases are **not** expenses. Money moving from a bank account into a brokerage account is a transfer; buying an instrument inside the brokerage account converts cash into an asset. Neither reduces net worth, and neither appears in `expenses`. Investment **fees** and **taxes** do reduce net worth and are reported separately in portfolio metrics, not in `expenses`, so the two views never double-count.
+- **Proceeds from disposing of a manual asset inflate `income` and therefore `savingsRate`** for that period, because the receipt is an ordinary income transaction while the asset it replaced was never income. Net worth is unaffected — the bridge nets the proceeds against the asset's last valuation ([§9.3](#93-calculation)). The default `Other Income → Asset sale proceeds` category exists so the receipt is identifiable; excluding it from a savings-rate reading is a filter, not a calculation change.
 - Period comparison (`compare_periods`) returns both periods' figures plus absolute and percentage deltas, with `null` percentages when the base period is zero.
 
 ## 9. Net worth
+
+**Net worth carries a declared valuation basis, and the basis is part of the answer** ([ADR-23](DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost)):
+
+| Basis | Investment contribution | Available |
+|---|---|---|
+| **`cost`** | the exact cost basis — `Σ tax_lots.remaining_cost × lot.fx_rate_to_base`, summed per lot | **Phase 5** |
+| `market` | `Σ marketValue(position)`; unpriced holdings **excluded** and named, with a coverage ratio | Phase 6 |
+
+**Phase 5 computes `cost` only, and the figure is called "Net Worth at Cost"** wherever the unqualified term could imply a current market valuation. **A single figure never mixes the two bases** — part market value and part acquisition cost is a number in no basis at all. Market-value net worth is a distinct Phase 6 calculation.
+
+Everything in §9 below is basis-independent unless it says otherwise.
 
 ### 9.1 The single-counting rule
 
@@ -329,67 +381,140 @@ The structural answer is a rule the calculator enforces rather than a convention
 
 | Value | Owning source | Never also counted as |
 |---|---|---|
-| Cash in a bank / cash / wallet account | `accounts.balance` | anything |
-| **Cash sitting in a brokerage account** | `accounts.balance` for that account | a "cash" holding, an instrument, or an allocation slice of type cash |
-| **An instrument held in a brokerage account** | `positions.marketValue` | the brokerage account's balance — buying converts cash to position and the ledger moves both sides |
-| Credit-card debt | the card's negative `accounts.balance` | a `liabilities` row (guarded by `linked_account_id`) |
+| Cash in a bank / cash / wallet account | the account's balance | anything |
+| **Cash sitting in a brokerage account** | the account's balance | a "cash" holding, an instrument, or an allocation slice of type cash |
+| **An instrument held in a brokerage account** | its **cost basis** (`cost`) or `marketValue` (`market`) | the brokerage account's balance — buying converts cash to position and the ledger moves both sides |
+| Credit-card debt | the card's negative balance | a `liabilities` row (guarded by `linked_account_id`) |
 | Loan with transactions flowing through it | the loan account's negative balance | a `liabilities` row |
 | Loan tracked only as a schedule | `liability_balances.outstanding` | any account |
 | Physical gold | `asset_valuations` | an instrument of class `gold` |
-| **Gold ETF / sovereign gold bond** | `positions.marketValue` | a `manual_assets` row |
+| **Gold ETF / sovereign gold bond** | the instrument's contribution | a `manual_assets` row |
 | Property, vehicle, receivable | `asset_valuations` | anything |
 
-The two rows in bold are where real systems go wrong. A brokerage account holds *both* cash and positions; counting the account balance and the positions is correct **only because a purchase debits the cash balance in the same ledger entry that creates the position**. That coupling is what makes the sum non-overlapping, and it is asserted by invariant I-4.
+The two rows in bold are where real systems go wrong. A brokerage account holds *both* cash and positions; counting the account balance and the positions is correct **only because a purchase debits the cash balance in the same ledger row that creates the lot**. That coupling is what makes the sum non-overlapping.
+
+**The proof, not the promise.** For an account `a` whose instruments share its currency, and any `asOf`:
+
+```
+balance(a, asOf) + Σ_{lots ℓ in a} remainingCost(ℓ, asOf)
+   = openingContribution(a, asOf)
+   + Σ money-ledger entries (booked_on ≤ asOf)
+   + Σ investment cash effects that are NOT trades (trade_date ≤ asOf)
+```
+
+Buys and sells cancel out of the right-hand side entirely: one row carries `net_amount = −(gross + fees + taxes)` and opens a lot with `cost_total = gross + fees + taxes`. The cash falls by exactly what the lot gains, because they are the two halves of one row.
+
+Three corollaries follow, and each is directly testable (invariant **I-25**):
+
+| Event | Change in net worth |
+|---|---|
+| Buy | **exactly zero** — cash becomes basis |
+| Sell | **exactly the realised P&L** — `proceeds − cost_consumed` |
+| Dividend | **exactly the net received** — `gross − fees − taxes` |
+| Standalone fee or tax | `−` the amount |
+| Split or bonus | **exactly zero** — no money moves at any denomination |
+
+This is what the brief's worked example is stating:
+
+```
+brokerage cash ₹100,000, positions ₹0            → contribution ₹100,000
+buy ₹60,000 of securities
+brokerage cash  ₹40,000, positions ₹60,000       → contribution ₹100,000   (not ₹160,000)
+```
 
 ### 9.2 Enforcement
 
 Three mechanisms, because a rule stated in prose is not a rule:
 
-1. **Structural.** `liabilities.linked_account_id` is `UNIQUE` and nullable. Set → the balance comes from the account and `liability_balances` is ignored entirely. Null → the schedule is authoritative and no account may represent it. Two liabilities cannot claim one account.
-2. **Assertion.** `computeNetWorth()` builds an explicit `contributions: Map<SourceKey, Money>` where `SourceKey` is `('account', id) | ('position', accountId, instrumentId) | ('asset', id) | ('liability', id)`. Inserting a duplicate key throws. The final sum is over the map, never over concatenated arrays — so a source counted twice is a crash in development, not a wrong number in production.
-3. **Reconciliation.** `verify:integrity` recomputes net worth by an independent path (sum the contribution map vs. sum the category subtotals) and asserts equality, and separately asserts that no `manual_assets` row of kind `gold_physical` shares a name with an active instrument of class `gold` — a heuristic warning for the one overlap the schema cannot prevent.
+1. **Structural.** `liabilities.linked_account_id` is `UNIQUE` and nullable. Set → the liability contributes **nothing**; the account contributes, by sign, and `liability_balances` is ignored entirely. Null → the schedule is authoritative and no account may represent it. Two liabilities cannot claim one account. The linked account must be of kind `credit_card` or `loan` (**I-27**) — a link to a `bank` account would leave the liability contributing nothing *and* the account contributing as an **asset**, so the debt would disappear.
+2. **Assertion.** `computeNetWorth()` builds an explicit `contributions: Map<SourceKey, Money>` where `SourceKey` is `('account', id) | ('position', accountId, instrumentId) | ('asset', id) | ('liability', id)`. Inserting a duplicate key throws (**I-21**). The final sum is over the map, never over concatenated arrays — so a source counted twice is a crash in development, not a wrong number in production.
+   Positions are aggregated to `(account, instrument)` **before** insertion. The at-cost figure is derived per lot; several lots of one instrument in one account collapse into one key, which is what keeps the key stable when Phase 6 replaces the cost figure with a market figure computed per position.
+3. **Reconciliation.** `verify:integrity` recomputes net worth by an independent path — the contributions map against the group subtotals — and asserts equality exactly (**I-22**), and separately asserts that no `manual_assets` row of kind `gold_physical` shares a name with an active instrument of class `gold`.
+
+**Two overlaps have no structural guard, and are reported as warnings rather than asserted:** physical gold that duplicates a gold ETF or sovereign gold bond, and a manual asset that duplicates an account ("Cash at home" recorded as both). Neither can be prevented by the schema. An invariant that a user can legitimately violate is a false-alarm generator, and a false-alarm generator is eventually ignored.
 
 ### 9.3 Calculation
 
 ```
-assets = Σ balance(a, asOf) for ALL accounts where balance > 0 and kind ∉ {credit_card, loan}
-       + Σ marketValue(position) over all positions            -- priced holdings only
-       + Σ valuationInForce(asset, asOf) over manual assets not disposed as of asOf
-
-liabilities = Σ |balance(a, asOf)| for accounts of kind credit_card/loan with balance < 0
-            + Σ outstanding(liability, asOf) for liabilities with no linked account
-
-netWorth = assets - liabilities
+assets(asOf, basis)      = Σ contributions where side = 'asset'
+liabilities(asOf)        = Σ |contributions| where side = 'liability'
+netWorth(asOf, basis)    = assets − liabilities
 ```
 
-**Every filter here is date-driven. None is a current-state flag.** `is_active` describes an entity *today*; net worth is computed *as of* a date, and mixing the two silently rewrites history — an account closed this morning would vanish from last year's net worth, and the series would change shape every time the user tidies up.
+There is no third category, and no contribution is classified by anything but its own sign ([§9.1](#91-the-single-counting-rule), [ADR-25](DECISIONS.md#adr-25--net-worth-classification-is-by-the-economic-sign-of-the-balance-not-by-account-kind)). The contributions are:
 
-This is why the account term filters on `balance(a, asOf) > 0` and not on `is_active`. The flag is redundant for a closed-and-emptied account (its balance is already zero, contributing nothing) and actively wrong for a closed account that still carried a balance on `asOf`. It is the same rule as [§12 edge case 7](#12-edge-cases-that-must-be-covered-by-tests) — *"still counted historically"* — and as [§3](#3-accounts): *"Historical records remain and remain in historical totals."*
+```
+account a        →  balance(a, asOf)                            for EVERY account
+lot ℓ            →  remainingCost(ℓ, asOf) × ℓ.fx_rate_to_base  basis 'cost'   (Phase 5)
+position p       →  marketValue(p, asOf)                        basis 'market' (Phase 6)
+manual asset m   →  valuationInForce(m, asOf)
+liability L      →  −outstanding(L, asOf)                       scheduled liabilities only
+```
 
-For manual assets the equivalent is `manual_assets.disposed_on` (nullable): the asset contributes while `disposed_on IS NULL OR disposed_on > asOf`. `is_active` remains a UI convenience derived from it, never an input to a calculation.
+### The eligibility table
 
-All terms converted to base currency using rates in force on `asOf`. The result carries `priceCoverage` — the fraction of position market value that had a usable price. A coverage below 1.0 is displayed; it is never silently rounded away ([ADR-11](DECISIONS.md#adr-11--market-data-behind-a-provider-abstraction-with-an-always-available-manual-provider)).
+**Every filter is a date comparison against a recorded fact. Not one is a current-state flag** ([ADR-26](DECISIONS.md#adr-26--an-as-of-financial-figure-is-computed-from-dated-facts-only-no-current-state-flag-participates)). This table is normative; where any other document implies a different filter, this one governs.
 
-`valuationInForce(asset, asOf)` = the `asset_valuations` row with the greatest `as_of <= asOf`. If none exists, the asset contributes zero and is listed as unvalued.
+| Component | Eligible at `asOf` when | Value at `asOf` | Explicitly **not** filtered by |
+|---|---|---|---|
+| Account | `opening_date <= asOf` | `balance(a, asOf)` per [§3](#3-accounts) — opening balance included only under the same test | `accounts.is_active` |
+| Investment lot | `opened_on <= asOf` | `cost_total − Σ lot_disposals.cost_consumed where closed_on <= asOf` | `instruments.is_active`, `positions.quantity`, **`acquired_on`** |
+| Manual asset | `startOf(m) <= asOf` **and** (`disposed_on IS NULL` or `disposed_on > asOf`) | `valuationInForce(m, asOf)` | `manual_assets.is_active` |
+| Liability — scheduled | a `liability_balances` row exists with `as_of <= asOf` | that row's `outstanding` | `liabilities.is_active` |
+| Liability — transacted | **never eligible in its own right** — the linked account contributes | — | — |
+| FX rate | a `fx_rates` row exists with `as_of <= asOf` | that row's rate ([§2](#2-fx)) | `fetched_at` |
+| Price *(basis `market`, Phase 6)* | an `instrument_prices` row exists with `as_of <= asOf` | that row's `close` | — |
+
+where `startOf(m) = acquired_on ?? the earliest asset_valuations.as_of`, and
+`valuationInForce(m, asOf)` = the `asset_valuations` row with the greatest `as_of <= asOf`.
+
+Four consequences worth stating, because the plausible alternative is wrong in each:
+
+- **An account whose `opening_date > asOf` is absent from the breakdown, not present at zero** — so it cannot be confused with an account that genuinely held nothing.
+- **A lot is eligible by `opened_on`, never by `acquired_on`.** A `transfer_in` carries the original acquisition date forward so a demat transfer does not reset a long-term holding to short-term, and `acquired_on` can precede `opened_on` by years. Using it would place the destination lot in the destination account from the original purchase date — while the source account's lot is *also* still open until its `transfer_out` — counting the same value **twice** for the whole intervening period. This is the one place in the design where a plausible column choice produces a silent double count, and it has its own invariant (**I-23**).
+- **An eligible manual asset with no valuation in force is `excluded` and named, never zero.** A ₹80 lakh flat contributing ₹0 to a headline figure is a materially wrong number presented as a right one ([§10.3](#103-missing-data-propagates-as-null-never-as-zero), [§10.4](#104-partial-results-are-labelled-not-hidden)). An asset that is simply *not yet held* at `asOf` is a different case: it is ineligible, and is not reported as an exclusion.
+- **`positions` cannot answer an as-of question.** It is today's cache, carries no date bound, and must never be given one ([ADR-06](DECISIONS.md#adr-06--holdings-are-derived-cached-and-rebuildable)). The lot-level derivation above is exact rather than approximate for three reasons: a `split` or `bonus` touches **no money**, so cost is invariant under corporate actions; FIFO's total order gives replay a prefix property, so the disposals dated `≤ asOf` in a full replay are exactly those a replay bounded at `asOf` would produce; and invariant **I-20** makes `cost_total − Σ consumed` residue-free. At `asOf = today` it must reproduce `Σ positions.base_cost_basis` exactly (**I-24**).
+
+### Currency
+
+Each component is converted **once**, at `round(native × rate, 4)` with `half_up` — the mode the database `CHECK`s use — and the already-rounded base figures are what the map holds and what the subtotals sum. Each conversion is its own boundary because each uses a different rate, so this does not violate [§10.2](#102-rounding); summing unrounded products would mean the displayed components did not add up to the displayed total. Because the subtotals sum the same rounded values the map holds, `assets − liabilities = Σ map` **exactly**, with no tolerance (**I-22**).
+
+**The investment block is carried at acquisition rates while every other block converts at the `asOf` rate**, and this asymmetry is deliberate ([INVESTMENT-DOMAIN.md §6.4](INVESTMENT-DOMAIN.md#64-foreign-currency-positions)): `tax_lots.fx_rate_to_base` is never revalued, because re-rating it would make last year's cost basis move every morning. Two consequences follow:
+
+1. At `basis: 'cost'` a foreign-currency holding contributes **no unrealised FX**. Currency movement surfaces only on disposal, as `base_fx_component` (I-18).
+2. When Phase 6 makes `market` the default, the investment term moves to the spot rate. Net worth will change **for FX reasons alone**, independently of any price.
+
+**A missing rate excludes one component; it never zeroes it and never nulls the whole figure.** The result carries **separate asset and liability coverage** — deliberately, because an excluded asset makes net worth look *lower* and an excluded liability makes it look *higher*, and one blended ratio would hide which direction the figure is wrong in. Coverage is measured over **value**, not row count. A component whose native value is zero needs no rate and is never excluded ([ADR-11](DECISIONS.md#adr-11--market-data-behind-a-provider-abstraction-with-an-always-available-manual-provider), [§10.4](#104-partial-results-are-labelled-not-hidden)).
+
+Under `basis: 'market'` the result additionally carries `priceCoverage` — the fraction of position value that had a usable price. Under `basis: 'cost'` it is `1.0`: acquisition cost is always known.
 
 ### Change attribution
 
-For `[t0, t1]`, the bridge from `netWorth(t0)` to `netWorth(t1)`:
+For `[t0, t1]`, the bridge from `netWorth(t0)` to `netWorth(t1)`. **Both endpoints are on the same basis**, and the decomposition is derived from the composition above rather than invented alongside it — every line corresponds to a term in the eligibility table.
 
 | Component | Definition |
 |---|---|
-| Savings | `income − expenses` over the period, excluding investment income already counted below |
-| Investment gains/losses | `Σ (marketValue(t1) − marketValue(t0) − netContributions)` per position, i.e. price and FX movement on held assets |
+| Savings | `income − expenses` over the period, base currency |
+| Investment income | gross dividends + interest received in the period |
+| Investment costs | −(fees + taxes paid in the period), including the withholding inside income rows |
 | Realised P&L | `Σ lot_disposals.base_realized_pnl` with `closed_on` in the period |
-| Investment income | dividends + interest received in the period |
-| Investment costs | fees + taxes paid in the period (negative) |
+| Unrealised investment gain | `basis 'cost'`: **zero by construction.** `basis 'market'`: `Σ (marketValue(t1) − marketValue(t0) − netContributions)` per position |
+| Investment transfers in/out | an **unmatched** `transfer_in` / `transfer_out` — basis that entered or left with no cash movement, at the lot's rate |
 | Asset revaluation | `Σ (valuationInForce(t1) − valuationInForce(t0))` over manual assets held throughout |
 | Asset additions/disposals | acquisitions and disposals of manual assets in the period |
-| Liability change | `−(liabilities(t1) − liabilities(t0))`, split into principal repaid and new borrowing where an amortisation schedule exists |
-| FX effect | revaluation of foreign-currency balances at period-end rates |
+| Liability change | `−(liabilities(t1) − liabilities(t0))`, split into principal repaid and new borrowing **only where the user recorded both** |
+| FX effect | `Σ_a opening(a)·[r_a(t1) − r_a(t0)]` **plus** `Σ_flows amount·[r(t1) − r(booking)]`, over every non-base denomination |
 | Unexplained | `netWorth(t1) − netWorth(t0) − Σ(above)` |
 
-**`Unexplained` is always computed and always displayed when non-zero beyond a ₹1 tolerance.** A bridge that silently balances is a bridge that is hiding an error. This figure is also asserted to be zero in the golden-scenario tests ([TESTING.md](TESTING.md)).
+Five notes, each a place the obvious version is wrong:
+
+- **`Savings` cannot double-count investment income**, because it sums `transactions` and investment income lives in `investment_transactions`. This is the consumer that [§8](#8-cash-flow-calculations)'s separation was written for.
+- **Buys and sells need no line.** A buy is `−cash + basis = 0`; a sell is `+proceeds − basis =` realised P&L, which its own line already carries. A "purchases" line would double-count.
+- **`Unrealised investment gain` is zero *by construction* at `basis: 'cost'`** — arithmetically, because `Δcost = purchases − consumed` exactly, not because it was skipped. It must render as *"not measured — holdings valued at cost"*, never as `₹0`, which would read as *"the portfolio did not move."*
+- **An unmatched `transfer_in` genuinely raises net worth** — shares gifted in, or an existing holding recorded when the user started using the app — with no cash moving. Without its own line the bridge cannot close. A *matched* pair nets to zero and needs no line: the source lot's basis drains at `proceeds = cost_consumed`, realised P&L zero by construction, and the destination lot opens with the same basis at the same rate.
+- **`FX effect` is computed, not plugged.** Defining it as the residual would make `Unexplained` trivially zero and destroy the only assertion in the suite that catches most engine regressions.
+
+**`Unexplained` is always computed and always displayed when non-zero.** For **single-currency data every term is identically zero and it must be exactly `0`** — the one-base-unit tolerance applies to multi-currency data only (**I-30**). A bridge that silently balances is a bridge that is hiding an error. This figure is also asserted in the golden-scenario tests ([TESTING.md](TESTING.md)).
 
 ### 9.4 Asset and liability lifecycle
 
@@ -398,12 +523,12 @@ For `[t0, t1]`, the bridge from `netWorth(t0)` to `netWorth(t1)`:
 **Manual assets.** Anything of value that is not an account balance and not an instrument: property, a vehicle, physical gold, a collectible, a receivable.
 
 ```
-create      manual_assets row + a first asset_valuations row (both required; an asset with
-            no valuation contributes zero and is listed as unvalued)
+create      manual_assets row + a first asset_valuations row (both required; an ELIGIBLE
+            asset with no valuation in force at asOf is EXCLUDED and named, never zeroed)
 revalue     INSERT a new asset_valuations row. Never UPDATE an existing one — that would
             retroactively rewrite historical net worth.
 dispose     SET disposed_on = <date> (and is_active = false, for the UI only), plus the
-            sale recorded as ordinary income into an account. The asset stops
+            sale proceeds recorded as an ordinary receipt into an account. The asset stops
             contributing from disposed_on; every earlier net-worth figure is unchanged.
             The DATE is what the calculation reads -- a flag alone would erase the asset
             from history the moment it was sold (§9.3).
@@ -411,24 +536,35 @@ delete      permitted only when the asset has no valuations outside its creation
             otherwise archive. Deleting valuation history destroys past net-worth figures.
 ```
 
-`valuationInForce(asset, asOf)` is the row with the greatest `as_of <= asOf`. **Valuations are a time series, not a field.** This is the same rule as balances: the record is the source, the current value is derived from it by date.
+`valuationInForce(asset, asOf)` is the row with the greatest `as_of <= asOf`. **Valuations are a time series, not a field.** This is the same rule as balances: the record is the source, the current value is derived from it by date. A valuation is denominated in the **asset's** currency; there is no separate currency on the valuation row to disagree with it.
+
+**Disposal proceeds are a reporting artefact worth knowing about.** Recording the sale of a flat as ordinary `income` puts the whole proceeds into [§8](#8-cash-flow-calculations)'s `income`, which inflates the savings rate for that period. Net worth is unaffected — the bridge's `Asset additions/disposals` line carries `−(valuation in force)` against `Savings`' `+proceeds`, so the two net to the gain and `Unexplained` stays zero. The default category set therefore includes **`Other Income → Asset sale proceeds`**, so the receipt is identifiable and can be excluded from a savings-rate reading. A structural fix — a disposal that is neither income nor a transfer — is deferred; it would need a fifth transaction shape for one case.
 
 **Liabilities.** Two mutually exclusive shapes, discriminated by `linked_account_id` ([§9.2](#92-enforcement)):
 
-| Shape | `linked_account_id` | Outstanding comes from | Use for |
+| Shape | `linked_account_id` | Contribution to net worth | Use for |
 |---|---|---|---|
-| Transacted | set (`UNIQUE`) | the account's negative balance | credit cards, loans whose EMIs flow through an account |
-| Scheduled | `NULL` | latest `liability_balances` row `<= asOf` | loans tracked only as a statement figure |
+| **Transacted** | set (`UNIQUE`), and the account must be of kind `credit_card` or `loan` (**I-27**) | **none.** The account contributes, by sign | credit cards, loans whose EMIs flow through an account |
+| **Scheduled** | `NULL` | the latest `liability_balances` row with `as_of <= asOf` | loans tracked only as a statement figure |
+
+> **A `liabilities` row with `linked_account_id` set is metadata.** It carries the name, the kind, the interest rate, the EMI and the schedule dates. It carries **no money** into net worth. The money is the account's balance, counted once, by sign.
 
 ```
 create      liabilities row; scheduled shape also needs a first liability_balances row
 repay       transacted: an ordinary transfer or expense against the linked account
             scheduled:  INSERT a new liability_balances row. Never UPDATE.
-close       is_active = false once outstanding reaches zero. A liability with a non-zero
-            outstanding cannot be closed — it is flagged, exactly like an account.
+close       INSERT a terminal liability_balances row with outstanding = 0, dated on the
+            closing date, THEN is_active = false. The zero row is what the calculation
+            reads: under a date-driven rule the flag changes nothing, so without it the
+            last non-zero balance would stay in force forever (I-28). A liability with a
+            non-zero outstanding cannot be closed — it is flagged, exactly like an account.
 ```
 
-`interest_rate`, `emi_amount`, `started_on`, and `ends_on` are **descriptive only at launch**. Nothing computes an amortisation schedule from them; the change bridge splits principal from interest only where the user has recorded both. Deriving a schedule is deferred, and until it exists the fields must not be presented as though the app is tracking the loan for you.
+Deleting the linked account is refused (`ON DELETE RESTRICT`): `SET NULL` would silently convert a transacted liability into a scheduled one with no balance rows, which then contributes zero. Accounts carrying ledger history already cannot be deleted, so the stricter rule costs nothing.
+
+A `liability_balances` row is denominated in the **liability's** currency; there is no separate currency on the balance row to disagree with it.
+
+`interest_rate`, `emi_amount`, `started_on`, and `ends_on` are **descriptive only at launch**. Nothing computes an amortisation schedule from them; the change bridge splits principal from interest only where the user has recorded both, and reports the liability change as one figure otherwise. Deriving a schedule to split a number the user did not record would be inventing data. Until it exists the fields must not be presented as though the app is tracking the loan for you.
 
 **Neither entity is ever created by the AI without confirmation**, and neither has a delete proposal kind ([AI-SYSTEM.md §9](AI-SYSTEM.md#9-the-mutation-boundary)).
 
@@ -499,9 +635,11 @@ src/server/services/            APPLICATION SERVICES — impure, transactional
   categories.ts     CRUD, archive
   budgets.ts        listStatuses
   recurring.ts      rules CRUD, post (job handler)
-  assets.ts         manual assets, valuations
-  liabilities.ts    CRUD, balances
-  networth.ts       compute, snapshot, history, attribution
+  assets.ts         manual assets, valuations          <- the only writer of asset data
+  liabilities.ts    CRUD, balances                     <- the only writer of liability data
+  networth.ts       READ ONLY: asOf, series, bridge, reconcile.
+                    Exports NO function taking a WriteCtx — net worth opens no ledger
+                    and therefore cannot mutate anything (I-32, ADR-24).
   _guards.ts        requireOwnership, requireActiveAccount, requireCategoryKind
   _ctx.ts           ReadCtx  = { userId, now, fx }                  <- queries take this
                     WriteCtx = ReadCtx & { tx, audit }              <- commands take this
@@ -509,7 +647,11 @@ src/server/services/            APPLICATION SERVICES — impure, transactional
 src/server/domain/              FINANCIAL ENGINE — pure, total, no I/O
   ledger/     buildEntries, assertEntryInvariants, deriveBalance
   calc/       cashflow.ts, periods.ts, budget.ts, recurrence.ts
-  networth/   contributions map, bridge/attribution arithmetic
+  networth/   keys.ts        SourceKey, ContributionMap, add() that throws on a duplicate
+              eligibility.ts one predicate per row of the §9.3 eligibility table
+              compose.ts     components + rates -> NetWorthResult
+              bridge.ts      two NetWorthResults + period flows -> lines + unexplained
+              reconcile.ts   independent recomputation by group, and the equality assertion
 ```
 
 The investment engine occupies the same two layers and obeys the same contract; its modules are listed in [INVESTMENT-ENGINE-DESIGN.md §6](INVESTMENT-ENGINE-DESIGN.md) and arrive in Phase 4:
@@ -552,8 +694,8 @@ Listed here because they are where financial software actually breaks. Each maps
 11. Recurring job run twice on the same day — exactly one posting.
 12. Recurring rule whose `ends_on` falls mid-expansion.
 13. Savings rate with zero income — `null`, not division by zero.
-14. Net worth on a date before any transaction — zero, with full coverage.
-15. Net worth with a manual asset that has no valuation at all.
+14. Net worth on a date before any transaction — zero, with full coverage. An empty system is fully covered: nothing was left out.
+15. Net worth with an **eligible** manual asset that has no valuation in force — excluded and named, coverage below 1.0, **never zero**.
 16. Credit-card account also referenced by a `liabilities` row — double-count guard fires.
 17. FX rate missing for a transaction date — falls back to most recent earlier; if none, creation is rejected with `no_rate` rather than defaulting to 1.
 18. Amounts at the `NUMERIC(20,4)` boundary — no overflow, no silent truncation.
@@ -567,3 +709,20 @@ Listed here because they are where financial software actually breaks. Each maps
 26. An entry whose `base_amount` does not equal `round(amount × fx_rate_to_base, 4)` — rejected by the database, not merely by the service (invariant I-11).
 27. A same-currency transfer whose two `base_amount` values do not sum to exactly zero — rejected by the shape trigger (invariant I-3).
 28. Summing `base_amount` across **all** entries with no `kind` filter — same-currency transfers contribute exactly zero, so the total still equals net cash flow. This is the safety net behind the `kind` filter, and it is asserted rather than assumed.
+
+### Net worth — the as-of and classification cases ([§9](#9-net-worth))
+
+Added by the Phase 5 design review. Each guards a defect the pre-review rules would have produced.
+
+29. **Overpaid credit card.** `balance = +₹5,000` → a **+₹5,000 asset** contribution. Not zero, and not a ₹5,000 liability ([ADR-25](DECISIONS.md#adr-25--net-worth-classification-is-by-the-economic-sign-of-the-balance-not-by-account-kind)).
+30. **Overdrawn bank account.** `balance = −₹10,000` → a **₹10,000 liability** contribution, not a negative asset.
+31. **Account created after the as-of date.** Opened 2026 with `opening_balance = ₹50,000`; `netWorth('2020-12-31')` includes **neither the ₹50,000 nor the account** — it is absent from the breakdown, not present at zero.
+32. **Account created before the as-of date.** Opened 2019; `netWorth('2020-12-31')` includes its opening balance plus every movement booked on or before that date, and nothing later.
+33. **Account closed after the as-of date**, and **closed before it while still carrying a balance** — both fully counted at their balance on `asOf`. Closing does not settle ([case 7](#12-edge-cases-that-must-be-covered-by-tests)).
+34. **A `transfer_in` whose carried `acquired_on` predates its `opened_on` by two years** — the destination lot contributes only from `opened_on`; the source lot contributes until its `transfer_out`; neither period counts the value twice.
+35. **A `buy` leaves net worth unchanged** at every date on or after its `trade_date`; a `sell` moves it by exactly the realised P&L; a `split` and a `bonus` move it by exactly zero.
+36. **Manual asset disposed after the as-of date** — fully present at `asOf` at its valuation in force; absent from `disposed_on` onward.
+37. **A scheduled liability closed without a terminal zero balance row** — rejected by the service, because a date-driven rule would otherwise keep its last balance in force forever.
+38. **A liability linked to a `bank` account** — rejected at creation; otherwise the liability contributes nothing and the account contributes as an asset, and the debt disappears.
+39. **Missing FX rate for one component** — that component is excluded and named, coverage falls on **its own side** only, and neither the component nor the total is zeroed or nulled.
+40. **Negative net worth** — reported as negative. No `abs()` is applied to a total anywhere.

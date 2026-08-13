@@ -217,7 +217,8 @@ src/
       ledger/                         entry shape invariants, balance derivation
       lots/                           cost basis engine (default FIFO), corporate actions
       portfolio/                      valuation, allocation, concentration
-      networth/                       contributions map, bridge/attribution
+      networth/                       source keys + contributions map, date-driven
+                                      eligibility, composition, bridge, reconciliation
       calc/                           xirr.ts, twr.ts, cashflow.ts, budget.ts, recurrence.ts
     market-data/
       index.ts                      registry + PriceResult union
@@ -312,7 +313,8 @@ Derived artefacts record the version they were computed from:
 |---|---|---|
 | `positions` | investment ledger | targeted rebuild for the mutated `(account, instrument)`, **inside the mutation's own transaction** |
 | `tax_lots`, `lot_disposals` | investment ledger | same |
-| `net_worth_snapshots` | both, plus prices, assets, liabilities | nightly job; on-demand recompute for a date range; version mismatch |
+| **Net worth** | both ledgers, plus valuations, liability balances, FX (and prices from Phase 6) | **nothing to invalidate — derived on every read** ([ADR-24](DECISIONS.md#adr-24--net-worth-is-derived-on-demand-snapshots-are-deferred-to-phase-6)) |
+| `net_worth_snapshots` | as above | **Phase 6, not built at launch.** If introduced, only under the four rules in [SCHEMA.md §9](SCHEMA.md#9-net-worth-snapshots--phase-6-not-built-at-launch) — its stamp set covers neither valuations, liability balances, prices nor FX as sketched, so a row could go stale behind two matching versions |
 | Account balances | money ledger | computed on read (indexed `SUM`; fast enough — measure before caching) |
 
 Rebuilds are idempotent and complete: rebuilding a `(account, instrument)` pair deletes and re-derives all of its lots and disposals from the ledger. There is no incremental-patch path, because incremental patching is where derived state drifts.
@@ -321,7 +323,7 @@ Rebuilds are idempotent and complete: rebuilding a `(account, instrument)` pair 
 
 Correctness comes from somewhere better: the rebuild runs **inside the same database transaction as the ledger mutation that triggered it**, so there is no window in which `positions` disagrees with the ledger, and a replay that fails rolls the mutation back rather than leaving derived state behind. The stamp answers *"which ledger state produced this row"* for audit and `verify:integrity`.
 
-`net_worth_snapshots` is the artefact for which a version comparison **is** meaningful: it is computed per date from the whole portfolio, so a bumped counter genuinely invalidates it.
+**Net worth needs no invalidation at all, because nothing about it is stored.** Every figure — current, historical, series and change bridge — is derived per request from dated rows ([ADR-24](DECISIONS.md#adr-24--net-worth-is-derived-on-demand-snapshots-are-deferred-to-phase-6)). A month-end series is five set-based queries followed by one pure fold, not one computation per point, so the problem a snapshot table solves does not arise. That also makes correcting history a normal operation: editing a transaction dated last March leaves every net-worth figure from March onward correct on the next read, with no stored point to rewrite.
 
 ## 7. Error handling
 
@@ -358,9 +360,18 @@ A single header strip: **Net worth** (large, with period delta), then four compa
 - Allocation: by asset class / by instrument / by account / by currency, as a table with an inline proportion bar. One optional donut.
 
 ### Net Worth
-- Current: assets and liabilities as two grouped tables with subtotals, and the net figure.
-- History: one line chart plus a table of month-end values.
-- Change attribution: for any two dates, a waterfall table — opening net worth, + savings, + investment gains/losses, + new contributions, ± asset revaluation, ± liability change, ± FX, = closing. Every row links to its constituent records.
+
+The figure is **Net Worth at Cost** until Phase 6 introduces a market-value calculation ([ADR-23](DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost)). The page never shows an unqualified "Net worth" that could be read as a current market valuation.
+
+- Current: assets and liabilities as two grouped tables with subtotals, and the net figure. Every row links to its source — account ledger, instrument detail, asset detail, liability detail.
+- **Basis line**, always visible: *"Investments are valued at cost. Market pricing arrives in Phase 6."*
+- **Trade-dated line** wherever a balance derived from the investment ledger appears, discharging [ADR-22](DECISIONS.md#adr-22--financial-recognition-is-trade-dated-settlement_date-is-informational-metadata)'s carried requirement — also owed on the accounts list, the account ledger, and the investment ledger's cash column.
+- **Coverage notice** whenever asset or liability coverage is below 1.0, naming what was excluded and why. Never a silently smaller number.
+- History: one line chart plus a table of month-end values. Gaps render as gaps.
+- Change attribution: for any two dates, a waterfall table — opening, + savings, + investment income, − investment costs, + realised P&L, ± unrealised gain (*not measured at cost*), ± investment transfers, ± asset revaluation, ± asset additions/disposals, ± liability change, ± FX, **± unexplained**, = closing. Every row links to its constituent records.
+- Assets and liabilities CRUD live under this section, with the valuation and balance series inline. **No new top-level navigation item** — `CLAUDE.md <primary_navigation>` fixes the six.
+
+**The page contains no financial calculation** — not a subtotal, not a percentage, not a currency conversion. A page that computed its own subtotal would be the second implementation [FINANCIAL-DOMAIN.md §10.5](FINANCIAL-DOMAIN.md#105-single-implementation-per-concept) exists to forbid.
 
 ### AI
 Conversation view. Assistant messages render structured blocks where the model returned them: tables, figures with their source tool named, and **proposal cards** with Confirm / Edit / Reject. A visible indicator of which model answered and the token cost of the exchange.
@@ -381,7 +392,8 @@ Profile & security (password, TOTP, active sessions, revoke), preferences (base 
 | Overview first render | < 400 ms server time with 5 years of data |
 | Transactions list (page of 100, filtered) | < 150 ms |
 | Position rebuild for one instrument (500 txns) | < 100 ms |
-| Full net-worth snapshot for one date | < 500 ms |
+| Full net-worth computation for one date | < 500 ms |
+| Net-worth series, 60 month-end points | < 1 s — **five set-based queries, not 60 computations** ([ADR-24](DECISIONS.md#adr-24--net-worth-is-derived-on-demand-snapshots-are-deferred-to-phase-6)) |
 | AI parse round-trip (Tier 1) | < 3 s to filled form; a candidate whose measured p95 exceeds this is demoted in the tier ordering |
 
 Measure before optimising. The only pre-emptive optimisation in this design is the derived `positions` table ([ADR-06](DECISIONS.md#adr-06--holdings-are-derived-cached-and-rebuildable)), justified because full lot replay is O(all transactions) on every page view.

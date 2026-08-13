@@ -76,6 +76,14 @@ Table-driven, covering:
   replay(txns) === replay(txns)                     -- determinism
   replay(txns) === rebuildIncrementally(txns)       -- incremental === full
   replay(shuffleWithinTradeDate(txns)) === replay(txns)   -- entry order is not an input
+
+∀ ledger, ∀ T                                       -- net worth (Phase 5)
+  netWorth(T) is independent of the order rows were entered
+  assets(T) − liabilities(T) === Σ contributionsMap(T)          -- I-22, EXACT
+  investmentCostBasisAsOf(T) === boundedReplay(ledger, T).cost  -- the prefix property
+∀ buy   : netWorth(T) unchanged for every T ≥ trade_date        -- I-25
+∀ sell  : ΔnetWorth === realised P&L, exactly                   -- I-25
+∀ split, ∀ bonus : ΔnetWorth === 0, exactly                     -- money is ratio-invariant
 ```
 
 The last three are the properties that catch the classes of bug where a rebuild produces a different answer than the incremental path, and where the answer depends on the order rows happened to be entered.
@@ -132,20 +140,38 @@ Against a real Postgres, because half the invariants are database constraints an
 - Job claiming with `FOR UPDATE SKIP LOCKED` under two concurrent runners: each job executes exactly once.
 - `verify:integrity` passes on a freshly seeded database and fails on a deliberately corrupted one (a test that asserts the checker actually catches something).
 
+### Net worth (Phase 5)
+
+Each case guards a defect the pre-review rules would have produced. The full list is [FINANCIAL-DOMAIN.md §12](FINANCIAL-DOMAIN.md#12-edge-cases-that-must-be-covered-by-tests) cases 14–16 and 29–40; the ones that need a real database:
+
+- **The eligibility table, row by row** ([FINANCIAL-DOMAIN.md §9.3](FINANCIAL-DOMAIN.md#93-calculation)): an account, a lot, a manual asset and a liability each crossing `asOf`, asserted the day before, the day of, and the day after their own boundary date.
+- **Account created after `asOf`** contributes **nothing — including its opening balance** (case 31). Named for the defect, because the date bound covers movements and an opening position is not a movement.
+- **An overpaid credit card at `+₹5,000` contributes a `+₹5,000` asset** (case 29) — asserted against both wrong answers: zero, and a ₹5,000 liability.
+- **`is_active` is read by no calculation** (**I-26**) — a **source scan** over `src/server/domain/networth/**` and the net-worth read path, in the same style as the model-identifier scan in §7. A rule that depends on every future reader remembering it is not a rule.
+- **A `transfer_in` carrying an `acquired_on` two years before its `opened_on`** contributes to neither account before `opened_on` (**I-23**).
+- **`investmentCostBasisAsOf(today)` equals `Σ positions.base_cost_basis`** exactly (**I-24**) — the as-of derivation and the Phase 4 cache cannot drift apart unnoticed.
+- **`verify:integrity` fails on a deliberately corrupted database**: a liability linked to a `bank` account (**I-27**), a scheduled liability closed with no terminal zero row (**I-28**), a duplicated source key (**I-21**).
+- **User isolation** — a second user's accounts, assets, liabilities and lots are invisible to every net-worth query (**I-32**).
+- **`networth.ts` exports no function taking a `WriteCtx`** — a `tsc`-based test, the same mechanism as the AI write-unreachability test in §7.
+
 ## 5. Golden scenarios
 
 Multi-year fixtures with every figure verified by hand once and then frozen. These are the regression net for the whole engine.
 
 | Scenario | Exercises |
 |---|---|
-| **G1 — Salaried year** | 12 monthly salaries, ~200 expenses, 2 transfers, 3 budgets. Asserts: monthly and annual income/expense/savings/savings rate, budget utilisation, account balances, net-worth series. |
+| **G1 — Salaried year** | 12 monthly salaries, ~200 expenses, 2 transfers, 3 budgets. Asserts: monthly and annual income/expense/savings/savings rate, budget utilisation, account balances, and the **Net Worth at Cost** series. |
 | **G2 — Equity investor** | 20 buys, 8 partial sells, 2 splits, 1 bonus, 6 dividends, brokerage fees. Asserts: FIFO realised P&L, holdings, allocation, XIRR, TWR. Also asserts `Σ cost_total` is unchanged by both splits and the bonus, that trade fees appear in **no** `fees_total`, and that a split sharing a `trade_date` with a buy gives the same result under both insertion orders. |
 | **G3 — Mixed portfolio** | Equity + mutual funds + gold + a USD ETF + a fixed deposit. Asserts: multi-currency valuation, per-class allocation, FX component in attribution summing back to `base_realized_pnl` exactly, and that the USD ETF bought from an INR brokerage account leaves the account balance in rupees throughout (OD-5). |
-| **G4 — Debt and liabilities** | Home loan with EMIs, a credit card carrying a balance, a car loan closed mid-period. Asserts: liability totals, no double counting, net-worth attribution split into principal and interest. |
+| **G4 — Debt and liabilities** | Home loan with EMIs, a credit card carrying a balance, a car loan closed mid-period. Asserts: liability totals, no double counting (**I-8**), the terminal zero balance row the closed loan requires (**I-28**), attribution split into principal and interest **only where the user recorded both**, and an **overpaid credit card counted as an asset** (**I-31**). The Phase 5 gate. |
 | **G5 — Sparse data** | 3 unpriced instruments, a manual asset with no valuation, a missing FX rate, a stale price. Asserts: coverage < 1, correct `null` propagation, nothing silently zeroed, the UI-facing warnings present. |
 | **G6 — Corrections** | A transaction edited, one deleted, an investment transaction back-dated before existing ones. Asserts: derived state rebuilt correctly, historical snapshots recomputed, audit trail complete. |
 
-**Every golden scenario asserts `unexplained ≈ 0`** in the net-worth bridge (tolerance: one base-currency unit). This single assertion catches most engine regressions, because almost any calculation error shows up as an unexplained residual.
+**Every golden scenario asserts `unexplained` in the net-worth bridge.** For **single-currency** data it is asserted **exactly zero** — every FX term is identically zero there, so a tolerance would only hide a real residual, and *an invariant with a tolerance is not an invariant*. The one-base-unit tolerance applies to multi-currency scenarios only (**I-30**). This single assertion catches most engine regressions, because almost any calculation error shows up as an unexplained residual.
+
+The bridge's `FX effect` is **computed** — opening-balance revaluation plus per-flow rate movement — never defined as the residual. Defining it as the plug would make `unexplained` trivially zero and destroy the assertion. A test asserts the bridge over a **multi-currency** fixture where a plugged FX line and a computed one give different answers.
+
+**G1 and G4 are the Phase 5 gate.** G2 already passes at cost. G3 and G5 need prices and stay in Phase 6; both extend the `basis: 'cost'` behaviour Phase 5 asserts rather than replacing it.
 
 Golden expected values live in `tests/golden/*.expected.json`. Changing one requires a PR comment explaining why the previously verified number was wrong.
 
