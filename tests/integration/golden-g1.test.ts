@@ -252,7 +252,17 @@ describe('G1 — balances', () => {
 
   it('leaves the card at zero, because every charge was repaid', async () => {
     const account = must(await getAccount(fixture.ctx, card));
-    expect(account.role).toBe('liability');
+
+    // `'none'`, not `'liability'` — and this assertion was inverted by ADR-25,
+    // not by a regression. Classification is by the economic **sign** of the
+    // balance, so a card that owes nothing sits on neither side of the sheet.
+    // Under the previous kind-driven rule it was a liability of ₹0, which was
+    // harmless here and wrong for an overpaid card: the same rule reported a
+    // ₹5,000 credit as a ₹5,000 debt.
+    expect(toDbString(account.balance)).toBe('0.0000');
+    expect(account.role).toBe('none');
+
+    // Available credit is the full limit, and is counted in no total.
     expect(toDbString(account.availableCredit!)).toBe('300000.0000');
   });
 

@@ -107,13 +107,14 @@ describe('a healthy database', () => {
     const skipped = report.checks.filter((c) => c.status === 'skipped').map((c) => c.invariant);
 
     // A checker that silently covers less than it claims is worse than none.
-    // Phase 4 moved I-5, I-6, I-7 and I-12 out of this list by implementing the
-    // tables they describe; what remains is net worth (Phase 5) and AI (Phase 9).
-    expect(skipped).toEqual(expect.arrayContaining(['I-8', 'I-10', 'I-14']));
-    expect(skipped).not.toContain('I-5');
-    expect(skipped).not.toContain('I-6');
-    expect(skipped).not.toContain('I-7');
-    expect(skipped).not.toContain('I-12');
+    // Phase 4 moved I-5, I-6, I-7 and I-12 out of this list; Phase 5 moved I-8
+    // out of it by building the tables it describes. Only AI (Phase 9) remains.
+    expect(skipped).toEqual(expect.arrayContaining(['I-10', 'I-14']));
+    for (const nowChecked of ['I-5', 'I-6', 'I-7', 'I-12', 'I-8']) {
+      expect(skipped, `${nowChecked} is implemented and must no longer be skipped`).not.toContain(
+        nowChecked,
+      );
+    }
   });
 
   it('checks every investment invariant Phase 4 is responsible for', async () => {
@@ -122,6 +123,30 @@ describe('a healthy database', () => {
 
     for (const invariant of ['I-5', 'I-6', 'I-7', 'I-12', 'I-13', 'I-15', 'I-16', 'I-17', 'I-18', 'I-19', 'I-20']) {
       expect(checked, `${invariant} must be checked, not skipped`).toContain(invariant);
+    }
+  });
+
+  it('accounts for every net-worth invariant Phase 5 is responsible for', async () => {
+    const report = await verifyIntegrity(url);
+    const byInvariant = new Map(report.checks.map((c) => [c.invariant, c.status]));
+
+    // Queryable against real rows.
+    for (const invariant of ['I-8', 'I-24', 'I-27', 'I-28', 'I-32']) {
+      expect(byInvariant.get(invariant), `${invariant} must be checked`).toBe('passed');
+    }
+
+    // Not expressible as a query — reported with where they ARE enforced rather
+    // than silently omitted. A SQL approximation of any of these would be a
+    // second implementation of net worth living in the checker, free to disagree
+    // with the engine.
+    for (const invariant of ['I-21', 'I-22', 'I-23', 'I-25', 'I-26', 'I-29', 'I-30', 'I-31']) {
+      expect(byInvariant.get(invariant), `${invariant} must be accounted for`).toBe('engine');
+    }
+
+    // Every invariant I-1 … I-32 appears exactly once.
+    const seen = report.checks.map((c) => c.invariant);
+    for (let n = 1; n <= 32; n += 1) {
+      expect(seen, `I-${n} is missing from the report`).toContain(`I-${n}`);
     }
   });
 

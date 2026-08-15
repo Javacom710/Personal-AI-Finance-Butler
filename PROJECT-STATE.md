@@ -2,11 +2,11 @@
 
 Durable status record. Conversation history is temporary; this file is not. Read this first after any context reset, then verify it against `docs/`, the source tree, and the tests before trusting it.
 
-**Last updated:** 2026-08-12 · **Current phase:** 4 complete and verified · **Phase 5 — Net Worth at Cost: designed, decided and documented; implementation NOT started**
+**Last updated:** 2026-08-15 · **Current phase:** **5 complete — Net Worth at Cost** · **Phase 6 — Market Data is next, and not started**
 
-This is the **Phase 4 completion checkpoint**, plus the **Phase 5 design review and its correction pass**. Phases 0–4 are done; the verification that closed Phase 4 is recorded below under *Phase 4 final verification*, along with the scope boundaries that are intentional roadmap limits rather than defects.
+This is the **Phase 5 completion checkpoint**. Phases 0–5 are done; the verification that closed Phase 5 is recorded below under *Phase 5 final verification*.
 
-**No Phase 5 code, schema, migration, service, API, UI or test exists.** The review and the correction pass produced documentation only. **OD-7, OD-8 and OD-9 are resolved** and their outcomes are in the canonical documents; **N1–N19 are applied**. Phase 5 is ready to implement — the gates are in [ROADMAP.md](docs/ROADMAP.md) Phase 5 and [NET-WORTH-DESIGN.md §19](docs/NET-WORTH-DESIGN.md#19-phase-5-implementation-gates).
+**1,045 tests pass** — 617 unit, 56 property, 372 integration. `verify:integrity` reports **27 passing, 0 failing, 8 enforced by the engine, 2 deferred to Phase 9**. Typecheck, lint and the production build are clean.
 
 Sequence approved 2026-08-11: **Phase 3 — Money Management → Phase 4 — Investment Engine.**
 
@@ -44,8 +44,8 @@ Corollaries that follow from the above:
 | `docs/` | 13 documents — the approved architecture baseline, plus two **non-normative review records** ([INVESTMENT-ENGINE-DESIGN.md](docs/INVESTMENT-ENGINE-DESIGN.md), [NET-WORTH-DESIGN.md](docs/NET-WORTH-DESIGN.md)). |
 | `CLAUDE.md` / `AGENTS.md` | The specification. Byte-identical duplicates (see OD-2). |
 | `Workflow Setup.txt` | Canonical 15-phase map ([ADR-20](docs/DECISIONS.md)) |
-| Application code | **Phases 2–4.** Next.js 16, exact-money primitives, database, auth, app shell; the money core (accounts, categories, tags, transactions, transfers, budgets, recurring rules, the job runner and the Money UI); and the investment engine (instruments, the investment ledger, the FIFO lot engine, positions, valuation, allocation, XIRR/TWR and the Investments UI). |
-| Git repository | Initialised, `core.autocrlf=input`. Phase 2 and Phase 3 are committed; the Phase 4 design review and its documentation correction pass were merged in from `claude/investment-engine-review-3ed9bd`. |
+| Application code | **Phases 2–5.** Next.js 16, exact-money primitives, database, auth, app shell; the money core (accounts, categories, tags, transactions, transfers, budgets, recurring rules, the job runner and the Money UI); the investment engine (instruments, the investment ledger, the FIFO lot engine, positions, valuation, allocation, XIRR/TWR and the Investments UI); and **Net Worth at Cost** (manual assets, liabilities, the contributions map, date-driven as-of aggregation, reconciliation, the change bridge and the Net Worth UI). |
+| Git repository | Initialised, `core.autocrlf=input`. Phases 2–5 are committed on `claude/net-worth-architecture-review-7b1dc5`, which carries the Phase 5 design review, its correction pass, and the Phase 5 implementation. |
 
 ## Phases
 
@@ -56,8 +56,8 @@ Corollaries that follow from the above:
 | 2 — Foundation | ✅ complete, verified |
 | 3 — Financial Core | ✅ complete, verified |
 | 4 — Investment Engine | ✅ complete, verified |
-| 5 — Net Worth at Cost | **designed, decided and documented 2026-08-12; implementation NOT started.** Unblocked — OD-7, OD-8 and OD-9 resolved |
-| 6 — Market Data | not started (OD-3 affects completion, not start) |
+| 5 — Net Worth at Cost | ✅ **complete, verified** |
+| 6 — Market Data | not started; **next** (OD-3 affects completion, not start) |
 | 7 — AI Infrastructure | not started; **blocked** on OD-1 (`NVIDIA_API_KEY`) |
 | 8–14 | not started |
 
@@ -271,6 +271,59 @@ The Phase 4 design review found 15 defects (D1–D15) in the approved baseline. 
 
 ---
 
+## What Phase 5 delivered
+
+| Area | Where |
+|---|---|
+| Schema | `src/server/db/schema/networth.ts` — 4 tables, 2 enums, migration `0003`, hand-written down migration. **Purely additive**: no `DROP`, no `ALTER` on any Phase 3/4 table |
+| Domain | `src/server/domain/networth/` — `keys.ts` (source identity + the duplicate-rejecting contributions map), `eligibility.ts` (one date predicate per rule), `compose.ts`, `bridge.ts`, `reconcile.ts` |
+| Ledger correction | `src/server/domain/ledger/balance.ts` — `accountRole()` now classifies by **sign** via one shared `sideOfAmount()`; `openingContribution()` and `existedAt()` gate the opening balance by `opening_date` |
+| Services | `assets.ts` and `liabilities.ts` (the only writers) and a **read-only** `networth.ts` with no `WriteCtx` in any signature |
+| Integrity | I-8, I-24, I-27, I-28, I-32 checked against real rows; I-21, I-22, I-23, I-25, I-26, I-29, I-30, I-31 reported as `engine` with the file and test that enforce each |
+| UI | `app/(app)/net-worth/` — the figure, both sides grouped and drillable, history, the change waterfall, and assets/liabilities CRUD |
+| Tests | **133 added** — 51 unit, 9 property, 73 integration — taking the suite from 912 to **1,045**. Includes golden **G4** |
+
+### Phase 5 final verification — 2026-08-15
+
+| Gate | Result |
+|---|---|
+| Unit | **617 passed** |
+| Property | **56 passed** |
+| Integration | **372 passed** |
+| **Total** | **1,045 passed**, 0 failed |
+| Typecheck (`tsc --noEmit`, strict) | clean |
+| Lint (`eslint .`) | clean |
+| Production build (`next build`) | clean — 25 routes, 5 of them net worth |
+| Migration apply → rollback → re-apply | **byte-identical schema fingerprint**, now covering `0003` |
+| Migration inspected before applying | no `DROP`, no `TRUNCATE`, no `ALTER` on a pre-existing table; every `ALTER TABLE` targets a table the same migration creates |
+| Existing data preserved | row counts identical across all 25 pre-existing tables before and after |
+| `verify:integrity` | **27 passing, 0 failing, 8 engine-enforced, 2 deferred** |
+| Every Phase 3 and Phase 4 test | still passing |
+| Net Worth routes unauthenticated | all five `307` to `/login?next=…` |
+| Dev-server compile | no errors on any net-worth route |
+
+**Golden scenario G4** — a home loan with EMIs, a credit card carrying a balance, and a car loan closed mid-period — passes with `unexplained` **exactly `0.0000`**.
+
+### Decisions taken during implementation
+
+| # | Decision | Why |
+|---|---|---|
+| **D-28** | `AccountRole` gains a third member, `'none'` | ADR-25 classifies by sign, and a zero balance genuinely sits on neither side. Folding it into `'asset'` would have put a settled credit card under Assets at ₹0; folding it into `'liability'` is the defect ADR-25 exists to remove. One Phase 3 assertion inverted as a result — a repaid card in **G1** — and it is the only Phase 3/4 expectation Phase 5 changed |
+| **D-29** | Coverage is a **component-count** ratio in Phase 5, not value-weighted | `FINANCIAL-DOMAIN.md` §9.3 asks for value weighting, but Phase 5's only exclusion cause is a missing FX rate — and a component with no rate has no expressible base value to weight by. `excluded` carries each component's native amount and currency so the magnitude is still visible. Phase 6's price-driven exclusions **are** value-weightable, because cost basis is known in base even when a price is not |
+| **D-30** | `verify:integrity` gains two statuses, `engine` and `warning` | Eight net-worth invariants are not expressible as a query, and a SQL approximation of any of them would be a second implementation of net worth living in the checker — free to disagree with the engine. Reporting them with the file and test that enforce each keeps the report a complete account of I-1 … I-32 rather than falling silent. `warning` carries the gold-name heuristic, which a user can legitimately violate |
+| **D-31** | The net-worth series is **one fetch, one fold per point** | ADR-24 rules out snapshots, so a 12-point history had to not be 12 computations. `loadSources()` fetches everything once with no date bound; the bound is a pure predicate applied per point. This is also what makes I-29 true by construction rather than by coincidence |
+| **D-32** | An unvalued-but-held asset is excluded via an explicit `unvalued` flag | The first cut forced it down the `no_fx_rate` path with a ₹0.0001 sentinel, which put a lie in `excluded[].native`. A separate reason costs one enum member and lets the UI say "held, but not valued by this date" rather than "no exchange rate" |
+
+### Fixed during implementation
+
+Each was found by a test rather than by reading.
+
+1. **`text + text` in the bridge's cost query.** Two `numeric` sums were each cast to `::text` and then added — string concatenation, which Postgres refuses. Summed as numerics and cast once. Caught by every bridge test at once.
+2. **A blank optional field arrived as `''`, not `undefined`.** `z.string().trim().max(20).optional().or(z.literal('')…)` never reaches the `.or`, because `''` satisfies the first branch — so `interestRate` on an untouched form failed `Rate.parseUserInput('')` with a required-field error. `.min(1)` before `.optional()` is what makes the fallback reachable.
+3. **`eslint.config.mjs` would not load at all.** Since `eslint-config-next@16.3.0` the config object declaring the `react`, `import` and `jsx-a11y` plugins carries a `files` glob; this project's global rules object had none, so it referenced `react/no-danger` for file types where the plugin was out of scope and ESLint refused the whole configuration. **Pre-existing** — it failed identically on the Phase 4 tree — and fixed here because the completion gate requires lint to run.
+
+---
+
 ## Phase 5 design review — 2026-08-12
 
 **Design and architecture only. Nothing was implemented.** No application code, schema, migration, service, API or UI changed; `0003_phase5_net_worth.sql` does not exist. The output is [docs/NET-WORTH-DESIGN.md](docs/NET-WORTH-DESIGN.md) — a review record with the same standing as `INVESTMENT-ENGINE-DESIGN.md`: **non-normative**, and where it and a canonical document differ, the canonical document wins until OD-9 is approved.
@@ -354,6 +407,15 @@ Recorded so these are not rediscovered as bugs.
 - **~~PostgreSQL does not start automatically.~~** Resolved by D-23 — it is a Windows service with `Automatic` start.
 - **A PostgreSQL 17.7 rollback is still on disk**, unused: the old data directory `E:\Claude\_tools\pgdata` (91 MB) and the portable install `E:\Claude\_tools\pg17` (897 MB), plus logical dumps under `E:\Claude\_tools\pg-migration-backup-20260810-233153\`. Delete once PostgreSQL 18 has proven itself. The dumps contain a password hash and an encrypted TOTP secret, so they are deliberately outside the repository and must never be committed.
 - **CI still tests against `postgres:17`** (`.github/workflows/ci.yml`), while development is now 18.4. Not changed here because it decides what the suite is tested against, which is a call worth making deliberately rather than as cleanup.
+
+**New in Phase 5**
+- **Net worth is at cost, and says so on every screen.** Investments contribute their acquisition cost until Phase 6 ([ADR-23](docs/DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost)). A user who has hand-entered prices will see market value on Investments and cost on Net Worth; the basis banner exists so that reads as a stated fact rather than a discrepancy.
+- **Coverage is a component count, not a value ratio** (D-29). Honest but coarser than `FINANCIAL-DOMAIN.md` §9.3 asks for, and unavoidable while the only exclusion cause is a missing rate. Phase 6 can make it value-weighted.
+- **A manual-asset disposal inflates the savings rate for that period.** The proceeds are ordinary income while the asset they replaced never was, so `income` rises by the whole sale. Net worth is unaffected — the bridge nets the proceeds against the asset's last valuation — and the seeded `Other Income → Asset sale proceeds` category exists so the receipt can be filtered out of a savings reading. A structural fix needs a fifth transaction shape for one case, and is deferred ([FINANCIAL-DOMAIN.md §9.4](docs/FINANCIAL-DOMAIN.md#94-asset-and-liability-lifecycle)).
+- **A scheduled liability's repayment is recorded as an expense**, because there is no account to transfer to. The bridge closes — savings falls and the liability line rises by the same amount — but the savings rate for that period reads low. Inherent to the scheduled shape; a transacted liability has no such artefact.
+- **`user_state.valuation_version` is not added.** Nothing in Phase 5 reads it, because net worth is derived and there is no cache to invalidate. It is a prerequisite for any Phase 6 snapshot ([ADR-24](docs/DECISIONS.md#adr-24--net-worth-is-derived-on-demand-snapshots-are-deferred-to-phase-6) rule 3).
+- **Signed-in browser verification is outstanding.** Every net-worth route was confirmed to redirect to login when unauthenticated, and the dev server compiled all five without error, but the visual pass over real data has not been done — it needs a password, which the agent does not enter. Worth doing before Phase 6 touches these screens.
+- **This worktree now has its own `node_modules`.** `next build` under Turbopack resolves the workspace root from the nearest lockfile and then requires `next/package.json` beneath it, so a worktree sharing the parent's install cannot build (a junction is rejected: *"points out of the filesystem root"*). `npm ci` in the worktree is the fix, and the Phase 4 worktree had already done the same.
 
 **New in Phase 3**
 - **Deleting a user is not one statement.** `SCHEMA.md`'s conventions claim it is, and it is not: `users → accounts` cascades, but `transaction_entries.account_id` is `ON DELETE RESTRICT`, and Postgres does not order cascades so it can hit the restricted edge first. Deleting a user therefore fails unless `transactions` are deleted first. **`RESTRICT` is the right rule** — it is what stops an account with history being deleted — so the fix belongs in the deletion *service* (delete transactions, then the user, in one transaction), not in the schema. Nothing depends on this until data deletion is built in Phase 11; recorded so it is not rediscovered as a bug then.
@@ -444,4 +506,4 @@ Run on 2026-08-10.
 | How is net worth meant to work, and why? | [docs/NET-WORTH-DESIGN.md](docs/NET-WORTH-DESIGN.md) — the Phase 5 design review: single counting, as-of methodology, FX, liabilities, reconciliation, the schema delta, 43 edge cases, and the N1–N19 disposition table. **Non-normative** — the rules themselves now live in `FINANCIAL-DOMAIN.md` §9, `SCHEMA.md` §7–9/§12 and ADR-23…ADR-26 |
 | How does the AI layer work and what can't it do? | [docs/AI-SYSTEM.md](docs/AI-SYSTEM.md) |
 | What must be tested before a phase is done? | [docs/TESTING.md](docs/TESTING.md) and each phase's "Done when" |
-| What am I building next? | [docs/ROADMAP.md](docs/ROADMAP.md) — Phase 5, **Net Worth at Cost**. Designed, decided, documented; **implementation not started and unblocked** |
+| What am I building next? | [docs/ROADMAP.md](docs/ROADMAP.md) — **Phase 6, Market Data**. Not started; OD-3 gates its completion, not its start |

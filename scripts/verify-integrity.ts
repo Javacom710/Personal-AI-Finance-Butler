@@ -23,11 +23,19 @@ async function main(): Promise<void> {
 
   const report = await verifyIntegrity(url);
 
+  const MARKS: Record<string, string> = {
+    passed: 'ok  ',
+    skipped: 'skip',
+    failed: 'FAIL',
+    warning: 'warn',
+    engine: 'eng ',
+  };
+
   for (const check of report.checks) {
-    const mark = check.status === 'passed' ? 'ok  ' : check.status === 'skipped' ? 'skip' : 'FAIL';
+    const mark = MARKS[check.status] ?? '????';
     const suffix =
-      check.status === 'failed'
-        ? ` — ${check.violations} violation${check.violations === 1 ? '' : 's'}`
+      check.status === 'failed' || check.status === 'warning'
+        ? ` — ${check.violations} row${check.violations === 1 ? '' : 's'}${check.note ? ` (${check.note})` : ''}`
         : check.note
           ? ` — ${check.note}`
           : '';
@@ -38,9 +46,10 @@ async function main(): Promise<void> {
     }
   }
 
-  const skipped = report.checks.filter((c) => c.status === 'skipped').length;
+  const count = (status: string) => report.checks.filter((c) => c.status === status).length;
   console.log(
-    `\n${report.checks.length - skipped - report.failedCount} passed, ${report.failedCount} failed, ${skipped} not yet applicable.`,
+    `\n${count('passed')} passed, ${report.failedCount} failed, ${count('warning')} warning, ` +
+      `${count('engine')} enforced by the engine, ${count('skipped')} not yet applicable.`,
   );
 
   if (!report.passed) process.exit(1);

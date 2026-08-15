@@ -27,6 +27,16 @@ const config = [
 
   // ---------------------------------------------------------------- global
   {
+    // Scoped to source files, matching `eslint-config-next`'s own glob.
+    //
+    // Not cosmetic: since eslint-config-next 16.3.0 the config object that
+    // declares the `react`, `import` and `jsx-a11y` plugins carries this same
+    // `files` restriction. An unscoped rules object therefore referenced
+    // `react/no-danger` for file types where the plugin was out of scope, and
+    // ESLint refused to load the configuration at all — `npm run lint` failed
+    // before linting a single file. The rules below only ever applied to source
+    // files anyway; saying so is what makes them loadable.
+    files: ['**/*.{js,jsx,mjs,ts,tsx,mts,cts}'],
     rules: {
       eqeqeq: ['error', 'always', { null: 'ignore' }],
       'no-console': ['error', { allow: ['warn', 'error'] }],

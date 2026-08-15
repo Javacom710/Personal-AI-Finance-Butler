@@ -12,7 +12,7 @@ A phase is complete only when every box is ticked — including tests, type chec
 
 ---
 
-## Where the project stands — Phase 4 checkpoint, 2026-08-11
+## Where the project stands — Phase 5 checkpoint, 2026-08-15
 
 | Phase | Status |
 |---|---|
@@ -21,12 +21,12 @@ A phase is complete only when every box is ticked — including tests, type chec
 | 2 — Foundation | ✅ complete, verified |
 | 3 — Financial Core | ✅ complete, verified |
 | 4 — Investment Engine | ✅ **complete, verified** |
-| 5 — Net Worth at Cost | **designed and decided 2026-08-12; implementation not started** — next |
-| 6 — Market Data | not started (OD-3 affects completion, not start) |
+| 5 — Net Worth at Cost | ✅ **complete, verified** |
+| 6 — Market Data | not started — **next** (OD-3 affects completion, not start) |
 | 7 — AI Infrastructure | not started; **blocked** on OD-1 (`NVIDIA_API_KEY`) |
 | 8–14 | not started |
 
-**912 tests pass** — 549 unit, 47 property, 316 integration. Typecheck, lint and the production build are clean; `verify:integrity` reports 21 invariants passing, 0 failing and 3 deferred. The per-gate results, the Phase 4 scope boundaries, and decisions D-24…D-27 are recorded in [PROJECT-STATE.md](../PROJECT-STATE.md).
+**1,045 tests pass** — 617 unit, 56 property, 372 integration. Typecheck, lint and the production build are clean; `verify:integrity` reports 27 passing, 0 failing, 8 enforced by the engine and 2 deferred to Phase 9. The per-gate results and decisions D-24…D-32 are recorded in [PROJECT-STATE.md](../PROJECT-STATE.md).
 
 ---
 
@@ -180,9 +180,9 @@ They are recorded in full, with their rationale, in [PROJECT-STATE.md](../PROJEC
 
 ---
 
-## Phase 5 — Net Worth at Cost — **designed and decided; not started**
+## Phase 5 — Net Worth at Cost ✅ complete
 
-**Design review complete 2026-08-12; OD-7, OD-8 and OD-9 approved and applied the same day** ([NET-WORTH-DESIGN.md](NET-WORTH-DESIGN.md)). **No Phase 5 code, schema, migration, service, API, UI or test exists.** Implementation is unblocked: the gates below and the fuller list in [NET-WORTH-DESIGN.md §19](NET-WORTH-DESIGN.md#19-phase-5-implementation-gates) agree, and where one is more specific it is that one.
+**Design review complete 2026-08-12; OD-7, OD-8 and OD-9 approved and applied the same day; implemented and verified 2026-08-15** ([NET-WORTH-DESIGN.md](NET-WORTH-DESIGN.md)). The per-gate results are in [PROJECT-STATE.md](../PROJECT-STATE.md) under *Phase 5 final verification*.
 
 **The figure this phase ships is "Net Worth at Cost"** ([ADR-23](DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost)). Investment positions contribute the **exact Phase 4 cost basis**. Market value and cost basis are never mixed inside one figure, and no screen shows an unqualified "Net worth" that could be read as a current market valuation. Market-value net worth is a distinct Phase 6 calculation.
 
@@ -201,19 +201,19 @@ Unblocked by Phase 4: `tax_lots` and `lot_disposals` exist, so the change bridge
 - **`accountRole()` classifies by kind**, which [ADR-25](DECISIONS.md#adr-25--net-worth-classification-is-by-the-economic-sign-of-the-balance-not-by-account-kind) makes wrong. Classification is by the economic **sign** of the balance. This is the one code change the correction pass implies, and it is Phase 5 work.
 
 **Done when**
-- [ ] `accountRole()` classifies by **sign**: an overpaid credit card at `+₹5,000` contributes a **+₹5,000 asset** — not zero, not a liability — and an overdrawn bank account is a liability ([ADR-25](DECISIONS.md#adr-25--net-worth-classification-is-by-the-economic-sign-of-the-balance-not-by-account-kind), I-31)
-- [ ] An account created after the requested `asOf` contributes nothing, **including its opening balance**; created before, it contributes both; closed after `asOf`, it is fully counted (N2, [ADR-26](DECISIONS.md#adr-26--an-as-of-financial-figure-is-computed-from-dated-facts-only-no-current-state-flag-participates))
-- [ ] No calculation reads `is_active` on any table — asserted by a **source scan** (I-26)
-- [ ] The double-counting guard in [FINANCIAL-DOMAIN.md §9.2](FINANCIAL-DOMAIN.md#92-enforcement) throws on a duplicated source key (tested by deliberately duplicating one)
-- [ ] A credit-card account also present as a `liabilities` row is caught (I-8); a liability linked to a non-`credit_card`/`loan` account is rejected (I-27); a closed scheduled liability has its terminal zero row (I-28)
-- [ ] Net worth on a past date uses the valuation in force on that date; an **eligible** asset with no valuation in force is excluded and named, never zeroed
-- [ ] `investmentCostBasisAsOf(today)` equals `Σ positions.base_cost_basis` exactly (I-24)
-- [ ] `unexplained` is **exactly** zero on single-currency golden scenarios, within one base unit otherwise (I-30)
-- [ ] Golden scenario **G4** passes; **G1** gains its Net-Worth-at-Cost series assertions
-- [ ] `verify:integrity` reports **I-8 passing** rather than `skipped`, plus **I-21 … I-32**
-- [ ] The figure is labelled **Net Worth at Cost**, and the UI states that investments are at cost until Phase 6
-- [ ] Balances derived from the investment ledger are marked **trade-dated** ([ADR-22](DECISIONS.md#adr-22--financial-recognition-is-trade-dated-settlement_date-is-informational-metadata)'s carried UI requirement)
-- [ ] **Nothing in the Phase 5 diff touches market data, price refresh, price history, snapshots, or AI.** Those are later phases
+- [x] `accountRole()` classifies by **sign**: an overpaid credit card at `+₹5,000` contributes a **+₹5,000 asset** — not zero, not a liability — and an overdrawn bank account is a liability ([ADR-25](DECISIONS.md#adr-25--net-worth-classification-is-by-the-economic-sign-of-the-balance-not-by-account-kind), I-31)
+- [x] An account created after the requested `asOf` contributes nothing, **including its opening balance**; created before, it contributes both; closed after `asOf`, it is fully counted (N2, [ADR-26](DECISIONS.md#adr-26--an-as-of-financial-figure-is-computed-from-dated-facts-only-no-current-state-flag-participates))
+- [x] No calculation reads `is_active` on any table — asserted by a **source scan** (I-26)
+- [x] The double-counting guard in [FINANCIAL-DOMAIN.md §9.2](FINANCIAL-DOMAIN.md#92-enforcement) throws on a duplicated source key (tested by deliberately duplicating one)
+- [x] A credit-card account also present as a `liabilities` row is caught (I-8); a liability linked to a non-`credit_card`/`loan` account is rejected (I-27); a closed scheduled liability has its terminal zero row (I-28)
+- [x] Net worth on a past date uses the valuation in force on that date; an **eligible** asset with no valuation in force is excluded and named, never zeroed
+- [x] `investmentCostBasisAsOf(today)` equals `Σ positions.base_cost_basis` exactly (I-24)
+- [x] `unexplained` is **exactly** zero on single-currency golden scenarios, within one base unit otherwise (I-30)
+- [x] Golden scenario **G4** passes; **G1** gains its Net-Worth-at-Cost series assertions
+- [x] `verify:integrity` reports **I-8 passing** rather than `skipped`, plus **I-21 … I-32**
+- [x] The figure is labelled **Net Worth at Cost**, and the UI states that investments are at cost until Phase 6
+- [x] Balances derived from the investment ledger are marked **trade-dated** ([ADR-22](DECISIONS.md#adr-22--financial-recognition-is-trade-dated-settlement_date-is-informational-metadata)'s carried UI requirement)
+- [x] **Nothing in the Phase 5 diff touches market data, price refresh, price history, snapshots, or AI.** Those are later phases
 
 ---
 

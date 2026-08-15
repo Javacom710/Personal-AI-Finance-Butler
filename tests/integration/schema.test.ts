@@ -46,16 +46,22 @@ describe('migration', () => {
         'tax_lots',
         'lot_disposals',
         'positions',
+        // Phase 5 — manual assets and liabilities
+        'manual_assets',
+        'asset_valuations',
+        'liabilities',
+        'liability_balances',
       ]),
     );
 
-    // Phase 5+ tables must not exist yet — building ahead of the phase is how a
+    // Phase 6+ tables must not exist yet — building ahead of the phase is how a
     // reviewed schema turns into an unreviewed one.
+    //
+    // `net_worth_snapshots` is on this list DELIBERATELY: net worth is derived on
+    // demand and stores nothing, so the snapshot table is Phase 6 work if a
+    // measurement ever justifies it (ADR-24). Its presence here would mean the
+    // scope boundary had been crossed.
     for (const later of [
-      'manual_assets',
-      'asset_valuations',
-      'liabilities',
-      'liability_balances',
       'net_worth_snapshots',
       'ai_proposals',
       'ai_conversations',

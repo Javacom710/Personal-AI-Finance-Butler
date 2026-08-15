@@ -29,7 +29,7 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { sql } from 'drizzle-orm';
 import { Pool } from 'pg';
 
-export type CheckStatus = 'passed' | 'failed' | 'skipped';
+export type CheckStatus = 'passed' | 'failed' | 'skipped' | 'warning' | 'engine';
 
 export interface CheckResult {
   readonly invariant: string;
@@ -52,6 +52,11 @@ interface Check {
   readonly description: string;
   /** Must select the offending rows and nothing else. Zero rows means the invariant holds. */
   readonly query: ReturnType<typeof sql>;
+  /**
+   * A heuristic a user can legitimately violate. Reported, never failed — an
+   * invariant that cries wolf is one that gets ignored.
+   */
+  readonly warningOnly?: boolean;
 }
 
 /**
@@ -334,6 +339,126 @@ const CHECKS: readonly Check[] = [
        where coalesce(d.consumed, 0) + l.remaining_cost <> l.cost_total
     `,
   },
+  // --------------------------------------------------------- net worth (Phase 5)
+
+  {
+    invariant: 'I-8',
+    // The double-count guard. A liability with `linked_account_id` set
+    // contributes NOTHING to net worth — the account contributes, by sign — so
+    // the two ways this can break are two liabilities claiming one account (the
+    // partial UNIQUE index makes that unreachable, and this catches a restore
+    // that lost it), and a link to an account that is not the caller's.
+    description: 'No account is counted twice: at most one liability claims an account, and it is the same user’s',
+    query: sql`
+      select l.linked_account_id, count(*) as claims
+        from liabilities l
+       where l.linked_account_id is not null
+       group by l.linked_account_id
+      having count(*) > 1
+      union all
+      select l.linked_account_id, 0
+        from liabilities l
+        join accounts a on a.id = l.linked_account_id
+       where a.user_id <> l.user_id
+    `,
+  },
+  {
+    invariant: 'I-27',
+    // A liability linked to a `bank` account would contribute nothing WHILE the
+    // account contributed as an asset — the debt disappears entirely. Enforced
+    // by a service guard because it is cross-table; checked here because a
+    // guard only governs rows written through it.
+    description: 'A linked liability points at a credit_card or loan account',
+    query: sql`
+      select l.id, l.name, a.kind
+        from liabilities l
+        join accounts a on a.id = l.linked_account_id
+       where l.linked_account_id is not null
+         and a.kind not in ('credit_card', 'loan')
+    `,
+  },
+  {
+    invariant: 'I-28',
+    // Under a date-driven rule `is_active` changes nothing, so without a
+    // terminal zero row the last non-zero balance stays in force forever.
+    // Transacted liabilities are exempt: they carry no balance series at all.
+    description: 'Every inactive scheduled liability has a terminal zero balance row',
+    query: sql`
+      select l.id, l.name
+        from liabilities l
+       where l.is_active = false
+         and l.linked_account_id is null
+         and not exists (
+           select 1 from liability_balances b
+            where b.liability_id = l.id and b.outstanding = 0
+         )
+    `,
+  },
+  {
+    invariant: 'I-24',
+    // Ties the as-of derivation to the Phase 4 cache: at today's date, summing
+    // the lot tables the way `netWorthAsOf` does must reproduce
+    // `positions.base_cost_basis` exactly. If either drifts, this fires.
+    description:
+      'Investment cost basis derived from lots equals positions.base_cost_basis, exactly',
+    query: sql`
+      select p.user_id, p.account_id, p.instrument_id,
+             p.base_cost_basis, coalesce(l.total, 0) as derived
+        from positions p
+        left join (
+          select l.user_id, l.account_id, l.instrument_id,
+                 sum(round(l.cost_total * l.fx_rate_to_base, 4)
+                     - coalesce(d.consumed_base, 0)) as total
+            from tax_lots l
+            left join lateral (
+              select sum(round(d.cost_consumed * l.fx_rate_to_base, 4)) as consumed_base
+                from lot_disposals d where d.lot_id = l.id
+            ) d on true
+           group by l.user_id, l.account_id, l.instrument_id
+        ) l on l.user_id = p.user_id
+           and l.account_id = p.account_id
+           and l.instrument_id = p.instrument_id
+       where p.base_cost_basis <> coalesce(l.total, 0)
+    `,
+  },
+  {
+    invariant: 'I-32',
+    // Every net-worth series row belongs to the same user as its parent. The
+    // `user_id` columns exist so an as-of query need not join to establish
+    // ownership; this asserts the denormalisation has not drifted.
+    description: 'Every valuation and liability balance belongs to the same user as its parent',
+    query: sql`
+      select 'asset_valuation' as kind, v.id::text as id
+        from asset_valuations v
+        join manual_assets m on m.id = v.asset_id
+       where v.user_id <> m.user_id
+      union all
+      select 'liability_balance', b.id::text
+        from liability_balances b
+        join liabilities l on l.id = b.liability_id
+       where b.user_id <> l.user_id
+    `,
+  },
+  {
+    invariant: 'I-8b',
+    // A manual asset of kind `gold_physical` sharing a name with an active gold
+    // instrument is the one overlap the schema cannot prevent
+    // (FINANCIAL-DOMAIN.md §9.2). Reported as a WARNING rather than asserted:
+    // an invariant a user can legitimately violate is a false-alarm generator.
+    description: 'Warning: physical gold sharing a name with a gold instrument',
+    warningOnly: true,
+    query: sql`
+      select m.id::text as manual_asset_id, m.name, i.id::text as instrument_id
+        from manual_assets m
+        join instruments i
+          on lower(i.name) = lower(m.name)
+         and i.user_id = m.user_id
+       where m.kind = 'gold_physical'
+         and i.asset_class = 'gold'
+         and i.is_active
+    `,
+  },
+
   {
     invariant: 'I-4b',
     description: 'Every investment transaction belongs to the same user as its account and instrument',
@@ -351,9 +476,64 @@ const CHECKS: readonly Check[] = [
 
 /** Invariants defined in SCHEMA.md whose tables do not exist yet. Reported, never assumed. */
 const DEFERRED: readonly { invariant: string; description: string; note: string }[] = [
-  { invariant: 'I-8', description: 'Every credit_card/loan account counted once in net worth', note: 'Phase 5' },
   { invariant: 'I-10', description: 'Applied AI proposals have an ai_confirmed audit entry', note: 'Phase 9' },
   { invariant: 'I-14', description: 'One AI proposal produces at most one record', note: 'Phase 9' },
+];
+
+/**
+ * Invariants that are **not expressible as a query**, listed so this report
+ * accounts for every invariant in SCHEMA.md §12 rather than falling silent on
+ * the ones it cannot reach.
+ *
+ * Each is enforced where it can actually be enforced — in the engine, at the
+ * type level, or by a source scan — and asserted by the named test. Writing a
+ * SQL approximation of any of them would mean a second implementation of net
+ * worth living in the checker, which is exactly what
+ * [FINANCIAL-DOMAIN.md §10.5](../../../docs/FINANCIAL-DOMAIN.md#105-single-implementation-per-concept)
+ * forbids: it could disagree with the engine, and then neither would be
+ * trustworthy.
+ */
+const ENGINE_ENFORCED: readonly { invariant: string; description: string; note: string }[] = [
+  {
+    invariant: 'I-21',
+    description: 'The contributions map is injective — no source key twice',
+    note: 'ContributionMap.add() throws; tests/unit/networth-domain.test.ts',
+  },
+  {
+    invariant: 'I-22',
+    description: 'netWorth = Σ contributions = assets − liabilities, by two independent paths',
+    note: 'domain/networth/reconcile.ts; tests/unit/networth-domain.test.ts',
+  },
+  {
+    invariant: 'I-23',
+    description: 'A lot contributes iff opened_on <= T — never acquired_on',
+    note: 'domain/networth/eligibility.ts; tests/integration/networth.test.ts',
+  },
+  {
+    invariant: 'I-25',
+    description: 'A buy is net-worth neutral; a sell moves it by exactly the realised P&L',
+    note: 'tests/property/networth.test.ts',
+  },
+  {
+    invariant: 'I-26',
+    description: 'No calculation reads is_active on any table',
+    note: 'source scan; tests/unit/networth-source-scan.test.ts',
+  },
+  {
+    invariant: 'I-29',
+    description: 'The last point of the series equals netWorthAsOf(today)',
+    note: 'tests/integration/networth.test.ts',
+  },
+  {
+    invariant: 'I-30',
+    description: 'The change bridge closes — exactly, for single-currency data',
+    note: 'tests/integration/golden-g4.test.ts',
+  },
+  {
+    invariant: 'I-31',
+    description: 'An account contributes iff opening_date <= T; its side is its sign',
+    note: 'domain/ledger/balance.ts; tests/unit/ledger-balance.test.ts',
+  },
 ];
 
 export async function verifyIntegrity(connectionString: string): Promise<IntegrityReport> {
@@ -365,12 +545,27 @@ export async function verifyIntegrity(connectionString: string): Promise<Integri
 
     for (const check of CHECKS) {
       const result = await database.execute<Record<string, unknown>>(check.query);
+      const clean = result.rows.length === 0;
       checks.push({
         invariant: check.invariant,
         description: check.description,
-        status: result.rows.length === 0 ? 'passed' : 'failed',
+        status: clean ? 'passed' : check.warningOnly === true ? 'warning' : 'failed',
         violations: result.rows.length,
         samples: result.rows.slice(0, 5),
+        ...(check.warningOnly === true && !clean
+          ? { note: 'a heuristic, not a rule — review rather than repair' }
+          : {}),
+      });
+    }
+
+    for (const engine of ENGINE_ENFORCED) {
+      checks.push({
+        invariant: engine.invariant,
+        description: engine.description,
+        status: 'engine',
+        violations: 0,
+        samples: [],
+        note: `not expressible as a query — enforced by ${engine.note}`,
       });
     }
 

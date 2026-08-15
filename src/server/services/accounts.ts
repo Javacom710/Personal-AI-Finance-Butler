@@ -25,6 +25,9 @@ import {
   accountRole,
   availableCredit,
   deriveBalance,
+  existedAt,
+  isAgainstExpectedSign,
+  openingContribution,
   withRunningBalance,
   type AccountKind,
   type AccountRole,
@@ -48,8 +51,11 @@ export interface AccountView {
   readonly kind: AccountKind;
   readonly institution: string | null;
   readonly currency: CurrencyCode;
+  /** The **declared** opening balance, ungated. `balance` carries the gated form. */
   readonly openingBalance: Money;
   readonly openingDate: IsoDate;
+  /** Did the account exist at the requested date? `false` ⟹ absent from net worth. */
+  readonly existedAsOf: boolean;
   readonly creditLimit: Money | null;
   readonly isActive: boolean;
   readonly displayOrder: number;
@@ -61,7 +67,10 @@ export interface AccountView {
   readonly baseBalance: Metric<Money>;
   /** Shown on the row, counted in no total. `null` for anything but a card. */
   readonly availableCredit: Money | null;
+  /** By the **sign** of the balance, never by kind (ADR-25). */
   readonly role: AccountRole;
+  /** An overpaid card or an overdrawn bank account: flagged, never reclassified. */
+  readonly againstExpectedSign: boolean;
   readonly lastActivityOn: IsoDate | null;
   readonly entryCount: number;
 }
@@ -109,9 +118,10 @@ export async function listAccounts(
 
   if (rows.length === 0) return [];
 
-  const totals = await entryTotals(ctx, options.asOf ?? null);
+  const asOf = options.asOf ?? null;
+  const totals = await entryTotals(ctx, asOf);
 
-  return rows.map((row) => toView(ctx, row, totals.get(row.id)));
+  return rows.map((row) => toView(ctx, row, totals.get(row.id), asOf));
 }
 
 export async function getAccount(
@@ -124,8 +134,9 @@ export async function getAccount(
   const owned = requireOwnership(row, ctx.userId, 'account', id);
   if (!owned.ok) return owned;
 
-  const totals = await entryTotals(ctx, options.asOf ?? null, id);
-  return ok(toView(ctx, owned.value, totals.get(id)));
+  const asOf = options.asOf ?? null;
+  const totals = await entryTotals(ctx, asOf, id);
+  return ok(toView(ctx, owned.value, totals.get(id), asOf));
 }
 
 interface EntryTotal {
@@ -204,9 +215,26 @@ async function entryTotals(
   );
 }
 
-function toView(ctx: ReadCtx, row: AccountRow, total: EntryTotal | undefined): AccountView {
+/**
+ * `asOf === null` means the present-tense read. Two things depend on it and
+ * both were previously wrong in the `asOf` path (N2, N3):
+ *
+ * - the **opening balance is gated by `opening_date`**, so an account opened in
+ *   2026 contributes nothing to a 2020 figure (ADR-26);
+ * - the **base-currency conversion uses the rate in force on the requested
+ *   date**, not today's. The native balance honoured `asOf` and the base figure
+ *   silently did not, which would have priced 2021's rupees at 2026's dollar.
+ */
+function toView(
+  ctx: ReadCtx,
+  row: AccountRow,
+  total: EntryTotal | undefined,
+  asOf: IsoDate | null,
+): AccountView {
   const accountCurrency = currency(row.currencyCode.trim());
-  const opening = Money.fromDbString(row.openingBalance, accountCurrency);
+  const declaredOpening = Money.fromDbString(row.openingBalance, accountCurrency);
+  const openingDate = isoDate(row.openingDate);
+  const opening = openingContribution(declaredOpening, openingDate, asOf);
 
   // Both sums are already in the account's own currency: `transaction_entries`
   // by its own currency column, and `investment_transactions.net_amount` by
@@ -220,7 +248,7 @@ function toView(ctx: ReadCtx, row: AccountRow, total: EntryTotal | undefined): A
   const balance = deriveBalance(opening, entries, investmentEntries);
 
   const limit = row.creditLimit === null ? null : Money.fromDbString(row.creditLimit, accountCurrency);
-  const converted = ctx.fx.toBase(balance, ctx.today);
+  const converted = ctx.fx.toBase(balance, asOf ?? ctx.today);
 
   return {
     id: row.id,
@@ -228,8 +256,9 @@ function toView(ctx: ReadCtx, row: AccountRow, total: EntryTotal | undefined): A
     kind: row.kind,
     institution: row.institution,
     currency: accountCurrency,
-    openingBalance: opening,
-    openingDate: isoDate(row.openingDate),
+    openingBalance: declaredOpening,
+    openingDate,
+    existedAsOf: existedAt(openingDate, asOf),
     creditLimit: limit,
     isActive: row.isActive,
     displayOrder: row.displayOrder,
@@ -238,6 +267,7 @@ function toView(ctx: ReadCtx, row: AccountRow, total: EntryTotal | undefined): A
     baseBalance: converted.ok ? metric(converted.value.amount) : unavailable('no_fx_rate'),
     availableCredit: limit === null ? null : availableCredit(limit, balance),
     role: accountRole(row.kind, balance),
+    againstExpectedSign: isAgainstExpectedSign(row.kind, balance),
     lastActivityOn: total?.lastActivityOn ? isoDate(total.lastActivityOn) : null,
     entryCount: total?.entryCount ?? 0,
   };

@@ -101,6 +101,37 @@ export const assetClass = pgEnum('asset_class', [
  */
 export const costBasisMethod = pgEnum('cost_basis_method', ['fifo', 'average', 'specific_id']);
 
+// -------------------------------------------------------- net worth (Phase 5)
+
+/**
+ * SCHEMA.md §7. Anything of value that is not an account balance and not an
+ * instrument. A gold ETF or a sovereign gold bond is an **instrument**, not a
+ * `gold_physical` manual asset — recording it as both is the one overlap the
+ * schema cannot prevent (FINANCIAL-DOMAIN.md §9.2).
+ */
+export const manualAssetKind = pgEnum('manual_asset_kind', [
+  'property',
+  'vehicle',
+  'gold_physical',
+  'collectible',
+  'receivable',
+  'other',
+]);
+
+/**
+ * SCHEMA.md §8. A liability with `linked_account_id` set contributes **nothing**
+ * to net worth — the account contributes, by sign — so this enum labels the debt
+ * rather than deciding where its money comes from.
+ */
+export const liabilityKind = pgEnum('liability_kind', [
+  'home_loan',
+  'auto_loan',
+  'personal_loan',
+  'student_loan',
+  'credit_card',
+  'other',
+]);
+
 /** SCHEMA.md §6. */
 export const investmentKind = pgEnum('investment_kind', [
   'buy',

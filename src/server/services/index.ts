@@ -32,7 +32,21 @@ export type {
 } from '../domain/pricing/allocation';
 export type { PortfolioSummary, GrowthPoint, GrowthSeries } from '../domain/calc/portfolio';
 
+// Net worth types a page renders without importing the engine itself.
+export type {
+  Contribution,
+  ExcludedComponent,
+  NetWorthGroup,
+  SourceKey,
+} from '../domain/networth/keys';
+export type { GroupSubtotal, ValuationBasis } from '../domain/networth/compose';
+export type { ReconciliationLine } from '../domain/networth/reconcile';
+export type { BridgeLine, BridgeLineKey } from '../domain/networth/bridge';
+
 export * from './accounts';
+export * from './assets';
+export * from './liabilities';
+export * from './networth';
 export * from './budgets';
 export * from './cashflow';
 export * from './categories';

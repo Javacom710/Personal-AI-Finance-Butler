@@ -1,0 +1,83 @@
+{
+  "scenario": "G4 — Debt and liabilities",
+  "note": "Hand-computed once and frozen. Changing a figure here requires a PR comment explaining why the previously verified number was wrong (TESTING.md §5).",
+  "basis": "cost",
+  "baseCurrency": "INR",
+
+  "fixture": {
+    "openingCash": "1200000.0000",
+    "flatValuation": "8000000.0000",
+    "homeLoanOpening": "2500000.0000",
+    "carLoanOpening": "600000.0000",
+    "salaryPerMonth": "150000.0000",
+    "livingExpensePerMonth": "60000.0000",
+    "homeEmi": "52000.0000",
+    "homeEmiPrincipal": "40000.0000",
+    "carEmi": "18000.0000",
+    "carEmiPrincipal": "15000.0000",
+    "cardSpend": "45000.0000",
+    "flatRevaluation": "8600000.0000"
+  },
+
+  "opening": {
+    "asOf": "2025-12-31",
+    "note": "Nothing exists yet — every account, asset and liability opens on 2026-01-01. Proves N2: an opening balance dated later contributes nothing here.",
+    "assets": "0.0000",
+    "liabilities": "0.0000",
+    "netWorth": "0.0000"
+  },
+
+  "afterSetup": {
+    "asOf": "2026-01-01",
+    "note": "Cash 1,200,000 + flat 8,000,000 against home 2,500,000 + car 600,000. The credit card is at zero and contributes to neither side; its liabilities row is TRANSACTED and carries no money at all.",
+    "assets": "9200000.0000",
+    "liabilities": "3100000.0000",
+    "netWorth": "6100000.0000"
+  },
+
+  "aprilEnd": {
+    "asOf": "2026-04-30",
+    "note": "4 salaries, 4 living expenses, 4 home EMIs (Jan–Apr), 3 car EMIs (Feb–Apr), and 45,000 spent on the card in April.",
+    "cash": "1298000.0000",
+    "cardDebt": "45000.0000",
+    "homeLoanOutstanding": "2340000.0000",
+    "carLoanOutstanding": "555000.0000",
+    "flat": "8000000.0000",
+    "assets": "9298000.0000",
+    "liabilities": "2940000.0000",
+    "netWorth": "6358000.0000"
+  },
+
+  "juneEnd": {
+    "asOf": "2026-06-30",
+    "note": "Car loan settled in full on 2026-05-15 for 555,000, writing a terminal zero balance row (I-28). Flat revalued to 8,600,000 on 2026-06-01. Card repaid by transfer on 2026-06-20.",
+    "cash": "774000.0000",
+    "cardDebt": "0.0000",
+    "homeLoanOutstanding": "2260000.0000",
+    "carLoanOutstanding": "0.0000",
+    "flat": "8600000.0000",
+    "assets": "9374000.0000",
+    "liabilities": "2260000.0000",
+    "netWorth": "7114000.0000"
+  },
+
+  "bridgeJanToJun": {
+    "from": "2026-01-01",
+    "to": "2026-06-30",
+    "delta": "1014000.0000",
+    "savings": "-426000.0000",
+    "assetRevaluation": "600000.0000",
+    "liabilityChange": "840000.0000",
+    "unrealizedGain": "0.0000",
+    "unexplained": "0.0000",
+    "note": "Savings = 900,000 income − (360,000 living + 312,000 home EMIs + 54,000 car EMIs + 555,000 car settlement + 45,000 card spending). Liability change covers the SCHEDULED loans only: −((2,260,000 + 0) − (2,500,000 + 600,000)) = 840,000. The card's 45,000 moves through its own account, so it appears in savings and NOT here — counting it in both is the double-count this scenario exists to catch."
+  },
+
+  "invariants": {
+    "I-8": "The card is represented by an account and by a liabilities row; the row contributes zero.",
+    "I-22": "The reconciliation residual is exactly 0.0000 at every date above.",
+    "I-28": "The settled car loan carries a terminal zero balance row and stops counting from 2026-05-15.",
+    "I-30": "unexplained is exactly 0.0000 — this scenario is single-currency.",
+    "I-31": "The card is a liability while in debit and contributes to neither side once settled."
+  }
+}

@@ -97,6 +97,7 @@ const MIGRATIONS = [
   '0000_phase2_foundation',
   '0001_phase3_financial_core',
   '0002_phase4_investment_engine',
+  '0003_phase5_net_worth',
 ] as const;
 
 /**

@@ -52,11 +52,14 @@ export function Field({
   label,
   state,
   children,
+  hint,
 }: {
   name: string;
   label: string;
   state: ActionState;
   children: React.ReactNode;
+  /** One line explaining a rule the field obeys. Shown only when there is no error. */
+  hint?: string;
 }) {
   const errors = state.fieldErrors[name];
   return (
@@ -65,6 +68,7 @@ export function Field({
         {label}
       </label>
       {children}
+      {hint && !errors ? <p className="text-xs text-ink-faint">{hint}</p> : null}
       {errors?.map((message) => (
         <p key={message} className="text-xs text-negative">
           {message}
