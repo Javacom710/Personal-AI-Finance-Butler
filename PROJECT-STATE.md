@@ -4,9 +4,13 @@ Durable status record. Conversation history is temporary; this file is not. Read
 
 **Last updated:** 2026-08-15 · **Current phase:** **5 complete — Net Worth at Cost** · **Phase 6 — Market Data is next, and not started**
 
-This is the **Phase 5 completion checkpoint**. Phases 0–5 are done; the verification that closed Phase 5 is recorded below under *Phase 5 final verification*.
+This is the **Phase 5 completion checkpoint**, and the handover into Phase 6. Phases 0–5 are done; the verification that closed Phase 5 — automated **and** signed-in browser — is recorded below under *Phase 5 final verification*.
 
-**1,045 tests pass** — 617 unit, 56 property, 372 integration. `verify:integrity` reports **27 passing, 0 failing, 8 enforced by the engine, 2 deferred to Phase 9**. Typecheck, lint and the production build are clean.
+**1,049 tests pass** — 617 unit, 56 property, 376 integration. `verify:integrity` reports **27 passing, 0 failing, 8 enforced by the engine, 2 deferred to Phase 9**. Typecheck, lint and the production build are clean. **Signed-in browser verification passed**, finding and fixing two display defects.
+
+**Infrastructure verified:** PostgreSQL **18.4** as the Windows service `postgresql-x64-18` (`Automatic` start, runs as `NT AUTHORITY\NetworkService`), independent of any shell or tool lifetime. Databases `financeos` and `financeos_test`, two least-privilege roles, connectivity confirmed by the 376 integration tests, `verify:integrity` against `financeos`, and a live signed-in browser session.
+
+**Phase 6 — Market Data has NOT started.** No provider, adapter, refresh job, price history, market-value net worth, snapshot table or snapshot job exists.
 
 Sequence approved 2026-08-11: **Phase 3 — Money Management → Phase 4 — Investment Engine.**
 
@@ -281,7 +285,7 @@ The Phase 4 design review found 15 defects (D1–D15) in the approved baseline. 
 | Services | `assets.ts` and `liabilities.ts` (the only writers) and a **read-only** `networth.ts` with no `WriteCtx` in any signature |
 | Integrity | I-8, I-24, I-27, I-28, I-32 checked against real rows; I-21, I-22, I-23, I-25, I-26, I-29, I-30, I-31 reported as `engine` with the file and test that enforce each |
 | UI | `app/(app)/net-worth/` — the figure, both sides grouped and drillable, history, the change waterfall, and assets/liabilities CRUD |
-| Tests | **133 added** — 51 unit, 9 property, 73 integration — taking the suite from 912 to **1,045**. Includes golden **G4** |
+| Tests | **137 added** — 51 unit, 9 property, 77 integration — taking the suite from 912 to **1,049**. Includes golden **G4** and the two browser-found regressions |
 
 ### Phase 5 final verification — 2026-08-15
 
@@ -289,8 +293,8 @@ The Phase 4 design review found 15 defects (D1–D15) in the approved baseline. 
 |---|---|
 | Unit | **617 passed** |
 | Property | **56 passed** |
-| Integration | **372 passed** |
-| **Total** | **1,045 passed**, 0 failed |
+| Integration | **376 passed** |
+| **Total** | **1,049 passed**, 0 failed |
 | Typecheck (`tsc --noEmit`, strict) | clean |
 | Lint (`eslint .`) | clean |
 | Production build (`next build`) | clean — 25 routes, 5 of them net worth |
@@ -299,10 +303,54 @@ The Phase 4 design review found 15 defects (D1–D15) in the approved baseline. 
 | Existing data preserved | row counts identical across all 25 pre-existing tables before and after |
 | `verify:integrity` | **27 passing, 0 failing, 8 engine-enforced, 2 deferred** |
 | Every Phase 3 and Phase 4 test | still passing |
+| **Signed-in browser verification** | **passed** — see the table above |
 | Net Worth routes unauthenticated | all five `307` to `/login?next=…` |
 | Dev-server compile | no errors on any net-worth route |
 
 **Golden scenario G4** — a home loan with EMIs, a credit card carrying a balance, and a car loan closed mid-period — passes with `unexplained` **exactly `0.0000`**.
+
+### Phase 5 signed-in browser verification — 2026-08-17
+
+Performed against the development account (`dev@example.local`, provisioned by
+`npm run dev:login` — see *Development sign-in* below), signed in through the
+**real** password → TOTP → session flow. A demo dataset was seeded through the
+application services so the figures below are hand-checkable.
+
+| Checked | Result |
+|---|---|
+| `/net-worth` renders signed in | ✅ headline ₹75,90,000 = assets ₹99,35,000 − liabilities ₹23,45,000, matching the hand-computed figure |
+| Labelled **Net Worth at Cost** | ✅ page title, headline label, and the basis banner |
+| Asset breakdown | ✅ grouped: Cash and bank, Other assets, Brokerage cash, Investments (at cost), Property — each row drillable |
+| Liability breakdown | ✅ Credit cards, Loans, with per-row detail |
+| Reconciliation | ✅ *"Reconciled: 8 sources, checked by a second independent sum"* |
+| Drill-down | ✅ Net worth → Zerodha ledger: opening ₹1,00,000, buy −₹60,000, balance ₹40,000 — the single-counting story end to end |
+| Historical / as-of | ✅ 12 month-ends; 2025 rows show only the 2024-opened account, every 2026-opened account absent |
+| Currency formatting | ✅ Indian digit grouping throughout (₹99,35,000.00), `en-IN` |
+| **No double counting** | ✅ brokerage cash ₹40,000 + INFY basis ₹60,000 = the ₹1,00,000 it started with, not ₹1,60,000 |
+| **Overpaid credit card** | ✅ Amex at `+₹5,000` under **assets** — not zero, not a liability |
+| Closed account historically | ✅ "Old savings", closed, still contributes ₹30,000 at every date from its opening |
+| **Opening balances obey `opening_date`** | ✅ an account dated 1 Dec 2026 contributes nothing today, and ₹50,000 from that date |
+| Trade-dated wording (ADR-22) | ✅ present on the net-worth page beneath the balances it qualifies |
+| Change bridge | ✅ Jan→Jun: −₹40,000 savings + ₹6,00,000 revaluation + ₹2,00,000 liability change = ₹7,60,000 delta, **Unexplained ₹0.00** |
+| Unrealised gain line | ✅ renders as `—` with *"not measured — at cost"*, never as ₹0 |
+| Append-only proof | ✅ recording a valuation dated 1 Aug moved **today** to ₹76,90,000 and left 30 Jun and 31 Jul unchanged at ₹75,90,000 |
+| Empty state | ✅ before seeding: ₹0.00, "Nothing on this side", full coverage — no fabricated figures |
+| Error state | ✅ a duplicate-dated valuation is refused with a domain sentence, not a stack trace |
+| Success state | ✅ *"Valuation recorded. Earlier figures are unchanged."*, page revalidated immediately |
+| Console / runtime errors | ✅ none in the **production** build; the dev server's CSP inline-style noise is Turbopack's HMR client (measured, see known debt) |
+| Mobile at 375 px | ✅ no horizontal overflow on any of the five net-worth routes |
+| Redirects after auth | ✅ none; every route returns 200 signed in, and 307 to `/login?next=…` signed out |
+| Phase 3 Money pages | ✅ accounts list, balances, available credit, closed-account flag all correct |
+| Phase 4 Investments pages | ✅ INFY 600 @ ₹100, invested ₹60,000; unpriced → market value, unrealised and return all `—` with a coverage note, never `0` |
+
+**Two defects found and fixed**, both surfaced only by looking at rendered pages:
+
+| | Defect | Fix | Regression test |
+|---|---|---|---|
+| 1 | An **overpaid credit card was grouped under "Cash and bank"**. The figure and the side were right (ADR-25), but a receivable from a card issuer filed beside a current account reads as spendable money | `accountGroup()` classifies on side first: a `credit_card`/`loan` in credit is **Other assets** | 4 cases in `networth.test.ts` covering card-in-credit, loan-in-credit, card-in-debit and an overdrawn bank account |
+| 2 | A **future-dated account reported its opening balance as money held today** on the accounts page, while net worth correctly excluded it — two screens, one account, two figures. `FINANCIAL-DOMAIN.md` §3 says the default bound is *today*, not "unbounded"; the gate treated it as unbounded | `toView` gates the opening balance by `asOf ?? ctx.today` | asserts the account read **and** net worth both report `0` today, and both report ₹50,000 from the opening date |
+
+Neither changed a total that was already correct: the first moved a row between display groups, the second removed a figure that should never have been shown.
 
 ### Decisions taken during implementation
 
@@ -320,7 +368,7 @@ Each was found by a test rather than by reading.
 
 1. **`text + text` in the bridge's cost query.** Two `numeric` sums were each cast to `::text` and then added — string concatenation, which Postgres refuses. Summed as numerics and cast once. Caught by every bridge test at once.
 2. **A blank optional field arrived as `''`, not `undefined`.** `z.string().trim().max(20).optional().or(z.literal('')…)` never reaches the `.or`, because `''` satisfies the first branch — so `interestRate` on an untouched form failed `Rate.parseUserInput('')` with a required-field error. `.min(1)` before `.optional()` is what makes the fallback reachable.
-3. **`eslint.config.mjs` would not load at all.** Since `eslint-config-next@16.3.0` the config object declaring the `react`, `import` and `jsx-a11y` plugins carries a `files` glob; this project's global rules object had none, so it referenced `react/no-danger` for file types where the plugin was out of scope and ESLint refused the whole configuration. **Pre-existing** — it failed identically on the Phase 4 tree — and fixed here because the completion gate requires lint to run.
+3. **`eslint.config.mjs` would not load at all — a tooling compatibility fix, retained deliberately.** Since `eslint-config-next@16.3.0` the config object declaring the `react`, `import` and `jsx-a11y` plugins carries a `files` glob; this project's global rules object had none, so it referenced `react/no-danger` for file types where the plugin was out of scope and ESLint refused the whole configuration. **Pre-existing** — it failed identically on the Phase 4 tree — and fixed here because the completion gate requires lint to run. It is a one-line `files` scope matching the upstream glob, changes no rule and disables no check, and is **kept rather than reverted**: without it `npm run lint` cannot execute at all, so the verification gate could not be met. Revisit only if a future `eslint-config-next` drops the glob.
 
 ---
 
@@ -362,6 +410,92 @@ Recorded as **N1–N19** in [NET-WORTH-DESIGN.md §14](docs/NET-WORTH-DESIGN.md#
 | [**ADR-24**](docs/DECISIONS.md#adr-24--net-worth-is-derived-on-demand-snapshots-are-deferred-to-phase-6) | Net worth is **derived on demand**; snapshots deferred to Phase 6, with four rules attached if they are ever built |
 | [**ADR-25**](docs/DECISIONS.md#adr-25--net-worth-classification-is-by-the-economic-sign-of-the-balance-not-by-account-kind) | Classification is by the **economic sign** of the balance, not by account kind |
 | [**ADR-26**](docs/DECISIONS.md#adr-26--an-as-of-financial-figure-is-computed-from-dated-facts-only-no-current-state-flag-participates) | An `asOf` figure is computed **from dated facts only**; no current-state flag participates |
+
+---
+
+## Development sign-in — local only
+
+There is no signup route and no development bypass in the authentication code.
+`src/server/auth/**` is untouched by this: the login flow has no dev flag, no
+skipped factor and no back door, so signing in locally exercises the **real**
+password → TOTP → session path with real Argon2id verification, the real replay
+guard, and the real opaque session cookie.
+
+The second factor is **TOTP**, not SMS or email — a code is *computed* from a
+shared secret, so no message provider is involved and none needs stubbing.
+
+```
+npm run dev:login            # provision dev@example.local (once), then print a code
+npm run dev:login -- --otp   # print a fresh code
+```
+
+| | |
+|---|---|
+| Account | `dev@example.local` — non-personal, `.local` is reserved and cannot resolve. Created **beside** the real account, which is never touched |
+| Password | 24 random bytes, generated at provisioning, written to `.dev-credentials.json` (git-ignored, mode 0600). Never printed |
+| OTP | `npm run dev:login -- --otp` — the script is an authenticator app for this one account |
+| Production guard | Refuses on `NODE_ENV=production`, checked **before** touching the database or filesystem and again after `loadDotEnv`, so a `.env` cannot move the process into production behind the first check. Exits non-zero, writes nothing. Verified |
+| Reachability | A `scripts/` entry point: never bundled, never imported by the application, never reachable over HTTP |
+
+**Never create this account on a deployed host.** It exists so a local browser
+can exercise the shipped login flow; it has no production counterpart.
+
+---
+
+## Phase 6 — Market Data · NOT STARTED
+
+The next phase. Nothing in it has been built: no provider, no adapter, no
+refresh job, no price history, no market-value net worth, no snapshot table or
+job.
+
+**Purpose.** Give the investment engine prices. Phase 4 built cost basis,
+realised P&L and the lot engine — none of which need a price — and Phase 5 built
+net worth on that same at-cost footing. Phase 6 is where a price first enters
+the system.
+
+| What it unblocks | Why it is blocked today |
+|---|---|
+| **Market-value net worth** — `basis: 'market'` as a **distinct** calculation alongside Phase 5's `'cost'`, becoming the default ([ADR-23](docs/DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost)) | No price source. A single figure must never mix the two bases |
+| **TWR** — returns `null` with `insufficient_price_history` for every instrument | `instrument_prices` is empty; it is populated by `getHistoricalPrices()`, which needs a provider |
+| **Portfolio growth series** | Same: the series is only as complete as `instrument_prices`, and gaps render as gaps, never as zeros |
+| **Unrealised P&L, portfolio return, market-value allocation** | Not computable without a price; each correctly reports `null` with a reason today |
+
+**Open decision — OD-3, the equity/ETF market-data provider and its terms.** It
+gates Phase 6's *completion*, not its start: the `MarketDataProvider` interface,
+the registry, the `ManualProvider` and the AMFI adapter (free, official, no key)
+can all be built before it is settled. It is a commercial choice about terms, not
+an engineering one, and it is **not** resolved here — the canonical documents do
+not require it for this checkpoint.
+
+**Carried into Phase 6 from Phase 5, deliberately deferred:**
+
+- `net_worth_snapshots`, the `networth.snapshot` job, and
+  `user_state.valuation_version` ([ADR-24](docs/DECISIONS.md#adr-24--net-worth-is-derived-on-demand-snapshots-are-deferred-to-phase-6)).
+  Phase 5 derives every figure and stores nothing, so the performance case does
+  not arise; a market-valued series that joins a price per instrument per date is
+  where it might. If introduced, only under ADR-24's four rules — current is
+  always derived, a historical point is read only on a full version match, the
+  stamp set is completed first, and `verify:integrity` asserts snapshot =
+  derivation.
+- **Value-weighted coverage.** Phase 5 reports a component-count ratio (D-29),
+  because a component with no FX rate has no expressible base value to weight by.
+  Phase 6's price-driven exclusions **are** weightable: cost basis is known in
+  base even when a price is not.
+- **`quantityHeldOn` must apply corporate-action ratios**, not sum `quantity`
+  ([INVESTMENT-DOMAIN.md §8.1](docs/INVESTMENT-DOMAIN.md#81-portfolio-growth-over-time)).
+  A split carries `quantity IS NULL` and a ratio, so a plain running sum reports
+  the pre-split quantity forever. Phase 5 was immune because money is invariant
+  under corporate actions; Phase 6's market value is not.
+
+**The Phase 6 basis switch will move net worth for FX reasons alone**, not only
+price: the investment block is carried at acquisition rates under `'cost'` and at
+spot under `'market'` ([FINANCIAL-DOMAIN.md §9.3](docs/FINANCIAL-DOMAIN.md#93-calculation)).
+That belongs in the release note, not in a support conversation.
+
+**The next action is a Phase 6 architecture and provider review** — not
+implementation. Read `docs/ARCHITECTURE.md`, `docs/INVESTMENT-DOMAIN.md` §5 and
+§8.1, [ADR-11](docs/DECISIONS.md#adr-11--market-data-behind-a-provider-abstraction-with-an-always-available-manual-provider),
+and `docs/ROADMAP.md` Phase 6 before writing anything.
 
 ---
 
@@ -414,7 +548,7 @@ Recorded so these are not rediscovered as bugs.
 - **A manual-asset disposal inflates the savings rate for that period.** The proceeds are ordinary income while the asset they replaced never was, so `income` rises by the whole sale. Net worth is unaffected — the bridge nets the proceeds against the asset's last valuation — and the seeded `Other Income → Asset sale proceeds` category exists so the receipt can be filtered out of a savings reading. A structural fix needs a fifth transaction shape for one case, and is deferred ([FINANCIAL-DOMAIN.md §9.4](docs/FINANCIAL-DOMAIN.md#94-asset-and-liability-lifecycle)).
 - **A scheduled liability's repayment is recorded as an expense**, because there is no account to transfer to. The bridge closes — savings falls and the liability line rises by the same amount — but the savings rate for that period reads low. Inherent to the scheduled shape; a transacted liability has no such artefact.
 - **`user_state.valuation_version` is not added.** Nothing in Phase 5 reads it, because net worth is derived and there is no cache to invalidate. It is a prerequisite for any Phase 6 snapshot ([ADR-24](docs/DECISIONS.md#adr-24--net-worth-is-derived-on-demand-snapshots-are-deferred-to-phase-6) rule 3).
-- **Signed-in browser verification is outstanding.** Every net-worth route was confirmed to redirect to login when unauthenticated, and the dev server compiled all five without error, but the visual pass over real data has not been done — it needs a password, which the agent does not enter. Worth doing before Phase 6 touches these screens.
+- **The CSP inline-style console errors are development-only, and this is now measured rather than assumed.** The same route rendered by `next start` from the production build logs **zero** console errors; the dev server logs them on every load. Only the server differs, which confirms the Turbopack HMR client as the source (carried Phase 3 debt). No application file emits an inline `style` attribute — `ProportionBar` uses static width classes for exactly this reason (D-27).
 - **This worktree now has its own `node_modules`.** `next build` under Turbopack resolves the workspace root from the nearest lockfile and then requires `next/package.json` beneath it, so a worktree sharing the parent's install cannot build (a junction is rejected: *"points out of the filesystem root"*). `npm ci` in the worktree is the fix, and the Phase 4 worktree had already done the same.
 
 **New in Phase 3**

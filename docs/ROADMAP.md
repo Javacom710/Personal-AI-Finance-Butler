@@ -26,7 +26,7 @@ A phase is complete only when every box is ticked — including tests, type chec
 | 7 — AI Infrastructure | not started; **blocked** on OD-1 (`NVIDIA_API_KEY`) |
 | 8–14 | not started |
 
-**1,045 tests pass** — 617 unit, 56 property, 372 integration. Typecheck, lint and the production build are clean; `verify:integrity` reports 27 passing, 0 failing, 8 enforced by the engine and 2 deferred to Phase 9. The per-gate results and decisions D-24…D-32 are recorded in [PROJECT-STATE.md](../PROJECT-STATE.md).
+**1,049 tests pass** — 617 unit, 56 property, 376 integration. Typecheck, lint and the production build are clean; `verify:integrity` reports 27 passing, 0 failing, 8 enforced by the engine and 2 deferred to Phase 9. **Signed-in browser verification passed**, finding and fixing two display defects. The per-gate results and decisions D-24…D-32 are recorded in [PROJECT-STATE.md](../PROJECT-STATE.md).
 
 ---
 
@@ -182,7 +182,7 @@ They are recorded in full, with their rationale, in [PROJECT-STATE.md](../PROJEC
 
 ## Phase 5 — Net Worth at Cost ✅ complete
 
-**Design review complete 2026-08-12; OD-7, OD-8 and OD-9 approved and applied the same day; implemented and verified 2026-08-15** ([NET-WORTH-DESIGN.md](NET-WORTH-DESIGN.md)). The per-gate results are in [PROJECT-STATE.md](../PROJECT-STATE.md) under *Phase 5 final verification*.
+**Design review complete 2026-08-12; OD-7, OD-8 and OD-9 approved and applied the same day; implemented and verified 2026-08-15; signed-in browser verification 2026-08-17** ([NET-WORTH-DESIGN.md](NET-WORTH-DESIGN.md)). The per-gate results, the browser verification table and the two defects it found are in [PROJECT-STATE.md](../PROJECT-STATE.md) under *Phase 5 final verification*.
 
 **The figure this phase ships is "Net Worth at Cost"** ([ADR-23](DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost)). Investment positions contribute the **exact Phase 4 cost basis**. Market value and cost basis are never mixed inside one figure, and no screen shows an unqualified "Net worth" that could be read as a current market valuation. Market-value net worth is a distinct Phase 6 calculation.
 
@@ -217,7 +217,7 @@ Unblocked by Phase 4: `tax_lots` and `lot_disposals` exist, so the change bridge
 
 ---
 
-## Phase 6 — Market Data
+## Phase 6 — Market Data — **next, not started**
 
 - `MarketDataProvider` interface, registry, `PriceResult` union
 - `ManualProvider` (always registered), AMFI adapter (Indian MF NAVs), FX adapter

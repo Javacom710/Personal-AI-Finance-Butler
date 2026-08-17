@@ -234,7 +234,19 @@ function toView(
   const accountCurrency = currency(row.currencyCode.trim());
   const declaredOpening = Money.fromDbString(row.openingBalance, accountCurrency);
   const openingDate = isoDate(row.openingDate);
-  const opening = openingContribution(declaredOpening, openingDate, asOf);
+
+  // **"When `asOf` is omitted the bound is *today*"** (FINANCIAL-DOMAIN.md §3) —
+  // not "unbounded". The distinction only shows on an account whose
+  // `opening_date` is in the future: treating the default as unbounded let the
+  // accounts page report its opening balance as money held **now**, while net
+  // worth correctly excluded it. Two screens, one account, two figures. Found in
+  // signed-in browser verification.
+  //
+  // The movement sums keep the caller's bound (`null` = unbounded), because that
+  // is Phase 3 behaviour and a future-dated *transaction* is a different question
+  // from an account that does not exist yet.
+  const openingBound = asOf ?? ctx.today;
+  const opening = openingContribution(declaredOpening, openingDate, openingBound);
 
   // Both sums are already in the account's own currency: `transaction_entries`
   // by its own currency column, and `investment_transactions.net_amount` by
@@ -258,7 +270,7 @@ function toView(
     currency: accountCurrency,
     openingBalance: declaredOpening,
     openingDate,
-    existedAsOf: existedAt(openingDate, asOf),
+    existedAsOf: existedAt(openingDate, openingBound),
     creditLimit: limit,
     isActive: row.isActive,
     displayOrder: row.displayOrder,

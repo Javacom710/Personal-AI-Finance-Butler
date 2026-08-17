@@ -339,14 +339,26 @@ async function loadSources(ctx: ReadCtx): Promise<NetWorthSources> {
 
 // ------------------------------------------------------------------- the fold
 
-/** Which display group an account's contribution belongs to, by kind and side. */
+/**
+ * Which display group an account's contribution belongs to, by kind and side.
+ *
+ * Both halves classify on the **side first**, because an account against its
+ * expected sign is a different thing from the same account behaving normally:
+ *
+ * - a `bank` account in debit is an **overdraft**, not a card and not a loan;
+ * - a `credit_card` or `loan` in credit is money the issuer owes back — an
+ *   asset (ADR-25), but **not cash**. Grouping it under "Cash and bank" would
+ *   file a receivable from a card issuer alongside a current account, which
+ *   reads as spendable money. It goes under "Other assets", where the row's own
+ *   name still says which card it is.
+ */
 function accountGroup(kind: AccountKind, isLiability: boolean): NetWorthGroup {
   if (isLiability) {
     if (kind === 'credit_card') return 'credit_card';
     if (kind === 'loan') return 'loans';
-    // A bank or wallet account in debit is an overdraft, not a card and not a loan.
     return 'overdrawn_accounts';
   }
+  if (kind === 'credit_card' || kind === 'loan') return 'other_assets';
   if (kind === 'brokerage') return 'brokerage_cash';
   if (kind === 'other') return 'other_assets';
   return 'cash';

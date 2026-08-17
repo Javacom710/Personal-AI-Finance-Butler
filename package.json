@@ -25,7 +25,8 @@
     "verify:integrity": "tsx scripts/verify-integrity.ts",
     "jobs:run": "node --conditions=react-server --import tsx scripts/run-jobs.ts",
     "auth:create-user": "node --conditions=react-server --import tsx scripts/create-user.ts",
-    "check:no-client-secrets": "tsx scripts/check-no-client-secrets.ts"
+    "check:no-client-secrets": "tsx scripts/check-no-client-secrets.ts",
+    "dev:login": "node --conditions=react-server --import tsx scripts/dev-login.ts"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.0.2",

@@ -23,6 +23,10 @@ playwright-report/
 .env.*
 !.env.example
 
+# development sign-in credentials, written by `npm run dev:login`.
+# Local-only, and never a production artefact — see scripts/dev-login.ts.
+.dev-credentials.json
+
 # local database / tooling scratch
 /.pgdata/
 /tmp/

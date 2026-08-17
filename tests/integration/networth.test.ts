@@ -126,6 +126,65 @@ describe('composition', () => {
 
     const card_ = result.contributions.find((c) => c.label === 'Card')!;
     expect(card_.side).toBe('asset');
+
+    // Found in signed-in browser verification: it was filed under `cash`, which
+    // reads on screen as "Cash and bank". A receivable from a card issuer is an
+    // asset but it is not spendable cash, and grouping it beside a current
+    // account overstates liquidity at a glance.
+    expect(card_.group).toBe('other_assets');
+    expect(result.groups.find((g) => g.group === 'cash')).toBeUndefined();
+  });
+
+  it('groups an overpaid LOAN account as an other asset too', async () => {
+    const loan = await makeAccount(fixture.ctx, {
+      name: 'Overpaid loan',
+      kind: 'loan',
+      openingBalance: '0',
+      openingDate: '2026-01-01',
+    });
+    const salary = await categoryId(fixture.ctx, 'Salary');
+    await record(fixture.ctx, {
+      kind: 'income',
+      accountId: loan,
+      categoryId: salary,
+      amount: '2500',
+      bookedOn: '2026-02-01',
+    });
+
+    const result = await netWorth();
+    const row = result.contributions.find((c) => c.label === 'Overpaid loan')!;
+    expect(row.side).toBe('asset');
+    expect(row.group).toBe('other_assets');
+  });
+
+  it('still groups a card and a loan carrying debt under their own headings', async () => {
+    const card = await makeAccount(fixture.ctx, {
+      name: 'Card',
+      kind: 'credit_card',
+      creditLimit: '200000',
+      openingBalance: '0',
+      openingDate: '2026-01-01',
+    });
+    const food = await categoryId(fixture.ctx, 'Food');
+    await record(fixture.ctx, {
+      kind: 'expense',
+      accountId: card,
+      categoryId: food,
+      amount: '45000',
+      bookedOn: '2026-02-01',
+    });
+
+    const result = await netWorth();
+    expect(result.contributions.find((c) => c.label === 'Card')!.group).toBe('credit_card');
+  });
+
+  it('groups an overdrawn bank account as an overdraft, not as cash', async () => {
+    const bank = await makeAccount(fixture.ctx, { name: 'Bank', openingBalance: '1000', openingDate: '2026-01-01' });
+    const food = await categoryId(fixture.ctx, 'Food');
+    await record(fixture.ctx, { kind: 'expense', accountId: bank, categoryId: food, amount: '9000', bookedOn: '2026-02-01' });
+
+    const result = await netWorth();
+    expect(result.contributions.find((c) => c.label === 'Bank')!.group).toBe('overdrawn_accounts');
   });
 
   it('a card carrying a balance is a liability at its magnitude', async () => {
@@ -282,6 +341,35 @@ describe('historical / as-of — every filter is a date (ADR-26)', () => {
 
     const after = await netWorth('2026-03-01');
     expect(toDbString(after.netWorth)).toBe('50000.0000');
+  });
+
+  // Found in signed-in browser verification: the accounts page reported a
+  // future-dated account's opening balance as money held today, while net worth
+  // correctly excluded it. `FINANCIAL-DOMAIN.md` §3 says the default bound is
+  // *today*, not "unbounded", and the two reads must agree.
+  it('a future-dated account holds nothing today, on BOTH the account read and net worth', async () => {
+    const { listAccounts } = await import('@/server/services');
+    await makeAccount(fixture.ctx, {
+      name: 'Opens later',
+      openingBalance: '50000',
+      openingDate: '2026-12-01',
+    });
+
+    const ctx = await refreshCtx(fixture);
+    const [account] = await listAccounts(ctx);
+    expect(account!.name).toBe('Opens later');
+    expect(toDbString(account!.balance)).toBe('0.0000');
+    expect(account!.existedAsOf).toBe(false);
+    // The declared figure is still reported, so the UI can show what was entered.
+    expect(toDbString(account!.openingBalance)).toBe('50000.0000');
+
+    expect(toDbString((await netWorth()).netWorth)).toBe('0.0000');
+
+    // And it appears in full once the opening date arrives.
+    const later = await netWorth('2026-12-01');
+    expect(toDbString(later.netWorth)).toBe('50000.0000');
+    const atOpening = await listAccounts(ctx, { asOf: D('2026-12-01') });
+    expect(toDbString(atOpening[0]!.balance)).toBe('50000.0000');
   });
 
   it('an account created BEFORE the as-of date contributes its opening plus movements to that date', async () => {
