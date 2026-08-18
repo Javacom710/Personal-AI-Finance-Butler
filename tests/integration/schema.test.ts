@@ -51,6 +51,8 @@ describe('migration', () => {
         'asset_valuations',
         'liabilities',
         'liability_balances',
+        // Phase 6 — market-data observations that are deliberately NOT the ledger
+        'corporate_action_detections',
       ]),
     );
 

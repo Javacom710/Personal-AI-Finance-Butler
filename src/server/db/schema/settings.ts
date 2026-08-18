@@ -38,8 +38,20 @@ export const settings = pgTable(
       .notNull()
       .default(sql`200000000`),
 
-    /** Staleness is computed from this, never stored as a boolean (SCHEMA.md §5). */
+    /**
+     * Staleness is computed from these, never stored as a boolean (SCHEMA.md §5).
+     *
+     * Two thresholds, because two kinds of instrument age differently
+     * ([ADR-28](../../../../docs/DECISIONS.md#adr-28--staleness-is-measured-in-trading-sessions-not-wall-clock-hours)).
+     * `_hours` governs **continuously-traded** instruments only. Applying it to
+     * an end-of-day close marks Friday's price stale on Saturday and keeps it
+     * stale until Monday's close lands — every equity, every ETF, every mutual
+     * fund, every week — and a warning that fires when nothing is wrong is one
+     * the user learns to ignore.
+     */
     priceStaleAfterHours: integer('price_stale_after_hours').notNull().default(24),
+    /** Completed trading sessions before a session-traded price is `stale`. */
+    priceStaleAfterSessions: integer('price_stale_after_sessions').notNull().default(3),
 
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -47,6 +59,7 @@ export const settings = pgTable(
     check('settings_fiscal_month_range', sql`${t.fiscalYearStartMonth} between 1 and 12`),
     check('settings_ai_budget_non_negative', sql`${t.aiDailyBudgetMicros} >= 0`),
     check('settings_price_stale_positive', sql`${t.priceStaleAfterHours} > 0`),
+    check('settings_price_stale_sessions_positive', sql`${t.priceStaleAfterSessions} > 0`),
   ],
 );
 

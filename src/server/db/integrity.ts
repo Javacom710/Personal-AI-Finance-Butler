@@ -472,12 +472,116 @@ const CHECKS: readonly Check[] = [
           or (ins.id is not null and ins.currency_code <> i.currency_code)
     `,
   },
+
+  // ------------------------------------------------- Phase 6, market data
+  {
+    invariant: 'I-33',
+    // The one cross-table rule the database cannot express as a constraint.
+    // A price in another currency multiplied by a quantity is silently wrong,
+    // so `classifyQuote` refuses it at read time; this asserts none was stored.
+    description: 'Every latest quote is denominated in its instrument’s currency',
+    query: sql`
+      select q.instrument_id::text as instrument_id, q.currency_code as quote_currency,
+             i.currency_code as instrument_currency
+        from instrument_quotes q
+        join instruments i on i.id = q.instrument_id
+       where btrim(q.currency_code) <> btrim(i.currency_code)
+    `,
+  },
+  {
+    invariant: 'I-34',
+    description: 'Every historical close is denominated in its instrument’s currency',
+    query: sql`
+      select p.instrument_id::text as instrument_id, p.as_of::text as as_of,
+             p.currency_code as close_currency, i.currency_code as instrument_currency
+        from instrument_prices p
+        join instruments i on i.id = p.instrument_id
+       where btrim(p.currency_code) <> btrim(i.currency_code)
+    `,
+  },
+  {
+    invariant: 'I-35',
+    // ADR-30. Two vendors' closes for one instrument differ, and a blended
+    // series makes the splice indistinguishable from a real price move — which
+    // then lands in unrealised P&L, TWR and net worth at once.
+    description: 'One provider per price series — no instrument has closes from two sources',
+    query: sql`
+      select instrument_id::text as instrument_id,
+             count(distinct source) as sources,
+             min(source) as first_source,
+             max(source) as second_source
+        from instrument_prices
+       group by instrument_id
+      having count(distinct source) > 1
+    `,
+  },
+  {
+    invariant: 'I-36',
+    // The age-guarded upsert should make this unreachable; asserting it is how
+    // we find out if some future writer bypasses the guard.
+    description: 'The latest quote is never older than the newest stored close',
+    query: sql`
+      select q.instrument_id::text as instrument_id,
+             q.as_of::text as quote_as_of,
+             max(p.as_of)::text as newest_close
+        from instrument_quotes q
+        join instrument_prices p on p.instrument_id = q.instrument_id
+       group by q.instrument_id, q.as_of
+      having q.as_of::date < max(p.as_of)
+    `,
+  },
+  {
+    invariant: 'I-37',
+    // A close dated after the market's latest known session means either a
+    // provider clock problem or a parsing error, and both produce a price
+    // attributed to a session that never happened.
+    description: 'No close is dated after its market’s latest known session',
+    query: sql`
+      with latest as (
+        select coalesce(i.exchange, '') as market, max(p.as_of) as newest
+          from instrument_prices p
+          join instruments i on i.id = p.instrument_id
+         group by coalesce(i.exchange, '')
+      )
+      select p.instrument_id::text as instrument_id, p.as_of::text as as_of
+        from instrument_prices p
+        join instruments i on i.id = p.instrument_id
+        join latest l on l.market = coalesce(i.exchange, '')
+       where p.as_of > l.newest
+    `,
+  },
+  {
+    invariant: 'I-40b',
+    // The queryable half of I-40: a detection may only be marked resolved by
+    // pointing at a real ledger row for the SAME instrument. The other half —
+    // that no adapter or job sets the column at all — is a source scan.
+    description: 'A resolved corporate-action detection points at a ledger row for its own instrument',
+    query: sql`
+      select d.id::text as detection_id, d.instrument_id::text as detection_instrument,
+             t.instrument_id::text as txn_instrument, t.kind::text as txn_kind
+        from corporate_action_detections d
+        join investment_transactions t on t.id = d.resolved_txn_id
+       where t.instrument_id is distinct from d.instrument_id
+          or t.kind::text <> d.kind::text
+          or t.user_id <> d.user_id
+    `,
+  },
 ];
 
 /** Invariants defined in SCHEMA.md whose tables do not exist yet. Reported, never assumed. */
 const DEFERRED: readonly { invariant: string; description: string; note: string }[] = [
   { invariant: 'I-10', description: 'Applied AI proposals have an ai_confirmed audit entry', note: 'Phase 9' },
   { invariant: 'I-14', description: 'One AI proposal produces at most one record', note: 'Phase 9' },
+  {
+    invariant: 'I-38',
+    description: 'Under market basis every open position is either priced or excluded with a reason',
+    note: 'market-value net worth — a later Phase 6 step',
+  },
+  {
+    invariant: 'I-39',
+    description: 'A market-basis figure never substitutes cost for an unpriced holding',
+    note: 'market-value net worth — a later Phase 6 step',
+  },
 ];
 
 /**
@@ -533,6 +637,11 @@ const ENGINE_ENFORCED: readonly { invariant: string; description: string; note: 
     invariant: 'I-31',
     description: 'An account contributes iff opening_date <= T; its side is its sign',
     note: 'domain/ledger/balance.ts; tests/unit/ledger-balance.test.ts',
+  },
+  {
+    invariant: 'I-40',
+    description: 'No provider or job writes the ledger; a corporate action is a detection until the user accepts it',
+    note: 'source scan; tests/unit/market-data-source-scan.test.ts; tests/integration/market-data.test.ts',
   },
 ];
 

@@ -1,5 +1,5 @@
 /**
- * FX rate selection (FINANCIAL-DOMAIN.md §2).
+ * FX rate selection ([FINANCIAL-DOMAIN.md §2](../../../docs/FINANCIAL-DOMAIN.md#2-fx)).
  *
  * Pure: the caller fetches candidate rows, this decides which one applies. The
  * split matters because the *rule* is where the correctness lives:
@@ -8,14 +8,40 @@
  * - **Never** interpolate, and never use a later rate for an earlier date. Doing
  *   so would make last March's totals change every time a new rate arrives.
  * - `rate(X, X, _) = 1` without a table lookup.
- * - If `(base, quote)` is missing but `(quote, base)` exists, use `1 / rate` at
- *   `RATE_SCALE` with `half_even`, and record that it was derived so an audit
- *   can see the inversion.
+ * - Resolution order: `identity` → `direct` → `inverse` → `triangulated`. Each
+ *   is recorded in `FxSelection.source` so an audit can see how a rate was
+ *   arrived at, and **a direct rate always wins** even when a derived route has
+ *   a more recent date — the stored direction is the one actually quoted.
+ *
+ * ## Why triangulation exists (finding M1)
+ *
+ * Reference FX feeds quote everything against one reference currency. A feed
+ * publishing `EUR→INR` and `EUR→USD` and nothing else leaves a USD holding in an
+ * INR-base portfolio with **no direct and no inverse route** — and under a
+ * direct-or-inverse-only rule the whole foreign block silently disappears from
+ * net worth. A silent omission is worse than a wrong number: nothing is
+ * displayed, so there is nothing to notice.
+ *
+ * Four rules keep it from becoming a source of invented figures:
+ *
+ * 1. **Last resort.** Direct and inverse both win, at any date.
+ * 2. **Both legs obey the same date rule** — exact, else most recent earlier,
+ *    never later. A leg that would need a future rate disqualifies the route.
+ * 3. **Dated by the stalest leg.** A composed rate is no fresher than the oldest
+ *    observation it was built from, and dating it by the newer leg would present
+ *    a month-old cross as current.
+ * 4. **One pivot, never two.** Chaining through two pivots compounds two
+ *    roundings against a rate no source ever published.
+ *
+ * Adapters still request base-quoted pairs, so a direct row is the everyday
+ * path and this is the safety net. Both exist because either alone leaves a
+ * gap: adapter normalisation cannot help a pair nobody thought to request, and
+ * triangulation alone would put an avoidable rounding in the common case.
  */
 
-import { compareDates, type IsoDate } from '../../lib/date';
+import { compareDates, minDate, type IsoDate } from '../../lib/date';
 import type { CurrencyCode } from '../../lib/decimal/money';
-import { invert, Rate } from '../../lib/decimal/rate';
+import { compose, invert, Rate } from '../../lib/decimal/rate';
 import { err, ok, type Result } from '../../lib/result';
 
 export interface FxRateRow {
@@ -30,10 +56,51 @@ export interface FxSelection {
   readonly rate: Rate;
   /** The date of the row actually used, which may be earlier than the date asked for. */
   readonly asOf: IsoDate;
-  readonly source: 'identity' | 'direct' | 'inverse';
+  readonly source: 'identity' | 'direct' | 'inverse' | 'triangulated';
+  /** The intermediate currency, on a triangulated selection only. */
+  readonly via?: CurrencyCode;
 }
 
 export type FxUnavailable = 'no_rate';
+
+type PairIndex = Map<string, FxRateRow>;
+
+const key = (base: CurrencyCode, quote: CurrencyCode): string => `${base}>${quote}`;
+
+/**
+ * The most recent row on or before `on`, per ordered pair.
+ *
+ * Building this once means every lookup below — direct, inverse, and both legs
+ * of every candidate pivot — applies the same date rule, rather than each
+ * re-implementing "most recent earlier" and one of them getting it wrong.
+ */
+function indexRows(rows: readonly FxRateRow[], on: IsoDate): PairIndex {
+  const index: PairIndex = new Map();
+  for (const row of rows) {
+    if (compareDates(row.asOf, on) > 0) continue;
+    const k = key(row.baseCode, row.quoteCode);
+    const current = index.get(k);
+    if (!current || compareDates(row.asOf, current.asOf) > 0) index.set(k, row);
+  }
+  return index;
+}
+
+interface Leg {
+  readonly rate: Rate;
+  readonly asOf: IsoDate;
+}
+
+/** One hop, direct or inverted. Used for the ends of a triangulated route. */
+function leg(index: PairIndex, from: CurrencyCode, to: CurrencyCode): Leg | null {
+  const direct = index.get(key(from, to));
+  if (direct) return { rate: direct.rate, asOf: direct.asOf };
+
+  const inverse = index.get(key(to, from));
+  if (inverse && inverse.rate.value !== 0n) {
+    return { rate: invert(inverse.rate, 'half_even'), asOf: inverse.asOf };
+  }
+  return null;
+}
 
 /**
  * Choose the rate converting `from` into `to`, in force on `on`.
@@ -51,25 +118,66 @@ export function selectRate(
     return ok({ rate: Rate.one(), asOf: on, source: 'identity' });
   }
 
-  let direct: FxRateRow | null = null;
-  let inverse: FxRateRow | null = null;
+  const index = indexRows(rows, on);
 
-  for (const row of rows) {
-    if (compareDates(row.asOf, on) > 0) continue;
-
-    if (row.baseCode === from && row.quoteCode === to) {
-      if (!direct || compareDates(row.asOf, direct.asOf) > 0) direct = row;
-    } else if (row.baseCode === to && row.quoteCode === from) {
-      if (!inverse || compareDates(row.asOf, inverse.asOf) > 0) inverse = row;
-    }
-  }
-
-  // A direct rate always wins, even when an inverse row is more recent: the
-  // stored direction is the one that was actually quoted.
+  // A direct rate always wins, even when an inverse or triangulated route is
+  // more recent: the stored direction is the one that was actually quoted.
+  const direct = index.get(key(from, to));
   if (direct) return ok({ rate: direct.rate, asOf: direct.asOf, source: 'direct' });
+
+  const inverse = index.get(key(to, from));
   if (inverse) {
+    if (inverse.rate.value === 0n) return err('no_rate');
     return ok({ rate: invert(inverse.rate, 'half_even'), asOf: inverse.asOf, source: 'inverse' });
   }
 
-  return err('no_rate');
+  return triangulate(index, from, to);
+}
+
+/**
+ * `from → P → to`, over every currency `P` the loaded rows mention.
+ *
+ * The best route is the one whose **effective** date — the stalest of its two
+ * legs — is latest. Ties break on the pivot code so the choice is deterministic:
+ * the same rows must always produce the same rate, or a historical total would
+ * depend on row ordering.
+ */
+function triangulate(
+  index: PairIndex,
+  from: CurrencyCode,
+  to: CurrencyCode,
+): Result<FxSelection, FxUnavailable> {
+  const pivots = new Set<CurrencyCode>();
+  for (const k of index.keys()) {
+    const [base, quote] = k.split('>') as [CurrencyCode, CurrencyCode];
+    if (base !== from && base !== to) pivots.add(base);
+    if (quote !== from && quote !== to) pivots.add(quote);
+  }
+
+  let best: { selection: FxSelection; asOf: IsoDate; via: CurrencyCode } | null = null;
+
+  for (const pivot of [...pivots].sort()) {
+    const first = leg(index, from, pivot);
+    if (!first) continue;
+    const second = leg(index, pivot, to);
+    if (!second) continue;
+
+    // A composed rate is only as fresh as the oldest observation behind it.
+    const effective = minDate(first.asOf, second.asOf);
+
+    if (best === null || compareDates(effective, best.asOf) > 0) {
+      best = {
+        asOf: effective,
+        via: pivot,
+        selection: {
+          rate: compose(first.rate, second.rate, 'half_even'),
+          asOf: effective,
+          source: 'triangulated',
+          via: pivot,
+        },
+      };
+    }
+  }
+
+  return best === null ? err('no_rate') : ok(best.selection);
 }

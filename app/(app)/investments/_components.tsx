@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 import type { Formatter } from '@/server/services';
+import { describeMissing } from '@/server/services';
 import type { HoldingView, PriceResult } from '@/server/services';
 
 /**
@@ -55,16 +56,17 @@ export function NavTabs({ current }: { current: string }) {
  * A stale price is **used** and marked, never withheld: refusing to value a
  * holding because the market was closed for a long weekend would blank the
  * portfolio for no gain in accuracy.
+ *
+ * The wording follows [ADR-28](../../../docs/DECISIONS.md): age is described in
+ * **trading sessions** where the instrument has a calendar, because "65 hours
+ * old" is a true but useless thing to say about Friday's close on a Monday
+ * morning — the market simply has not opened since.
  */
 export function PriceDot({ price }: { price: PriceResult }) {
   const [tone, title] =
     price.status === 'missing'
-      ? ['bg-ink-faint', `No price — ${price.reason.replace(/_/g, ' ')}`]
-      : price.status === 'stale'
-        ? ['bg-warning', `Stale — ${Math.round(price.ageHours)}h old, from ${price.source}`]
-        : price.status === 'cached'
-          ? ['bg-positive', `Cached — ${Math.round(price.ageHours)}h old, from ${price.source}`]
-          : ['bg-positive', `Live, from ${price.source}`];
+      ? ['bg-ink-faint', `No price — ${describeMissing(price.reason)}`]
+      : [freshnessTone(price.freshness), `${describeAge(price)}, from ${price.source}`];
 
   return (
     <span className="inline-flex items-center gap-1.5">
@@ -72,6 +74,27 @@ export function PriceDot({ price }: { price: PriceResult }) {
       <span className="sr-only">{title}</span>
     </span>
   );
+}
+
+function freshnessTone(freshness: 'current' | 'recent' | 'stale'): string {
+  return freshness === 'stale' ? 'bg-warning' : 'bg-positive';
+}
+
+/**
+ * Sessions where a calendar exists, hours where one does not.
+ *
+ * `sessionsBehind` is `null` exactly when the hours branch decided — a
+ * continuously-traded instrument, or one with no stored history to count
+ * against — so the two cases are distinguishable rather than guessed at.
+ */
+function describeAge(price: Extract<PriceResult, { freshness: string }>): string {
+  if (price.sessionsBehind === null) {
+    const hours = Math.round(price.ageHours);
+    return price.freshness === 'stale' ? `Stale — ${hours}h old` : `Current — ${hours}h old`;
+  }
+  if (price.sessionsBehind === 0) return 'Current — the latest session';
+  const sessions = `${price.sessionsBehind} session${price.sessionsBehind === 1 ? '' : 's'} behind`;
+  return price.freshness === 'stale' ? `Stale — ${sessions}` : `Recent — ${sessions}`;
 }
 
 /**

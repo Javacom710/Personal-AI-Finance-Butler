@@ -110,7 +110,41 @@ interface FxLookup {
 
 - Lookup: exact `as_of` match → else the most recent earlier date → else `no_rate`. **Never** interpolate or use a later rate for an earlier date; that would make historical figures change as new rates arrive.
 - Identity: `rate(X, X, _) = 1` without a table lookup.
-- Inverse: if `(base, quote)` is missing but `(quote, base)` exists, use `1 / rate` computed at `RATE_SCALE` with `half_even`. This is recorded in the result so audit can see it was derived.
+- **Resolution order, tried in this sequence and stopping at the first hit.** Each step is recorded in `FxSelection.source` so an audit can see how a rate was arrived at:
+
+  | Order | `source` | Rule |
+  |---|---|---|
+  | 1 | `identity` | `X → X` is `1`, with no table lookup |
+  | 2 | `direct` | A `(base, quote)` row. **A direct rate always wins, even when an inverse or triangulated route has a more recent date** — the stored direction is the one that was actually quoted |
+  | 3 | `inverse` | `(quote, base)` exists: `1 / rate` at `RATE_SCALE`, `half_even` |
+  | 4 | `triangulated` | Neither direct nor inverse exists, but both legs of `from → P → to` do, through a pivot currency `P` |
+  | — | `no_rate` | No route. The component is **excluded and named**, never silently dropped and never valued at zero |
+
+### 2.1 Triangulation
+
+Reference FX feeds quote everything against one reference currency. A feed that publishes `EUR→INR` and `EUR→USD` and nothing else leaves a USD holding in an INR-base portfolio with **no direct and no inverse route** — and under a direct-or-inverse-only rule the entire foreign block silently disappears from net worth. Disappearing is worse than a wrong number, because nothing is displayed to notice.
+
+```
+rate(from, to, on) = rate(from, P, on) × rate(P, to, on)
+```
+
+Four rules keep it from becoming a source of invented figures:
+
+1. **It is the last resort.** A direct or inverse route always wins, at any date.
+2. **Both legs obey the same date rule** — exact, else most recent earlier, never later. A leg that would need a future rate makes the whole route unavailable.
+3. **The result is dated by its *stalest* leg**: `asOf = min(legA.asOf, legB.asOf)`. A rate is no fresher than the oldest observation it was built from, and dating it by the newer leg would present a month-old cross as current.
+4. **One pivot, never two.** Chaining through two pivots compounds two roundings against a rate that no source ever published. If a single-pivot route does not exist, the answer is `no_rate`.
+
+The pivot set is the currencies for which rates are actually loaded, so the common case — a feed's own reference currency — works without configuration.
+
+**Adapters still normalise on the way in.** An FX adapter requests the pairs the application needs quoted against the base currency where the provider can compute the cross server-side, so triangulation is a safety net rather than the everyday path. Both mechanisms exist because either alone leaves a gap: adapter normalisation cannot help a pair nobody thought to request, and triangulation alone would put an avoidable rounding in the common case.
+
+### 2.2 Rate age
+
+An FX rate has an age, and until Phase 6 nothing looked at it. `selectRate` returns the most recent earlier row with no bound, so a feed that stopped a month ago still produces a confident base-currency figure.
+
+**A rate carries its `asOf`, and a conversion that used a rate older than the freshness bound is marked** — the same way a stale price is marked, on every surface that shows a converted figure. The classification is the one in [ADR-28](DECISIONS.md#adr-28--staleness-is-measured-in-trading-sessions-not-wall-clock-hours), applied to a rate rather than a price. A stale rate is **used**, never discarded: refusing it would blank net worth every weekend, for the same reason refusing a stale price would blank the portfolio.
+
 - Every stored transaction captures the rate it used ([ADR-12](DECISIONS.md#adr-12--base-currency-with-dated-fx-stored-alongside-native-amounts)). Recomputing history uses the stored rate, not a fresh lookup, unless the user explicitly triggers an FX re-derivation.
 
 ## 3. Accounts

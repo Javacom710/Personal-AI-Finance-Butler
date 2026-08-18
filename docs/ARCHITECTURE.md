@@ -141,6 +141,7 @@ Three statements govern the boundaries between them, and each is enforced somewh
 
   Without that split the guarantee would be far weaker than it sounds: `ai/**` may import `services/**`, and `services/transactions.ts` exports `create`, `update`, and `delete`. "The AI cannot write" would then rest on nobody having written the wrong tool handler — a review property, not a structural one.
 - Anything importing an AI provider client, a market-data provider, or the database is marked `import 'server-only'`.
+- Only `src/server/market-data/providers/**` may name a market-data provider, know its wire format, or read its credential. Nothing above `src/server/market-data/` learns a provider name; the registry returns a `PriceResult` and the rest of the application consumes that ([ADR-27](DECISIONS.md#adr-27--market-data-adapters-return-observations-the-registry-classifies-freshness)). A read path never makes a network call at all — refresh jobs write to the database, and pages read it.
 - Only `src/server/ai/provider/nvidia-build.ts` may import the `openai` client. Only `src/server/ai/config/**` may contain a model identifier string.
 
 A consequence worth stating plainly: **the financial engine has no dependency on any model.** A total AI-provider outage degrades one page. Every other feature — accounts, transactions, holdings, valuation, net worth — is unaffected.
@@ -221,8 +222,13 @@ src/
                                       eligibility, composition, bridge, reconciliation
       calc/                           xirr.ts, twr.ts, cashflow.ts, budget.ts, recurrence.ts
     market-data/
-      index.ts                      registry + PriceResult union
-      providers/                    manual.ts, amfi.ts, <equity-provider>.ts
+      types.ts                      observations, ProviderFailure, ProviderCapabilities
+      freshness.ts                  THE freshness classifier — one, not one per provider
+      registry.ts                   provider selection, capability refusal, classification
+      http.ts                       fetch with timeout; normalises transport + rate-limit errors
+      index.ts                      public surface
+      providers/                    manual.ts, amfi.ts, frankfurter.ts, <equity-provider>.ts
+                                    ONLY these files may name a provider or read its credential
     ai/
       provider/                     AiProvider interface; nvidia-build.ts is the only
                                     file aware of the wire format or the API key

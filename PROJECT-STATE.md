@@ -2,9 +2,15 @@
 
 Durable status record. Conversation history is temporary; this file is not. Read this first after any context reset, then verify it against `docs/`, the source tree, and the tests before trusting it.
 
-**Last updated:** 2026-08-15 · **Current phase:** **5 complete — Net Worth at Cost** · **Phase 6 — Market Data is next, and not started**
+**Last updated:** 2026-08-18 · **Current phase:** **6 — Market Data, steps 6.0–6.8 complete.** Stopped at the 6.8 gate as instructed; **6.9 (the commercial equity adapter) has NOT started.**
 
-This is the **Phase 5 completion checkpoint**, and the handover into Phase 6. Phases 0–5 are done; the verification that closed Phase 5 — automated **and** signed-in browser — is recorded below under *Phase 5 final verification*.
+**1,177 tests pass** — 128 added this pass, and every Phase 3, 4 and 5 test still passes. `verify:integrity` reports **33 passing, 0 failing, 9 engine-enforced, 4 deferred**. Typecheck, lint and the production build are clean.
+
+**What now works that did not before:** Indian mutual funds price from **AMFI**, FX rates come from **Frankfurter/ECB**, both free and credential-free; a foreign-currency component can be converted where a route exists, including by **triangulation**; staleness is measured in **trading sessions**; and a provider corporate action can no longer reach the ledger.
+
+**OD-3 remains open and is deliberately not needed.** No commercial SDK is installed and no credential is required to run anything. Twelve Data is the chosen provider and slots in at step 6.9 behind its credential/configuration step.
+
+This file also remains the **Phase 5 completion checkpoint** and carries the **Phase 6 design review** ([docs/MARKET-DATA-DESIGN.md](docs/MARKET-DATA-DESIGN.md)), whose findings **OD-10 approved and which are now applied**.
 
 **1,049 tests pass** — 617 unit, 56 property, 376 integration. `verify:integrity` reports **27 passing, 0 failing, 8 enforced by the engine, 2 deferred to Phase 9**. Typecheck, lint and the production build are clean. **Signed-in browser verification passed**, finding and fixing two display defects.
 
@@ -45,7 +51,7 @@ Corollaries that follow from the above:
 
 | | |
 |---|---|
-| `docs/` | 13 documents — the approved architecture baseline, plus two **non-normative review records** ([INVESTMENT-ENGINE-DESIGN.md](docs/INVESTMENT-ENGINE-DESIGN.md), [NET-WORTH-DESIGN.md](docs/NET-WORTH-DESIGN.md)). |
+| `docs/` | 14 documents — the approved architecture baseline, plus three **non-normative review records** ([INVESTMENT-ENGINE-DESIGN.md](docs/INVESTMENT-ENGINE-DESIGN.md), [NET-WORTH-DESIGN.md](docs/NET-WORTH-DESIGN.md), [MARKET-DATA-DESIGN.md](docs/MARKET-DATA-DESIGN.md)). |
 | `CLAUDE.md` / `AGENTS.md` | The specification. Byte-identical duplicates (see OD-2). |
 | `Workflow Setup.txt` | Canonical 15-phase map ([ADR-20](docs/DECISIONS.md)) |
 | Application code | **Phases 2–5.** Next.js 16, exact-money primitives, database, auth, app shell; the money core (accounts, categories, tags, transactions, transfers, budgets, recurring rules, the job runner and the Money UI); the investment engine (instruments, the investment ledger, the FIFO lot engine, positions, valuation, allocation, XIRR/TWR and the Investments UI); and **Net Worth at Cost** (manual assets, liabilities, the contributions map, date-driven as-of aggregation, reconciliation, the change bridge and the Net Worth UI). |
@@ -61,7 +67,7 @@ Corollaries that follow from the above:
 | 3 — Financial Core | ✅ complete, verified |
 | 4 — Investment Engine | ✅ complete, verified |
 | 5 — Net Worth at Cost | ✅ **complete, verified** |
-| 6 — Market Data | not started; **next** (OD-3 affects completion, not start) |
+| 6 — Market Data | **steps 6.0–6.8 complete and verified.** 6.9 (commercial equity adapter) not started — gated on OD-3. 6.10 (snapshots) and market-value net worth remain |
 | 7 — AI Infrastructure | not started; **blocked** on OD-1 (`NVIDIA_API_KEY`) |
 | 8–14 | not started |
 
@@ -492,8 +498,153 @@ price: the investment block is carried at acquisition rates under `'cost'` and a
 spot under `'market'` ([FINANCIAL-DOMAIN.md §9.3](docs/FINANCIAL-DOMAIN.md#93-calculation)).
 That belongs in the release note, not in a support conversation.
 
-**The next action is a Phase 6 architecture and provider review** — not
-implementation. Read `docs/ARCHITECTURE.md`, `docs/INVESTMENT-DOMAIN.md` §5 and
+---
+
+## Phase 6 design review — 2026-08-18
+
+**Design and provider evaluation only. Nothing was implemented.** No source file, schema, migration,
+service, API, UI or provider package changed; no dependency was installed. The output is
+[docs/MARKET-DATA-DESIGN.md](docs/MARKET-DATA-DESIGN.md) — a review record with the same standing as
+`INVESTMENT-ENGINE-DESIGN.md` and `NET-WORTH-DESIGN.md`: **non-normative**, and where it and a
+canonical document differ, the canonical document wins until **OD-10** is approved.
+
+Provider facts were **verified against official sources on 2026-08-17/18**, not recalled; anything
+unconfirmable from an official page is marked `UNVERIFIED` in the document rather than guessed.
+
+### What it settles
+
+| Area | Conclusion |
+|---|---|
+| **Phase 6's real gate** | **OD-3 is step 6.9 of twelve, not the phase.** The two adapters that matter most for an INR-base portfolio are free, keyless and official: **AMFI** (Indian mutual-fund NAV, history to 2006) and a **central-bank FX feed**. Eleven of twelve steps are unblocked today |
+| **The live gap** | `fx_rates` is empty, so **every non-INR component is excluded from net worth right now**. The FX adapter fixes a defect, not a feature — and it is free and needs no credential |
+| **Asset coverage** | Only **three** of nine asset classes need a feed — mutual funds, equities, ETFs — and two share one adapter. Gold is an ETF, an MF, or a manual asset; FDs have no market price; bonds are better marked by the user |
+| **Provider strategy** | **Three adapters plus Manual**, each the only good source for its domain. Not multi-provider for novelty: a vendor selling Indian MF NAV is redistributing AMFI's own publication, later and with its own mapping errors |
+| **Fallback** | **No cross-provider price fallback.** Splicing two vendors' closes makes the discontinuity indistinguishable from a real price move. Manual is the only floor, always labelled |
+| **Caching** | **PostgreSQL only — the two price tables already are the cache.** Volume is ~900 requests/month, three orders of magnitude inside every candidate quota. The binding constraint is coverage and licence, not volume |
+| **Trading calendars** | **No table.** The stored price series *is* the calendar — a date with a row is a session. Cannot drift from the prices it describes |
+| **Corporate actions** | **Detections, never ledger writes.** A `split` row drives `replay()` and therefore every lot, position and P&L figure; an adapter inserting one is an unvalidated external source mutating Layer 1 |
+| **Cost** | MVP as specified: **₹0/month.** With OD-3: **₹500/mo** (Kite Connect) or **≈₹2,800/mo** (Twelve Data Grow, $29). Call volume costs nothing on any candidate plan |
+
+### 13 defects found in the baseline — M1–M13
+
+Recorded in [MARKET-DATA-DESIGN.md §21](docs/MARKET-DATA-DESIGN.md#21-defects-found-in-the-baseline-m1m13)
+with a per-finding correction. **None produces a wrong number today** — `instrument_prices` and
+`fx_rates` are empty, so every affected path reports a labelled gap, which is why they survived five
+completion gates. Each would produce a silently wrong financial figure on the day a provider is
+connected. The five that matter:
+
+- **M5 (high).** An **unrecorded split** produces post-split price × pre-split quantity — an 80%
+  phantom loss propagated into the portfolio, allocation, market-basis net worth and the change
+  bridge, every figure internally consistent and all of them wrong. → **ADR-29**: detect and
+  **suppress** with `unreconciled_corporate_action`; never adjust.
+- **M4 (high).** Nothing prevents a provider-sourced corporate action from being written to
+  `investment_transactions`. Same rule and same reason as `CLAUDE.md`'s AI mutation rule. → **ADR-29**,
+  invariant **I-40**.
+- **M1 (high).** `selectRate()` in `src/server/domain/fx.ts` resolves **direct or inverse only** — it
+  cannot triangulate. An FX adapter storing a reference feed's native EUR-quoted rows would leave a
+  USD holding in an INR-base portfolio with **no rate at all**, silently dropping the whole foreign
+  block from net worth. → normalise **in the adapter**, request base-quoted pairs, record the
+  derivation in `source`. `selectRate` stays the simple thing it is.
+- **M2 (high).** `price_stale_after_hours = 24` against **end-of-day** data marks Friday's close stale
+  all weekend and until Monday's close lands — every equity, every ETF, every mutual fund, every
+  week. A permanently-on warning is an ignored warning. → **ADR-28**: staleness in **trading
+  sessions**, with a 10-calendar-day backstop; wall-clock retained only for crypto.
+- **M3 (high).** `NetWorthResult` has coverage and exclusions but **no field for "used, but old"**, so
+  a market-basis figure built entirely from three-week-old closes has nothing to qualify it.
+
+**Two things were checked and found correct**, recorded so they are not re-litigated: the
+currency-mismatch guard at `price-result.ts:84`, and the future-dated-quote handling (`cached` at age
+zero rather than discarded — a clock problem, still the best price available).
+
+### Proposed, not applied
+
+**Four ADRs** — ADR-27 (adapters return observations; the registry classifies freshness — *refines*
+ADR-11), ADR-28 (session-based staleness), ADR-29 (corporate actions are detections), ADR-30 (one
+provider per price series; no cross-provider blending). **Eight invariants**, I-33 … I-40, continuing
+`SCHEMA.md` §12 which currently ends at I-32. One new table, `corporate_action_detections`, and three
+additive column changes. **Twenty adversarial scenarios** are worked through in
+[§24](docs/MARKET-DATA-DESIGN.md#24-adversarial-review), ending with the five places the design could
+still produce an incorrect number.
+
+### The two dependencies the review was asked to define precisely
+
+- **TWR** ([§4](docs/MARKET-DATA-DESIGN.md#4-the-twr-dependency-precisely)) — five conditions.
+  `twr.ts` **needs no change**; the entire gate is in the caller that builds the `valuations` array.
+  Two traps: the boundary set must include instruments **since fully disposed** (a position sold in
+  March still determined January's sub-period), and a boundary falling on a **non-trading day** needs
+  a carried-back valuation or `twr.ts`'s exact key match refuses forever — which is every Indian user
+  with a monthly SIP.
+- **Market-value net worth** ([§6](docs/MARKET-DATA-DESIGN.md#6-market-value-net-worth--the-exact-dependency))
+  — nine requirements. The contributions map is **unchanged**, so I-21 and I-22 hold without
+  modification; only the investment block's amount differs.
+
+---
+
+## What Phase 6 delivered — steps 6.0 … 6.8 · 2026-08-18
+
+| Area | Where |
+|---|---|
+| **6.0** Canonical corrections | M1–M13 **reconciled** into `DECISIONS.md` (ADR-27…ADR-30), `SCHEMA.md` (§5, new §5.1, I-33…I-40), `FINANCIAL-DOMAIN.md` (§2 rewritten with the resolution table, new §2.1 triangulation and §2.2 rate age), `INVESTMENT-DOMAIN.md` (§5 reasons table, §8.1 bounded carry-back, §10 rewritten, §11 detections, edge cases 32–40), `ARCHITECTURE.md`, `TESTING.md` (§6.1–6.6) |
+| **6.1** Provider abstraction | `src/server/market-data/` — `types.ts` (observations, `ProviderFailure`, `ProviderCapabilities`), `registry.ts` (resolution, capability refusal, failure→reason), `http.ts` (injected `fetch`, timeout, 429/404/5xx normalisation), `index.ts` (`defaultRegistry`) |
+| **6.2** Persistence | `corporate_action_detections` (new table), `instrument_prices.provider_ref`, `settings.price_stale_after_sessions`. Migration `0004`, hand-written down migration |
+| **6.3** FX | `domain/fx.ts` gains **triangulation** through one pivot; `providers/frankfurter.ts`; `fx.refresh` job; base-quoted pair normalisation |
+| **6.4** AMFI | `providers/amfi.ts` — `NAVAll.txt` parser, ISIN-first mapping, publication-instant stamping; `prices.refresh` job |
+| **6.5** Historical observations | `services/market-data.ts` — `storePriceObservations` with the three guards; `backfillPrices`; `closeAsOf` with the **bounded** carry-back |
+| **6.6** Freshness | `market-data/freshness.ts` — **one** classifier, sessions for `eod`/`nav`, hours for `continuous`, 10-day backstop; `PriceResult` gains `freshness` + `sessionsBehind`; four new `MissingPriceReason` members; the Investments price indicator now speaks in sessions |
+| **6.7** Corporate-action safety | Detections only; `suppressedInstrumentIds` blanks a value rather than adjusting it; `dismissDetection`; I-40 source scan |
+| **6.8** Tests | **128 added** — `freshness`, `fx-triangulation`, `market-data-adapters` (7 failure modes × 2 adapters), `market-data-registry`, `market-data-source-scan`, `market-data` integration |
+
+### Verification — 2026-08-18
+
+| Gate | Result |
+|---|---|
+| `npm test` | **1,177 passed**, 0 failed (58 files) — up from 1,049 |
+| Every Phase 3 / 4 / 5 test | **still passing** |
+| Typecheck (`tsc --noEmit`, strict) | clean |
+| Lint (`eslint .`) | clean |
+| Production build | clean — 23 routes |
+| `verify:integrity` | **33 passed, 0 failed**, 9 engine-enforced, 4 deferred |
+| Migration inspected before applying | **0 DROP / TRUNCATE / RENAME**, 0 standalone DELETE; every `ALTER` on a pre-existing table is `ADD COLUMN` or `ADD CONSTRAINT` on the new column |
+| Migration apply → rollback → re-apply | fingerprint identical, now covering `0004` |
+| Existing data preserved | row counts identical across all 29 pre-existing tables; `price_stale_after_sessions` backfilled to 3 |
+| `check:no-client-secrets` | no secret in 19 client files |
+| Provider isolation | source scan: no file outside `providers/` names a provider; no adapter reads `process.env`; all three declare `requiresCredential: false` |
+| No ledger mutation | `investment_ledger_version` and the derived fingerprint byte-identical after a corporate-action detection |
+
+### Decisions taken during implementation
+
+| # | Decision | Why |
+|---|---|---|
+| **D-33** | **`PriceResult` gains `freshness` and `sessionsBehind` rather than renaming its `status`** | ADR-28 needs four states; the union already had `live`/`cached`/`stale`/`missing`. Renaming would have churned every Phase 4 call site to express the same thing. `freshness` is typed **per variant** — `'stale'` on the stale arm, `'current' \| 'recent'` on the cached arm — so the two fields cannot disagree. Two Phase 4 test fixtures gained the fields; no assertion about a figure changed |
+| **D-34** | **Triangulation lives in `selectRate`, not only in the adapter** | The design proposed adapter-side base-pair normalisation alone. Both are implemented, because either alone leaves a gap: normalisation cannot help a pair nobody requested, and triangulation alone puts an avoidable rounding in the common case. The domain rule is the safety net and is tried **last**, after direct and inverse |
+| **D-35** | **Suppression tests "held units before the ex-date", not merely "a detection exists"** | Someone who bought *after* a split already holds post-split quantity and their figures are correct. Suppressing those would blank a correct holding, which is its own dishonesty. Asserted both ways |
+| **D-36** | **The session calendar is derived per exchange from `instrument_prices`, keyed `''` for instruments with none** | ADR-28 says the price series is the calendar. Mutual funds have no exchange and share a NAV publication rhythm, so they need a bucket rather than an exception |
+| **D-37** | **`I-40` is split into a source scan plus a queryable `I-40b`** | "No adapter writes the ledger" is not expressible as SQL. What *is* expressible is that a resolved detection points at a ledger row for the same instrument, kind and user — so both halves are checked rather than one being asserted and the other assumed |
+
+### Fixed during implementation
+
+1. **`daysApart` passed a one-indexed month to `Date.UTC`.** 31 January would have become 3 March, so the carry-back bound was wrong on exactly the month-end dates it matters on. Replaced with the domain's property-tested `daysBetween`. Caught while reading the diff, before any test ran.
+2. **A test fixture set `positions.quantity = 0` directly** and hit `positions_units_and_basis_agree` (D-25). The constraint is right and the fixture was wrong: a full disposal now goes through `recordSell`, so the test exercises a state the engine can actually produce.
+
+### Scope boundaries — deliberately not built
+
+| Not built | Why |
+|---|---|
+| **Twelve Data adapter** | OD-3. Step **6.9**, behind the credential/configuration step. No SDK installed; adding it is one file plus one line of `defaultRegistry()` |
+| **Automated equity refresh** | Follows the equity adapter; there is nothing to refresh until one exists |
+| **Crypto provider** | Deferred (**OD-11**). The `continuous` cadence and its wall-clock branch are implemented and tested, so enabling crypto is an adapter, not a rule change |
+| **Dedicated gold provider** | Deferred (**OD-12**). Gold prices as an ETF or MF, or is a `manual_assets` valuation series |
+| **Market-value net worth** | A later Phase 6 step. `ValuationBasis` is still the one-member union `'cost'`, so widening it stays a compile error at every site that must be considered. **I-38 and I-39 are reported as deferred**, not silently omitted |
+| **Net-worth snapshots** | ADR-24 — only if measurement justifies them, and nothing has been measured slow |
+| **AI market-data analysis** | Phases 7–9 |
+| **Corporate-action provider feed** | No shipping adapter supplies one, so `corporate_actions.refresh` ordinarily returns `unsupported`. The **detection, storage and suppression path is complete and tested** — what is missing is a source, not the safety machinery |
+| **Historical backfill from a provider** | AMFI's daily file carries one NAV per scheme, so `getHistoricalPrices` is not implemented for it and `backfillPrices` correctly reports the refusal. History accumulates one session per day from the daily refresh, and arrives in bulk with the equity adapter |
+
+**The next exact step is 6.9** — the Twelve Data adapter — and it is blocked on **OD-3** (an account and a credential). Nothing above it changes when it lands: it is a new file in `providers/`, one entry in `defaultRegistry()`, and `MARKET_DATA_TWELVEDATA_API_KEY` added to `src/lib/env.ts`.
+
+
+Superseded pointer, kept for the record: the earlier instruction here was to *perform* this review by
+reading `docs/ARCHITECTURE.md`, `docs/INVESTMENT-DOMAIN.md` §5 and
 §8.1, [ADR-11](docs/DECISIONS.md#adr-11--market-data-behind-a-provider-abstraction-with-an-always-available-manual-provider),
 and `docs/ROADMAP.md` Phase 6 before writing anything.
 
@@ -505,7 +656,8 @@ and `docs/ROADMAP.md` Phase 6 before writing anything.
 |---|---|---|
 | **OD-1** | `NVIDIA_API_KEY` — needed to verify the model catalogue authenticated and to run the eval harness | Phases 7–9 |
 | **OD-2** | `AGENTS.md` is byte-identical to `CLAUDE.md`. Two copies of a 2,181-line spec will drift. Recommendation: reduce `AGENTS.md` to a pointer — not done unilaterally, as another tool may require full content at that path | Nothing technically; an instruction-correctness risk |
-| **OD-3** | Equity/ETF market-data provider and its terms. **Phase 4 consequence:** `instrument_prices` stays empty, so TWR returns `null` with `insufficient_price_history` and portfolio growth renders as gaps. Both are the documented behaviour, not defects | Phase 6 completion; TWR and the growth series until then |
+| **OD-3** | Equity/ETF market-data provider and its terms. **Phase 4 consequence:** `instrument_prices` stays empty, so TWR returns `null` with `insufficient_price_history` and portfolio growth renders as gaps. Both are the documented behaviour, not defects. **Recommendation added 2026-08-18:** **Twelve Data Grow, $29/mo** (verified: India = XNSE at EOD, needs Grow+; terms permit storing data for internal use) for coverage consolidation across Indian + international equities, ETFs, FX and crypto in one adapter. **Kite Connect at ₹500/mo** is a legitimate cheaper alternative if a Zerodha account exists and no international coverage is needed — but its login expires daily, which is hostile to an unattended refresh job, so it costs engineering what it saves in fees. Free routes were evaluated and **excluded on licence grounds**, not overlooked: NSE's terms prohibit automated collection from its website, and Yahoo-compatible sources have no licence for programmatic access. This is a cost-and-account decision, not an engineering one | **Step 6.9 only — not the phase.** Eleven of twelve steps are unblocked ([MARKET-DATA-DESIGN.md §20.J](docs/MARKET-DATA-DESIGN.md#j-implementation-sequence)) |
+| **OD-13** | **AMFI reuse terms.** `NAVAll.txt` is published publicly and the whole Indian fintech industry consumes it, but **no machine-readable licence or explicit reuse grant was found**, so none is asserted. The adapter is built for personal, non-redistributing use and says so in its own header. Confirm with AMFI before any non-personal use | Nothing for personal use; would block redistribution |
 
 ### Resolved
 
@@ -515,6 +667,9 @@ and `docs/ROADMAP.md` Phase 6 before writing anything.
 | **OD-5** | `investment_transactions.net_amount` currency | ✅ **Approved 2026-08-11: the account's currency.** `price` / `gross_amount` / `fees` / `taxes` stay in the instrument's. `deriveBalance()` therefore never mixes currencies, and an account's `currency_code` is immutable once it carries ledger rows. See [FINANCIAL-DOMAIN.md §3](docs/FINANCIAL-DOMAIN.md), [SCHEMA.md §6](docs/SCHEMA.md), [ADR-12](docs/DECISIONS.md) |
 | **OD-7** | Net-worth valuation basis before market data exists | ✅ **Approved 2026-08-12: Net Worth at Cost.** Phase 5 calculates and presents net worth **at cost**; investment positions contribute the **exact Phase 4 cost basis**; market value and cost are **never mixed inside one figure**; no screen shows an unqualified "Net worth" that could imply a current market valuation. Phase 6 introduces market-value net worth as a **distinct** calculation. **No valuation toggle in Phase 5** — the existing design does not need one. Normative: [ADR-23](docs/DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost) |
 | **OD-8** | `net_worth_snapshots` and the `networth.snapshot` job | ✅ **Approved 2026-08-12: moved to Phase 6.** Phase 5 uses deterministic derivation; **every Phase 5 gate requiring a snapshot is removed**; `user_state.valuation_version` is deferred with them. Phase 6 may still introduce snapshots if measurement justifies it, under four stated rules. Normative: [ADR-24](docs/DECISIONS.md#adr-24--net-worth-is-derived-on-demand-snapshots-are-deferred-to-phase-6) |
+| **OD-10** | Apply the Market Data review's M1–M13 to the canonical documents | ✅ **Approved and applied 2026-08-18.** Reconciled, not appended: four findings became [ADR-27](docs/DECISIONS.md#adr-27--market-data-adapters-return-observations-the-registry-classifies-freshness) … [ADR-30](docs/DECISIONS.md#adr-30--one-provider-per-instrument-price-series-the-only-price-fallback-is-manual); the rest folded into `FINANCIAL-DOMAIN.md` §2, `INVESTMENT-DOMAIN.md` §5/§8.1/§10/§11, `SCHEMA.md` §5/§5.1/§12 and `TESTING.md` §6. Invariants **I-33 … I-40** added, and **all thirteen findings are implemented**, not merely documented |
+| **OD-11** | Crypto market data | ✅ **Deferred 2026-08-18.** No adapter ships. The `continuous` cadence and its wall-clock branch are implemented and tested, so enabling crypto later is an adapter rather than a rule change |
+| **OD-12** | Dedicated gold market data | ✅ **Deferred 2026-08-18.** Gold prices as a gold ETF or gold MF through the ordinary adapters, or as a `manual_assets` valuation series. No bullion feed, no purity/unit model |
 | **OD-9** | Apply the Net Worth review's N1–N19 to the canonical documents | ✅ **Approved and applied 2026-08-12.** The normative rules were **reconciled**, not appended to — each now has one authoritative statement. Four findings became ADRs ([ADR-23](docs/DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost), [ADR-24](docs/DECISIONS.md#adr-24--net-worth-is-derived-on-demand-snapshots-are-deferred-to-phase-6), [ADR-25](docs/DECISIONS.md#adr-25--net-worth-classification-is-by-the-economic-sign-of-the-balance-not-by-account-kind), [ADR-26](docs/DECISIONS.md#adr-26--an-as-of-financial-figure-is-computed-from-dated-facts-only-no-current-state-flag-participates)); the rest were folded into `FINANCIAL-DOMAIN.md`, `SCHEMA.md`, `INVESTMENT-DOMAIN.md`, `ARCHITECTURE.md` and `TESTING.md`. Per-finding disposition: [NET-WORTH-DESIGN.md §14](docs/NET-WORTH-DESIGN.md#14-defects-found-in-the-baseline-n1n19). **No source file, schema, migration or test was touched** |
 | **OD-6** | `settlement_date` semantics | ✅ **Resolved 2026-08-11: financial recognition is trade-dated.** `trade_date` is the financial recognition date and the cash date; `settlement_date` is a recorded factual attribute of the transaction and controls nothing — not recognition, not cash-balance derivation, not ledger dating, not replay, and not historical or `asOf` calculations. `deriveBalance()` and `replay()` continue to use the trade-dated ledger. **No settlement-date-based cash movement is to be introduced, and settlement-aware accounting logic is out of scope for the current architecture.** Because balances are trade-dated, a displayed balance can differ from the broker's cleared cash for up to one settlement cycle, so **the UI should make clear that displayed balances are trade-dated rather than settlement-dated**. Normative record: [ADR-22](docs/DECISIONS.md#adr-22--financial-recognition-is-trade-dated-settlement_date-is-informational-metadata), with the rule restated in [FINANCIAL-DOMAIN.md §3](docs/FINANCIAL-DOMAIN.md#3-accounts), [SCHEMA.md §6](docs/SCHEMA.md#6-investment-ledger) and [INVESTMENT-DOMAIN.md §3](docs/INVESTMENT-DOMAIN.md#ordering) |
 
@@ -638,6 +793,7 @@ Run on 2026-08-10.
 | How do holdings and returns behave? | [docs/INVESTMENT-DOMAIN.md](docs/INVESTMENT-DOMAIN.md) — corrected and authoritative |
 | Why does the investment engine work that way? | [docs/INVESTMENT-ENGINE-DESIGN.md](docs/INVESTMENT-ENGINE-DESIGN.md) — the Phase 4 review record and rationale. **Non-normative**: where it and a canonical document differ, the canonical document wins |
 | How is net worth meant to work, and why? | [docs/NET-WORTH-DESIGN.md](docs/NET-WORTH-DESIGN.md) — the Phase 5 design review: single counting, as-of methodology, FX, liabilities, reconciliation, the schema delta, 43 edge cases, and the N1–N19 disposition table. **Non-normative** — the rules themselves now live in `FINANCIAL-DOMAIN.md` §9, `SCHEMA.md` §7–9/§12 and ADR-23…ADR-26 |
+| Where do prices come from, and which provider? | [docs/MARKET-DATA-DESIGN.md](docs/MARKET-DATA-DESIGN.md) — the Phase 6 review: data requirements, ten providers evaluated against verified official sources, the TWR and market-value-net-worth dependencies stated precisely, staleness, missing-data behaviour, caching, persistence, cost, 20 adversarial scenarios, and the M1–M13 defect table. **Non-normative** until OD-10 |
 | How does the AI layer work and what can't it do? | [docs/AI-SYSTEM.md](docs/AI-SYSTEM.md) |
 | What must be tested before a phase is done? | [docs/TESTING.md](docs/TESTING.md) and each phase's "Done when" |
-| What am I building next? | [docs/ROADMAP.md](docs/ROADMAP.md) — **Phase 6, Market Data**. Not started; OD-3 gates its completion, not its start |
+| What am I building next? | [docs/ROADMAP.md](docs/ROADMAP.md) — **Phase 6, Market Data**. Design review done; implementation not started. Start at **step 6.0** (OD-10), then 6.1 / 6.3 / 6.4. OD-3 gates step **6.9**, not the phase |

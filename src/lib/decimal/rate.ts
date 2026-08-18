@@ -66,6 +66,23 @@ export function invert(r: Rate, rounding: Rounding = 'half_even'): Rate {
   return make(divRound(RATE_UNIT * RATE_UNIT, r.value, rounding));
 }
 
+/**
+ * Chain two rates: `A→B` composed with `B→C` gives `A→C`.
+ *
+ * This is what triangulation multiplies ([FINANCIAL-DOMAIN.md §2.1](../../../docs/FINANCIAL-DOMAIN.md#21-triangulation)),
+ * and it is deliberately the only multiplication `Rate` offers — there is no
+ * general `mul`, because multiplying two rates that do not chain (a percentage
+ * by an FX rate, say) is meaningless and should not be reachable.
+ *
+ * `a.value` and `b.value` are both scale 10, so their product is scale 20 and
+ * the divisor restores scale 10. The product is formed at full `bigint` width
+ * and rounded **once**, at the end, in the same `half_even` mode `invert` uses.
+ * One rounding, not two, is why a single pivot is permitted and a second is not.
+ */
+export function compose(a: Rate, b: Rate, rounding: Rounding = 'half_even'): Rate {
+  return make(divRound(a.value * b.value, RATE_UNIT, rounding));
+}
+
 export function rCmp(a: Rate, b: Rate): -1 | 0 | 1 {
   return a.value < b.value ? -1 : a.value > b.value ? 1 : 0;
 }

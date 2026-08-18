@@ -177,11 +177,65 @@ Golden expected values live in `tests/golden/*.expected.json`. Changing one requ
 
 ## 6. Market-data contract tests
 
-- Real provider responses captured once into `tests/fixtures/market-data/` and replayed. No network in CI.
-- Every adapter is tested for: normal response, empty response, malformed JSON, HTTP 500, HTTP 429, timeout, and an unknown symbol. **All seven must produce a `PriceResult`, never a thrown exception.**
-- `ManualProvider` staleness transitions at the `price_stale_after_hours` boundary.
-- Registry resolution order: explicit provider → first supporting provider → manual.
+- Real provider responses captured once into `tests/fixtures/market-data/` and replayed through an injected fetch. **No network in CI**, and no adapter reads `process.env` or a live clock during a test.
+- Every adapter is tested for: normal response, empty response, malformed JSON, HTTP 500, HTTP 429, timeout, and an unknown symbol. **All seven must produce a `ProviderFailure`, never a thrown exception** — and the registry must map each onto a `PriceResult`, so the seven survive end to end.
+- **Adapters return observations, never a freshness verdict** ([ADR-27](DECISIONS.md#adr-27--market-data-adapters-return-observations-the-registry-classifies-freshness)). Asserted by a **source scan**: no file under `providers/**` may reference `'stale'`, `'cached'` or `'live'`. A rule that depends on every future adapter author remembering it is not a rule.
+- Registry resolution order: explicit provider → first supporting *and capable* provider → manual. Plus **capability refusal**: a request an adapter's `ProviderCapabilities` do not cover is refused rather than attempted.
+- **A read makes no network call.** Asserted by running the portfolio and net-worth read paths with a fetch that throws if invoked.
 - A separate, opt-in `test:live-providers` script hits real endpoints and is run manually before changing a provider — never in CI.
+
+### 6.1 Freshness ([ADR-28](DECISIONS.md#adr-28--staleness-is-measured-in-trading-sessions-not-wall-clock-hours))
+
+One classifier, so one test file covers every provider.
+
+- **Trading day:** an observation from the latest known session → `current`.
+- **Weekend:** Friday's close read Monday 09:00 IST, Friday still the latest session → **`current`**, not `stale`. This is the regression the wall-clock rule failed, every week.
+- **Holiday:** a multi-day exchange closure does not advance the session count.
+- **Sessions:** 1–2 behind → `recent`; 3+ → `stale`.
+- **Backstop:** > 10 calendar days → `stale` regardless of session count, which is what catches a provider that quietly stopped.
+- **Continuous cadence:** still hours — ≤ 6 h `current`, ≤ 24 h `recent`, beyond `stale`.
+- **Bootstrap:** one instrument on an exchange is its own reference and reports `current`, never a false alarm.
+- **Future-dated:** reported at age zero, not "fresher than fresh" — a clock problem, still the best price available.
+
+### 6.2 FX ([FINANCIAL-DOMAIN.md §2](FINANCIAL-DOMAIN.md#2-fx))
+
+- **Direct**, **inverse**, **triangulated** and **no route**, each asserting the `source` label.
+- **A direct pair wins over a more recent inverse or triangulated route.**
+- **A triangulated rate is dated by its stalest leg**, and a leg dated after `on` disqualifies the route.
+- **One pivot only** — a route needing two hops is `no_rate`.
+- Historical / as-of selection: exact date, else most recent earlier, **never** later.
+- Stale rate: used, and marked.
+- Provider failure: the stored series is unchanged and no fabricated rate appears.
+
+### 6.3 AMFI
+
+- Valid NAV line → one observation with the right scheme code, ISIN, NAV date and `INR`.
+- Missing scheme, blank NAV, `N.A.` NAV → skipped, not zero.
+- Malformed line, header/section lines, CRLF and a truncated file → no throw, no partial write.
+- Date parsing across `DD-MMM-YYYY`, including a leap day.
+- Instrument mapping by **ISIN first**, then scheme code.
+
+### 6.4 Corporate-action safety ([ADR-29](DECISIONS.md#adr-29--provider-corporate-actions-are-detections-never-ledger-writes))
+
+- Split detected → a `corporate_action_detections` row and **no** `investment_transactions` row; `investment_ledger_version` unchanged.
+- An open detection inside the holding period → that instrument's price is `missing: 'unreconciled_corporate_action'`, `marketValue` is `null`, and **no quantity or price is adjusted**.
+- Accepting a detection through the service path creates the ledger row and stamps `resolved_txn_id`; a source scan asserts nothing under `market-data/**` or `jobs/**` writes that column (**I-40**).
+- Re-detecting the same action ten times leaves one row.
+
+### 6.5 Historical observations
+
+- **Duplicate observation** — same `(instrument_id, as_of)` twice is idempotent, not a second row.
+- **Deterministic retrieval** — the same range query returns the same series, ordered.
+- **Date boundaries** — `from` and `to` inclusive; a range with no rows is empty, not an error.
+- **As-of selection** — greatest `as_of <= d`, **bounded**; beyond the bound a gap, never a carried-forward value.
+- **Age-guarded quote write** (**I-36**) — an older observation never overwrites a newer stored quote, and a provider price never replaces a manual price of the same `as_of`.
+- **One source per series** (**I-35**) — an observation whose `source` differs from the existing series is refused, not interleaved.
+
+### 6.6 Security
+
+- No provider credential appears in any client bundle (`check:no-client-secrets`), in a log line, or in a test fixture.
+- The AMFI and Frankfurter adapters require **no** credential at all, asserted by their `capabilities.requiresCredential === false`.
+- **A malformed provider response cannot corrupt financial state:** after a fixture of hostile responses — 11-decimal prices, negative closes, wrong currency, absurd dates, injected SQL-looking strings — the ledger, lots, positions and `instrument_prices` are byte-identical to before.
 
 ## 7. AI tests — all offline
 

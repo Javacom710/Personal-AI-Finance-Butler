@@ -23,6 +23,7 @@ export type { DateRange, PeriodKind } from '../../lib/date/periods';
 export type { InvestmentKind } from '../domain/lots/order';
 export type { CostBasisMethod } from '../domain/lots/fifo';
 export type { PriceResult, MissingPriceReason } from '../domain/pricing/price-result';
+export { describeMissing } from '../domain/pricing/price-result';
 export type { AssetClass, HoldingView, PortfolioValuation } from '../domain/pricing/valuation';
 export type {
   Allocation,

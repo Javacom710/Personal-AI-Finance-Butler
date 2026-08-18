@@ -49,6 +49,8 @@ const priced = (value: string): PriceResult => ({
   asOf: new Date('2026-08-11T00:00:00Z'),
   source: 'manual',
   ageHours: 2,
+  freshness: 'current',
+  sessionsBehind: 0,
 });
 
 function holding(over: Partial<HoldingInput> = {}): HoldingInput {
@@ -511,6 +513,8 @@ describe('a foreign-currency holding', () => {
           asOf: new Date('2026-08-11T00:00:00Z'),
           source: 'manual',
           ageHours: 2,
+          freshness: 'current',
+          sessionsBehind: 0,
         },
         fxToBase: Rate.of('85'),
       }),

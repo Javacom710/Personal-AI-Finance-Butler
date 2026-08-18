@@ -389,6 +389,20 @@ All three are a single `divRound` over `bigint`s; no `number` appears. `mulQtyRa
 
 **Unpriced holdings.** `marketValue` is `null`, the holding is excluded from portfolio totals and from `weightPct` denominators, and the portfolio summary reports `pricedValue`, `unpricedCount`, and `coverage = pricedCostBasis / totalCostBasis`. Rendering shows the holding with an explicit "no price" marker rather than a zero, because a zero would read as "worthless".
 
+**Why a holding is unpriced is part of the answer, not a footnote.** `MissingPriceReason` distinguishes seven conditions, because they call for different responses from both the system and the user:
+
+| Reason | Meaning | Retry? |
+|---|---|---|
+| `no_provider` | No adapter claims it and no manual price exists | no — the user acts |
+| `not_found` | The provider ran and does not know the symbol | no — re-map. **History is never deleted** |
+| `provider_error` | The provider failed, **or** returned a currency that is not the instrument's | yes |
+| `rate_limited` | Quota exhausted; the last good quote stands | yes, honouring `retryAfterSeconds` |
+| `unsupported_asset` | An adapter exists but cannot price this class — a fixed deposit has no market price | no |
+| `delisted` | The instrument has stopped trading. Cost basis and realised P&L are unaffected | no |
+| `unreconciled_corporate_action` | A provider action with an ex-date inside the holding period is not in the ledger ([§11](#11-corporate-actions)) | no — the user records the action |
+
+Collapsing `not_found` into `provider_error` would make a permanent condition look transient and produce an infinite retry; collapsing `rate_limited` into it would do the reverse.
+
 ## 6. Portfolio metrics
 
 ```ts
@@ -599,7 +613,18 @@ Eligibility is by **`opened_on`**, never `acquired_on` — a `transfer_in` carri
 
 **Implementation constraint, because the naive form is a trap.** A 365-point chart must be **one SQL pass** — not 365 position replays. If that measures slow, the escape hatch is the one already designed for balances: a derived roll-up keyed by `investment_ledger_version`, invalidatable and rebuildable, **never** a mutable record.
 
-**Days with no price are gaps, not zeros.** The series is only as complete as `instrument_prices`, which is empty until **OD-3** is resolved. A gap renders as a break in the line with the affected instruments named — never interpolated, never zero, and never silently omitted from the total ([§5](#5-valuation), [FINANCIAL-DOMAIN.md §10.4](FINANCIAL-DOMAIN.md#104-partial-results-are-labelled-not-hidden)).
+**`priceOn(d)` carries back, but not indefinitely.** "The row with the greatest `as_of <= d`" is required — Sundays, market holidays and TWR boundary dates all need it. Unbounded, it lies: an instrument whose provider stopped covering it in 2024 would be valued at its 2024 close forever, with no gap shown anywhere. So the carry-back is **bounded**, and beyond the bound the point is a gap:
+
+| Cadence | Bound |
+|---|---|
+| `eod` (equities, ETFs), `nav` (mutual funds) | The latest known session on that exchange, plus an absolute backstop of **10 calendar days** |
+| `continuous` | **2 calendar days** — there are no non-trading days to forgive |
+
+The backstop is what turns "the provider quietly stopped" from an invisible wrong number into a visible gap.
+
+**Days with no price are gaps, not zeros.** The series is only as complete as `instrument_prices`. AMFI fills it for Indian mutual funds; equities and ETFs wait on the **OD-3** adapter. A gap renders as a break in the line with the affected instruments named — never interpolated, never zero, and never silently omitted from the total ([§5](#5-valuation), [FINANCIAL-DOMAIN.md §10.4](FINANCIAL-DOMAIN.md#104-partial-results-are-labelled-not-hidden)).
+
+**A TWR boundary needs a valuation, and a boundary can fall on a non-trading day.** `twr()` matches boundary dates exactly, so a SIP debit dated on a market holiday would otherwise return `insufficient_price_history` permanently — which is every Indian investor with a monthly SIP. The **caller** builds a valuation for every boundary using the bounded carry-back above; `twr()` itself is unchanged. The boundary set must also include **instruments since fully disposed**: a position sold in March still determined the January and February sub-period returns, and reading *current* positions to decide which prices to fetch produces a plausible, wrong figure.
 
 ## 9. Asset allocation
 
@@ -617,40 +642,60 @@ Concentration metrics (for the AI's "how concentrated is my portfolio?"): top-1 
 
 ```ts
 interface MarketDataProvider {
-  readonly key: string;
-  supports(instrument: Instrument): boolean;
-  getQuotes(instruments: Instrument[]): Promise<Map<InstrumentId, PriceResult>>;
-  getHistoricalPrices(i: Instrument, from: Date, to: Date): Promise<PricePoint[]>;
-  searchInstruments(query: string, hint?: AssetClass): Promise<InstrumentCandidate[]>;
-  getFxRates(pairs: [CurrencyCode, CurrencyCode][], on?: Date): Promise<Map<string, Rate>>;
+  readonly key: ProviderKey;
+  readonly capabilities: ProviderCapabilities;
+  supports(instrument: InstrumentRef): boolean;
+
+  getInstrument(ref):        Promise<Result<InstrumentMetadata, ProviderFailure>>;
+  searchInstruments(q, hint?): Promise<Result<InstrumentCandidate[], ProviderFailure>>;
+  getLatestPrices(refs):     Promise<Map<ProviderRefKey, Result<PriceObservation, ProviderFailure>>>;
+  getHistoricalPrices(ref, from, to): Promise<Result<PriceObservation[], ProviderFailure>>;
+  getCorporateActions(ref, from, to): Promise<Result<CorporateActionObservation[], ProviderFailure>>;
+  getDividends(ref, from, to):        Promise<Result<DividendObservation[], ProviderFailure>>;
+  getFxRates(pairs, on?):    Promise<Map<PairKey, Result<FxObservation, ProviderFailure>>>;
 }
 ```
 
+**An adapter returns observations, not verdicts** ([ADR-27](DECISIONS.md#adr-27--market-data-adapters-return-observations-the-registry-classifies-freshness)). `live` / `cached` / `stale` is a judgement about age relative to now; the registry makes it once, in one function, so two adapters cannot reach different verdicts about the same age. An adapter reports a price, a currency, a trading date, an instant and a source, and nothing else.
+
+**Every method returns a `Result`,** because *"this instrument has no history"* and *"the provider was down"* demand opposite responses — the first must stop retrying, the second must retry — and a bare array cannot tell them apart. `ProviderFailure` has five members: `not_found`, `rate_limited`, `unsupported`, `transport`, `malformed`.
+
+`ProviderCapabilities` declares asset classes, markets (MIC), cadence (`eod` / `intraday` / `continuous`), history depth, which operations are provided, and whether a credential is required. The registry **refuses** a resolution whose capabilities do not cover the request rather than calling and interpreting a confusing `not_found` — the same rule as `CLAUDE.md <model_fallbacks>`: never downgrade a task to an incapable provider merely because it is available.
+
 ### Resolution order for one instrument
 
-1. `instrument.price_provider` if set and registered → adapter.
-2. Otherwise the first registered adapter whose `supports()` returns true.
+1. `instrument.price_provider` if set **and registered and capable** → that adapter.
+2. Otherwise the first registered adapter whose `supports()` and `capabilities` both admit it.
 3. Otherwise `ManualProvider`.
 
-`ManualProvider` reads the latest `instrument_quotes` row that was written by the user and returns `status: 'cached' | 'stale'` based on its age. It is always registered, so **every** instrument can always be valued once the user enters a price.
+**Once an instrument has stored price history its provider is pinned** ([ADR-30](DECISIONS.md#adr-30--one-provider-per-instrument-price-series-the-only-price-fallback-is-manual)). Rule 2 resolves a *new* instrument; applied to one that already has two years of series it would interleave a second vendor's closes into the same table, and the splice would be indistinguishable from a real price move. Changing a provider purges and re-backfills.
+
+`ManualProvider` reads the latest user-written `instrument_quotes` row. It is always registered, so **every** instrument can always be valued once the user enters a price. It is the only price fallback, and it is not a substitute source but a different kind of source — user-attested, always labelled `source: 'manual'`, never silently selected over a provider.
 
 ### Caching and refresh
 
-- `getQuotes` writes through to `instrument_quotes`; `getHistoricalPrices` upserts `instrument_prices`.
-- A `prices.refresh` job runs on a schedule (default: hourly during market hours, once daily otherwise) over the distinct instruments in open positions. Batched per provider.
-- A read never triggers a network call. Pages render from the cache and show staleness; a manual "refresh prices" action enqueues the job.
-- Rate limits and provider errors are caught inside the adapter and returned as `status: 'missing', reason: 'provider_error'`, plus a log entry. One broken provider never breaks a page.
+- The registry writes through to `instrument_quotes` and upserts `instrument_prices`. The quote write is **age-guarded** — `EXCLUDED.as_of >= instrument_quotes.as_of` — so a late-arriving response cannot overwrite a newer quote, and a refresh cannot overwrite a price the user has just typed (invariant **I-36**).
+- **A read never triggers a network call.** Pages render from the database and show staleness; a manual "refresh prices" action enqueues a job. One consequence worth stating: a provider outage is *invisible* on the read path, and only becomes visible as the stored quote ages into `stale`.
+- MVP jobs are `fx.refresh` (daily), `prices.refresh` (daily, after close), `prices.backfill` (on demand) and `corporate_actions.refresh` (weekly). All are idempotent — a price upsert keyed `(instrument_id, as_of)` re-run on the same day writes the same row. **No intraday refresh:** nothing consumes an intraday price, and mixing a delayed price with an end-of-day close would make one staleness rule impossible.
+- Rate limits and provider errors are caught in the adapter, normalised to a `ProviderFailure`, and mapped by the registry onto a `missing` reason plus a log entry. **One broken provider never breaks a page**, because the page was never waiting on it.
 
-### Candidate providers (decision OD-3)
+### Corporate actions are detections
 
-| Source | Covers | Auth | Notes |
+A provider's split or bonus information is stored in `corporate_action_detections` and **never** becomes an `investment_transactions` row except through an explicit user action on the ordinary validated path ([ADR-29](DECISIONS.md#adr-29--provider-corporate-actions-are-detections-never-ledger-writes), [SCHEMA.md §5.1](SCHEMA.md#51-corporate-action-detections)). An open detection whose ex-date falls inside the holding period **suppresses** that instrument's market value rather than adjusting it — see [§11](#11-corporate-actions).
+
+### Providers (decision OD-3)
+
+| Source | Covers | Auth | Status |
 |---|---|---|---|
-| AMFI `NAVAll.txt` | Indian mutual funds | none | Free, daily, official. Recommended first non-manual adapter. |
-| RBI / exchangerate.host | FX | none / free tier | Daily reference rates |
-| A commercial equity API | NSE/BSE/US equities & ETFs | API key | **Requires a user decision (OD-3)** — pricing and terms vary; must be server-side only |
-| Manual | everything | none | Always available fallback |
+| **Manual** | everything | none | **Built.** Always registered |
+| **AMFI** `NAVAll.txt` + NAV-history report | Indian mutual funds, from 2006 | **none** | **Built.** Free, daily, official. Reuse terms are **OD-13** — documented, not assumed |
+| **Frankfurter** (central-bank reference rates) | FX, incl. INR | **none** | **Built.** No quota; history to 1948 |
+| **Twelve Data** | NSE/BSE equities & ETFs (EOD), international, FX | API key | **Decided, not integrated.** Sits behind the provider credential/configuration step; the registry needs no change to accept it |
+| Kite Connect | NSE/BSE | account + daily login | **Rejected** — a daily-expiring interactive login is unusable from an unattended job |
+| Crypto | — | — | **Deferred (OD-11).** `cadence: 'continuous'` exists and is tested; no adapter ships |
+| Bullion / gold | — | — | **Deferred (OD-12).** Gold prices as an ETF or MF, or is a `manual_assets` valuation series |
 
-No provider is hard-coded into the design. Switching one is a new file in `providers/` plus a registry line.
+No provider is hard-coded into the design. Adding one is a new file in `providers/` plus a registry line; **no file outside `src/server/market-data/providers/` may name a provider.**
 
 ## 11. Corporate actions
 
@@ -668,7 +713,16 @@ In every row below, **stored basis (`cost_total`, `remaining_cost`) is untouched
 | Buyback / delisting | `sell` at the buyback price | Ordinary disposal |
 | Fixed-deposit maturity | `sell` at face + accrued | Closes the position, realises the return |
 
-Corporate actions are entered by the user; no provider feed is trusted to mutate the ledger automatically. When an action arrives from a provider it is surfaced as a suggestion, not applied.
+**Corporate actions are entered by the user; no provider feed may mutate the ledger** ([ADR-29](DECISIONS.md#adr-29--provider-corporate-actions-are-detections-never-ledger-writes)). A provider's split or bonus is stored as a *detection* in `corporate_action_detections` ([SCHEMA.md §5.1](SCHEMA.md#51-corporate-action-detections)) and becomes an `investment_transactions` row only when the user accepts it, through the ordinary validated service path. A `split` row drives `replay()` and therefore every lot, position and realised-P&L figure in the system; an unvalidated external source must not be able to write one — the same rule, for the same reason, as the AI mutation rule.
+
+**An unreconciled detection suppresses market value; it never adjusts it.** Between an ex-date and the moment the user records the action, the provider's price is post-split while the ledger's quantity is not:
+
+```
+observed = 100 units (pre-split) × ₹200 (post-split) = ₹20,000
+correct  = 500 units             × ₹200              = ₹1,00,000
+```
+
+An 80% phantom loss, internally consistent across the portfolio, allocation, market-basis net worth and the change bridge — every figure agreeing, all of them wrong. So when an open detection's `ex_date` falls inside the holding period, that instrument's price is reported `missing: 'unreconciled_corporate_action'` and the holding is **excluded and named**, exactly as an unpriced holding is. Applying the provider's ratio instead would be the ledger mutation this rule exists to forbid, and would leave quantity wrong everywhere else besides.
 
 **Ordering matters, in two distinct ways.**
 
@@ -695,7 +749,7 @@ Corporate actions are entered by the user; no provider feed is trusted to mutate
 8. Split with a ratio that does not divide evenly into the held quantity (fractional units retained at `QTY_SCALE`).
 9. Oversell — rejected with `shortBy`, no partial write.
 10. Instrument with no price at all — excluded from totals, coverage < 1, listed as unpriced.
-11. Price older than `price_stale_after_hours` — `status: 'stale'`, still used, visibly marked.
+11. **Stale price — measured in sessions, not hours** ([ADR-28](DECISIONS.md#adr-28--staleness-is-measured-in-trading-sessions-not-wall-clock-hours)). A close 3+ completed sessions behind the latest known session is `stale`: still used, visibly marked. Asserts specifically that **Friday's close read on Monday morning is not stale** — the wall-clock rule reported it as stale for ~72 hours every weekend, which is a warning that fires when nothing is wrong. A continuously-traded instrument still ages in hours; an observation more than 10 calendar days old is `stale` regardless of session count.
 12. Foreign-currency instrument — cost basis in instrument currency, base-currency figures using dated FX, FX component separated in attribution.
 13. Two transactions on the same `trade_date` — replay order stable across rebuilds; incremental rebuild output identical to full rebuild.
 14. Transfer of a holding between two of the user's own accounts — basis preserved, zero realised P&L.
@@ -721,3 +775,17 @@ Each guards a defect that the previous version of this document would have produ
 29. **Nothing is counted twice.** The [§6.3](#63-worked-verification-that-nothing-is-counted-twice) fixture → `totalReturn = ₹5,970` by the component sum **and** by the cash cross-check. Adding trade fees to `fees_total` gives ₹5,890 and fails.
 30. **A backdated oversell writes nothing.** Inserting a sell dated before existing purchases such that the position goes short at that instant → the whole transaction rolls back; lots, disposals, positions and `investment_ledger_version` are byte-identical to before.
 31. **The quantity relation is not asserted after a corporate action.** `Σ lot_disposals.quantity + remaining_quantity ≠ original_quantity` following a split on a partially disposed lot, while `Σ cost_consumed + remaining_cost = cost_total` still holds. Guards `verify:integrity` against asserting the intuitive-but-false relation ([§4](#rounding-in-the-engine)).
+
+### Cases added by the Phase 6 market-data review
+
+Each guards a defect found in [MARKET-DATA-DESIGN.md §21](MARKET-DATA-DESIGN.md#21-defects-found-in-the-baseline-m1m13).
+
+32. **Friday's close is not stale on Monday** (M2). A quote dated Friday, read Monday 09:00 IST with Friday still the latest session → `current`, not `stale`. The wall-clock rule reported `stale` for ~72 hours every weekend. Paired with: a close 3 completed sessions behind **is** `stale`, and one 11 calendar days old is `stale` regardless of session count.
+33. **An unrecorded split suppresses market value, and does not adjust it** (M5). Provider reports a 1:5 split with an ex-date inside the holding period, no matching ledger row → the holding's price is `missing: 'unreconciled_corporate_action'`, `marketValue` is `null`, the holding is named in `unpriced`, and **no** quantity or price is altered. Asserts specifically that the ₹20,000 phantom figure is never produced.
+34. **A provider never writes an `investment_transactions` row** (M4, I-40). After a corporate-actions refresh that detects a split, the investment ledger is byte-identical and `investment_ledger_version` is unchanged; the detection lives only in `corporate_action_detections`. Accepting the detection through the service path *does* create the row, and stamps `resolved_txn_id`.
+35. **Triangulated FX keeps a foreign holding in the figure** (M1). With only `EUR→INR` and `EUR→USD` stored and base INR, a USD holding resolves via one pivot instead of being dropped with `no_fx_rate`; the resulting selection is dated by its **stalest** leg, and a direct pair — even an older one — still wins.
+36. **The price carry-back is bounded** (M9). An instrument whose last close is 40 days before the valuation date is a **gap**, not a value carried forward; one whose last close is the previous session is valued from it.
+37. **A late provider response cannot overwrite a newer quote** (M7, I-36). Writing an observation dated earlier than the stored `instrument_quotes.as_of` leaves the stored row unchanged; a manual price is not replaced by a provider price of the same `as_of`.
+38. **A malformed provider response writes nothing** (security). A response with a price of `"12.3456789012"` (11 decimals), a negative close, or a currency that is not the instrument's → rejected at the adapter boundary; no row is written and the previous quote survives.
+39. **Two providers never blend one series** (M6, I-35). Attempting to store an observation whose `source` differs from the instrument's existing series is refused rather than interleaved.
+40. **TWR boundaries land on non-trading days** (M10). A flow dated on a market holiday still yields a valuation for that boundary via bounded carry-back, so TWR computes instead of returning `insufficient_price_history` forever. Asserts `twr()` itself is unchanged — the builder supplies the point.

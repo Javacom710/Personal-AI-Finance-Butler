@@ -130,12 +130,21 @@ export const instrumentPrices = pgTable(
     instrumentId: uuid('instrument_id')
       .notNull()
       .references(() => instruments.id, { onDelete: 'cascade' }),
+    /** The **trading date**, in the market's timezone — not the fetch date. */
     asOf: date('as_of').notNull(),
     close: unitPrice('close').notNull(),
     currencyCode: char('currency_code', { length: 3 })
       .notNull()
       .references(() => currencies.code),
+    /**
+     * One value for every row of an instrument's series (invariant I-35,
+     * [ADR-30](../../../../docs/DECISIONS.md#adr-30--one-provider-per-instrument-price-series-the-only-price-fallback-is-manual)).
+     * Two vendors' closes for the same instrument differ, and a blended series
+     * makes the splice indistinguishable from a real price move.
+     */
     source: text('source').notNull(),
+    /** The provider's own identifier at fetch time — provenance, never identity. */
+    providerRef: text('provider_ref'),
     fetchedAt: timestamp('fetched_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

@@ -435,6 +435,120 @@ Four consequences, each of which was a separate latent defect:
 
 ---
 
+## ADR-27 — Market-data adapters return observations; the registry classifies freshness
+
+**Decision.** Approved 2026-08-18 (OD-10), resolving finding **M-arch** in the Phase 6 review. **Refines [ADR-11](#adr-11--market-data-behind-a-provider-abstraction-with-an-always-available-manual-provider); does not replace it.**
+
+ADR-11's sketch had every adapter return a `PriceResult` — the union whose members are `live` / `cached` / `stale` / `missing`. Three of those four are a judgement about **age relative to now**, and an adapter is the wrong place to make it: each adapter would make it independently, two adapters could reach different verdicts about the same age, and "stale" would stop being a property of the system.
+
+> **An adapter reports only what it observed: a price, a currency, a trading date, an instant, and a source. The registry decides whether that observation is fresh, stale or unusable — once, in one function.**
+
+Concretely:
+
+| Layer | Returns | May decide |
+|---|---|---|
+| `providers/*.ts` | `PriceObservation` / `FxObservation` / `CorporateActionObservation`, or a `ProviderFailure` | nothing about freshness |
+| `market-data/registry.ts` | `PriceResult` | freshness, provider selection, capability refusal, fallback |
+| `services/prices.ts` | `PriceResult` | nothing — it reads what was stored and calls the one classifier |
+
+**Every adapter method returns a `Result<_, ProviderFailure>`.** ADR-11's `getHistoricalPrices` returned a bare `PricePoint[]`, which cannot distinguish *"this instrument has no history"* from *"the provider was down"*. Those demand opposite responses — the first is permanent and must stop retrying, the second is transient and must retry — so collapsing them guarantees one of the two behaves wrongly. `ProviderFailure` has five members (`not_found`, `rate_limited`, `unsupported`, `transport`, `malformed`) and the registry maps each to a `MissingPriceReason`.
+
+**Why.** `CLAUDE.md` requires the system to distinguish real-time, last-known, stale and missing prices, and requires provider independence. One classifier is what makes the first true; observations-not-verdicts is what makes the second true, because an adapter that cannot express a verdict cannot smuggle a policy.
+
+**Rejected.** *Adapters returning `PriceResult` directly* (ADR-11's original form) — N adapters, N freshness policies, silently divergent. *A freshness helper each adapter calls* — better, but nothing forces the call, and the first adapter to skip it is undetectable.
+
+---
+
+## ADR-28 — Staleness is measured in trading sessions, not wall-clock hours
+
+**Decision.** Approved 2026-08-18 (OD-10), resolving finding **M2**.
+
+`settings.price_stale_after_hours` defaults to 24 and `classifyQuote()` compared `now − as_of` in hours. Against **end-of-day** data that is wrong every week, not occasionally:
+
+| Moment | Age of Friday's close | Old verdict |
+|---|---|---|
+| Friday 18:00 IST | 2.5 h | `cached` |
+| Saturday 18:00 IST | 26.5 h | **`stale`** |
+| Monday 09:00 IST | 65.5 h | **`stale`** |
+
+Every equity, every ETF and every mutual fund would carry a staleness badge across every weekend and for days after each of India's many market holidays. A warning that fires when nothing is wrong is a warning the user learns to dismiss — and it then fails silently on the day something is wrong, which is the exact outcome `CLAUDE.md` forbids.
+
+> **For a session-traded instrument, staleness is the number of completed trading sessions between the observation's trading date and the latest known session. For a continuously-traded instrument, it remains wall-clock hours.**
+
+| State | `eod` / `nav` | `continuous` |
+|---|---|---|
+| `current` | 0 sessions behind | ≤ 6 h |
+| `recent` | 1–2 sessions behind | 6–24 h |
+| `stale` | ≥ 3 sessions behind, **or** > 10 calendar days regardless | > 24 h |
+| `missing` | no observation | no observation |
+
+**The stored price series is the trading calendar.** The latest known session for an exchange is `max(instrument_prices.as_of)` across its instruments. This needs no calendar table, no holiday list and no timezone-rule engine; it is automatically correct for every exchange a provider covers; and it cannot drift from the prices it describes, because it *is* those prices. Two guards make it safe: with a single instrument on an exchange its own latest is the reference, giving `0` — correct by construction, and unable to raise a false alarm — and the **10-calendar-day backstop** is what still catches a provider that has quietly stopped.
+
+**A stale price is used, and marked** — refusing it would blank the portfolio every long weekend, which [ADR-11](#adr-11--market-data-behind-a-provider-abstraction-with-an-always-available-manual-provider) already rejects. The marking must reach **every** surface that consumes the figure, including net worth (finding **M3**).
+
+**`price_stale_after_hours` is retained**, now governing the continuous case only; `price_stale_after_sessions` (default 3) governs the session case. No setting was removed.
+
+**Rejected.** *Raising the hour threshold to 72* — it moves the false positive to Tuesday after a long weekend rather than removing it, and it makes a genuinely three-day-old price look fine on a normal Wednesday. *A trading-calendar table* — a second source of truth about whether a market was open, free to disagree with the prices themselves. *Per-exchange hard-coded holiday lists* — unmaintainable, and wrong the first time an exchange adds a session.
+
+---
+
+## ADR-29 — Provider corporate actions are detections, never ledger writes
+
+**Decision.** Approved 2026-08-18 (OD-10), resolving findings **M4** and **M5**.
+
+A `split` or `bonus` row in `investment_transactions` drives `replay()`, and therefore every tax lot, every position, every realised-P&L figure and every historical valuation in the system. It is Layer 1 — financial truth.
+
+> **A market-data provider may never create, modify or delete an `investment_transactions` row. Corporate-action information from a provider is a *detection*, stored in `corporate_action_detections`, and becomes a ledger row only through an explicit user action on the ordinary validated service path.**
+
+This is the same rule, for the same reason, as `CLAUDE.md`'s `<ai_mutation_rule>`: an external source's interpretation must pass through deterministic backend validation and user confirmation before it becomes a financial fact. A price feed is no more trustworthy than a language model here — arguably less, since nobody reviews it.
+
+**The second half of the decision is what makes it safe rather than merely tidy.** Refusing to auto-apply a split leaves a window between the ex-date and the user recording it, and in that window the provider's price is post-split while the ledger's quantity is pre-split:
+
+```
+observed  = 100 units (pre-split) × ₹200 (post-split) = ₹20,000
+correct   = 500 units             × ₹200              = ₹1,00,000
+```
+
+An 80% phantom loss, internally consistent across the portfolio, allocation, market-basis net worth and the change bridge — every figure agreeing, all of them wrong.
+
+> **An unreconciled detection whose ex-date falls inside the holding period *suppresses* that instrument's market value: `missing: 'unreconciled_corporate_action'`. It is never adjusted, never estimated, and no holding is ever mutated.**
+
+Suppression is the honest response because the system genuinely does not know the position. Applying the provider's ratio would be the ledger mutation this ADR exists to forbid, wearing a different hat.
+
+**Enforcement.** Invariant **I-40**: `corporate_action_detections.resolved_txn_id` is written only by the service path, asserted by a source scan and an integration test. `verify:integrity` reports it.
+
+**Rejected.** *Auto-applying detections* — an unvalidated external source mutating Layer 1, and it double-applies whenever the user has already recorded the action. *Adjusting the price instead of the quantity* — invents a number, and leaves quantity wrong everywhere else. *Ignoring the mismatch* — the phantom-loss case above, which is the worst outcome available because it is silent.
+
+---
+
+## ADR-30 — One provider per instrument price series; the only price fallback is Manual
+
+**Decision.** Approved 2026-08-18 (OD-10), resolving finding **M6**.
+
+`instrument_prices` is keyed `(instrument_id, as_of)` with `source` as an ordinary column, and [ADR-11](#adr-11--market-data-behind-a-provider-abstraction-with-an-always-available-manual-provider)'s resolution rule 2 lets any capable adapter claim an instrument whose `price_provider` is unset. Together those permit two providers to interleave closes into one series, last writer winning per row.
+
+> **Once an instrument has stored price history, its provider is pinned. Changing it is an explicit act that purges the series and re-backfills; it never interleaves.**
+
+Two vendors' closes for the same instrument differ — different venue, different closing-auction handling, different adjustment policy. A blended series makes that discontinuity indistinguishable from a real price move, and the error lands in unrealised P&L, TWR and net worth simultaneously. `CLAUDE.md`: *"Never combine inconsistent provider data silently."*
+
+**What may and may not fall back:**
+
+| Data | Fallback | Why |
+|---|---|---|
+| Price series | **None** | The splice problem above. Invariant **I-35** asserts one `source` per series |
+| Latest quote | **Manual only** | Manual is not a substitute source but a *different kind* of source — user-attested, always labelled `source: 'manual'`, never silently selected over a provider |
+| FX rates | **Permitted, with recorded provenance** | A rate is a market-wide observation, not an instrument-specific series; `fx_rates.source` records which feed, and one pair still does not mix feeds across dates |
+| Corporate actions | **Permitted** | Detections, not values. More sources means better detection, and the user adjudicates |
+| Metadata / search | **Permitted** | Advisory; never enters a calculation |
+
+**Capability-respecting refusal.** The registry refuses a resolution whose `ProviderCapabilities` do not cover the request rather than calling and interpreting a confusing `not_found` — mirroring the model-fallback rule in `CLAUDE.md <model_fallbacks>`: *do not downgrade a task to an incapable provider merely because it is available.*
+
+**Transport retry is not fallback.** Retrying the *same* provider with backoff is the job runner's existing behaviour ([ADR-14](#adr-14--background-work-via-a-postgres-job-table-not-a-queue-service)) and introduces no new concept.
+
+**Rejected.** *Best-available-source per day* — maximises coverage and destroys comparability, which is the only thing a price series is for. *Averaging two providers* — a number no provider published, reconcilable against nothing.
+
+---
+
 ## Decisions taken independently in Phase 1
 
 Per `CLAUDE.md <decision_policy>`, these were resolved rather than escalated. Each is reversible at low cost; the reasoning is recorded so it can be challenged.
@@ -454,7 +568,10 @@ Per `CLAUDE.md <decision_policy>`, these were resolved rather than escalated. Ea
 |---|---|---|---|
 | **OD-1** | **`NVIDIA_API_KEY`** | The candidate list in `CLAUDE.md` does not fully match the live catalogue (5 of 13 identifiers differ or are absent — see [AI-SYSTEM.md §2.3](AI-SYSTEM.md#23-model-catalogue-reality-check)). The unauthenticated catalogue may be partial. Tier membership cannot be finalised without an authenticated read, and the evaluation harness cannot run at all. | Phase 7 (AI infrastructure) onward. Phases 1–6 are unblocked. |
 | **OD-2** | **`AGENTS.md` duplication** | `AGENTS.md` is byte-identical to `Claude.md` (46,058 bytes each). Two copies of a 2,181-line specification will drift, and drift in the spec is worse than drift in code. Recommendation: reduce `AGENTS.md` to a one-line pointer. Not done unilaterally — the file may exist because another tool requires full content at that path. | Nothing technically; it is a correctness-of-instructions risk |
-| **OD-3** | **Equity/ETF market-data provider terms** | Needed by Phase 6. Free sources cover Indian mutual funds (AMFI) and FX; listed equities generally need a paid API whose terms are a commercial choice, not an engineering one. | Phase 6 completion (not its start) |
+| **OD-3** | **Equity/ETF market-data provider terms** | Free sources cover Indian mutual funds (AMFI) and FX; listed equities need a paid API whose terms are a commercial choice, not an engineering one. **Direction set 2026-08-18: Twelve Data**, integrated at a later Phase 6 step behind the provider credential/configuration step. Kite Connect is explicitly **not** to be integrated. No commercial SDK is installed in advance. | The equity adapter only. The abstraction, the registry, AMFI, FX and Manual are all built without it |
+| **OD-11** | **Crypto market data** | **Deferred 2026-08-18.** No crypto provider is implemented. The domain stays extensible — `cadence: 'continuous'` and the wall-clock branch of [ADR-28](#adr-28--staleness-is-measured-in-trading-sessions-not-wall-clock-hours) exist and are tested — but no adapter ships. | Nothing |
+| **OD-12** | **Dedicated gold market data** | **Deferred 2026-08-18.** Gold is represented through supported instruments (gold ETFs and gold mutual funds price through the ordinary adapters) or through a `manual_assets` valuation series. No bullion adapter, no purity/unit-conversion model. | Nothing |
+| **OD-13** | **AMFI reuse terms** | **Open, and documented rather than assumed.** AMFI publishes `NAVAll.txt` and the NAV-history report publicly and without authentication, and the Indian fintech industry consumes both; **no machine-readable licence or explicit reuse grant was located**, so none is asserted. The adapter is built for personal, non-redistributing use and says so in its header. Confirm with AMFI before any non-personal use or redistribution. | Nothing for personal use; would block redistribution |
 
 ### Resolved
 
@@ -465,4 +582,5 @@ Per `CLAUDE.md <decision_policy>`, these were resolved rather than escalated. Ea
 | **OD-6** | `settlement_date` semantics | ✅ Resolved 2026-08-11: recognition is trade-dated ([ADR-22](#adr-22--financial-recognition-is-trade-dated-settlement_date-is-informational-metadata)) |
 | **OD-7** | Net-worth valuation basis before market data exists | ✅ Approved 2026-08-12: **Net Worth at Cost** in Phase 5; market value is a distinct Phase 6 calculation; the two are never mixed in one figure ([ADR-23](#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost)) |
 | **OD-8** | `net_worth_snapshots` and the `networth.snapshot` job | ✅ Approved 2026-08-12: **moved to Phase 6.** Phase 5 derives every figure; snapshots remain available to Phase 6 under four stated rules ([ADR-24](#adr-24--net-worth-is-derived-on-demand-snapshots-are-deferred-to-phase-6)) |
+| **OD-10** | Apply the Market Data review's M1–M13 to the canonical documents | ✅ **Approved and applied 2026-08-18.** Reconciled, not appended: four findings became [ADR-27](#adr-27--market-data-adapters-return-observations-the-registry-classifies-freshness), [ADR-28](#adr-28--staleness-is-measured-in-trading-sessions-not-wall-clock-hours), [ADR-29](#adr-29--provider-corporate-actions-are-detections-never-ledger-writes) and [ADR-30](#adr-30--one-provider-per-instrument-price-series-the-only-price-fallback-is-manual); the rest were folded into `FINANCIAL-DOMAIN.md` §2, `INVESTMENT-DOMAIN.md` §5/§8.1/§10, `SCHEMA.md` §5/§5.1/§12 and `TESTING.md`. Invariants **I-33 … I-40** added. Per-finding disposition: [MARKET-DATA-DESIGN.md §21](MARKET-DATA-DESIGN.md#21-defects-found-in-the-baseline-m1m13) |
 | **OD-9** | Apply the Net Worth review's N1–N19 to the canonical documents | ✅ Approved and applied 2026-08-12. The normative rules were **reconciled**, not appended to: [ADR-23](#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost), [ADR-25](#adr-25--net-worth-classification-is-by-the-economic-sign-of-the-balance-not-by-account-kind) and [ADR-26](#adr-26--an-as-of-financial-figure-is-computed-from-dated-facts-only-no-current-state-flag-participates) carry the four architectural findings; the rest are folded into `FINANCIAL-DOMAIN.md`, `SCHEMA.md`, `INVESTMENT-DOMAIN.md` and `TESTING.md`. Disposition table in [NET-WORTH-DESIGN.md §14](NET-WORTH-DESIGN.md#14-defects-found-in-the-baseline-n1n19) |

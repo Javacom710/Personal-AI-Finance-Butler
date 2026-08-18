@@ -103,7 +103,11 @@ CREATE TABLE settings (
   fiscal_year_start_month  smallint NOT NULL DEFAULT 4 CHECK (fiscal_year_start_month BETWEEN 1 AND 12),
   ai_enabled               boolean NOT NULL DEFAULT true,
   ai_daily_budget_micros   bigint  NOT NULL DEFAULT 200000000,   -- $200.000000 default cap
-  price_stale_after_hours  integer NOT NULL DEFAULT 24,
+  -- Staleness thresholds. Two, because two kinds of instrument age differently
+  -- (ADR-28). `_sessions` governs anything session-traded (equities, ETFs,
+  -- mutual-fund NAV); `_hours` governs continuously-traded instruments only.
+  price_stale_after_hours    integer NOT NULL DEFAULT 24 CHECK (price_stale_after_hours > 0),
+  price_stale_after_sessions integer NOT NULL DEFAULT 3  CHECK (price_stale_after_sessions > 0),
   updated_at               timestamptz NOT NULL DEFAULT now()
 );
 
@@ -333,10 +337,11 @@ CREATE INDEX instruments_isin_idx ON instruments (user_id, isin) WHERE isin IS N
 
 CREATE TABLE instrument_prices (            -- historical daily closes
   instrument_id uuid NOT NULL REFERENCES instruments(id) ON DELETE CASCADE,
-  as_of         date NOT NULL,
+  as_of         date NOT NULL,              -- the TRADING DATE, in the market's timezone
   close         numeric(20,8) NOT NULL CHECK (close >= 0),
   currency_code char(3) NOT NULL REFERENCES currencies(code),
-  source        text NOT NULL,
+  source        text NOT NULL,              -- one value per series, pinned (ADR-30, I-35)
+  provider_ref  text,                       -- the provider's own identifier at fetch time
   fetched_at    timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (instrument_id, as_of)
 );
@@ -351,7 +356,47 @@ CREATE TABLE instrument_quotes (            -- latest known price, one row per i
 );
 ```
 
-Staleness is computed, not stored: `now() - as_of > settings.price_stale_after_hours`. Storing a boolean would require a job to keep it honest.
+**Staleness is computed, not stored.** Storing a boolean would require a job to keep it honest, and a stale flag that is itself stale is worse than none.
+
+It is **not** a wall-clock comparison. For a session-traded instrument — every equity, every ETF, every mutual-fund NAV — staleness is the number of completed trading sessions between the observation's trading date and the latest known session, against `settings.price_stale_after_sessions`. `settings.price_stale_after_hours` applies only to continuously-traded instruments. A 24-hour rule against an end-of-day close marks Friday's price stale on Saturday and keeps it stale all weekend, which is [ADR-28](DECISIONS.md#adr-28--staleness-is-measured-in-trading-sessions-not-wall-clock-hours) and the reason there are two columns.
+
+**The latest known session for an exchange is derived from this table** — `max(instrument_prices.as_of)` across its instruments. There is deliberately **no trading-calendar table**: the price series *is* the calendar, it cannot drift from the prices it describes, and it is automatically correct for every exchange a provider covers. A 10-calendar-day backstop catches a provider that has quietly stopped, which is the one case the derived calendar cannot see.
+
+**`as_of` is the trading date, and the two tables carry it differently on purpose.** `instrument_prices.as_of` is a `date` — the session, in the market's timezone. `instrument_quotes.as_of` is a `timestamptz` and must be stamped at **the exchange's official close on that trading date** (15:30 IST for XNSE/XBOM, 16:00 ET for XNAS/XNYS) — not midnight, and never the fetch time. The candidates differ by up to ten hours, which is enough to move a staleness boundary. `fetched_at` records arrival and participates in no calculation: a price fetched two minutes ago can be three weeks old.
+
+**One provider per series.** `source` takes one value for all rows of an instrument ([ADR-30](DECISIONS.md#adr-30--one-provider-per-instrument-price-series-the-only-price-fallback-is-manual), invariant **I-35**). Changing an instrument's provider purges and re-backfills; it never interleaves, because two vendors' closes differ and a blended series makes the splice indistinguishable from a real price move.
+
+### 5.1 Corporate-action detections
+
+```sql
+CREATE TABLE corporate_action_detections (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id         uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  instrument_id   uuid NOT NULL REFERENCES instruments(id) ON DELETE CASCADE,
+  kind            investment_kind NOT NULL CHECK (kind IN ('split','bonus')),
+  ex_date         date NOT NULL,
+  ratio_num       integer NOT NULL CHECK (ratio_num > 0),
+  ratio_den       integer NOT NULL CHECK (ratio_den > 0),
+  source          text NOT NULL,
+  detected_at     timestamptz NOT NULL DEFAULT now(),
+  -- Set ONLY when the user accepts the detection through the ordinary validated
+  -- service path. Never written by an adapter or a job (ADR-29, invariant I-40).
+  resolved_txn_id uuid REFERENCES investment_transactions(id) ON DELETE SET NULL,
+  dismissed_at    timestamptz,
+  UNIQUE (instrument_id, kind, ex_date)
+);
+CREATE INDEX corporate_action_detections_open_idx
+  ON corporate_action_detections (user_id, instrument_id)
+  WHERE resolved_txn_id IS NULL AND dismissed_at IS NULL;
+```
+
+**This table is not part of the ledger, and that separation is the point.** A `split` or `bonus` row in `investment_transactions` drives `replay()` and therefore every lot, position and realised-P&L figure in the system. A market-data provider may never write one ([ADR-29](DECISIONS.md#adr-29--provider-corporate-actions-are-detections-never-ledger-writes)) — the same rule, for the same reason, as the AI mutation rule.
+
+`ratio_num` / `ratio_den` deliberately mirror `investment_transactions`' own columns so an accepted detection maps onto a proposed ledger row with no translation step where an inversion could creep in.
+
+`UNIQUE (instrument_id, kind, ex_date)` is what makes re-detection idempotent: the same split found on ten consecutive weekly runs is one row.
+
+**An open detection whose `ex_date` falls inside the holding period suppresses that instrument's market value** — `missing: 'unreconciled_corporate_action'`. It is never used to adjust a price or a quantity. Between an ex-date and the user recording the action, the provider's price is post-split while the ledger's quantity is not, and multiplying them produces a large, internally consistent, wrong number.
 
 ---
 
@@ -1008,6 +1053,14 @@ Added by the Phase 5 design review. Every one maps to a rule in [FINANCIAL-DOMAI
 | I-30 | The change bridge closes: `ΔnetWorth − Σ lines` = **exactly 0** for single-currency data, and within one base unit with FX | golden scenarios |
 | I-31 | An account contributes at `T` **iff `opening_date <= T`** — including its opening balance; and its side is chosen by the **sign** of its balance, never by `kind` | engine + integration test |
 | I-32 | Every row read by a net-worth query belongs to the session user; `networth.ts` exports no function taking a `WriteCtx` | `user_id` columns + integration test + type-level test |
+| I-33 | `instrument_quotes.currency_code = instruments.currency_code` — a quote in another currency is a provider error, never a conversion opportunity | engine (`classifyQuote`) + `verify:integrity` |
+| I-34 | `instrument_prices.currency_code = instruments.currency_code` for every row | `verify:integrity` |
+| I-35 | Every `instrument_prices` row for one instrument shares one `source` — no blended series ([ADR-30](DECISIONS.md#adr-30--one-provider-per-instrument-price-series-the-only-price-fallback-is-manual)) | `verify:integrity` |
+| I-36 | `instrument_quotes.as_of >= max(instrument_prices.as_of)` for the same instrument — the latest quote is never older than the newest stored close | age-guarded upsert + `verify:integrity` |
+| I-37 | No `instrument_prices` row is dated after the latest known session for its exchange | `verify:integrity` |
+| I-38 | Under `basis: 'market'`, every open position **either** contributes a priced value **or** appears in `excluded[]` with a reason — exhaustive and disjoint | engine + integration test |
+| I-39 | A market-basis figure never substitutes a cost figure for any holding — no cost fallback inside a market total ([ADR-23](DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost)) | engine + type-level test |
+| I-40 | `corporate_action_detections.resolved_txn_id` is written only by the validated service path; no adapter or job writes it, and no provider creates an `investment_transactions` row ([ADR-29](DECISIONS.md#adr-29--provider-corporate-actions-are-detections-never-ledger-writes)) | source scan + integration test |
 
 ### Explicit non-invariants
 

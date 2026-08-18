@@ -217,7 +217,44 @@ Unblocked by Phase 4: `tax_lots` and `lot_disposals` exist, so the change bridge
 
 ---
 
-## Phase 6 — Market Data — **next, not started**
+## Phase 6 — Market Data — **steps 6.0 … 6.8 complete; 6.9 not started**
+
+**Design review complete 2026-08-18** — [MARKET-DATA-DESIGN.md](MARKET-DATA-DESIGN.md). **OD-10
+approved 2026-08-18**, and its findings are now applied *and implemented*, not merely documented.
+
+| Step | State |
+|---|---|
+| 6.0 canonical corrections (M1–M13, ADR-27…ADR-30, I-33…I-40) | ✅ |
+| 6.1 provider abstraction, registry, observation + failure model | ✅ |
+| 6.2 persistence — `corporate_action_detections`, migration `0004` | ✅ |
+| 6.3 FX — triangulation + Frankfurter adapter + `fx.refresh` | ✅ |
+| 6.4 AMFI mutual-fund NAV adapter + `prices.refresh` | ✅ |
+| 6.5 historical observation storage, bounded carry-back | ✅ |
+| 6.6 freshness — one session-based classifier | ✅ |
+| 6.7 corporate-action safety — detections, suppression | ✅ |
+| 6.8 tests and the verification gate | ✅ **1,177 passing** |
+| **6.9 commercial equity adapter (Twelve Data)** | ⛔ **blocked on OD-3** — a credential, not engineering |
+| 6.10 snapshots, only if measured slow | not started |
+| 6.11 market-value net worth (`basis: 'market'`) | not started |
+
+Three conclusions shaped how this phase was sequenced:
+
+- **OD-3 gates step 6.9 of twelve, not the phase.** The two adapters that matter most for an INR-base
+  portfolio — **AMFI** (Indian mutual-fund NAV) and a **central-bank FX feed** — are free, keyless and
+  official. Eleven of the twelve steps are unblocked today, and the FX adapter fixes a *live* gap:
+  `fx_rates` is empty, so every non-INR component is currently excluded from net worth.
+- **Thirteen defects were found in the baseline (M1–M13), four high severity — all now fixed.** None
+  produced a wrong number at the time, because `instrument_prices` and `fx_rates` were empty; each
+  would have produced a silently wrong figure on the day a provider was connected. The worst four:
+  FX could not triangulate so foreign holdings vanished (M1); wall-clock staleness marked every EOD
+  price stale every weekend (M2); staleness could not reach the net-worth figure (M3); and nothing
+  prevented a provider corporate action reaching the ledger (M4) or detected an unrecorded split
+  silently destroying 80% of a position's market value (M5).
+- **Four ADRs and eight invariants (I-33 … I-40) are in force.** I-38 and I-39 describe market-value
+  net worth and are reported by `verify:integrity` as **deferred**, not silently omitted.
+
+The implementation sequence is [§20.J](MARKET-DATA-DESIGN.md#j-implementation-sequence); the ordering
+below is the *scope* list, not the order of work.
 
 - `MarketDataProvider` interface, registry, `PriceResult` union
 - `ManualProvider` (always registered), AMFI adapter (Indian MF NAVs), FX adapter
@@ -241,6 +278,14 @@ Unblocked by Phase 4: `tax_lots` and `lot_disposals` exist, so the change bridge
 - [ ] Golden scenarios **G3**, **G5**, **G6** pass; **G2** now passes on market value
 - [ ] All invariants (I-1 … I-32) pass in `verify:integrity`, and no declared non-invariant is asserted ([SCHEMA.md §12](SCHEMA.md#12-invariants-summary))
 - [ ] If snapshots are introduced: `verify:integrity` asserts **snapshot = derivation**, and the current figure is still always derived
+- [ ] Staleness is measured in **trading sessions**, not wall-clock hours, and a price from Friday's close is not marked stale on Monday morning ([MARKET-DATA-DESIGN.md §11](MARKET-DATA-DESIGN.md#11-staleness))
+- [ ] A stale price is marked on the **net-worth** surface too, not only on the holdings table
+- [ ] An FX rate carries an age classification, as a price does
+- [ ] No provider-sourced corporate action ever creates an `investment_transactions` row; an unreconciled one **suppresses** the instrument's market value rather than adjusting it
+- [ ] `priceOn` carry-back is **bounded**; beyond the bound the point is a gap, not a value
+- [ ] The TWR boundary-valuation builder includes instruments **since fully disposed**, and supplies a valuation for a boundary falling on a non-trading day
+- [ ] Market-basis coverage is **value-weighted** by base cost basis, not a component count (D-29)
+- [ ] Every `instrument_prices` series for one instrument comes from **one** provider
 
 ---
 

@@ -29,6 +29,13 @@
       "when": 1786690734586,
       "tag": "0003_phase5_net_worth",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1787013356549,
+      "tag": "0004_phase6_market_data",
+      "breakpoints": true
     }
   ]
 }
