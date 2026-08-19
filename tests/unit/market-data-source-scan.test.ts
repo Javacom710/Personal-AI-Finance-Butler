@@ -9,19 +9,19 @@ import { describe, expect, it } from 'vitest';
  * Three rules here are architectural rather than behavioural, and each fails in
  * a way no output assertion catches until it is too late:
  *
- * - **I-40** — no provider or job writes the investment ledger
+ * - **I-40** â€” no provider or job writes the investment ledger
  *   ([ADR-29](../../docs/DECISIONS.md)). A behavioural test only catches this
  *   once somebody writes the one scenario that happens to cross a split.
- * - **ADR-27** — an adapter returns observations, never a freshness verdict. The
+ * - **ADR-27** â€” an adapter returns observations, never a freshness verdict. The
  *   failure mode is a future adapter author deciding `'stale'` locally, and the
  *   system then having N freshness policies instead of one.
- * - **Provider isolation** — nothing outside `providers/` names a provider. The
+ * - **Provider isolation** â€” nothing outside `providers/` names a provider. The
  *   whole point of the abstraction is that swapping a provider is one file plus
  *   one registry line, and that stops being true the moment a service imports an
  *   adapter directly.
  *
  * Same mechanism `networth-source-scan.test.ts` uses for I-26, and `TESTING.md`
- * §7 uses to keep model identifiers out of the orchestrator: assert the property
+ * Â§7 uses to keep model identifiers out of the orchestrator: assert the property
  * over the source, where the mistake is made.
  */
 
@@ -49,7 +49,7 @@ function code(source: string): string {
   return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 }
 
-describe('I-40 — no provider and no job writes the investment ledger', () => {
+describe('I-40 â€” no provider and no job writes the investment ledger', () => {
   const marketDataFiles = tsFilesUnder('src/server/market-data');
   const jobFiles = tsFilesUnder('src/server/jobs');
 
@@ -86,7 +86,7 @@ describe('I-40 — no provider and no job writes the investment ledger', () => {
   });
 
   it('the market-data service says so in its own words, so the rule is discoverable', () => {
-    // Not a behavioural claim — a documentation guard. Someone reading the file
+    // Not a behavioural claim â€” a documentation guard. Someone reading the file
     // to add a feature should meet the rule before they meet the schema.
     const service = read(join(ROOT, 'src/server/services/market-data.ts'));
     expect(service).toMatch(/ADR-29/);
@@ -94,7 +94,7 @@ describe('I-40 — no provider and no job writes the investment ledger', () => {
   });
 });
 
-describe('ADR-27 — adapters report observations, not verdicts', () => {
+describe('ADR-27 â€” adapters report observations, not verdicts', () => {
   const providerFiles = tsFilesUnder('src/server/market-data/providers');
 
   it('has at least the adapters this phase ships', () => {
@@ -127,13 +127,21 @@ describe('ADR-27 — adapters report observations, not verdicts', () => {
 });
 
 describe('provider isolation', () => {
-  const PROVIDER_NAMES = [/\bamfi\b/i, /\bfrankfurter\b/i, /\btwelvedata\b/i, /twelve\s*data/i];
+  const PROVIDER_NAMES = [/\bamfi\b/i, /\bfrankfurter\b/i, /twelve[\s_-]*data/i];
 
-  /** The only files allowed to name a provider. */
+  /**
+   * The only files allowed to name a provider.
+   *
+   * `src/lib/env.ts` is on the list because it declares `TWELVE_DATA_API_KEY`,
+   * and an environment schema that cannot name the variable it validates is not
+   * a schema. Naming the variable is not the leak; **reading its value** outside
+   * the composition root is, and that is asserted separately below.
+   */
   const ALLOWED = [
     'src/server/market-data/providers/',
     'src/server/market-data/index.ts',
     'src/server/market-data/types.ts',
+    'src/lib/env.ts',
   ];
 
   function isAllowed(path: string): boolean {
@@ -157,17 +165,20 @@ describe('provider isolation', () => {
     }
   });
 
-  it('no provider credential is read outside providers/', () => {
-    // The two adapters this phase ships need none. The future equity adapter
-    // reads its own inside providers/, never above (SECURITY.md).
+  it('no adapter reads the environment â€” a key is injected, never fetched', () => {
+    // The credential is resolved once, in the composition root, and passed in.
+    // An adapter that read `process.env` itself would be untestable without
+    // mutating global state, and would put a second place to look for a leak.
     for (const file of tsFilesUnder('src/server/market-data')) {
       const path = relative(file);
-      if (path.startsWith('src/server/market-data/providers/')) continue;
-      expect(code(read(file)), `${path} must not read the environment`).not.toMatch(/process\.env|serverEnv/);
+      if (path === 'src/server/market-data/index.ts') continue; // the composition root
+      expect(code(read(file)), `${path} must not read the environment`).not.toMatch(
+        /process\.env|serverEnv|\benv\(\)/,
+      );
     }
   });
 
-  it('the shipping adapters require no credential at all', () => {
+  it('the credential-free adapters declare it, and read no secret', () => {
     for (const name of ['amfi', 'frankfurter', 'manual']) {
       const body = read(join(ROOT, `src/server/market-data/providers/${name}.ts`));
       expect(body, `${name} must declare requiresCredential: false`).toMatch(
@@ -175,6 +186,50 @@ describe('provider isolation', () => {
       );
       expect(code(body), `${name} must not read a secret`).not.toMatch(/process\.env|API_KEY|apiKey/);
     }
+  });
+
+  it('TWELVE_DATA_API_KEY is named only where declared, injected, or explained', () => {
+    // Three legitimate mentions, and no fourth:
+    //   env.ts        declares and validates it
+    //   index.ts      reads it once and injects it
+    //   twelvedata.ts names it in the message shown when it is unset, which is
+    //                 the entire point of that message
+    //
+    // Naming it is not the security property. **Reading its value** outside the
+    // composition root is, and the environment scan above asserts that.
+    const allowed = new Set([
+      'src/lib/env.ts',
+      'src/server/market-data/index.ts',
+      'src/server/market-data/providers/twelvedata.ts',
+    ]);
+    const searched = [
+      ...tsFilesUnder('src/server'),
+      ...tsFilesUnder('src/lib'),
+      ...tsFilesUnder('app'),
+    ];
+
+    const found: string[] = [];
+    for (const file of searched) {
+      if (read(file).includes('TWELVE_DATA_API_KEY')) found.push(relative(file));
+    }
+
+    for (const path of found) {
+      expect(allowed.has(path), `${path} must not name the credential`).toBe(true);
+    }
+    // Present, not merely absent â€” a rename that silently dropped the wiring
+    // would otherwise pass this test.
+    expect(found).toContain('src/server/market-data/index.ts');
+  });
+
+  it('the equity adapter declares that it needs a credential, and never logs one', () => {
+    const body = read(join(ROOT, 'src/server/market-data/providers/twelvedata.ts'));
+    expect(body).toMatch(/requiresCredential:\s*true/);
+    expect(code(body), 'must not read the environment').not.toMatch(/process\.env|\benv\(\)/);
+    // The key is a query parameter, so a message quoting a URL would leak it.
+    // Failures name the field or the provider code, never the request.
+    expect(code(body), 'no failure message may embed the request URL').not.toMatch(
+      /failure\.\w+\(`[^`]*\$\{(target|url)\b/,
+    );
   });
 });
 

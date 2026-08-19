@@ -2,13 +2,13 @@
 
 Durable status record. Conversation history is temporary; this file is not. Read this first after any context reset, then verify it against `docs/`, the source tree, and the tests before trusting it.
 
-**Last updated:** 2026-08-18 · **Current phase:** **6 — Market Data, steps 6.0–6.8 complete.** Stopped at the 6.8 gate as instructed; **6.9 (the commercial equity adapter) has NOT started.**
+**Last updated:** 2026-08-18 · **Current phase:** **6 — Market Data, steps 6.0–6.9 complete.** Stopped at the 6.9 gate as instructed. Remaining Phase 6 work: **6.10 snapshots (only if measured slow)** and **6.11 market-value Net Worth** — neither started.
 
-**1,177 tests pass** — 128 added this pass, and every Phase 3, 4 and 5 test still passes. `verify:integrity` reports **33 passing, 0 failing, 9 engine-enforced, 4 deferred**. Typecheck, lint and the production build are clean.
+**1,245 tests pass** — 68 added in 6.9, 196 across Phase 6 so far, and every Phase 3, 4 and 5 test still passes. `verify:integrity` reports **33 passing, 0 failing, 9 engine-enforced, 4 deferred**. Typecheck, lint and the production build are clean.
 
-**What now works that did not before:** Indian mutual funds price from **AMFI**, FX rates come from **Frankfurter/ECB**, both free and credential-free; a foreign-currency component can be converted where a route exists, including by **triangulation**; staleness is measured in **trading sessions**; and a provider corporate action can no longer reach the ledger.
+**What now works that did not before:** Indian mutual funds price from **AMFI**; FX comes from **Frankfurter/ECB**, including by **triangulation** where no direct pair exists; equities and ETFs on NSE, BSE and three international venues price from **Twelve Data**; staleness is measured in **trading sessions**; and a provider corporate action cannot reach the ledger.
 
-**OD-3 remains open and is deliberately not needed.** No commercial SDK is installed and no credential is required to run anything. Twelve Data is the chosen provider and slots in at step 6.9 behind its credential/configuration step.
+**OD-3 is resolved in code and open in configuration.** The Twelve Data adapter is built, tested and registered. `TWELVE_DATA_API_KEY` is **optional and not set here**, so equities currently report `no_provider` rather than a price — the application runs normally without it. **No live smoke test has been run**; `npm run smoke:market-data` is ready and exits with configuration guidance until a key exists.
 
 This file also remains the **Phase 5 completion checkpoint** and carries the **Phase 6 design review** ([docs/MARKET-DATA-DESIGN.md](docs/MARKET-DATA-DESIGN.md)), whose findings **OD-10 approved and which are now applied**.
 
@@ -67,7 +67,7 @@ Corollaries that follow from the above:
 | 3 — Financial Core | ✅ complete, verified |
 | 4 — Investment Engine | ✅ complete, verified |
 | 5 — Net Worth at Cost | ✅ **complete, verified** |
-| 6 — Market Data | **steps 6.0–6.8 complete and verified.** 6.9 (commercial equity adapter) not started — gated on OD-3. 6.10 (snapshots) and market-value net worth remain |
+| 6 — Market Data | **steps 6.0–6.9 complete and verified.** 6.10 (snapshots, only if measured slow) and 6.11 (market-value net worth) remain |
 | 7 — AI Infrastructure | not started; **blocked** on OD-1 (`NVIDIA_API_KEY`) |
 | 8–14 | not started |
 
@@ -640,7 +640,72 @@ still produce an incorrect number.
 | **Corporate-action provider feed** | No shipping adapter supplies one, so `corporate_actions.refresh` ordinarily returns `unsupported`. The **detection, storage and suppression path is complete and tested** — what is missing is a source, not the safety machinery |
 | **Historical backfill from a provider** | AMFI's daily file carries one NAV per scheme, so `getHistoricalPrices` is not implemented for it and `backfillPrices` correctly reports the refusal. History accumulates one session per day from the daily refresh, and arrives in bulk with the equity adapter |
 
-**The next exact step is 6.9** — the Twelve Data adapter — and it is blocked on **OD-3** (an account and a credential). Nothing above it changes when it lands: it is a new file in `providers/`, one entry in `defaultRegistry()`, and `MARKET_DATA_TWELVEDATA_API_KEY` added to `src/lib/env.ts`.
+---
+
+## What step 6.9 delivered — Twelve Data · 2026-08-18
+
+**The abstraction held.** The adapter is one new file in `providers/`, one entry
+in `defaultRegistry()`, and one optional environment variable. **No file above
+`src/server/market-data/` was modified to accommodate it** — the property the
+whole abstraction exists to provide, now demonstrated rather than asserted.
+
+| Area | Where |
+|---|---|
+| Adapter | `src/server/market-data/providers/twelvedata.ts` — `/quote`, `/time_series`, `/splits`; prices parsed as strings at `dp=8`; errors read from the **body**, not the HTTP status |
+| Exchange identity | `src/server/market-data/exchanges.ts` — `NSE`→`XNSE`, `BSE`→`XBOM`, plus `XNAS`/`XNYS`/`XLON`, with per-venue close instants computed through `Intl` (DST-correct) |
+| Credential | `TWELVE_DATA_API_KEY`, **optional**, read once in the composition root and injected. Placeholder in `.env.example` |
+| Smoke test | `npm run smoke:market-data` — a `scripts/` entry point, deliberately **not** in the deterministic suite |
+| Tests | **68 added** — 49 unit across all 21 required cases, 17 integration, 2 strengthened source scans |
+
+### Verification — 2026-08-18
+
+| Gate | Result |
+|---|---|
+| `npm test` | **1,245 passed**, 0 failed (60 files) — up from 1,177 |
+| Every Phase 3 / 4 / 5 test | **still passing** |
+| Typecheck · lint · production build | clean · clean · clean (23 routes) |
+| `verify:integrity` | **33 passed, 0 failed**, 9 engine-enforced, 4 deferred |
+| Schema | **unchanged** — 6.9 required no migration |
+| `check:no-client-secrets` | no secret in **21** client files; a **canary run with a planted key** also clean |
+| Provider absent from the browser | the string `twelvedata` appears in **no** client asset |
+| Live smoke test | ❌ **not run — no key configured.** Exits 2 with local configuration guidance |
+
+### The defect this step found and fixed
+
+**A user-typed exchange crashed the whole price refresh.** `instruments.exchange`
+is free text (`NSE`), and the refs builder added in step 6.5 asserted it was
+already a MIC — so `mic('NSE')` **threw**, aborting `prices.refresh` for the
+entire portfolio, not just the offending instrument. Every market-data test to
+that point used a mutual fund, whose exchange is `null`, so the equity path had
+never been exercised. `resolveMic` now translates or returns `null`, and an
+adapter that needs a venue refuses the instrument cleanly. Two regression tests.
+
+### Decisions taken during implementation
+
+| # | Decision | Why |
+|---|---|---|
+| **D-38** | **The credential is read in the composition root and injected**, not read by the adapter | An adapter reading `process.env` is untestable without mutating global state and adds a second place to look for a leak. Injection means all 49 adapter tests run with no environment at all, and the source scan asserting "no adapter reads the environment" is enforceable |
+| **D-39** | **Twelve Data is registered even when unconfigured** | An adapter that vanishes when the key is missing makes "why is nothing priced?" depend on which files loaded. Registered-but-unconfigured returns one typed refusal on every path, and the reason reaches the screen |
+| **D-40** | **An error body is checked before the HTTP status is trusted** | Twelve Data returns `{"status":"error","code":429}` with HTTP 200. Trusting transport alone would read a rate-limit refusal as a successful empty response — a portfolio that quietly stops updating |
+| **D-41** | **An unresolvable exchange is a refusal, never a guess** | `INFY` without a venue could be the NSE listing or a same-named foreign one. Pricing the wrong security is worse than pricing nothing, and `resolveMic` returns `null` rather than picking a plausible venue |
+| **D-42** | **`source` is scoped by venue — `twelvedata:XNSE`** | I-35 pins one source per series. Venue-scoping means a series can never silently mix two listings of the same company |
+
+### Scope boundaries — deliberately not built in 6.9
+
+Automated equity refresh (the existing `prices.refresh` already routes equities;
+scheduling is unchanged), crypto (**OD-11**), gold (**OD-12**), market-value net
+worth, snapshots, AI. `ValuationBasis` remains the one-member union `'cost'`.
+
+**TWR is not wired into the portfolio summary.** Its *data path* is proven end to
+end — stored history → `closeAsOf` → a valuation at every boundary including a
+non-trading day → `twr()` returning a figure — but `services/portfolio.ts` still
+reports `insufficient_price_history` unconditionally. That connection is a later
+step and is not claimed here.
+
+**The next exact step is a decision, not code:** either configure
+`TWELVE_DATA_API_KEY` and run `npm run smoke:market-data` to close the one
+outstanding verification, or assign **6.11 market-value Net Worth**, which is the
+larger remaining piece of Phase 6.
 
 
 Superseded pointer, kept for the record: the earlier instruction here was to *perform* this review by

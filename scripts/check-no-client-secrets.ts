@@ -1,11 +1,11 @@
 /**
- * Assert that no secret reached a client bundle (SECURITY.md §3).
+ * Assert that no secret reached a client bundle (SECURITY.md Â§3).
  *
  * Two checks, both over the built output rather than the source, because the
  * source is not what ships:
  *
  * 1. No literal value of a secret environment variable appears in any file
- *    served to the browser. This is the check that actually matters — it would
+ *    served to the browser. This is the check that actually matters â€” it would
  *    catch a leak arriving through a path nobody predicted.
  * 2. No `NEXT_PUBLIC_` variable is named like a credential.
  *
@@ -25,6 +25,9 @@ const SECRET_VARS = [
   'APP_ENCRYPTION_KEY',
   'SESSION_COOKIE_SECRET',
   'NVIDIA_API_KEY',
+  // Phase 6. Optional, so the scan simply has nothing to look for when it is
+  // unset — which is why the count in the summary line is the honest number.
+  'TWELVE_DATA_API_KEY',
   'FOS_PASSWORD',
 ] as const;
 
@@ -81,7 +84,7 @@ async function main(): Promise<void> {
   }
 
   if (findings.length > 0) {
-    console.error('SECRET LEAK — the following must never reach the browser:');
+    console.error('SECRET LEAK â€” the following must never reach the browser:');
     for (const f of findings) console.error(`  ${f}`);
     process.exit(1);
   }

@@ -62,6 +62,23 @@ const envSchema = z.object({
   APP_ORIGIN: z.url().default('http://localhost:3000'),
 
   LOG_LEVEL: z.enum(['error', 'warn', 'info', 'debug']).default('info'),
+
+  /**
+   * Twelve Data — equity and ETF prices (OD-3).
+   *
+   * **Optional on purpose.** Every other variable here is required and the
+   * process refuses to boot without it, because without a database or a session
+   * secret nothing works at all. A market-data key is different: absent, the
+   * application still runs, still shows every cost-basis figure, and still
+   * prices mutual funds from AMFI — equities simply report `no_provider` and say
+   * so. Making it required would turn a degraded feature into a dead
+   * application, and would stop the deterministic test suite running at all.
+   *
+   * Read **only** inside `src/server/market-data/providers/twelvedata.ts`, never
+   * above it and never in a client bundle (SECURITY.md; enforced by
+   * `check:no-client-secrets` and a source scan).
+   */
+  TWELVE_DATA_API_KEY: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -1,7 +1,7 @@
 import 'server-only';
 
 /**
- * The market-data write path — the only place a provider observation becomes a
+ * The market-data write path â€” the only place a provider observation becomes a
  * stored row.
  *
  * Everything here is a **command**: it takes a `WriteCtx`, so a caller that can
@@ -12,14 +12,14 @@ import 'server-only';
  *
  * Three invariants are enforced here because nothing else can enforce them:
  *
- * - **I-33 / I-34** — an observation whose currency is not the instrument's is
+ * - **I-33 / I-34** â€” an observation whose currency is not the instrument's is
  *   rejected. The database cannot express a cross-table equality, and a price in
  *   the wrong currency multiplied by a quantity is silently wrong.
- * - **I-35** — one `source` per price series
+ * - **I-35** â€” one `source` per price series
  *   ([ADR-30](../../../docs/DECISIONS.md#adr-30--one-provider-per-instrument-price-series-the-only-price-fallback-is-manual)).
  *   Two vendors' closes differ, and a blended series makes the splice
  *   indistinguishable from a real price move.
- * - **I-36** — the latest-quote write is age-guarded, so a late-arriving
+ * - **I-36** â€” the latest-quote write is age-guarded, so a late-arriving
  *   response cannot overwrite a newer quote and a refresh cannot silently
  *   replace a price the user just typed.
  *
@@ -58,7 +58,7 @@ import {
   type ProviderRef,
   type Registry,
 } from '../market-data';
-import { mic } from '../market-data/types';
+import { resolveMic } from '../market-data/exchanges';
 import type { AssetClass } from '../domain/pricing/valuation';
 import type { ReadCtx, WriteCtx } from './_ctx';
 
@@ -132,7 +132,12 @@ function toRef(row: InstrumentRow): ProviderRef {
     // `provider_symbol` is the lookup key where set; the human symbol is the
     // fallback, which is what a user who typed a scheme code straight in gets.
     providerSymbol: (row.providerSymbol ?? row.symbol).trim(),
-    exchange: row.exchange ? mic(row.exchange) : null,
+    // `instruments.exchange` is free text a user typed â€” `NSE`, not `XNSE` â€”
+    // so it is *resolved*, never asserted. `resolveMic` returns null for
+    // anything it cannot map, and an adapter that needs a venue then refuses
+    // the instrument. Calling `mic()` here instead would throw on the ordinary
+    // stored value and take the whole refresh down with it.
+    exchange: resolveMic(row.exchange),
     isin: row.isin?.trim() ?? null,
     currency: currency(row.currencyCode.trim()),
     assetClass: row.assetClass as AssetClass,
@@ -251,7 +256,7 @@ export async function storePriceObservations(
 }
 
 /**
- * Move `instrument_quotes` forward — and only forward (I-36).
+ * Move `instrument_quotes` forward â€” and only forward (I-36).
  *
  * Two ways this write can be wrong, and the `WHERE` refuses both:
  *
@@ -298,7 +303,7 @@ async function advanceQuote(ctx: WriteCtx, observation: PriceObservation): Promi
  * re-run on the same day is an update rather than a duplicate.
  *
  * Unlike a price series, FX **may** come from more than one source
- * ([ADR-30](../../../docs/DECISIONS.md#adr-30--one-provider-per-instrument-price-series-the-only-price-fallback-is-manual)) —
+ * ([ADR-30](../../../docs/DECISIONS.md#adr-30--one-provider-per-instrument-price-series-the-only-price-fallback-is-manual)) â€”
  * a rate is not an instrument-specific series, so there is no continuity to
  * splice. `source` still records which feed each row came from.
  */
@@ -371,7 +376,7 @@ export interface FxRefreshOutcome {
  * Fetch and store the rates this user needs.
  *
  * Pairs are requested **quoted against the base currency** so the provider
- * computes any cross server-side and `selectRate` finds a direct row — finding
+ * computes any cross server-side and `selectRate` finds a direct row â€” finding
  * **M1**. Triangulation in the domain remains the safety net for a pair that was
  * never requested, not the everyday path.
  */
@@ -434,7 +439,7 @@ export async function refreshPrices(ctx: WriteCtx, registry: Registry): Promise<
     const result = results.get(ref.instrumentId);
     if (result === undefined || !result.ok) {
       // A provider that cannot answer leaves the previous quote in place. It
-      // will age into `stale` and say so, which is the honest outcome — far
+      // will age into `stale` and say so, which is the honest outcome â€” far
       // better than blanking a holding because a feed had a bad morning.
       failed.push({
         instrumentId: ref.instrumentId,
@@ -488,7 +493,7 @@ export interface DetectionOutcome {
 }
 
 /**
- * Record what a provider says happened — **as a detection, never as a ledger row**
+ * Record what a provider says happened â€” **as a detection, never as a ledger row**
  * ([ADR-29](../../../docs/DECISIONS.md#adr-29--provider-corporate-actions-are-detections-never-ledger-writes)).
  *
  * `investment_transactions` is not touched by this function, by anything it
@@ -580,7 +585,7 @@ export async function openDetections(ctx: ReadCtx): Promise<readonly OpenDetecti
 }
 
 /**
- * Mark a detection dismissed — the user's judgement that it does not apply.
+ * Mark a detection dismissed â€” the user's judgement that it does not apply.
  *
  * The counterpart, *accepting* a detection, deliberately does not live here: it
  * creates an `investment_transactions` row and therefore belongs to the
@@ -625,7 +630,7 @@ export function cadenceFor(assetClass: AssetClass) {
   return cadenceForAssetClass(assetClass);
 }
 
-/** Structured, and deliberately carrying no figures — SECURITY.md forbids logging amounts. */
+/** Structured, and deliberately carrying no figures â€” SECURITY.md forbids logging amounts. */
 export function logRefresh(kind: string, outcome: Record<string, unknown>): void {
   log.info(`market-data ${kind}`, outcome);
 }

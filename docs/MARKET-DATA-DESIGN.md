@@ -737,7 +737,7 @@ same adapter interface.
 
 | Provider | India (NSE/BSE) | International | Cadence for India | Entry price | Personal-use / storage | Verified |
 |---|---|---|---|---|---|---|
-| **Twelve Data** | **Yes** — XNSE requires **Grow+** | 20+ markets at Grow, 70+ at Pro | **EOD** (stated on the XNSE page) | **$29/mo** Grow; Basic free = 3 markets, **India not included** | Terms permit *"Store Data solely for Internal Use"*; redistribution needs an add-on; free tier bars commercial use | [pricing](https://twelvedata.com/pricing), [XNSE](https://twelvedata.com/exchanges/XNSE), [terms](https://twelvedata.com/terms) |
+| **Twelve Data** — **IMPLEMENTED, see [§27](#27-twelve-data-integration-step-69)** | **Yes** — XNSE requires **Grow+**; XBOM also covered | 20+ markets at Grow, 70+ at Pro | **EOD** (stated on the XNSE page) | **$29/mo** Grow; Basic free = 3 markets, **India not included** | Terms permit *"Store Data solely for Internal Use"*; redistribution needs an add-on; free tier bars commercial use | [pricing](https://twelvedata.com/pricing), [XNSE](https://twelvedata.com/exchanges/XNSE), [terms](https://twelvedata.com/terms) |
 | **Kite Connect (Zerodha)** | **Yes** — native NSE/BSE | **None** | Realtime WebSocket + historical candles | **₹500/mo** (~$5); a free "Personal" tier exists for orders/portfolio but **not** market data | UNVERIFIED. Requires a **Zerodha account**, and its login expires daily — hostile to an unattended job | [zerodha.com/products/api](https://zerodha.com/products/api/) |
 | **EODHD** | **UNVERIFIED** — no India entry found in the exchange list (70 exchanges as of Aug 2026) | Broad | EOD | $19.99/mo EOD-All-World; free = **20 calls/day** | Plans designated *"Personal use"*; commercial needs a separate plan | [pricing](https://eodhd.com/pricing), [exchanges](https://eodhd.com/financial-apis/list-supported-exchanges) |
 | **marketstack** | **UNVERIFIED** — India not stated | "2700+ exchanges" claimed | EOD (intraday US only below Professional) | $9.99/mo Basic (10k req/mo); free = **100 req/mo**, 1 yr history | Commercial use from Basic; free-tier attribution UNVERIFIED | [marketstack.com/product](https://marketstack.com/product) |
@@ -1172,3 +1172,140 @@ All five have a stated correction above, and all five are testable before a prov
 | Implementation sequence explicit | ✅ [§20.J](#j-implementation-sequence) — twelve steps; OD-3 is step nine |
 | No unresolved contradiction remains | ✅ Thirteen were found and each has a stated correction ([§21](#21-defects-found-in-the-baseline-m1m13)) |
 | **Implementation started** | ❌ **No.** No package installed, no adapter, no schema, no migration, no source file changed |
+
+---
+
+## 27. Twelve Data integration (step 6.9)
+
+**Implemented 2026-08-18.** The equity adapter OD-3 selected, built behind the
+existing abstraction with **no change to it**: one new file in `providers/`, one
+entry in `defaultRegistry()`, one optional environment variable. No file above
+`src/server/market-data/` was modified to accommodate it, which was the property
+the abstraction existed to provide and is now demonstrated rather than asserted.
+
+### 27.1 What is implemented
+
+| Capability | Endpoint | State |
+|---|---|---|
+| Instrument reference | `/quote` | ✅ name, currency and venue, used to confirm identity |
+| Latest close | `/quote?interval=1day&dp=8` | ✅ one credit per symbol |
+| Daily history | `/time_series?interval=1day&order=asc&dp=8` | ✅ up to 5,000 points per call |
+| Splits | `/splits` | ✅ **as detections only** — requires the provider's Basic plan or higher |
+
+**Not requested, deliberately:** fundamentals, analyst data, dividends,
+derivatives, crypto, forex, intraday, `symbol_search`. Each is either deferred
+(OD-11, OD-12), better sourced elsewhere (FX comes from a central bank), or
+consumed by nothing — and a request for data nothing consumes is a cost and a
+privacy surface for no return.
+
+### 27.2 Exchange identity
+
+`instruments.exchange` is free text a user types (`varchar(32)`, upper-cased);
+the provider takes an ISO 10383 `mic_code`. `src/server/market-data/exchanges.ts`
+is the single translation point, and it **never guesses**: an unrecognised label
+resolves to `null`, and the adapter then refuses the instrument rather than
+pricing a same-named listing on another continent.
+
+| Stored label | MIC | Timezone | Close |
+|---|---|---|---|
+| `NSE`, `NSEI`, `NSE INDIA` | `XNSE` | Asia/Kolkata | 15:30 |
+| `BSE`, `BOM`, `BSE INDIA` | `XBOM` | Asia/Kolkata | 15:30 |
+| `NASDAQ`, `NSDQ` | `XNAS` | America/New_York | 16:00 |
+| `NYSE` | `XNYS` | America/New_York | 16:00 |
+| `LSE`, `LON` | `XLON` | Europe/London | 16:30 |
+
+A MIC passes through only if its session times are known — a code we cannot date
+a close for is no more usable than an unknown name. Close instants are computed
+through `Intl`, so they are DST-correct for the US and UK venues and exact for
+India, which has no DST.
+
+**This work fixed a latent defect.** The refs builder introduced in step 6.5
+asserted that `instruments.exchange` was already a MIC and **threw** on the
+ordinary stored value `NSE`. Every market-data test to that point had used a
+mutual fund, whose exchange is `null`, so the equity path was never exercised;
+any user holding an equity would have crashed `prices.refresh` for their whole
+portfolio. Regression tests in `tests/integration/market-data-equity.test.ts`.
+
+### 27.3 Two provider quirks the adapter absorbs
+
+1. **An error can arrive with HTTP 200.** Twelve Data signals failure in the body
+   — `{"code":429,"message":"…","status":"error"}` — and does not reliably set a
+   matching transport status. Every response is checked for `status: "error"`
+   *before* anything is read out of it. Trusting the HTTP status alone would read
+   a rate-limit refusal as a successful empty response, which is how a portfolio
+   quietly stops updating without anyone noticing.
+2. **Prices are strings**, which is the good case: `UnitPrice.parseUserInput`
+   reads the digits exactly with no double in the path. `dp=8` is requested so
+   the provider rounds once, at `NUMERIC(20,8)`, rather than returning more
+   precision than can be stored.
+
+### 27.4 Failure mapping
+
+| Condition | Signal | `ProviderFailure` | Retry? |
+|---|---|---|---|
+| No key configured | — | `unsupported` naming the variable | no |
+| Invalid / unentitled key | body code 401, 403 | `unsupported` | **no** — permanent until a human acts |
+| Instrument unknown | body code 404, HTTP 404 | `not_found` | no |
+| Bad request | body code 400 | `malformed` | no |
+| Rate limit / quota | HTTP 429 **or** body code 429 | `rate_limited` | yes |
+| Provider 5xx | body code ≥ 500, HTTP 5xx | `transport` | yes |
+| Timeout, DNS, connection reset | thrown | `transport` | yes |
+| Unparseable body, wrong currency, excess precision, impossible date | parse | `malformed` | no |
+| No resolvable exchange | local | `unsupported` | no |
+
+An outage is **never** reported as `not_found`: that would stop the retry which
+fixes it and would tell the user to correct a symbol that is already correct.
+
+### 27.5 Split normalisation
+
+Twelve Data reports `from_factor` / `to_factor` — "1 share became 5". That maps
+onto the ledger's `ratio_num` / `ratio_den` directly, matching
+[INVESTMENT-DOMAIN.md §11](INVESTMENT-DOMAIN.md#11-corporate-actions)'s worked
+1:5 example. Factors arrive as JSON numbers and may be fractional, while the
+schema requires positive integers, so a fraction is scaled to whole numbers and
+anything that will not scale within a bounded denominator is **rejected**.
+Inventing a rounded ratio would silently rescale a position.
+
+Bonus issues are **not** inferred from splits — they are economically distinct,
+and guessing one from the other would put a fabricated corporate action in front
+of the user. The provider's split endpoint is the only corporate-action source.
+
+### 27.6 Credential handling
+
+`TWELVE_DATA_API_KEY`, **optional**. Absent, the application runs normally:
+mutual funds still price from AMFI, FX still comes from Frankfurter, and equities
+report `no_provider` rather than a fabricated figure. Making it required would
+turn a degraded feature into a dead application and would stop the deterministic
+suite running at all.
+
+- **Read in exactly one place** — `market-data/index.ts`, the composition root —
+  and injected into the adapter. The adapter itself never touches the
+  environment, which is why every one of its tests runs without one.
+- Sent as a query parameter, because that is what the provider accepts. **That is
+  precisely why no failure message in the adapter ever quotes a URL**, and a
+  source scan asserts it.
+- Verified absent from the client bundle by `check:no-client-secrets`, including
+  a canary run with a planted value. The provider's name does not appear in any
+  client asset at all.
+
+### 27.7 Verified limitations — recorded, not glossed
+
+- **No live smoke test has been run.** No key is configured in this environment.
+  `npm run smoke:market-data` is written, exits 2 with configuration guidance
+  when the key is absent, and verifies identity, venue, price, session instant
+  and precision when it is present. **Every claim in §27.1 is verified against
+  recorded fixtures and the published API contract, not against a live response.**
+- **Splits need the provider's Basic plan or higher.** On a lesser plan the call
+  returns a typed refusal, which is recorded as an unavailable capability rather
+  than an error — corporate-action *detection* then depends on the user recording
+  actions, and suppression still protects the valuation either way.
+- **`historyFrom` is `null`** — depth varies by plan and is not asserted. A
+  request beyond the entitlement returns `not_found`.
+- **No automated equity refresh job was added.** `prices.refresh` already exists
+  and now routes equities to this adapter; scheduling it is unchanged and remains
+  a deployment concern.
+- **TWR is not yet wired into the portfolio summary.** The *data path* is proven
+  end to end — stored history → `closeAsOf` → valuations at every boundary
+  including a non-trading day → `twr()` returning a figure — but
+  `services/portfolio.ts` still reports `insufficient_price_history`
+  unconditionally. Connecting it is a later step, not a claim made here.
