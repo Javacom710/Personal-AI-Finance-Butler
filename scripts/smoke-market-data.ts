@@ -30,6 +30,7 @@ import { loadDotEnv, resetEnvCache, env } from '../src/lib/env';
 import { isoDate } from '../src/lib/date';
 import { currency } from '../src/lib/decimal/money';
 import { pToDbString } from '../src/lib/decimal/price';
+import { toDiagnosticJson } from '../src/lib/format/diagnostic-json';
 import { createTwelveDataProvider } from '../src/server/market-data/providers/twelvedata';
 import { XNSE } from '../src/server/market-data/exchanges';
 import { describeFailure, refKey, type ProviderRef } from '../src/server/market-data/types';
@@ -37,9 +38,9 @@ import { describeFailure, refKey, type ProviderRef } from '../src/server/market-
 loadDotEnv();
 resetEnvCache();
 
-const apiKey = env().TWELVE_DATA_API_KEY ?? null;
+const configuredKey = env().TWELVE_DATA_API_KEY ?? null;
 
-if (apiKey === null) {
+if (configuredKey === null) {
   console.error(
     [
       '',
@@ -66,6 +67,13 @@ if (apiKey === null) {
   );
   process.exit(2);
 }
+
+/**
+ * Narrowed once, here, rather than with a non-null assertion at each use: the
+ * guard above is the only thing that makes this a string, and saying so keeps
+ * that fact checkable instead of asserted.
+ */
+const apiKey: string = configuredKey;
 
 /**
  * A liquid NSE name, chosen because a wrong answer is obvious to a human: if the
@@ -145,8 +153,18 @@ async function main(): Promise<void> {
     console.log(`\n  splits       ${actions.value.length} detected (never auto-applied)`);
   }
 
-  const printed = JSON.stringify({ metadata: metadata.value, quote: quote.value });
-  if (printed.includes(apiKey!)) fail('output check', 'the API key appeared in the output');
+  // Serialised through the diagnostic formatter, because a `UnitPrice` holds a
+  // `bigint` and plain `JSON.stringify` throws on one — which is what this check
+  // used to do. It threw *after* every figure had already been printed, so the
+  // leak check never actually ran. `toDiagnosticJson` renders scaled decimals at
+  // their own scale exactly, with no float in the path.
+  const printed = toDiagnosticJson({
+    metadata: metadata.value,
+    quote: quote.value,
+    history: history.value,
+    actions: actions.ok ? actions.value : { refused: describeFailure(actions.error) },
+  });
+  if (printed.includes(apiKey)) fail('output check', 'the API key appeared in the output');
 
   console.log('\nOK — identity, venue, price, session date and precision all verified.');
   console.log('Nothing was written to the database.');
