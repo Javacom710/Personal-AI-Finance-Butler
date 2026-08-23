@@ -2,7 +2,9 @@
 
 Durable status record. Conversation history is temporary; this file is not. Read this first after any context reset, then verify it against `docs/`, the source tree, and the tests before trusting it.
 
-**Last updated:** 2026-08-18 · **Current phase:** **6 — Market Data, steps 6.0–6.9 complete.** Stopped at the 6.9 gate as instructed. Remaining Phase 6 work: **6.10 snapshots (only if measured slow)** and **6.11 market-value Net Worth** — neither started.
+**Last updated:** 2026-08-21 · **Current phase:** **6 — Market Data, steps 6.0–6.9 complete and verified. 6.10 closed by measurement. 6.11 design review complete; implementation NOT started.**
+
+The **Phase 6.11 design review** was completed 2026-08-21 and is recorded in [docs/MARKET-VALUE-NET-WORTH-DESIGN.md](docs/MARKET-VALUE-NET-WORTH-DESIGN.md). **No application code, schema, migration, service, API, UI or test was touched by it.** Its findings are non-normative until **OD-14** approves applying them.
 
 **1,245 tests pass** — 68 added in 6.9, 196 across Phase 6 so far, and every Phase 3, 4 and 5 test still passes. `verify:integrity` reports **33 passing, 0 failing, 9 engine-enforced, 4 deferred**. Typecheck, lint and the production build are clean.
 
@@ -67,7 +69,7 @@ Corollaries that follow from the above:
 | 3 — Financial Core | ✅ complete, verified |
 | 4 — Investment Engine | ✅ complete, verified |
 | 5 — Net Worth at Cost | ✅ **complete, verified** |
-| 6 — Market Data | **steps 6.0–6.9 complete and verified.** 6.10 (snapshots, only if measured slow) and 6.11 (market-value net worth) remain |
+| 6 — Market Data | **6.0–6.9 complete and verified.** **6.10 closed** as unnecessary by measurement (OD-15). **6.11 design review complete**, implementation not started (OD-14) |
 | 7 — AI Infrastructure | not started; **blocked** on OD-1 (`NVIDIA_API_KEY`) |
 | 8–14 | not started |
 
@@ -702,10 +704,68 @@ non-trading day → `twr()` returning a figure — but `services/portfolio.ts` s
 reports `insufficient_price_history` unconditionally. That connection is a later
 step and is not claimed here.
 
-**The next exact step is a decision, not code:** either configure
-`TWELVE_DATA_API_KEY` and run `npm run smoke:market-data` to close the one
-outstanding verification, or assign **6.11 market-value Net Worth**, which is the
-larger remaining piece of Phase 6.
+---
+
+## Phase 6.11 design review — 2026-08-21
+
+**Design only. Nothing was implemented.** No source file, schema, migration, service, API, UI or test
+changed. The output is [docs/MARKET-VALUE-NET-WORTH-DESIGN.md](docs/MARKET-VALUE-NET-WORTH-DESIGN.md),
+a **non-normative** review record with the same standing as the three before it.
+
+### What it settles
+
+| Area | Conclusion |
+|---|---|
+| **Two bases** | Widen `ValuationBasis` to `'cost' \| 'market'` — the smallest abstraction, and the one ADR-23 already specified. **The basis is a property of component *construction*, not of composition**: `compose()` carries it and never branches on it, so the domain is untouched and `reconcile()` works for both bases unchanged |
+| **Single counting** | **A cost-plus-market double count is a thrown exception, not a wrong number.** Both would use the same `position:(account,instrument)` key, and `ContributionMap.add()` throws on a duplicate. The key was designed this way in Phase 5 — `keys.ts:23` says so in as many words |
+| **Cost → market** | **A restatement at an instant, not a bridge over time** ([ADR-31](docs/DECISIONS.md#adr-31--cost-to-market-is-a-restatement-at-an-instant-not-a-bridge-over-time)). `bridge()` already refuses cross-basis bridging and is right to; conflating them would let a user read a valuation difference as a gain they made |
+| **FX** | The restatement decomposes **exactly** into price and FX rebasis, with **no new column** — `tax_lots` carries `remaining_cost` in instrument currency alongside the acquisition rate. The *holding-level* combined figure (INVESTMENT-DOMAIN §6.4) is deliberately unchanged: different question |
+| **Partial valuation** | Shown and labelled, never suppressed and never completed with cost. `complete \| partial \| unavailable`, with **value-weighted** investment coverage by base cost basis — what D-29 promised |
+| **Staleness** | A stale price is **used and flagged**; refusing it would blank the headline every long weekend. Finding **M3** — no field for "used, but old" — becomes a V1 requirement |
+| **Historical** | Five of six inputs already work. The one new algorithm is **`quantityHeldOn`**, ratio-aware; `positions` must never serve a historical date |
+| **Manual assets** | Have a **valuation, not a price**, and do not become "priced" because the basis label changed |
+| **Liabilities** | **Unchanged** — a liability has no market value, so the restatement has no liability term |
+| **Schema** | **No change required.** Every input exists |
+
+### 6.10 snapshots — closed by measurement
+
+Measured against the real domain functions over synthetic data at 40 instruments, 480 lots and
+100,000 price points — larger than the target portfolio, so an upper bound:
+
+| Operation | Measured |
+|---|---|
+| Net worth at cost, 1 point | 0.31 ms |
+| Net worth at market, 1 point | 2.9 ms |
+| 12-point market-value series | 33 ms |
+| 365-point market-value series, naive scan | 1,156 ms |
+| **365-point market-value series, indexed lookup** | **123 ms** |
+
+The naive figure is the instructive one: 1,156 ms looks like a case for a cache and is not — it is a
+linear scan of 2,500 price points per instrument per point. Sorting once and binary-searching takes it
+to 123 ms. A snapshot table would have added a second stored representation of a derived figure, free
+to drift, needing `user_state.valuation_version` and an integrity assertion, to avoid a sort.
+**Recommended closed (OD-15).**
+
+### Proposed, not applied
+
+**[ADR-31](docs/DECISIONS.md#adr-31--cost-to-market-is-a-restatement-at-an-instant-not-a-bridge-over-time)** ·
+**invariants I-41 … I-49**, each mapped to a domain rule and a test (none is a database constraint —
+net worth stores nothing) · **I-38 and I-39 promoted** from deferred to live · golden scenarios **G5**
+and **G6** · **26 adversarial scenarios** with expected behaviour.
+
+### One contradiction found and resolved
+
+The task specified a *"cost-to-market bridge"*. `bridge.ts:122` **refuses** to bridge across a basis
+change, deliberately and with a good reason. Resolved in favour of the code: it is a **restatement**,
+and ADR-31 records why the distinction is not pedantry.
+
+**The next exact step is a decision, not code:** approve **OD-14** (apply this review) and **OD-15**
+(close snapshots), then 6.11 implementation begins at the `ValuationBasis` widening. **OD-16** — whether
+`market` becomes the default — should be settled before the release note is written, because the
+headline moves for FX reasons alone on the day it flips.
+
+Separately and still open: `TWELVE_DATA_API_KEY` is configured and the live smoke test passes, so 6.9
+carries no outstanding verification.
 
 
 Superseded pointer, kept for the record: the earlier instruction here was to *perform* this review by

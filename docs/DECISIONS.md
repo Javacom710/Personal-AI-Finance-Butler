@@ -549,6 +549,61 @@ Two vendors' closes for the same instrument differ — different venue, differen
 
 ---
 
+## ADR-31 — Cost to market is a **restatement at an instant**, not a bridge over time
+
+**Decision.** Proposed 2026-08-21 by the Phase 6.11 design review
+([MARKET-VALUE-NET-WORTH-DESIGN.md §6](MARKET-VALUE-NET-WORTH-DESIGN.md#6-the-cost-to-market-restatement)),
+pending **OD-14**.
+
+> **A bridge explains movement between two dates on one basis. A restatement explains why two bases
+> disagree at one date. They are different questions, they take different inputs, and they must never
+> share a screen affordance or a type.**
+
+`bridge()` already enforces half of this: it throws when `opening.basis !== closing.basis`, because
+*"a change of basis is not movement"* (ADR-23). That check is correct and stays. This ADR names the
+other half — the thing that *is* wanted when someone asks "why is market ₹2 lakh higher than cost?" —
+and gives it its own shape.
+
+**Why the distinction is not pedantry.** A bridge's lines are things the user *did* or that *happened
+to them*: they saved, they sold, a price moved over the period. A restatement's lines are none of
+those — the portfolio did not change between "at cost" and "at market"; only the question did.
+Presenting the difference as a bridge line invites a user to read a valuation difference as a gain
+they made, which is a materially wrong reading of their own finances.
+
+**The restatement, which closes exactly:**
+
+```
+NW(cost)
+  − Σ baseCostBasis(unpriced positions)        removed: not valuable on this basis
+  + Σ ( costAtSpot − costAtAcquisitionRates )  FX rebasis
+  + Σ ( marketAtSpot − costAtSpot )            price effect
+= NW(market)
+```
+
+**It decomposes exactly, and needs no new column.** `tax_lots` carries `remaining_cost` in the
+**instrument's** currency alongside the acquisition `fx_rate_to_base`, so cost is expressible at both
+acquisition rates and spot. The difference between those two is the FX rebasis; the remainder is
+price. Both terms are computed, neither is a residual.
+
+**What it deliberately does not do.** It does not decompose a *holding's* unrealised P&L into price
+and currency — that needs a per-lot revaluation no screen consumes, and
+[INVESTMENT-DOMAIN.md §6.4](INVESTMENT-DOMAIN.md#64-foreign-currency-positions)'s combined figure
+stands unchanged. The aggregate split and the per-lot split are different questions; only the first is
+in scope.
+
+**The removed-unpriced line is not a loss**, and must never be rendered as one. It is the amount the
+comparison had to set aside for want of a price. A user looking at `−₹5,00,000` beside a bond has to
+be able to tell that from a bond that fell by ₹5,00,000.
+
+**Rejected.** *Extending `bridge()` with a basis-change line* — it would make `unexplained`
+meaningless, destroy the one assertion in the suite that catches most engine regressions, and require
+deleting the guard that currently prevents exactly this. *Defining the price effect as the residual* —
+same objection as `fx_effect` in the bridge: a plug is not an explanation, and it hides the bug it
+should surface. *Showing only the two totals with no explanation* — the user can subtract, but cannot
+tell price movement from an unpriced holding dropping out, and those have opposite meanings.
+
+---
+
 ## Decisions taken independently in Phase 1
 
 Per `CLAUDE.md <decision_policy>`, these were resolved rather than escalated. Each is reversible at low cost; the reasoning is recorded so it can be challenged.
@@ -571,6 +626,9 @@ Per `CLAUDE.md <decision_policy>`, these were resolved rather than escalated. Ea
 | **OD-3** | **Equity/ETF market-data provider terms** | Free sources cover Indian mutual funds (AMFI) and FX; listed equities need a paid API whose terms are a commercial choice, not an engineering one. **Direction set 2026-08-18: Twelve Data**, integrated at a later Phase 6 step behind the provider credential/configuration step. Kite Connect is explicitly **not** to be integrated. No commercial SDK is installed in advance. | The equity adapter only. The abstraction, the registry, AMFI, FX and Manual are all built without it |
 | **OD-11** | **Crypto market data** | **Deferred 2026-08-18.** No crypto provider is implemented. The domain stays extensible — `cadence: 'continuous'` and the wall-clock branch of [ADR-28](#adr-28--staleness-is-measured-in-trading-sessions-not-wall-clock-hours) exist and are tested — but no adapter ships. | Nothing |
 | **OD-12** | **Dedicated gold market data** | **Deferred 2026-08-18.** Gold is represented through supported instruments (gold ETFs and gold mutual funds price through the ordinary adapters) or through a `manual_assets` valuation series. No bullion adapter, no purity/unit-conversion model. | Nothing |
+| **OD-14** | **Apply the Phase 6.11 design review** — [ADR-31](#adr-31--cost-to-market-is-a-restatement-at-an-instant-not-a-bridge-over-time), invariants I-41…I-49, and the finding that **no schema change is required** — to the canonical documents. Documentation-only. **Recommend approval**, on the OD-4 / OD-9 / OD-10 precedent | Phase 6.11 step 1, and therefore the phase |
+| **OD-15** | **Close 6.10 (snapshots) as unnecessary**, on measurement: a 365-point market-value series over a portfolio larger than the target user's runs in **123 ms**. The naive 1,156 ms was a linear price scan, not a missing cache. **Recommend approval** — ADR-24's four rules stay on the shelf for the day something genuinely measures slow | Nothing; leaving it open costs only clarity |
+| **OD-16** | **Does `market` become the default basis?** ADR-23 says yes. Flagged rather than assumed because it has a visible consequence: on the day it flips, net worth moves for **FX reasons alone**, independently of price, since the investment block is carried at acquisition rates under `cost` and at spot under `market` | The 6.11 release note and the default-flip gate |
 | **OD-13** | **AMFI reuse terms** | **Open, and documented rather than assumed.** AMFI publishes `NAVAll.txt` and the NAV-history report publicly and without authentication, and the Indian fintech industry consumes both; **no machine-readable licence or explicit reuse grant was located**, so none is asserted. The adapter is built for personal, non-redistributing use and says so in its header. Confirm with AMFI before any non-personal use or redistribution. | Nothing for personal use; would block redistribution |
 
 ### Resolved

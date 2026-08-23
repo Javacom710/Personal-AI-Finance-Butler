@@ -234,8 +234,8 @@ approved 2026-08-18**, and its findings are now applied *and implemented*, not m
 | 6.7 corporate-action safety — detections, suppression | ✅ |
 | 6.8 tests and the verification gate | ✅ **1,177 passing** |
 | **6.9 commercial equity adapter (Twelve Data)** | ✅ built, tested, registered — **1,245 passing**. `TWELVE_DATA_API_KEY` is optional and unset here, so equities report `no_provider`; **no live smoke test has been run** |
-| 6.10 snapshots, only if measured slow | not started |
-| 6.11 market-value net worth (`basis: 'market'`) | not started |
+| **6.10 snapshots** | ✅ **CLOSED as unnecessary, by measurement** (OD-15). A 365-point market-value series over a portfolio larger than the target user's runs in **123 ms**; the naive 1,156 ms was a linear price scan, not a missing cache. ADR-24's four rules stay on the shelf |
+| **6.11 market-value net worth (`basis: 'market'`)** | **design review complete 2026-08-21** — [MARKET-VALUE-NET-WORTH-DESIGN.md](MARKET-VALUE-NET-WORTH-DESIGN.md). Implementation **not started**, gated on **OD-14**. **No schema change required** |
 
 Three conclusions shaped how this phase was sequenced:
 
