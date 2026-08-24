@@ -1058,9 +1058,18 @@ Added by the Phase 5 design review. Every one maps to a rule in [FINANCIAL-DOMAI
 | I-35 | Every `instrument_prices` row for one instrument shares one `source` — no blended series ([ADR-30](DECISIONS.md#adr-30--one-provider-per-instrument-price-series-the-only-price-fallback-is-manual)) | `verify:integrity` |
 | I-36 | `instrument_quotes.as_of >= max(instrument_prices.as_of)` for the same instrument — the latest quote is never older than the newest stored close | age-guarded upsert + `verify:integrity` |
 | I-37 | No `instrument_prices` row is dated after the latest known session for its exchange | `verify:integrity` |
-| I-38 | Under `basis: 'market'`, every open position **either** contributes a priced value **or** appears in `excluded[]` with a reason — exhaustive and disjoint | engine + integration test |
-| I-39 | A market-basis figure never substitutes a cost figure for any holding — no cost fallback inside a market total ([ADR-23](DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost)) | engine + type-level test |
+| I-38 | Under `basis: 'market'`, every open position **either** contributes a priced value **or** appears in `excluded[]` with a reason — exhaustive and disjoint. *(Reported `skipped` until Phase 6.11 implements `market`; live from then)* | engine + integration test |
+| I-39 | A market-basis figure never substitutes a cost figure for any holding — no cost fallback inside a market total ([ADR-23](DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost)). *(Reported `skipped` until Phase 6.11; live from then)* | engine + type-level test |
 | I-40 | `corporate_action_detections.resolved_txn_id` is written only by the validated service path; no adapter or job writes it, and no provider creates an `investment_transactions` row ([ADR-29](DECISIONS.md#adr-29--provider-corporate-actions-are-detections-never-ledger-writes)) | source scan + integration test |
+| I-41 | A net-worth figure carries exactly **one** declared basis, and no total mixes `cost` and `market` ([ADR-23](DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost)) | engine + type-level test |
+| ~~I-42~~ | **Dissolved 2026-08-21, not renumbered.** The Phase 6.11 draft proposed it, then found **I-38** and **I-39** already say exactly the same two things — a position is priced or excluded, and cost is never substituted inside a market total. Two numbers for one rule is how a rule set starts disagreeing with itself. The number is retired rather than reused so no reference silently re-points | — |
+| I-43 | No source key contributes twice under either basis; a cost-and-market pair for one position **throws** rather than summing | `ContributionMap.add()` + unit test |
+| I-44 | A stale price contributes and is reported as stale; it never becomes `current`, and it is never replaced by cost ([ADR-28](DECISIONS.md#adr-28--staleness-is-measured-in-trading-sessions-not-wall-clock-hours)) | engine + integration test |
+| I-45 | Every excluded component carries a machine-readable reason; "unpriced" is never reported without one | engine + integration test |
+| I-46 | `quantityHeldOn(i, T)` applies **every** corporate-action ratio in `(trade_date, T]` — a plain `Σ quantity` is wrong after any split or bonus | property test across split / bonus / reverse split |
+| I-47 | A historical figure reads no current-state cache — not `positions`, not `is_active`, on any table ([ADR-26](DECISIONS.md#adr-26--an-as-of-financial-figure-is-computed-from-dated-facts-only-no-current-state-flag-participates)) | source scan, extending I-26 |
+| I-48 | The cost-to-market restatement closes: `NW(cost) − removed + fxRebasis + priceEffect = NW(market)`, **exactly** for single-currency data ([ADR-31](DECISIONS.md#adr-31--cost-to-market-is-a-restatement-at-an-instant-not-a-bridge-over-time)) | golden scenario |
+| I-49 | Market value preserves provider precision to scale 8, rounding **only** at `valueOf` and `mulRate` — never through `Number()` | unit test + `numeric(20,8)` on `instrument_prices` |
 
 ### Explicit non-invariants
 

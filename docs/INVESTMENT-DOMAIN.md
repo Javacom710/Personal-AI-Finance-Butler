@@ -389,6 +389,25 @@ All three are a single `divRound` over `bigint`s; no `number` appears. `mulQtyRa
 
 **Unpriced holdings.** `marketValue` is `null`, the holding is excluded from portfolio totals and from `weightPct` denominators, and the portfolio summary reports `pricedValue`, `unpricedCount`, and `coverage = pricedCostBasis / totalCostBasis`. Rendering shows the holding with an explicit "no price" marker rather than a zero, because a zero would read as "worthless".
 
+### 5.1 Market value of a position as of a date
+
+The same three factors the portfolio uses, stated as a dated function because net worth at
+`basis: 'market'` consumes it ([FINANCIAL-DOMAIN.md §9.3](FINANCIAL-DOMAIN.md#93-calculation)):
+
+```
+marketValue(p, T) = quantityHeldOn(p, T) × priceOn(p.instrument, T) × fxRateOn(p.instrument.currency → base, T)
+```
+
+`quantityHeldOn` and the bounded `priceOn` are defined in [§8.1](#81-portfolio-growth-over-time) — the
+same definitions, not a second copy. Two properties carry over and are worth naming here:
+
+- **Quantity is where corporate actions bite.** Money is invariant under a split or bonus, so the
+  *cost* form needs no ratio arithmetic; market value is a quantity figure and does. `Σ quantity` is
+  wrong after any corporate action (**I-46**).
+- **A suppressed instrument yields no market value at all.** An unreconciled split makes price and
+  quantity sit on opposite sides of the action, so the position is excluded rather than valued
+  ([ADR-29](DECISIONS.md#adr-29--provider-corporate-actions-are-detections-never-ledger-writes)).
+
 **Why a holding is unpriced is part of the answer, not a footnote.** `MissingPriceReason` distinguishes seven conditions, because they call for different responses from both the system and the user:
 
 | Reason | Meaning | Retry? |

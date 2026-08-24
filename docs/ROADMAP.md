@@ -234,8 +234,8 @@ approved 2026-08-18**, and its findings are now applied *and implemented*, not m
 | 6.7 corporate-action safety — detections, suppression | ✅ |
 | 6.8 tests and the verification gate | ✅ **1,177 passing** |
 | **6.9 commercial equity adapter (Twelve Data)** | ✅ built, tested, registered — **1,245 passing**. `TWELVE_DATA_API_KEY` is optional and unset here, so equities report `no_provider`; **no live smoke test has been run** |
-| **6.10 snapshots** | ✅ **CLOSED as unnecessary, by measurement** (OD-15). A 365-point market-value series over a portfolio larger than the target user's runs in **123 ms**; the naive 1,156 ms was a linear price scan, not a missing cache. ADR-24's four rules stay on the shelf |
-| **6.11 market-value net worth (`basis: 'market'`)** | **design review complete 2026-08-21** — [MARKET-VALUE-NET-WORTH-DESIGN.md](MARKET-VALUE-NET-WORTH-DESIGN.md). Implementation **not started**, gated on **OD-14**. **No schema change required** |
+| **6.10 snapshots** | ✅ **CLOSED — not built** (OD-15, 2026-08-21). A 365-point market-value series over a portfolio larger than the target user's runs in **123 ms**; the naive 1,156 ms was a linear price scan, not a missing cache. No table, no job, no snapshot-based figure. [ADR-24](DECISIONS.md#adr-24--net-worth-is-derived-on-demand-snapshots-are-deferred-to-phase-6)'s four rules stay on the shelf, reopened only by a **real production measurement** |
+| **6.11 market-value net worth (`basis: 'market'`)** | **design review complete and decisions resolved 2026-08-21** — [MARKET-VALUE-NET-WORTH-DESIGN.md](MARKET-VALUE-NET-WORTH-DESIGN.md). OD-14/15/16 all closed; **no open decision remains**. Implementation **not started**. **No schema change required.** **The default basis remains `cost`** ([ADR-32](DECISIONS.md#adr-32--the-default-valuation-basis-remains-cost-market-is-an-explicit-alternate-view)) |
 
 Three conclusions shaped how this phase was sequenced:
 
@@ -260,7 +260,7 @@ below is the *scope* list, not the order of work.
 - `ManualProvider` (always registered), AMFI adapter (Indian MF NAVs), FX adapter
 - `prices.refresh` / `fx.refresh` jobs; caching to `instrument_quotes` / `instrument_prices`
 - Valuation with coverage; XIRR, TWR, allocation, concentration metrics
-- **Market-value net worth** — `basis: 'market'` as a distinct calculation alongside Phase 5's `'cost'`, becoming the default; the full attribution bridge with a real unrealised-gain line
+- **Market-value net worth** — `basis: 'market'` as a distinct calculation alongside Phase 5's `'cost'`. **The default remains `cost`** ([ADR-32](DECISIONS.md#adr-32--the-default-valuation-basis-remains-cost-market-is-an-explicit-alternate-view)); `market` is an explicit alternate view, and neither replaces the other. The bridge gains a real unrealised-gain line **under `market`**, and the cost bridge is untouched
 - **Carried from Phase 5 by [ADR-24](DECISIONS.md#adr-24--net-worth-is-derived-on-demand-snapshots-are-deferred-to-phase-6):** `net_worth_snapshots`, the `networth.snapshot` job and `user_state.valuation_version` — **only if measurement justifies them**, and only under ADR-24's four rules
 - `quantityHeldOn` must apply corporate-action ratios, not sum `quantity` ([INVESTMENT-DOMAIN.md §8.1](INVESTMENT-DOMAIN.md#81-portfolio-growth-over-time))
 - UI: staleness indicators, price history, performance page, allocation page

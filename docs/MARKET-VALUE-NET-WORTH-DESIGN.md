@@ -1,12 +1,24 @@
 # Market-Value Net Worth — Phase 6.11 architecture and design review
 
-**Status:** design review complete 2026-08-21. **Phase 6.11 implementation has NOT started.** No
-application code, schema, migration, service, API, UI or test changed.
+**Status:** design review complete 2026-08-21; **OD-14, OD-15 and OD-16 resolved and applied to the
+canonical documents the same day.** **Phase 6.11 implementation has NOT started.** No application
+code, schema, migration, service, API, UI or test changed.
 
 **Nature of this document:** a review record and rationale, like
 [INVESTMENT-ENGINE-DESIGN.md](INVESTMENT-ENGINE-DESIGN.md), [NET-WORTH-DESIGN.md](NET-WORTH-DESIGN.md)
-and [MARKET-DATA-DESIGN.md](MARKET-DATA-DESIGN.md). **Non-normative** — where it and a canonical
-document differ, the canonical document wins until **OD-14** approves applying it.
+and [MARKET-DATA-DESIGN.md](MARKET-DATA-DESIGN.md). **Non-normative** — the rules it proposed now live
+in [FINANCIAL-DOMAIN.md §9.3, §9.5, §9.6](FINANCIAL-DOMAIN.md#93-calculation),
+[INVESTMENT-DOMAIN.md §5.1](INVESTMENT-DOMAIN.md#51-market-value-of-a-position-as-of-a-date),
+`SCHEMA.md` §12, `TESTING.md` §6.7 and ADR-31/ADR-32; where this document and a canonical one differ,
+the canonical one wins.
+
+> **One decision came back differently from the recommendation, and this document has been corrected
+> rather than left standing.** [§15](#15-ui--the-minimum), [§21](#21-implementation-gates) and
+> [§22](#22-decisions--all-three-resolved-2026-08-21) originally assumed `market` would become the default basis, following
+> ADR-23. **OD-16 resolved that the default remains `cost`**
+> ([ADR-32](DECISIONS.md#adr-32--the-default-valuation-basis-remains-cost-market-is-an-explicit-alternate-view)),
+> and those three sections now say so. Nothing else in the design changed: every methodology,
+> invariant and measurement below was approved as written.
 
 **Baseline reviewed:** commit `ec96b93`. 1,267 tests passing, `verify:integrity` 33 passed / 0 failed
 / 9 engine-enforced / 4 deferred, typecheck, lint and production build clean, live Twelve Data smoke
@@ -43,7 +55,7 @@ Five conclusions drive the rest:
 - **The cost→market relationship is a *restatement*, not a bridge.** `bridge()` already refuses to
   bridge across a basis change (`bridge.ts:122`), and it is right to: a bridge explains *movement over
   time*, and a change of basis is not movement. Conflating them would let a user read a valuation
-  difference as a gain they made. Proposed **ADR-31**.
+  difference as a gain they made. **[ADR-31](DECISIONS.md#adr-31--cost-to-market-is-a-restatement-at-an-instant-not-a-bridge-over-time)**, approved.
 - **That restatement decomposes exactly into price and FX**, with **no schema change**, because
   `tax_lots` carries `remaining_cost` in instrument currency alongside the acquisition
   `fx_rate_to_base`. This is a stronger answer than deferring FX attribution — see [§7](#7-unrealised-fx),
@@ -119,7 +131,11 @@ Brokerage opens with ₹1,00,000 and buys ₹60,000 of securities now worth ₹7
 | `position:zerodha:INFY` | ₹60,000 | **₹72,000** |
 | **Net worth** | **₹1,00,000** | **₹1,12,000** |
 
-The market figure **replaces** the cost figure at the same key. It is never added to it.
+**Inside a `market` calculation**, the market figure occupies the position's key *instead of* the cost
+figure — never in addition to it. That is a statement about one calculation's internals, not about the
+two metrics: **Net Worth at Cost remains a first-class figure and the default**
+([ADR-32](DECISIONS.md#adr-32--the-default-valuation-basis-remains-cost-market-is-an-explicit-alternate-view)).
+Neither metric replaces the other.
 
 ### 2.2 Why that is structural rather than careful
 
@@ -577,9 +593,18 @@ matches how every other monetary figure in the system behaves.
 
 Four additions to the existing Net Worth page. **No new page, no dashboard, no chart.**
 
+The **headline stays Net Worth at Cost** (ADR-32). Market value is reached by asking for it.
+
+```
+Net Worth at Cost                            ₹32,00,000     ← unchanged from Phase 5
+  at market ₹34,00,000 · difference +₹2,00,000  →           ← one line, links to the market view
+```
+
+and on the market view, reached from that link:
+
 ```
 Net Worth at Market Value                    ₹34,00,000
-  at cost ₹32,00,000 · difference +₹2,00,000            ← both figures, one line
+  at cost ₹32,00,000 · difference +₹2,00,000            ← the reciprocal line back
   ⚠ Partial — 1 holding unpriced (₹5,00,000 at cost)    ← status, only when not complete
   Priced as of 21 Aug 2026                              ← only when anything is stale
 ```
@@ -591,7 +616,8 @@ Net Worth at Market Value                    ₹34,00,000
 | Status | Rendered **only** when `partial` or `unavailable`, so it means something when it appears |
 | Staleness | Rendered **only** when something is behind — M3's missing field, surfaced |
 | Restatement | On the existing **drill-down**, not the summary. Three lines: removed-unpriced, FX rebasis, price effect |
-| Basis toggle | **Deferred.** `market` becomes the default; cost remains reachable from the comparison line. A toggle is a preference, and there is no evidence anyone wants to switch repeatedly |
+| Headline basis | **`cost`** ([ADR-32](DECISIONS.md#adr-32--the-default-valuation-basis-remains-cost-market-is-an-explicit-alternate-view)). The headline is **Net Worth at Cost**, unchanged from Phase 5 |
+| Reaching `market` | An explicit, named affordance from the comparison line — *"view at market value"* — landing on the same page rendered at `basis: 'market'`, labelled as such. **Not** a silent toggle, and **not** a second headline |
 
 **No calculation in UI code.** Every figure above comes from `MarketValuation` and the restatement
 type; the components format and lay out. This is [ARCHITECTURE.md §5](ARCHITECTURE.md)'s rule and the
@@ -759,7 +785,8 @@ separated *facts* from *figures*.
 | Split suppression honoured (ADR-29) |
 | The restatement, closing exactly for single-currency data (I-48) |
 | Indexed price lookup — a V1 requirement, not an optimisation ([§13](#13-performance)) |
-| `market` becomes the default basis; the label says so on every surface |
+| **The default stays `cost`** ([ADR-32](DECISIONS.md#adr-32--the-default-valuation-basis-remains-cost-market-is-an-explicit-alternate-view)) — asserted by a test, not just by omission: `netWorthAsOf(ctx, {})` returns `basis: 'cost'` and matches the Phase 5 figure byte-for-byte on the same fixture |
+| The basis is named on **every** surface that shows either figure; no unqualified "Net worth" appears where the basis could be ambiguous |
 | Bridge under `market`: `unrealized_gain` carries a real figure |
 | I-41 … I-49 in `verify:integrity`; I-38/I-39 promoted from deferred |
 | Release note: the basis switch moves net worth for **FX reasons alone**, independently of price |
@@ -778,13 +805,23 @@ Snapshots under ADR-24's four rules ([§12](#12-snapshots--closed-by-measurement
 
 ---
 
-## 22. Open decisions
+## 22. Decisions — all three resolved 2026-08-21
 
-| # | Decision | Recommendation | Blocks |
-|---|---|---|---|
-| **OD-14** | Apply this review — ADR-31, I-41…I-49, and the §20 finding of no schema change — to the canonical documents | **Approve**, on the OD-4 / OD-9 / OD-10 precedent. Documentation-only | 6.11 step 1, and therefore the phase |
-| **OD-15** | Close 6.10 (snapshots) as unnecessary, on the [§12](#12-snapshots--closed-by-measurement) measurement | **Approve.** 123 ms for 365 points; the naive 1,156 ms was a linear scan, not a missing cache | Nothing; leaving it open costs only clarity |
-| **OD-16** | Does `market` become the **default** basis, or does `cost` remain default with `market` opt-in? | **`market` as default**, per ADR-23. But it is a product call with a visible consequence — the headline moves for FX reasons alone on the day it flips — so it is flagged rather than assumed | The 6.11 release note and the default-flip gate |
+**No open decision remains for Phase 6.11.**
+
+| # | Decision | Outcome |
+|---|---|---|
+| **OD-14** | Apply this review to the canonical documents | ✅ **Approved and applied.** Reconciled, not appended: [ADR-31](DECISIONS.md#adr-31--cost-to-market-is-a-restatement-at-an-instant-not-a-bridge-over-time) and [ADR-32](DECISIONS.md#adr-32--the-default-valuation-basis-remains-cost-market-is-an-explicit-alternate-view); methodology into `FINANCIAL-DOMAIN.md` §9.3/§9.5/§9.6, `INVESTMENT-DOMAIN.md` §5.1, `SCHEMA.md` §12, `TESTING.md` §6.7. **Phase 5's cost methodology untouched.** Draft **I-42 dissolved** — I-38 and I-39 already said it |
+| **OD-15** | Snapshots | ✅ **Closed — not built.** No `net_worth_snapshots`, no job, no snapshot-based figure. Evidence in [§12](#12-snapshots--closed-by-measurement). Reopened only by a **real production measurement**, never by a roadmap entry |
+| **OD-16** | Default valuation basis | ✅ **Resolved: the default remains `cost`.** `market` is a fully supported, explicitly requested alternate view. **This came back differently from the recommendation above**, and [ADR-32](DECISIONS.md#adr-32--the-default-valuation-basis-remains-cost-market-is-an-explicit-alternate-view) supersedes ADR-23's default-flip consequence. Sections [15](#15-ui--the-minimum) and [21](#21-implementation-gates) were corrected rather than left standing |
+
+**Why the OD-16 outcome is the better one, recorded because this document argued the other way.** The
+recommendation weighed ADR-23's stated intent most heavily. The resolution weighs **historical
+continuity** most heavily, and that is the stronger argument for a single-user application whose value
+is a continuous record: flipping the default would restate every figure the user had already seen,
+with no transaction behind the change. It also keeps a `partial`-capable figure out of the headline
+position. The design needed no structural change to accommodate it — which is itself evidence the
+basis abstraction was drawn in the right place.
 
 ---
 

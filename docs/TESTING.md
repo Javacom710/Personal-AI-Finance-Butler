@@ -237,6 +237,40 @@ One classifier, so one test file covers every provider.
 - The AMFI and Frankfurter adapters require **no** credential at all, asserted by their `capabilities.requiresCredential === false`.
 - **A malformed provider response cannot corrupt financial state:** after a fixture of hostile responses — 11-decimal prices, negative closes, wrong currency, absurd dates, injected SQL-looking strings — the ledger, lots, positions and `instrument_prices` are byte-identical to before.
 
+## 6.7 Market-value net worth (Phase 6.11)
+
+The cost path is already covered by the Phase 5 suite and **must not regress**: golden **G4** keeps
+closing at exactly `0.0000`, and every existing net-worth assertion is a cost-basis assertion.
+
+- **The default is `cost`** ([ADR-32](DECISIONS.md#adr-32--the-default-valuation-basis-remains-cost-market-is-an-explicit-alternate-view)).
+  Asserted directly: `netWorthAsOf(ctx, {})` returns `basis: 'cost'`, and its figure is byte-identical
+  to the Phase 5 result on the same fixture. A default that drifted would restate history silently.
+- **`quantityHeldOn` — a property test**, not an example test (**I-46**). Across split, bonus and
+  reverse split, in any order, with a disposal before and after each: the ratio product must equal a
+  bounded `replay()`. This is the one genuinely new algorithm in the phase and the one place a plain
+  `Σ quantity` looks right and is wrong.
+- **Cost and market never mix** (**I-41**, **I-43**). Emitting both components for one position must
+  **throw** `DuplicateContribution` — asserted as a throw, because that is the guarantee.
+- **Priced or excluded, never cost-substituted** (**I-38**, **I-39**). A fixture with one unpriced
+  holding: the total omits it, `excluded[]` names it with a reason, and the total is **not** the
+  cost-substituted figure.
+- **Partial and unavailable states**: `complete` with everything priced; `partial` with one holding
+  unpriced and its cost reported; `unavailable` when positions exist and none can be priced — the
+  headline withheld, the cost figure offered.
+- **Coverage is value-weighted for price exclusions** and component-count for FX and unvalued assets
+  (D-29). Asserted with a large unpriced holding among small priced ones, where the two measures give
+  visibly different answers.
+- **Stale contributes and is flagged** (**I-44**); a stale price is never swapped for cost.
+- **Suppression** (ADR-29): an unrecorded split excludes the position; the phantom figure never appears.
+- **Historical correctness** (**I-47**): a source scan asserting no market path reads `positions` or
+  `is_active`; plus an as-of fixture where today's cache and the historical answer differ.
+- **The restatement closes exactly** for single-currency data (**I-48**), with the removed-unpriced,
+  FX-rebasis and price-effect terms each computed — none a residual.
+- **Precision end to end** (**I-49**): `1629.80004883` from the provider survives to the position's
+  market value with rounding only at `valueOf` and `mulRate`.
+- **Golden G5** — partial coverage. **Golden G6** — market value with a foreign holding, exercising
+  the FX rebasis.
+
 ## 7. AI tests — all offline
 
 **No test in CI calls NVIDIA Build.** The model is not the system under test; our handling of it is. Model quality is measured separately by the evaluation harness (§7a), which is online, manual, and never gates a merge.

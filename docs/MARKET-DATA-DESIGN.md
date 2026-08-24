@@ -318,7 +318,7 @@ Phase 5 ships **Net Worth at Cost**. Phase 6 adds `basis: 'market'` as a *distin
 | 6 | Exclusion, never substitution | ADR-23: a single figure never mixes bases. An unpriced holding is excluded and **named**. The temptation to "fall back to cost for just that one" produces a number in no basis at all |
 | 7 | The change bridge's unrealised line becomes real | It renders `—` / "not measured — at cost" today. Under `'market'` it is `Δ(marketValue − costBasis)` across the period, which needs a market valuation at **both** endpoints — i.e. history, not just today's quote |
 | 8 | The contributions map is unchanged | An investment contributes under key `{account, instrument}` in both bases; only the amount differs. I-21 (no duplicate key) and I-22 (`assets − liabilities = Σ map`) hold without modification. This is why the basis can be added without touching `compose.ts`'s core |
-| 9 | Default flips to `'market'` | With the basis banner following it. A user who has hand-entered prices currently sees market value on Investments and cost on Net Worth; after the flip they agree |
+| 9 | ~~Default flips to `'market'`~~ — **superseded 2026-08-21 (OD-16, [ADR-32](DECISIONS.md#adr-32--the-default-valuation-basis-remains-cost-market-is-an-explicit-alternate-view))** | **The default remains `cost`**; `market` is an explicit alternate view. The observation behind this row still holds and is why the comparison line exists: a user who has hand-entered prices sees market value on Investments and cost on Net Worth, and the two are reconciled by naming the basis on each rather than by changing what Net Worth defaults to |
 
 **One consequence to state in the release note besides the FX one:** under `'market'`, net worth
 becomes *dependent on a third party*. A provider outage of several days will not change the figure
@@ -1020,7 +1020,7 @@ The point of this ordering: **OD-3 is step 9 of 12.** Eleven steps are unblocked
 | **6.5** | Historical valuation service: `quantityHeldOn` with ratio product, bounded `priceOn`, one-pass growth series | 6.4 |
 | **6.6** | **TWR unblocked**: the boundary-valuation builder, incl. disposed instruments. `twr.ts` unchanged | 6.5 |
 | **6.7** | `corporate_action_detections` + the suppression rule (ADR-29) + the review surface | 6.5 |
-| **6.8** | **Market-value net worth**: `basis: 'market'`, value-weighted coverage, the real unrealised line, the default flip, the release note | 6.5, 6.7 |
+| **6.8** | **Market-value net worth**: `basis: 'market'`, value-weighted coverage, the real unrealised line, the release note. ~~the default flip~~ — **superseded (OD-16 / [ADR-32](DECISIONS.md#adr-32--the-default-valuation-basis-remains-cost-market-is-an-explicit-alternate-view)): the default stays `cost`.** Renumbered **6.11** during Phase 6 execution | 6.5, 6.7 |
 | **6.9** | **OD-3 equity adapter.** Slots into the registry; nothing above changes | **OD-3** |
 | **6.10** | Snapshots — **only if** 6.5/6.8 measure slow, under ADR-24's four rules | measurement |
 | **6.11** | Completion gate: `ROADMAP.md` Phase 6 "done when", golden **G3/G5/G6**, **G2 on market value**, I-1…I-40 | all |

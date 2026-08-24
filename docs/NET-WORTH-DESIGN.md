@@ -399,10 +399,15 @@ Zero-quantity and fully-sold positions contribute **nothing** at `basis: 'cost'`
 retained in `positions` so realised P&L is not lost (edge case 18); net worth simply reads zero from
 them.
 
-When Phase 6 arrives, `basis: 'market'` values the priced subset, **excludes** the unpriced with a
-named `excluded` list and a coverage ratio below 1.0 (ADR-11, §10.4), and the default flips. The
-switch will move net worth for two reasons at once — price movement, and the FX asymmetry in
-[§6.3](#63-the-fx-asymmetry-stated-because-it-is-real) — and the release note must say so.
+When Phase 6 arrives, `basis: 'market'` values the priced subset and **excludes** the unpriced with a
+named `excluded` list and a coverage ratio below 1.0 (ADR-11, §10.4).
+
+> **Superseded on one point (2026-08-21, OD-16 / [ADR-32](DECISIONS.md#adr-32--the-default-valuation-basis-remains-cost-market-is-an-explicit-alternate-view)):**
+> this paragraph originally continued *"and the default flips."* **It does not.** The default remains
+> `cost`; `market` is an explicit alternate view and neither replaces the other. The rest of the
+> paragraph stands — including that a market figure differs from a cost one for two reasons at once,
+> price movement and the FX asymmetry in [§6.3](#63-the-fx-asymmetry-stated-because-it-is-real), which
+> the release note must still say.
 
 ---
 

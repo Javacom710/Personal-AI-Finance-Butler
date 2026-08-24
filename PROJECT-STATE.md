@@ -2,9 +2,11 @@
 
 Durable status record. Conversation history is temporary; this file is not. Read this first after any context reset, then verify it against `docs/`, the source tree, and the tests before trusting it.
 
-**Last updated:** 2026-08-21 · **Current phase:** **6 — Market Data, steps 6.0–6.9 complete and verified. 6.10 closed by measurement. 6.11 design review complete; implementation NOT started.**
+**Last updated:** 2026-08-21 · **Current phase:** **6 — steps 6.0–6.9 complete and verified. 6.10 closed. 6.11 designed, decided and ready to implement — implementation NOT started.**
 
-The **Phase 6.11 design review** was completed 2026-08-21 and is recorded in [docs/MARKET-VALUE-NET-WORTH-DESIGN.md](docs/MARKET-VALUE-NET-WORTH-DESIGN.md). **No application code, schema, migration, service, API, UI or test was touched by it.** Its findings are non-normative until **OD-14** approves applying them.
+The **Phase 6.11 design review** ([docs/MARKET-VALUE-NET-WORTH-DESIGN.md](docs/MARKET-VALUE-NET-WORTH-DESIGN.md)) was completed 2026-08-21, and **OD-14, OD-15 and OD-16 were resolved and applied to the canonical documents the same day.** **No open decision remains for 6.11**, and no application code, schema, migration, service, API, UI or test has been touched.
+
+**The default valuation basis remains `cost`** ([ADR-32](docs/DECISIONS.md#adr-32--the-default-valuation-basis-remains-cost-market-is-an-explicit-alternate-view)). `market` is a fully supported alternate view, requested explicitly. **Neither replaces the other**, and Phase 5's cost methodology is untouched.
 
 **1,245 tests pass** — 68 added in 6.9, 196 across Phase 6 so far, and every Phase 3, 4 and 5 test still passes. `verify:integrity` reports **33 passing, 0 failing, 9 engine-enforced, 4 deferred**. Typecheck, lint and the production build are clean.
 
@@ -69,7 +71,7 @@ Corollaries that follow from the above:
 | 3 — Financial Core | ✅ complete, verified |
 | 4 — Investment Engine | ✅ complete, verified |
 | 5 — Net Worth at Cost | ✅ **complete, verified** |
-| 6 — Market Data | **6.0–6.9 complete and verified.** **6.10 closed** as unnecessary by measurement (OD-15). **6.11 design review complete**, implementation not started (OD-14) |
+| 6 — Market Data | **6.0–6.9 complete and verified.** **6.10 closed — not built** (OD-15). **6.11 designed and decided; implementation not started.** No open decision remains |
 | 7 — AI Infrastructure | not started; **blocked** on OD-1 (`NVIDIA_API_KEY`) |
 | 8–14 | not started |
 
@@ -463,7 +465,7 @@ the system.
 
 | What it unblocks | Why it is blocked today |
 |---|---|
-| **Market-value net worth** — `basis: 'market'` as a **distinct** calculation alongside Phase 5's `'cost'`, becoming the default ([ADR-23](docs/DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost)) | No price source. A single figure must never mix the two bases |
+| **Market-value net worth** — `basis: 'market'` as a **distinct** calculation alongside Phase 5's `'cost'`. **The default remains `cost`** ([ADR-32](docs/DECISIONS.md#adr-32--the-default-valuation-basis-remains-cost-market-is-an-explicit-alternate-view), superseding ADR-23 on this point); neither basis replaces the other | No price source. A single figure must never mix the two bases |
 | **TWR** — returns `null` with `insufficient_price_history` for every instrument | `instrument_prices` is empty; it is populated by `getHistoricalPrices()`, which needs a provider |
 | **Portfolio growth series** | Same: the series is only as complete as `instrument_prices`, and gaps render as gaps, never as zeros |
 | **Unrealised P&L, portfolio return, market-value allocation** | Not computable without a price; each correctly reports `null` with a reason today |
@@ -759,13 +761,32 @@ The task specified a *"cost-to-market bridge"*. `bridge.ts:122` **refuses** to b
 change, deliberately and with a good reason. Resolved in favour of the code: it is a **restatement**,
 and ADR-31 records why the distinction is not pedantry.
 
-**The next exact step is a decision, not code:** approve **OD-14** (apply this review) and **OD-15**
-(close snapshots), then 6.11 implementation begins at the `ValuationBasis` widening. **OD-16** — whether
-`market` becomes the default — should be settled before the release note is written, because the
-headline moves for FX reasons alone on the day it flips.
+### Decisions — resolved 2026-08-21
 
-Separately and still open: `TWELVE_DATA_API_KEY` is configured and the live smoke test passes, so 6.9
-carries no outstanding verification.
+| # | Outcome |
+|---|---|
+| **OD-14** | ✅ **Approved and applied.** [ADR-31](docs/DECISIONS.md#adr-31--cost-to-market-is-a-restatement-at-an-instant-not-a-bridge-over-time) and [ADR-32](docs/DECISIONS.md#adr-32--the-default-valuation-basis-remains-cost-market-is-an-explicit-alternate-view) carry the architecture; the methodology went into `FINANCIAL-DOMAIN.md` §9.3 (`marketValue` normative), new §9.5 (restatement) and §9.6 (what market basis does **not** change), `INVESTMENT-DOMAIN.md` §5.1, `SCHEMA.md` §12 (**I-41, I-43…I-49**) and `TESTING.md` §6.7. **Reconciled, not appended** — draft **I-42 was dissolved** on discovering I-38/I-39 already stated it |
+| **OD-15** | ✅ **Closed — snapshots not built.** No `net_worth_snapshots`, no job, no snapshot-based figure. Evidence: **123 ms** for a 365-point market-value series with an indexed price lookup, against 1,156 ms for the naive linear scan the earlier draft measured. Reopened only by a **real production measurement** |
+| **OD-16** | ✅ **Resolved: the default basis remains `cost`.** This came back **differently from the design's recommendation**, and ADR-32 supersedes ADR-23's default-flip consequence. Every document that implied market would replace cost has been corrected, including two non-normative review records |
+
+### Why OD-16's outcome is the right one
+
+Recorded because the design argued the other way. Flipping the default would have **restated every
+figure the user had already seen** — six months of history and a differently-shaped chart, with no
+transaction behind any of it. Cost basis also changes only when the *user* does something (earns,
+spends, buys, sells, revalues, repays), which is the property a "how am I doing?" headline wants;
+market moves with prices and FX, neither of which they control. And a default should not be able to
+report `partial` because a provider had a bad morning — cost coverage is `1.0` by construction.
+
+That the design needed **no structural change** to accommodate the opposite answer is itself evidence
+the basis abstraction was drawn in the right place.
+
+**The next exact step is implementation**, beginning at the `ValuationBasis` widening and the
+`quantityHeldOn` property tests ([MARKET-VALUE-NET-WORTH-DESIGN.md §21](docs/MARKET-VALUE-NET-WORTH-DESIGN.md#21-implementation-gates)).
+Nothing blocks it.
+
+`TWELVE_DATA_API_KEY` is configured and the live smoke test passes, so 6.9 carries no outstanding
+verification either.
 
 
 Superseded pointer, kept for the record: the earlier instruction here was to *perform* this review by

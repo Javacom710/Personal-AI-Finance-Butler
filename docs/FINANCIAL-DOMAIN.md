@@ -480,10 +480,36 @@ There is no third category, and no contribution is classified by anything but it
 ```
 account a        →  balance(a, asOf)                            for EVERY account
 lot ℓ            →  remainingCost(ℓ, asOf) × ℓ.fx_rate_to_base  basis 'cost'   (Phase 5)
-position p       →  marketValue(p, asOf)                        basis 'market' (Phase 6)
+position p       →  marketValue(p, asOf)                        basis 'market' (Phase 6.11)
 manual asset m   →  valuationInForce(m, asOf)
 liability L      →  −outstanding(L, asOf)                       scheduled liabilities only
 ```
+
+**`basis` defaults to `'cost'`** ([ADR-32](DECISIONS.md#adr-32--the-default-valuation-basis-remains-cost-market-is-an-explicit-alternate-view)). `'market'` is a fully supported alternate view, requested explicitly. **Neither replaces the other**: they answer different questions — *what did I put in* versus *what is it worth now* — and a single figure never mixes them ([ADR-23](DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost)).
+
+**Only the investment term differs between the two bases.** Accounts, manual assets and liabilities are identical under both: none of them is a security, and none has a market price ([§9.6](#96-what-market-basis-does-not-change)).
+
+### `marketValue(p, asOf)` — normative
+
+```
+marketValue(p, asOf) = quantityHeldOn(p, asOf)
+                     × priceOn(p.instrument, asOf)
+                     × fxRateOn(p.instrument.currency → base, asOf)
+```
+
+Each factor has exactly one definition, and each is stated because the plausible alternative is wrong:
+
+| Factor | Rule | Never |
+|---|---|---|
+| `quantityHeldOn` | `Σ_{txn ≤ asOf} txn.quantity × Π{ ratio of every corporate action in (txn.trade_date, asOf] }` | **never** `Σ quantity` — a `split`/`bonus` carries `quantity IS NULL` and a ratio, so a running sum reports the pre-split quantity for ever ([INVESTMENT-DOMAIN.md §8.1](INVESTMENT-DOMAIN.md#81-portfolio-growth-over-time)) |
+| `priceOn` | the `instrument_prices` row with the greatest `as_of <= asOf`, **within the carry-back bound** | never interpolated; never a later price for an earlier date; never carried past the bound ([INVESTMENT-DOMAIN.md §8.1](INVESTMENT-DOMAIN.md#81-portfolio-growth-over-time)) |
+| `fxRateOn` | [§2](#2-fx)'s resolution order, at `asOf` | never the acquisition rate — that is the `cost` term |
+
+**A position that cannot be priced is `excluded` and named — never valued at its cost.** Substituting cost inside a market total produces a figure in no basis at all, which is exactly what ADR-23 forbids. The exclusion reasons are the `MissingPriceReason` members ([INVESTMENT-DOMAIN.md §5](INVESTMENT-DOMAIN.md#5-valuation)), each of which tells the user something different.
+
+**A stale price is used and marked, never silently treated as current** ([ADR-28](DECISIONS.md#adr-28--staleness-is-measured-in-trading-sessions-not-wall-clock-hours)); refusing it would blank the figure every long weekend. **An unreconciled corporate action suppresses the position's value entirely** ([ADR-29](DECISIONS.md#adr-29--provider-corporate-actions-are-detections-never-ledger-writes)), because post-split price × pre-split quantity is a large, internally consistent, wrong number.
+
+**`positions` cannot serve a market figure at a past date** for the same reason it cannot serve a cost one: it is today's cache with no date bound. The temptation is stronger here, because `positions.quantity` looks exactly like what `quantityHeldOn` returns.
 
 ### The eligibility table
 
@@ -516,11 +542,21 @@ Each component is converted **once**, at `round(native × rate, 4)` with `half_u
 **The investment block is carried at acquisition rates while every other block converts at the `asOf` rate**, and this asymmetry is deliberate ([INVESTMENT-DOMAIN.md §6.4](INVESTMENT-DOMAIN.md#64-foreign-currency-positions)): `tax_lots.fx_rate_to_base` is never revalued, because re-rating it would make last year's cost basis move every morning. Two consequences follow:
 
 1. At `basis: 'cost'` a foreign-currency holding contributes **no unrealised FX**. Currency movement surfaces only on disposal, as `base_fx_component` (I-18).
-2. When Phase 6 makes `market` the default, the investment term moves to the spot rate. Net worth will change **for FX reasons alone**, independently of any price.
+2. Under `basis: 'market'` the investment term converts at the **`asOf` rate** instead. A market figure therefore differs from a cost figure **for FX reasons alone**, independently of any price. Because the default remains `cost` ([ADR-32](DECISIONS.md#adr-32--the-default-valuation-basis-remains-cost-market-is-an-explicit-alternate-view)), this is a difference the user opts into seeing rather than a movement in their headline figure — but it must still be stated wherever the two are compared ([§9.5](#95-the-cost-to-market-restatement)).
 
-**A missing rate excludes one component; it never zeroes it and never nulls the whole figure.** The result carries **separate asset and liability coverage** — deliberately, because an excluded asset makes net worth look *lower* and an excluded liability makes it look *higher*, and one blended ratio would hide which direction the figure is wrong in. Coverage is measured over **value**, not row count. A component whose native value is zero needs no rate and is never excluded ([ADR-11](DECISIONS.md#adr-11--market-data-behind-a-provider-abstraction-with-an-always-available-manual-provider), [§10.4](#104-partial-results-are-labelled-not-hidden)).
+**A missing rate excludes one component; it never zeroes it and never nulls the whole figure.** The result carries **separate asset and liability coverage** — deliberately, because an excluded asset makes net worth look *lower* and an excluded liability makes it look *higher*, and one blended ratio would hide which direction the figure is wrong in. A component whose native value is zero needs no rate and is never excluded ([ADR-11](DECISIONS.md#adr-11--market-data-behind-a-provider-abstraction-with-an-always-available-manual-provider), [§10.4](#104-partial-results-are-labelled-not-hidden)).
 
-Under `basis: 'market'` the result additionally carries `priceCoverage` — the fraction of position value that had a usable price. Under `basis: 'cost'` it is `1.0`: acquisition cost is always known.
+**Coverage is measured over value where a value is expressible, and over component count where it is not.** The distinction is forced, not stylistic (**D-29**):
+
+| Exclusion cause | Coverage measure | Why |
+|---|---|---|
+| No FX rate | **component count** | A component with no rate has **no expressible base value** to weight by. Its native amount and currency are carried on the exclusion so the magnitude is still visible |
+| Unvalued manual asset | **component count** | Same: there is no figure to weight |
+| **No usable price** (`basis: 'market'`) | **value, weighted by base cost basis** | An unpriced holding's cost **is** known in base — it is exactly what the `cost` basis would have used |
+
+So under `basis: 'market'` the result additionally carries `investmentCoverage` — the fraction of position **cost basis** that had a usable price. Under `basis: 'cost'` it is `1.0`: acquisition cost is always known.
+
+**A partial figure is reported and labelled, never suppressed and never completed with cost.** The valuation status is `complete` (nothing excluded), `partial` (something excluded and named, figure still reported with the excluded magnitude beside it), or `unavailable` (no position could be priced although positions exist — the headline is withheld and the `cost` figure offered by name).
 
 ### Change attribution
 
@@ -601,6 +637,40 @@ A `liability_balances` row is denominated in the **liability's** currency; there
 `interest_rate`, `emi_amount`, `started_on`, and `ends_on` are **descriptive only at launch**. Nothing computes an amortisation schedule from them; the change bridge splits principal from interest only where the user has recorded both, and reports the liability change as one figure otherwise. Deriving a schedule to split a number the user did not record would be inventing data. Until it exists the fields must not be presented as though the app is tracking the loan for you.
 
 **Neither entity is ever created by the AI without confirmation**, and neither has a delete proposal kind ([AI-SYSTEM.md §9](AI-SYSTEM.md#9-the-mutation-boundary)).
+
+### 9.5 The cost-to-market restatement
+
+Comparing the two bases at one date is a **restatement**, not a bridge ([ADR-31](DECISIONS.md#adr-31--cost-to-market-is-a-restatement-at-an-instant-not-a-bridge-over-time)). A bridge explains movement between two dates on one basis; a change of basis is not movement, and `bridge()` refuses it.
+
+```
+netWorth(asOf, 'cost')
+  − Σ baseCostBasis(unpriced positions)         removed: not valuable on this basis
+  + Σ ( costAtSpot − costAtAcquisitionRates )   FX rebasis
+  + Σ ( marketAtSpot − costAtSpot )             price effect
+= netWorth(asOf, 'market')
+```
+
+over **priced** positions only, where `costAtSpot = Σ tax_lots.remaining_cost × fxRateOn(asOf)` and `costAtAcquisitionRates = Σ tax_lots.remaining_cost × lot.fx_rate_to_base`. Both are expressible because `remaining_cost` is held in the **instrument's** currency alongside the acquisition rate, so **no new column is required**.
+
+**Every term is computed; none is a residual.** Defining the price effect as the plug would make the identity trivially true and hide the bug it should surface — the same reasoning that keeps `fx_effect` computed in the bridge.
+
+Three rules on presentation, each guarding a misreading with a financial consequence:
+
+- **The restatement explains a difference, never a gain.** The price effect is unrealised and says nothing about what the user earned.
+- **The removed-unpriced line is not a loss.** It is what the comparison set aside for want of a price, and must be labelled so a reader can tell it from a holding that fell.
+- **There is no liability term and no manual-asset term.** Both are identical under either basis; a restatement line for either means something is wrong.
+
+### 9.6 What `market` basis does not change
+
+Stated because the plausible assumption is that a "market" basis marks everything to market:
+
+| Component | Under `basis: 'market'` |
+|---|---|
+| Account balances | **identical.** A balance is a recorded fact, not a price |
+| Manual assets | **identical** — the user's own `asset_valuations` figure. A manual asset has a **valuation, not a price**, and does not become market-priced because the basis label changed |
+| Liabilities | **identical.** A loan's outstanding principal is a contractual amount; marking own debt to market is out of scope and always will be |
+| Realised P&L, cost basis, tax lots | **untouched.** Valuation reads the ledger; it never writes to it |
+| The `cost` figure itself | **untouched, and remains the default** ([ADR-32](DECISIONS.md#adr-32--the-default-valuation-basis-remains-cost-market-is-an-explicit-alternate-view)) |
 
 ## 10. Calculation engine contract
 

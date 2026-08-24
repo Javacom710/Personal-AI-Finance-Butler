@@ -338,10 +338,13 @@ Recording the column rather than dropping it keeps a fact the user may have ente
 
 Net worth is computed at a **declared basis**, and the basis is part of the answer rather than an implementation detail:
 
-| Basis | Investment contribution | Available |
-|---|---|---|
-| `cost` | the exact Phase 4 cost basis — `Σ tax_lots.remaining_cost × lot.fx_rate_to_base`, per lot | **Phase 5** |
-| `market` | `Σ marketValue(position)`, unpriced holdings **excluded** and named, with a coverage ratio | Phase 6 |
+| Basis | Investment contribution | Available | Default? |
+|---|---|---|---|
+| `cost` | the exact Phase 4 cost basis — `Σ tax_lots.remaining_cost × lot.fx_rate_to_base`, per lot | **Phase 5** | **yes** ([ADR-32](#adr-32--the-default-valuation-basis-remains-cost-market-is-an-explicit-alternate-view)) |
+| `market` | `Σ marketValue(position)`, unpriced holdings **excluded** and named, with a coverage ratio | **Phase 6.11** | no — requested explicitly |
+
+**Both bases are first-class and fully supported. Neither replaces the other**; they answer different
+questions — *what did I put in* versus *what is it worth now*.
 
 **Phase 5 computes and presents `cost` only, and names it "Net Worth at Cost" wherever the unqualified term could imply a current market valuation.** Phase 6 introduces `market` as a distinct calculation.
 
@@ -353,7 +356,7 @@ Net worth is computed at a **declared basis**, and the basis is part of the answ
 - The investment block of `basis: 'cost'` carries **no unrealised gain and no unrealised FX**. Currency movement on a foreign holding surfaces only on disposal, as `base_fx_component` (I-18).
 - The change bridge's unrealised-gain line is **zero by construction** at `basis: 'cost'` — arithmetically, because `Δcost = purchases − consumed` exactly — and must be rendered as *"not measured — holdings valued at cost"*, never as `₹0`, which would read as *"the portfolio did not move"*.
 - Coverage for the investment block is `1.0` under `cost`: acquisition cost is always known.
-- When Phase 6 makes `market` the default, net worth moves for two reasons at once — price, and the FX basis shift from acquisition rates to spot ([FINANCIAL-DOMAIN.md §9.3](FINANCIAL-DOMAIN.md#93-calculation)). That belongs in the Phase 6 release note.
+- ~~When Phase 6 makes `market` the default~~ — **superseded by [ADR-32](#adr-32--the-default-valuation-basis-remains-cost-market-is-an-explicit-alternate-view) (OD-16, 2026-08-21): the default remains `cost`, and `market` is an explicit alternate view.** The underlying observation stands and still belongs in the Phase 6.11 release note: **whenever a user first views `market`, the figure differs from `cost` for two reasons at once** — price, and the FX rebasis from acquisition rates to spot ([FINANCIAL-DOMAIN.md §9.3](FINANCIAL-DOMAIN.md#93-calculation)). Because the default does not change, that difference is something the user opts into seeing rather than something that happens to them.
 
 **No valuation toggle in Phase 5.** The parameter exists in the calculator's signature so Phase 6 is a new valuation function and a changed default rather than re-plumbing; it is not surfaced in the UI, because Phase 5 has exactly one basis to offer.
 
@@ -551,9 +554,8 @@ Two vendors' closes for the same instrument differ — different venue, differen
 
 ## ADR-31 — Cost to market is a **restatement at an instant**, not a bridge over time
 
-**Decision.** Proposed 2026-08-21 by the Phase 6.11 design review
-([MARKET-VALUE-NET-WORTH-DESIGN.md §6](MARKET-VALUE-NET-WORTH-DESIGN.md#6-the-cost-to-market-restatement)),
-pending **OD-14**.
+**Decision.** **Approved 2026-08-21 under OD-14**, from the Phase 6.11 design review
+([MARKET-VALUE-NET-WORTH-DESIGN.md §6](MARKET-VALUE-NET-WORTH-DESIGN.md#6-the-cost-to-market-restatement)).
 
 > **A bridge explains movement between two dates on one basis. A restatement explains why two bases
 > disagree at one date. They are different questions, they take different inputs, and they must never
@@ -604,6 +606,68 @@ tell price movement from an unpriced holding dropping out, and those have opposi
 
 ---
 
+## ADR-32 — The default valuation basis remains `cost`; `market` is an explicit alternate view
+
+**Decision.** Resolves **OD-16**, approved 2026-08-21. **Supersedes the default-flip consequence of
+[ADR-23](#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost)**;
+every other part of ADR-23 stands unchanged.
+
+> **`netWorthAsOf()` defaults to `basis: 'cost'`. `market` is reached by asking for it explicitly.
+> Both are first-class, fully supported views; neither replaces the other.**
+
+Phase 6.11 delivers **Net Worth at Market Value** as a complete, tested, reconciled calculation. What
+it does **not** do is change what the application shows when nobody asked.
+
+### Why the default stays at cost
+
+**1. Switching the default silently restates every figure the user has already seen.** A user who has
+watched their net worth for six months would open the application one morning to a different number,
+a different history and a different shape of chart — with no transaction behind any of it. The
+release note would explain it; the chart would still look like something happened.
+
+**2. The headline moves for reasons the user did not cause.** Net Worth at Cost changes only when the
+user *does* something: earns, spends, buys, sells, revalues an asset, repays a debt. That is a
+property worth protecting in a personal finance application, where the headline answers *"how am I
+doing?"* rather than *"what did the market do today?"* Under `market` the same figure moves with
+prices **and** with FX — including the one-off rebasis from acquisition rates to spot on the very
+first render ([MARKET-VALUE-NET-WORTH-DESIGN.md §6](MARKET-VALUE-NET-WORTH-DESIGN.md#6-the-cost-to-market-restatement)).
+
+**3. A default should not be able to report `partial` or `unavailable`.** Cost basis has coverage
+`1.0` by construction — acquisition cost is always known. Market coverage depends on a third party
+being reachable, entitled and current; a headline that degrades when a provider has a bad morning is
+a poor default even though the degradation itself is handled honestly
+([§5](MARKET-VALUE-NET-WORTH-DESIGN.md#5-partial-valuation)).
+
+**4. Cost is the basis the rest of the system already agrees with.** Golden scenario **G4** closes at
+exactly `0.0000` on cost; the change bridge's lines are all cost-basis movements; `verify:integrity`
+asserts I-24 against `positions.base_cost_basis`. Keeping the default there means Phase 6.11 adds a
+view without disturbing a single existing assertion.
+
+### What this does *not* mean
+
+- **Market value is not second-class.** It is fully implemented, fully reconciled, has its own
+  invariants (I-41 … I-49) and its own golden scenarios. "Not the default" is not "not supported".
+- **It is not a deferral.** Nothing about market value is postponed by this decision; only the
+  question of which figure appears unbidden.
+- **Neither basis replaces the other**, and no document may imply otherwise. They answer different
+  questions: *what did I put in* versus *what is it worth now*.
+
+### Revisiting
+
+A future change of default is a **product** decision, to be taken on actual usage — whether the user
+routinely switches to market, and whether coverage is reliably `complete` in practice. It is not an
+engineering decision and should not be made by whoever next touches this code. Any such change must
+ship with the release note ADR-23 already requires, because the FX rebasis is real either way.
+
+**Rejected.** *`market` as the default*, as ADR-23 anticipated — the four reasons above, of which (1)
+is decisive for a single-user application whose whole value is a continuous record. *A remembered
+per-user preference* — a stored default is still a default, and adds a settings row, a migration and a
+new way for two screens to disagree, to solve a problem nobody has reported. *Showing both as
+co-equal headlines* — two headline numbers is no headline at all, and forces the reader to decide
+which one is their net worth.
+
+---
+
 ## Decisions taken independently in Phase 1
 
 Per `CLAUDE.md <decision_policy>`, these were resolved rather than escalated. Each is reversible at low cost; the reasoning is recorded so it can be challenged.
@@ -626,9 +690,6 @@ Per `CLAUDE.md <decision_policy>`, these were resolved rather than escalated. Ea
 | **OD-3** | **Equity/ETF market-data provider terms** | Free sources cover Indian mutual funds (AMFI) and FX; listed equities need a paid API whose terms are a commercial choice, not an engineering one. **Direction set 2026-08-18: Twelve Data**, integrated at a later Phase 6 step behind the provider credential/configuration step. Kite Connect is explicitly **not** to be integrated. No commercial SDK is installed in advance. | The equity adapter only. The abstraction, the registry, AMFI, FX and Manual are all built without it |
 | **OD-11** | **Crypto market data** | **Deferred 2026-08-18.** No crypto provider is implemented. The domain stays extensible — `cadence: 'continuous'` and the wall-clock branch of [ADR-28](#adr-28--staleness-is-measured-in-trading-sessions-not-wall-clock-hours) exist and are tested — but no adapter ships. | Nothing |
 | **OD-12** | **Dedicated gold market data** | **Deferred 2026-08-18.** Gold is represented through supported instruments (gold ETFs and gold mutual funds price through the ordinary adapters) or through a `manual_assets` valuation series. No bullion adapter, no purity/unit-conversion model. | Nothing |
-| **OD-14** | **Apply the Phase 6.11 design review** — [ADR-31](#adr-31--cost-to-market-is-a-restatement-at-an-instant-not-a-bridge-over-time), invariants I-41…I-49, and the finding that **no schema change is required** — to the canonical documents. Documentation-only. **Recommend approval**, on the OD-4 / OD-9 / OD-10 precedent | Phase 6.11 step 1, and therefore the phase |
-| **OD-15** | **Close 6.10 (snapshots) as unnecessary**, on measurement: a 365-point market-value series over a portfolio larger than the target user's runs in **123 ms**. The naive 1,156 ms was a linear price scan, not a missing cache. **Recommend approval** — ADR-24's four rules stay on the shelf for the day something genuinely measures slow | Nothing; leaving it open costs only clarity |
-| **OD-16** | **Does `market` become the default basis?** ADR-23 says yes. Flagged rather than assumed because it has a visible consequence: on the day it flips, net worth moves for **FX reasons alone**, independently of price, since the investment block is carried at acquisition rates under `cost` and at spot under `market` | The 6.11 release note and the default-flip gate |
 | **OD-13** | **AMFI reuse terms** | **Open, and documented rather than assumed.** AMFI publishes `NAVAll.txt` and the NAV-history report publicly and without authentication, and the Indian fintech industry consumes both; **no machine-readable licence or explicit reuse grant was located**, so none is asserted. The adapter is built for personal, non-redistributing use and says so in its header. Confirm with AMFI before any non-personal use or redistribution. | Nothing for personal use; would block redistribution |
 
 ### Resolved
@@ -640,5 +701,8 @@ Per `CLAUDE.md <decision_policy>`, these were resolved rather than escalated. Ea
 | **OD-6** | `settlement_date` semantics | ✅ Resolved 2026-08-11: recognition is trade-dated ([ADR-22](#adr-22--financial-recognition-is-trade-dated-settlement_date-is-informational-metadata)) |
 | **OD-7** | Net-worth valuation basis before market data exists | ✅ Approved 2026-08-12: **Net Worth at Cost** in Phase 5; market value is a distinct Phase 6 calculation; the two are never mixed in one figure ([ADR-23](#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost)) |
 | **OD-8** | `net_worth_snapshots` and the `networth.snapshot` job | ✅ Approved 2026-08-12: **moved to Phase 6.** Phase 5 derives every figure; snapshots remain available to Phase 6 under four stated rules ([ADR-24](#adr-24--net-worth-is-derived-on-demand-snapshots-are-deferred-to-phase-6)) |
+| **OD-14** | Apply the Phase 6.11 design review to the canonical documents | ✅ **Approved and applied 2026-08-21.** Reconciled, not appended: [ADR-31](#adr-31--cost-to-market-is-a-restatement-at-an-instant-not-a-bridge-over-time) (restatement, not bridge) and [ADR-32](#adr-32--the-default-valuation-basis-remains-cost-market-is-an-explicit-alternate-view) (default stays `cost`) carry the architectural findings; the methodology went into [FINANCIAL-DOMAIN.md §9.3](FINANCIAL-DOMAIN.md#93-calculation), [INVESTMENT-DOMAIN.md §5.1](INVESTMENT-DOMAIN.md#51-market-value-of-a-position-as-of-a-date), `SCHEMA.md` §12 (**I-41 … I-49**, I-38/I-39 promoted) and `TESTING.md` §11. **The Phase 5 cost methodology is untouched** |
+| **OD-15** | `net_worth_snapshots` and the snapshot job | ✅ **Closed 2026-08-21 — not built, on measurement.** A 365-point market-value series over a portfolio larger than the target user's runs in **123 ms** with an indexed price lookup; the naive 1,156 ms was a linear scan, not a missing cache. No table, no job, no snapshot-based figure. [ADR-24](#adr-24--net-worth-is-derived-on-demand-snapshots-are-deferred-to-phase-6)'s four rules are retained on the shelf, and only a **real production measurement** reopens this |
+| **OD-16** | Default valuation basis | ✅ **Resolved 2026-08-21: the default remains `cost`.** `market` is a fully supported, explicitly requested alternate view. Historical continuity is preserved and the headline does not move because a price or a rate changed. Normative record: [ADR-32](#adr-32--the-default-valuation-basis-remains-cost-market-is-an-explicit-alternate-view), which **supersedes ADR-23's default-flip consequence** |
 | **OD-10** | Apply the Market Data review's M1–M13 to the canonical documents | ✅ **Approved and applied 2026-08-18.** Reconciled, not appended: four findings became [ADR-27](#adr-27--market-data-adapters-return-observations-the-registry-classifies-freshness), [ADR-28](#adr-28--staleness-is-measured-in-trading-sessions-not-wall-clock-hours), [ADR-29](#adr-29--provider-corporate-actions-are-detections-never-ledger-writes) and [ADR-30](#adr-30--one-provider-per-instrument-price-series-the-only-price-fallback-is-manual); the rest were folded into `FINANCIAL-DOMAIN.md` §2, `INVESTMENT-DOMAIN.md` §5/§8.1/§10, `SCHEMA.md` §5/§5.1/§12 and `TESTING.md`. Invariants **I-33 … I-40** added. Per-finding disposition: [MARKET-DATA-DESIGN.md §21](MARKET-DATA-DESIGN.md#21-defects-found-in-the-baseline-m1m13) |
 | **OD-9** | Apply the Net Worth review's N1–N19 to the canonical documents | ✅ Approved and applied 2026-08-12. The normative rules were **reconciled**, not appended to: [ADR-23](#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost), [ADR-25](#adr-25--net-worth-classification-is-by-the-economic-sign-of-the-balance-not-by-account-kind) and [ADR-26](#adr-26--an-as-of-financial-figure-is-computed-from-dated-facts-only-no-current-state-flag-participates) carry the four architectural findings; the rest are folded into `FINANCIAL-DOMAIN.md`, `SCHEMA.md`, `INVESTMENT-DOMAIN.md` and `TESTING.md`. Disposition table in [NET-WORTH-DESIGN.md §14](NET-WORTH-DESIGN.md#14-defects-found-in-the-baseline-n1n19) |
