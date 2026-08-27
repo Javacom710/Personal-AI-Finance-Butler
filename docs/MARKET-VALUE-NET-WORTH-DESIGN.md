@@ -1,8 +1,10 @@
 # Market-Value Net Worth — Phase 6.11 architecture and design review
 
 **Status:** design review complete 2026-08-21; **OD-14, OD-15 and OD-16 resolved and applied to the
-canonical documents the same day.** **Phase 6.11 implementation has NOT started.** No application
-code, schema, migration, service, API, UI or test changed.
+canonical documents the same day.** **Implemented and verified 2026-08-27** — 1,396 tests passing,
+`verify:integrity` 33 passed / 0 failed / 19 engine-enforced / 2 deferred, **no schema change and no
+snapshots**. Every gate in [§21](#21-implementation-gates) is met; the two things implementation found
+that this document did not anticipate are recorded in [§24](#24-what-implementation-found).
 
 **Nature of this document:** a review record and rationale, like
 [INVESTMENT-ENGINE-DESIGN.md](INVESTMENT-ENGINE-DESIGN.md), [NET-WORTH-DESIGN.md](NET-WORTH-DESIGN.md)
@@ -792,6 +794,17 @@ separated *facts* from *figures*.
 | Release note: the basis switch moves net worth for **FX reasons alone**, independently of price |
 | Golden **G5** (partial coverage) and **G6** (market-value with a foreign holding) |
 
+**All met on 2026-08-27.** Two carry a note:
+
+- **The indexed price lookup was necessary but not sufficient.** See [§24](#24-what-implementation-found).
+- **`quantityHeldOn` is derived from `replay()` rather than re-implemented** as the cumulative
+  ratio product this document sketched. The two forms disagree by units of 10⁻⁸ on a reverse split
+  that does not divide evenly, because per-lot rounding and rounding-the-sum are different
+  operations — and the per-lot answer is the one `positions.quantity` carries. `replay()` now emits
+  a per-trade-date `quantityTimeline`; `quantityHeldOn` binary-searches it. The property test
+  asserts equality against a **bounded replay**, which is what §21 asked for, and the ratio-product
+  form is kept in the suite only as the wrong answer it proves wrong.
+
 ### Deferred
 
 Per-lot FX attribution of holding-level unrealised P&L ([§7](#7-unrealised-fx)) · a basis toggle in
@@ -846,4 +859,61 @@ basis abstraction was drawn in the right place.
 | Invariants defined | ✅ [§19](#19-proposed-invariants-i-41--i-49) — I-41 … I-49, each mapped |
 | Implementation gates explicit | ✅ [§21](#21-implementation-gates) — V1 / deferred / future |
 | No unresolved contradiction | ✅ One found and resolved: the task's "cost-to-market bridge" contradicts `bridge.ts:122`, which refuses cross-basis bridging. Resolved as a **restatement** (ADR-31) |
-| **Implementation started** | ❌ **No.** No code, schema, migration, service, API, UI or test changed |
+| **Implementation started** | ✅ **Complete, 2026-08-27.** See [§24](#24-what-implementation-found) |
+
+---
+
+## 24. What implementation found
+
+Two things this review did not anticipate. Both are recorded here rather than only in the commit,
+because both outlive the phase.
+
+### 24.1 The FX lookup was the real cost of a series, not the price lookup
+
+[§13](#13-performance) named two V1 constraints — index the price series, bound the fetch — and
+[§12](#12-snapshots--closed-by-measurement) put a 365-point market series at **123 ms** with the
+index in place. Both constraints were implemented as specified. The first benchmark run measured
+**710 ms**.
+
+The price index was working: 219× fewer observations scanned, exactly as designed. The remaining
+cost was `selectRate()`, which rebuilds its whole `PairIndex` on **every call**. `indexRows` is
+`O(rows)` and its result depends only on `(rows, on)`, so a single-date page — a handful of
+conversions — cannot tell. A *series* asks once per foreign position per point, and over 2,500
+stored observations that is a table scan wearing a lookup's clothes.
+
+`rateSelector()` memoises the index per date. **The resolution rule is untouched** — identity →
+direct → inverse → triangulated, dated by the stalest leg, one pivot only — so the change is to what
+is recomputed and never to what is decided; all 1,396 tests confirm every Phase 3, 4 and 5 figure is
+byte-identical. The series dropped to **80 ms**, beating the baseline, and the single-point market
+fold from 3.0 ms to 0.3 ms.
+
+**The lesson is the one ADR-24 already argues.** No test would have caught this: every figure was
+already correct. It took a measurement — which is why `scripts/bench-networth.ts` is a committed,
+runnable script rather than a table of numbers in this document, and why the same-shaped mistake in
+two different lookups was found twice by the same method.
+
+### 24.2 `ExclusionReason` needed a tenth member
+
+[§11](#11-coverage-and-completeness--the-reported-shape) widened the exclusion reason to
+`'no_fx_rate' | 'unvalued'` plus the seven `MissingPriceReason` members. Nine, and the tests were
+specified against nine.
+
+A historical valuation is a tenth case. When no observation exists on or before `T` **within the
+carry-back bound** — the instrument is younger than the date, or its history has not been backfilled
+that far — none of the seven is true: they are all verdicts about a *provider*, and the provider may
+be working perfectly and simply have published nothing for a date before the instrument listed.
+Folding it into `not_found` tells the user to re-map a symbol that is mapped; into `no_provider`,
+that they must hand-enter a price for a date that has one everywhere else in the series.
+
+So `ExclusionReason` carries **`no_price_on_date`**, and it is deliberately **not** a
+`MissingPriceReason`: the market-data union describes provider verdicts and is untouched. This is a
+gap in the point, not a fault in the feed.
+
+### 24.3 Golden scenario numbering
+
+`TESTING.md` §5's table **named G6** *"Corrections"*, while §6.7 and [§21](#21-implementation-gates)
+of this document both named G6 *"market value with a foreign holding"* — one number, two meanings,
+in three places. Phase 6.11 gates on the latter, so the market-value scenario **took G6** and the
+corrections scenario **was renumbered G7** in `TESTING.md` §5, with a note in that table recording
+the change. G5 was never in conflict — "sparse data" and "partial coverage" are the same
+scenario under two names.

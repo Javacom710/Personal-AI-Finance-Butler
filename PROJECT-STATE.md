@@ -2,13 +2,29 @@
 
 Durable status record. Conversation history is temporary; this file is not. Read this first after any context reset, then verify it against `docs/`, the source tree, and the tests before trusting it.
 
-**Last updated:** 2026-08-21 · **Current phase:** **6 — steps 6.0–6.9 complete and verified. 6.10 closed. 6.11 designed, decided and ready to implement — implementation NOT started.**
+**Last updated:** 2026-08-27 · **Current phase:** **6 — COMPLETE. Steps 6.0–6.9 and 6.11 implemented and verified; 6.10 closed unbuilt. Phase 7 NOT started.**
 
-The **Phase 6.11 design review** ([docs/MARKET-VALUE-NET-WORTH-DESIGN.md](docs/MARKET-VALUE-NET-WORTH-DESIGN.md)) was completed 2026-08-21, and **OD-14, OD-15 and OD-16 were resolved and applied to the canonical documents the same day.** **No open decision remains for 6.11**, and no application code, schema, migration, service, API, UI or test has been touched.
+**Phase 6.11 — Net Worth at Market Value — is implemented and verified** (2026-08-27). `basis: 'market'` is a distinct, fully reconciled calculation alongside Phase 5's `cost`. **No schema change and no snapshots** were required, exactly as [docs/MARKET-VALUE-NET-WORTH-DESIGN.md](docs/MARKET-VALUE-NET-WORTH-DESIGN.md) §20 and OD-15 concluded.
 
-**The default valuation basis remains `cost`** ([ADR-32](docs/DECISIONS.md#adr-32--the-default-valuation-basis-remains-cost-market-is-an-explicit-alternate-view)). `market` is a fully supported alternate view, requested explicitly. **Neither replaces the other**, and Phase 5's cost methodology is untouched.
+**The default valuation basis remains `cost`** ([ADR-32](docs/DECISIONS.md#adr-32--the-default-valuation-basis-remains-cost-market-is-an-explicit-alternate-view)). `market` is a fully supported alternate view, reached from an explicit link on the Net Worth page. **Neither replaces the other**, and Phase 5's cost methodology is untouched — asserted rather than assumed: a price arriving moves Net Worth at Cost by **zero** minor units, and the browser check confirmed the headline held at ₹76,90,000.00 across a price being recorded.
 
-**1,245 tests pass** — 68 added in 6.9, 196 across Phase 6 so far, and every Phase 3, 4 and 5 test still passes. `verify:integrity` reports **33 passing, 0 failing, 9 engine-enforced, 4 deferred**. Typecheck, lint and the production build are clean.
+**1,396 tests pass** — 129 added in 6.11, and every Phase 3, 4, 5 and 6.0–6.9 test still passes. `verify:integrity` reports **33 passing, 0 failing, 19 engine-enforced, 2 deferred** — I-38 and I-39 promoted from deferred, I-41 and I-43 … I-49 added, and I-42 deliberately absent. Typecheck, lint, the production build and `check:no-client-secrets` are clean.
+
+### What Phase 6.11 delivered
+
+| | |
+|---|---|
+| Engine | `ValuationBasis` widened to `'cost' \| 'market'`; the basis is a property of component *construction*, so `compose()` carries it and never branches on it |
+| The one new algorithm | `quantityHeldOn` (`domain/lots/quantity.ts`). `replay()` now emits a per-trade-date `quantityTimeline`, so the corporate-action ratio arithmetic has **one** implementation. Property-tested against a bounded replay across splits, bonuses and reverse splits (**I-46**) |
+| Completeness | `MarketValuation` — `complete` / `partial` / `unavailable`, value-weighted investment coverage by base cost basis (**D-29**), excluded cost, staleness summary |
+| Restatement | `domain/networth/restate.ts` — removed-unpriced, FX rebasis, price effect, each computed and none a residual, closing exactly (**I-48**, [ADR-31](docs/DECISIONS.md#adr-31--cost-to-market-is-a-restatement-at-an-instant-not-a-bridge-over-time)) |
+| Performance | Indexed price lookup (`domain/pricing/price-series.ts`) and a memoised FX pair index. A 365-point market series runs in **80 ms** against the design's 123 ms baseline — `npm run bench:networth` |
+| UI | `/net-worth` keeps its Phase 5 headline and gains one reciprocal line; `/net-worth/market` is the new, explicitly-labelled alternate view |
+
+### Two findings from implementation, neither in the design
+
+- **`ExclusionReason` gained `no_price_on_date`.** The seven `MissingPriceReason` members are verdicts about a *provider*, and none is true when the feed is healthy and has simply published nothing for a date before the instrument listed. Folding the historical gap into `not_found` would tell the user to re-map a symbol that is already mapped. The market-data union is untouched; this member exists on the net-worth exclusion type only.
+- **`selectRate()` rebuilt its pair index on every call.** Invisible for the handful of conversions a single-date page makes, and dominant for a *series*, which asks once per foreign position per point. `rateSelector()` memoises the index per date; the resolution rule — identity → direct → inverse → triangulated, dated by the stalest leg — is unchanged, so every Phase 3/4/5 figure is byte-identical. **Found by the benchmark, not by a test**: the first measurement came in at 710 ms against the design's 123 ms, and the price index alone did not explain it.
 
 **What now works that did not before:** Indian mutual funds price from **AMFI**; FX comes from **Frankfurter/ECB**, including by **triangulation** where no direct pair exists; equities and ETFs on NSE, BSE and three international venues price from **Twelve Data**; staleness is measured in **trading sessions**; and a provider corporate action cannot reach the ledger.
 
@@ -19,8 +35,6 @@ This file also remains the **Phase 5 completion checkpoint** and carries the **P
 **1,049 tests pass** — 617 unit, 56 property, 376 integration. `verify:integrity` reports **27 passing, 0 failing, 8 enforced by the engine, 2 deferred to Phase 9**. Typecheck, lint and the production build are clean. **Signed-in browser verification passed**, finding and fixing two display defects.
 
 **Infrastructure verified:** PostgreSQL **18.4** as the Windows service `postgresql-x64-18` (`Automatic` start, runs as `NT AUTHORITY\NetworkService`), independent of any shell or tool lifetime. Databases `financeos` and `financeos_test`, two least-privilege roles, connectivity confirmed by the 376 integration tests, `verify:integrity` against `financeos`, and a live signed-in browser session.
-
-**Phase 6 — Market Data has NOT started.** No provider, adapter, refresh job, price history, market-value net worth, snapshot table or snapshot job exists.
 
 Sequence approved 2026-08-11: **Phase 3 — Money Management → Phase 4 — Investment Engine.**
 
@@ -71,7 +85,7 @@ Corollaries that follow from the above:
 | 3 — Financial Core | ✅ complete, verified |
 | 4 — Investment Engine | ✅ complete, verified |
 | 5 — Net Worth at Cost | ✅ **complete, verified** |
-| 6 — Market Data | **6.0–6.9 complete and verified.** **6.10 closed — not built** (OD-15). **6.11 designed and decided; implementation not started.** No open decision remains |
+| 6 — Market Data | ✅ **complete, verified.** 6.0–6.9 and **6.11** implemented; **6.10 closed — not built** (OD-15). No open decision remains |
 | 7 — AI Infrastructure | not started; **blocked** on OD-1 (`NVIDIA_API_KEY`) |
 | 8–14 | not started |
 
@@ -96,6 +110,7 @@ npm run db:seed               # idempotent reference data + default categories
 npm run db:rollback           # reverse the newest migration
 npm run auth:create-user -- --email you@example.com     # password in FOS_PASSWORD
 npm run verify:integrity      # check the financial invariants against real data
+npm run bench:networth        # the Phase 6.11 performance measurement, repeated
 npm run jobs:run              # drain the job queue once (cron drives this)
 npm run dev | build | start
 npm test                      # unit + property + integration
@@ -452,7 +467,7 @@ can exercise the shipped login flow; it has no production counterpart.
 
 ---
 
-## Phase 6 — Market Data · NOT STARTED
+## Phase 6 — Market Data · scope as planned (historical record)
 
 The next phase. Nothing in it has been built: no provider, no adapter, no
 refresh job, no price history, no market-value net worth, no snapshot table or
@@ -781,9 +796,9 @@ report `partial` because a provider had a bad morning — cost coverage is `1.0`
 That the design needed **no structural change** to accommodate the opposite answer is itself evidence
 the basis abstraction was drawn in the right place.
 
-**The next exact step is implementation**, beginning at the `ValuationBasis` widening and the
-`quantityHeldOn` property tests ([MARKET-VALUE-NET-WORTH-DESIGN.md §21](docs/MARKET-VALUE-NET-WORTH-DESIGN.md#21-implementation-gates)).
-Nothing blocks it.
+**Implementation followed on 2026-08-27** and every gate in
+[MARKET-VALUE-NET-WORTH-DESIGN.md §21](docs/MARKET-VALUE-NET-WORTH-DESIGN.md#21-implementation-gates)
+is met — see *What step 6.11 delivered* below.
 
 `TWELVE_DATA_API_KEY` is configured and the live smoke test passes, so 6.9 carries no outstanding
 verification either.
@@ -793,6 +808,73 @@ Superseded pointer, kept for the record: the earlier instruction here was to *pe
 reading `docs/ARCHITECTURE.md`, `docs/INVESTMENT-DOMAIN.md` §5 and
 §8.1, [ADR-11](docs/DECISIONS.md#adr-11--market-data-behind-a-provider-abstraction-with-an-always-available-manual-provider),
 and `docs/ROADMAP.md` Phase 6 before writing anything.
+
+---
+
+## What step 6.11 delivered — Net Worth at Market Value · 2026-08-27
+
+| Area | Where |
+|---|---|
+| Basis | `ValuationBasis = 'cost' \| 'market'` in `domain/networth/compose.ts`. Phase 5 shipped it as a one-member union so widening it would be a compile error at every site that had to be reconsidered; that mechanism was used, not circumvented |
+| Quantity | `domain/lots/quantity.ts` — `quantityHeldOn`, reading a per-trade-date `quantityTimeline` that `replay()` now emits. **One** implementation of the corporate-action ratio arithmetic |
+| Market components | `services/_networth-market.ts` (loader and price selector) and `marketPositions()` in `services/networth.ts` (the builder). Priced or excluded, never cost-substituted |
+| Completeness | `domain/networth/market.ts` — status, value-weighted investment coverage, excluded cost, staleness |
+| Restatement | `domain/networth/restate.ts` — three computed lines, closing exactly |
+| Price index | `domain/pricing/price-series.ts` — sort once per instrument, binary-search per point |
+| UI | `app/(app)/net-worth/market/page.tsx`, plus one reciprocal line on the existing page |
+| Benchmark | `scripts/bench-networth.ts`, `npm run bench:networth` |
+| Tests | **129 added** — 46 unit, 9 property, 41 integration, 23 golden (G5 + G6), 10 source-scan |
+
+### Verification — 2026-08-27
+
+| Gate | Result |
+|---|---|
+| `npm test` | **1,396 passed**, 0 failed (66 files) — up from 1,267 |
+| Every Phase 3 / 4 / 5 / 6.0–6.9 test | **still passing** |
+| Typecheck · lint · production build | clean · clean · clean (25 routes) |
+| `verify:integrity` | **33 passed, 0 failed**, 19 engine-enforced, 2 deferred |
+| Schema | **unchanged** — no migration, as §20 concluded |
+| Snapshots | **not built** — OD-15 stands on measurement |
+| `check:no-client-secrets` | no secret in 21 client files |
+| Net Worth at Cost | **unchanged** — a price arriving moves it by zero minor units, asserted by test and confirmed in the browser |
+| Browser — desktop 1440px | default view headline held at ₹76,90,000.00; comparison line, market view, restatement, reconciliation all correct |
+| Browser — mobile 375px | no horizontal page overflow; the one wide table scrolls inside its own container |
+| Console | no errors beyond the pre-existing Next dev-mode CSP `style-src` notices, which appear identically on the Phase 5 page |
+
+### Performance — measured, not asserted
+
+`npm run bench:networth`, at 8 accounts · 40 instruments · 480 lots · 100,000 price points · 2,500 FX rows:
+
+| Operation | Measured | Design baseline (§12) |
+|---|---|---|
+| Net worth at cost, 1 point | 0.4 ms | 0.31 ms |
+| Net worth at market, 1 point | 0.3 ms | 2.9 ms |
+| 12-point market-value series | 4.4 ms | 33 ms |
+| 365-point at-cost series | 42 ms | 82 ms |
+| **365-point market-value series, indexed** | **80 ms** | **123 ms** |
+
+The naive-scan control measures 14.6 s here against the design's 1,156 ms; that row is a
+same-machine control for the *shape* of the cost, not a reproduction — this scan validates each
+stored date, so its absolute number is its own. **The gate is the indexed figure**, and it beats the
+baseline.
+
+### The defect this step found and fixed
+
+**`selectRate()` rebuilt its whole pair index on every call.** `indexRows` is `O(rows)` and its
+result depends only on `(rows, on)`, so one conversion on one page cannot tell the difference — but
+a market-value **series** asks for a rate once per foreign position per point, and over 2,500 stored
+observations that is a table scan wearing a lookup's clothes. The first benchmark run came in at
+**710 ms** against the design's 123 ms, and the price index alone did not explain it.
+
+`rateSelector()` memoises the index per date. The resolution rule is untouched — identity → direct →
+inverse → triangulated, dated by the stalest leg, one pivot only — so the change is to what is
+recomputed, never to what is decided, and all 1,396 tests confirm every Phase 3/4/5 figure is
+byte-identical. The series dropped to **80 ms** and the single-point market fold from 3.0 ms to
+0.3 ms.
+
+**Worth stating plainly: a test would not have caught this.** Every figure was already correct. It
+took a measurement, which is the argument ADR-24 makes for measuring before caching — and the reason
+the benchmark is a committed script rather than a number in a document.
 
 ---
 
@@ -939,7 +1021,8 @@ Run on 2026-08-10.
 | How do holdings and returns behave? | [docs/INVESTMENT-DOMAIN.md](docs/INVESTMENT-DOMAIN.md) — corrected and authoritative |
 | Why does the investment engine work that way? | [docs/INVESTMENT-ENGINE-DESIGN.md](docs/INVESTMENT-ENGINE-DESIGN.md) — the Phase 4 review record and rationale. **Non-normative**: where it and a canonical document differ, the canonical document wins |
 | How is net worth meant to work, and why? | [docs/NET-WORTH-DESIGN.md](docs/NET-WORTH-DESIGN.md) — the Phase 5 design review: single counting, as-of methodology, FX, liabilities, reconciliation, the schema delta, 43 edge cases, and the N1–N19 disposition table. **Non-normative** — the rules themselves now live in `FINANCIAL-DOMAIN.md` §9, `SCHEMA.md` §7–9/§12 and ADR-23…ADR-26 |
+| How does market-value net worth work, and why? | [docs/MARKET-VALUE-NET-WORTH-DESIGN.md](docs/MARKET-VALUE-NET-WORTH-DESIGN.md) — the Phase 6.11 review: the two bases, single counting under market, price selection, partial valuation, the restatement, historical reconstruction, precision, the snapshot measurement and 26 adversarial scenarios. **Non-normative** — the rules live in `FINANCIAL-DOMAIN.md` §9.3/§9.5/§9.6, `INVESTMENT-DOMAIN.md` §5.1, `SCHEMA.md` §12 and ADR-31/ADR-32 |
 | Where do prices come from, and which provider? | [docs/MARKET-DATA-DESIGN.md](docs/MARKET-DATA-DESIGN.md) — the Phase 6 review: data requirements, ten providers evaluated against verified official sources, the TWR and market-value-net-worth dependencies stated precisely, staleness, missing-data behaviour, caching, persistence, cost, 20 adversarial scenarios, and the M1–M13 defect table. **Non-normative** until OD-10 |
 | How does the AI layer work and what can't it do? | [docs/AI-SYSTEM.md](docs/AI-SYSTEM.md) |
 | What must be tested before a phase is done? | [docs/TESTING.md](docs/TESTING.md) and each phase's "Done when" |
-| What am I building next? | [docs/ROADMAP.md](docs/ROADMAP.md) — **Phase 6, Market Data**. Design review done; implementation not started. Start at **step 6.0** (OD-10), then 6.1 / 6.3 / 6.4. OD-3 gates step **6.9**, not the phase |
+| What am I building next? | [docs/ROADMAP.md](docs/ROADMAP.md) — **Phase 7, AI Infrastructure**, which is **blocked on OD-1** (`NVIDIA_API_KEY`). Phase 6 is complete: 6.0–6.9 and 6.11 implemented, 6.10 closed unbuilt |

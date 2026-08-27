@@ -164,14 +164,25 @@ Multi-year fixtures with every figure verified by hand once and then frozen. The
 | **G2 — Equity investor** | 20 buys, 8 partial sells, 2 splits, 1 bonus, 6 dividends, brokerage fees. Asserts: FIFO realised P&L, holdings, allocation, XIRR, TWR. Also asserts `Σ cost_total` is unchanged by both splits and the bonus, that trade fees appear in **no** `fees_total`, and that a split sharing a `trade_date` with a buy gives the same result under both insertion orders. |
 | **G3 — Mixed portfolio** | Equity + mutual funds + gold + a USD ETF + a fixed deposit. Asserts: multi-currency valuation, per-class allocation, FX component in attribution summing back to `base_realized_pnl` exactly, and that the USD ETF bought from an INR brokerage account leaves the account balance in rupees throughout (OD-5). |
 | **G4 — Debt and liabilities** | Home loan with EMIs, a credit card carrying a balance, a car loan closed mid-period. Asserts: liability totals, no double counting (**I-8**), the terminal zero balance row the closed loan requires (**I-28**), attribution split into principal and interest **only where the user recorded both**, and an **overpaid credit card counted as an asset** (**I-31**). The Phase 5 gate. |
-| **G5 — Sparse data** | 3 unpriced instruments, a manual asset with no valuation, a missing FX rate, a stale price. Asserts: coverage < 1, correct `null` propagation, nothing silently zeroed, the UI-facing warnings present. |
-| **G6 — Corrections** | A transaction edited, one deleted, an investment transaction back-dated before existing ones. Asserts: derived state rebuilt correctly, historical snapshots recomputed, audit trail complete. |
+| **G5 — Sparse data** | ✅ Two unpriced holdings, a manual asset held but unvalued, a USD manual asset with no FX rate, and a stale price. Asserts: value-weighted investment coverage against component-count coverage, correct `null` propagation, nothing silently zeroed, the stale price used *and* flagged, and the restatement closing at exactly `0.0000`. `tests/integration/golden-g5.test.ts` |
+| **G6 — Market value with a foreign holding** | ✅ A USD ETF bought at ₹75 to the dollar and valued at ₹83, beside an INR equity. Asserts the FX rebasis and the price effect separately, and pins the release-note fact at a date where the price has **not** moved: the entire difference is currency. `tests/integration/golden-g6.test.ts` |
+| **G7 — Corrections** | A transaction edited, one deleted, an investment transaction back-dated before existing ones. Asserts: derived state rebuilt correctly, historical figures recomputed, audit trail complete. **Not yet built.** |
+
+> **G6 was renumbered.** This table previously named G6 *"Corrections"*, while §6.7 and
+> [MARKET-VALUE-NET-WORTH-DESIGN.md §21](MARKET-VALUE-NET-WORTH-DESIGN.md#21-implementation-gates)
+> both named it the market-value foreign-holding scenario. Phase 6.11 gates on the latter, so the
+> market-value scenario is **G6** and corrections becomes **G7**. Recorded rather than silently
+> resolved, because a scenario number appearing in two places with two meanings is how a frozen
+> expectation stops being frozen.
 
 **Every golden scenario asserts `unexplained` in the net-worth bridge.** For **single-currency** data it is asserted **exactly zero** — every FX term is identically zero there, so a tolerance would only hide a real residual, and *an invariant with a tolerance is not an invariant*. The one-base-unit tolerance applies to multi-currency scenarios only (**I-30**). This single assertion catches most engine regressions, because almost any calculation error shows up as an unexplained residual.
 
 The bridge's `FX effect` is **computed** — opening-balance revaluation plus per-flow rate movement — never defined as the residual. Defining it as the plug would make `unexplained` trivially zero and destroy the assertion. A test asserts the bridge over a **multi-currency** fixture where a plugged FX line and a computed one give different answers.
 
-**G1 and G4 are the Phase 5 gate.** G2 already passes at cost. G3 and G5 need prices and stay in Phase 6; both extend the `basis: 'cost'` behaviour Phase 5 asserts rather than replacing it.
+**G1 and G4 were the Phase 5 gate; G5 and G6 are the Phase 6.11 gate**, and both extend the
+`basis: 'cost'` behaviour Phase 5 asserts rather than replacing it — G4 still closes at exactly
+`0.0000`. G2 passes at cost. **G3 remains open**: it needs a multi-currency *portfolio* fixture
+rather than a net-worth one, and no Phase 6.11 gate depends on it.
 
 Golden expected values live in `tests/golden/*.expected.json`. Changing one requires a PR comment explaining why the previously verified number was wrong.
 
@@ -270,6 +281,22 @@ closing at exactly `0.0000`, and every existing net-worth assertion is a cost-ba
   market value with rounding only at `valueOf` and `mulRate`.
 - **Golden G5** — partial coverage. **Golden G6** — market value with a foreign holding, exercising
   the FX rebasis.
+
+**Built 2026-08-27**, in `tests/unit/networth-market-domain.test.ts` (46),
+`tests/property/quantity-held-on.test.ts` (9), `tests/integration/networth-market.test.ts` (41),
+the two golden suites (23) and the extended `tests/unit/networth-source-scan.test.ts` (10 new).
+
+Two notes where the suite differs from the sketch above:
+
+- **The exclusion-reason test covers ten reasons, not nine.** Implementation found a tenth case —
+  no observation on or before `T` within the carry-back bound, which is a gap in the point rather
+  than a fault in the feed. See
+  [MARKET-VALUE-NET-WORTH-DESIGN.md §24.2](MARKET-VALUE-NET-WORTH-DESIGN.md#24-what-implementation-found).
+- **`quantityHeldOn`'s property test compares against a bounded `replay()`**, which is what this
+  section asks for — but the implementation *derives* the timeline from `replay()` rather than
+  re-deriving it as a cumulative ratio product. The two forms disagree by units of 10⁻⁸ on a
+  reverse split that does not divide evenly, and the per-lot answer is the one `positions.quantity`
+  carries. The ratio-product form is kept in the suite only as the wrong answer it proves wrong.
 
 ## 7. AI tests — all offline
 

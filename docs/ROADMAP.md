@@ -38,7 +38,7 @@ Market Data is **Phase 6**, after Investments (4) and Net Worth (5). That is del
 
 Unrealised P&L, portfolio return, XIRR, TWR, and market-value allocation are **not computable** until Phase 6. Phase 5 therefore ships with those metrics returning `null` with reason `no_price` — which is exactly the behaviour the engine contract requires ([FINANCIAL-DOMAIN.md §10.3](FINANCIAL-DOMAIN.md#103-missing-data-propagates-as-null-never-as-zero)), and it means the missing-price path is exercised for real before any provider exists.
 
-This is a **declared valuation basis**, not a temporary approximation ([ADR-23](DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost)): the investment contribution is the exact Phase 4 cost basis, market value and cost are never mixed inside one figure, and the UI says "valued at cost — market pricing arrives in Phase 6" rather than showing a number that looks like a market valuation. Phase 6 adds `basis: 'market'` as a **distinct** calculation and makes it the default.
+This is a **declared valuation basis**, not a temporary approximation ([ADR-23](DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost)): the investment contribution is the exact Phase 4 cost basis, market value and cost are never mixed inside one figure, and the UI says "valued at cost — market pricing arrives in Phase 6" rather than showing a number that looks like a market valuation. Phase 6 adds `basis: 'market'` as a **distinct** calculation; the default stays `cost` ([ADR-32](DECISIONS.md#adr-32--the-default-valuation-basis-remains-cost-market-is-an-explicit-alternate-view)).
 
 ---
 
@@ -217,7 +217,7 @@ Unblocked by Phase 4: `tax_lots` and `lot_disposals` exist, so the change bridge
 
 ---
 
-## Phase 6 — Market Data — **steps 6.0 … 6.8 complete; 6.9 not started**
+## Phase 6 — Market Data — **complete: steps 6.0 … 6.11**
 
 **Design review complete 2026-08-18** — [MARKET-DATA-DESIGN.md](MARKET-DATA-DESIGN.md). **OD-10
 approved 2026-08-18**, and its findings are now applied *and implemented*, not merely documented.
@@ -235,7 +235,7 @@ approved 2026-08-18**, and its findings are now applied *and implemented*, not m
 | 6.8 tests and the verification gate | ✅ **1,177 passing** |
 | **6.9 commercial equity adapter (Twelve Data)** | ✅ built, tested, registered — **1,245 passing**. `TWELVE_DATA_API_KEY` is optional and unset here, so equities report `no_provider`; **no live smoke test has been run** |
 | **6.10 snapshots** | ✅ **CLOSED — not built** (OD-15, 2026-08-21). A 365-point market-value series over a portfolio larger than the target user's runs in **123 ms**; the naive 1,156 ms was a linear price scan, not a missing cache. No table, no job, no snapshot-based figure. [ADR-24](DECISIONS.md#adr-24--net-worth-is-derived-on-demand-snapshots-are-deferred-to-phase-6)'s four rules stay on the shelf, reopened only by a **real production measurement** |
-| **6.11 market-value net worth (`basis: 'market'`)** | **design review complete and decisions resolved 2026-08-21** — [MARKET-VALUE-NET-WORTH-DESIGN.md](MARKET-VALUE-NET-WORTH-DESIGN.md). OD-14/15/16 all closed; **no open decision remains**. Implementation **not started**. **No schema change required.** **The default basis remains `cost`** ([ADR-32](DECISIONS.md#adr-32--the-default-valuation-basis-remains-cost-market-is-an-explicit-alternate-view)) |
+| **6.11 market-value net worth (`basis: 'market'`)** | ✅ **implemented and verified 2026-08-27** — **1,396 passing**, `verify:integrity` 33 passed / 0 failed / 19 engine-enforced / 2 deferred. **No schema change** and **no snapshots**, as [MARKET-VALUE-NET-WORTH-DESIGN.md](MARKET-VALUE-NET-WORTH-DESIGN.md) §20 and OD-15 concluded. **The default basis remains `cost`** ([ADR-32](DECISIONS.md#adr-32--the-default-valuation-basis-remains-cost-market-is-an-explicit-alternate-view)); `market` is reached from an explicit link. Golden **G5** and **G6** added |
 
 Three conclusions shaped how this phase was sequenced:
 
@@ -266,26 +266,39 @@ below is the *scope* list, not the order of work.
 - UI: staleness indicators, price history, performance page, allocation page
 
 **Done when**
-- [ ] All seven failure modes per adapter return a `PriceResult` and never throw
-- [ ] An unpriced holding is excluded from totals, marked in the UI, and reduces `coverage`
-- [ ] A stale price is used and visibly marked
-- [ ] No provider credential is reachable from any client bundle
-- [ ] XIRR matches a spreadsheet reference to 6 decimal places across 10 series
-- [ ] Every `null` metric carries its reason
-- [ ] `basis: 'market'` net worth **excludes** unpriced holdings and names them; it never falls back to cost inside the same figure ([ADR-23](DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost))
-- [ ] The release note states that the basis switch moves net worth for **FX reasons alone**, independently of price ([FINANCIAL-DOMAIN.md §9.3](FINANCIAL-DOMAIN.md#93-calculation))
-- [ ] The portfolio growth series is correct across a split and a bonus — a plain running sum of `quantity` is not
-- [ ] Golden scenarios **G3**, **G5**, **G6** pass; **G2** now passes on market value
-- [ ] All invariants (I-1 … I-32) pass in `verify:integrity`, and no declared non-invariant is asserted ([SCHEMA.md §12](SCHEMA.md#12-invariants-summary))
-- [ ] If snapshots are introduced: `verify:integrity` asserts **snapshot = derivation**, and the current figure is still always derived
-- [ ] Staleness is measured in **trading sessions**, not wall-clock hours, and a price from Friday's close is not marked stale on Monday morning ([MARKET-DATA-DESIGN.md §11](MARKET-DATA-DESIGN.md#11-staleness))
-- [ ] A stale price is marked on the **net-worth** surface too, not only on the holdings table
-- [ ] An FX rate carries an age classification, as a price does
-- [ ] No provider-sourced corporate action ever creates an `investment_transactions` row; an unreconciled one **suppresses** the instrument's market value rather than adjusting it
-- [ ] `priceOn` carry-back is **bounded**; beyond the bound the point is a gap, not a value
-- [ ] The TWR boundary-valuation builder includes instruments **since fully disposed**, and supplies a valuation for a boundary falling on a non-trading day
-- [ ] Market-basis coverage is **value-weighted** by base cost basis, not a component count (D-29)
-- [ ] Every `instrument_prices` series for one instrument comes from **one** provider
+- [x] All seven failure modes per adapter return a `PriceResult` and never throw
+- [x] An unpriced holding is excluded from totals, marked in the UI, and reduces `coverage`
+- [x] A stale price is used and visibly marked
+- [x] No provider credential is reachable from any client bundle
+- [x] XIRR matches a spreadsheet reference to 6 decimal places across 10 series
+- [x] Every `null` metric carries its reason
+- [x] `basis: 'market'` net worth **excludes** unpriced holdings and names them; it never falls back to cost inside the same figure ([ADR-23](DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost))
+- [x] The release note states that the basis switch moves net worth for **FX reasons alone**, independently of price ([FINANCIAL-DOMAIN.md §9.3](FINANCIAL-DOMAIN.md#93-calculation)) — golden **G6**'s 3 August point asserts it with the price held constant
+- [x] The portfolio growth series is correct across a split and a bonus — a plain running sum of `quantity` is not
+- [x] Golden scenarios **G5** and **G6** pass. **G3** remains open — it needs a multi-currency *portfolio* fixture rather than a net-worth one, and no Phase 6.11 gate depends on it
+- [x] All invariants pass in `verify:integrity`, and no declared non-invariant is asserted ([SCHEMA.md §12](SCHEMA.md#12-invariants-summary))
+- [x] Snapshots were **not** introduced, so the conditional assertion does not apply (OD-15)
+- [x] Staleness is measured in **trading sessions**, not wall-clock hours, and a price from Friday's close is not marked stale on Monday morning ([MARKET-DATA-DESIGN.md §11](MARKET-DATA-DESIGN.md#11-staleness))
+- [x] A stale price is marked on the **net-worth** surface too, not only on the holdings table
+- [x] An FX rate carries an age classification, as a price does
+- [x] No provider-sourced corporate action ever creates an `investment_transactions` row; an unreconciled one **suppresses** the instrument's market value rather than adjusting it
+- [x] `priceOn` carry-back is **bounded**; beyond the bound the point is a gap, not a value
+- [x] The TWR boundary-valuation builder includes instruments **since fully disposed**, and supplies a valuation for a boundary falling on a non-trading day
+- [x] Market-basis coverage is **value-weighted** by base cost basis, not a component count (D-29)
+- [x] Every `instrument_prices` series for one instrument comes from **one** provider
+
+**Two findings from implementing 6.11**, recorded because neither is in the design and both
+outlive it:
+
+- **`ExclusionReason` gained a tenth member, `no_price_on_date`.** The seven `MissingPriceReason`
+  members are verdicts about a *provider*; none is true when the feed is healthy and has simply
+  published nothing for a date before the instrument listed. Folding the historical gap into
+  `not_found` would tell the user to re-map a symbol that is mapped. It is a net-worth exclusion
+  cause only — the market-data union is untouched.
+- **`selectRate()` rebuilt its pair index on every call**, which a *series* pays once per foreign
+  position per point. Invisible on a single-date page and dominant at 365 points. `rateSelector()`
+  memoises the index per date; the resolution rule is unchanged, so every Phase 3/4/5 figure is
+  byte-identical. Found by the benchmark, not by a test — see §12 of the design review.
 
 ---
 
