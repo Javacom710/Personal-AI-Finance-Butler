@@ -37,10 +37,14 @@ export type { PortfolioSummary, GrowthPoint, GrowthSeries } from '../domain/calc
 export type {
   Contribution,
   ExcludedComponent,
+  ExclusionReason,
   NetWorthGroup,
+  PriceProvenance,
   SourceKey,
 } from '../domain/networth/keys';
 export type { GroupSubtotal, ValuationBasis } from '../domain/networth/compose';
+export type { MarketValuation, ValuationStatus } from '../domain/networth/market';
+export type { Restatement, RestatementLine } from '../domain/networth/restate';
 export type { ReconciliationLine } from '../domain/networth/reconcile';
 export type { BridgeLine, BridgeLineKey } from '../domain/networth/bridge';
 

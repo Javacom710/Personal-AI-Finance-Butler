@@ -176,10 +176,33 @@ export interface PositionTotals {
   readonly lastTradeOn: IsoDate | null;
 }
 
+/**
+ * The units held at the end of one trading date, **after** every transaction
+ * dated on it — including any corporate action, which replays last that day
+ * (`kindRank`).
+ *
+ * One per distinct `trade_date`, ascending. Emitted by the same fold that
+ * derives the lots, so the ratio arithmetic behind `quantityHeldOn` is the
+ * engine's own and not a second implementation of it
+ * ([FINANCIAL-DOMAIN.md §10.5](../../../../docs/FINANCIAL-DOMAIN.md#105-single-implementation-per-concept)).
+ */
+export interface QuantityCheckpoint {
+  readonly on: IsoDate;
+  readonly quantity: Qty;
+}
+
 export interface ReplayResult {
   readonly lots: readonly ReplayLot[];
   readonly disposals: readonly ReplayDisposal[];
   readonly totals: PositionTotals;
+  /**
+   * `quantityHeldOn`'s input (invariant **I-46**). The last checkpoint's
+   * quantity is `totals.quantity`, and the checkpoint at the last date `<= T` is
+   * exactly what a replay bounded at `T` would return — because the replay order
+   * `(trade_date, kind_rank, created_at, id)` makes the rows dated `<= T` a
+   * **prefix** of the fold.
+   */
+  readonly quantityTimeline: readonly QuantityCheckpoint[];
 }
 
 export type ReplayError =
@@ -249,7 +272,20 @@ export function replay(
   let firstTradeOn: IsoDate | null = null;
   let lastTradeOn: IsoDate | null = null;
 
+  const quantityTimeline: QuantityCheckpoint[] = [];
+  /** The date whose checkpoint is still open. Closed when the date changes, and after the fold. */
+  let pendingDate: IsoDate | null = null;
+  const heldNow = (): Qty => qSum(open.map((lot) => lot.remainingQuantity));
+
   for (const txn of ordered) {
+    // A date's checkpoint is taken when the NEXT date begins, so it reflects
+    // every row dated on it — a split sharing a date with a buy has already been
+    // applied, which is the whole reason a plain `Σ quantity` is wrong.
+    if (pendingDate !== null && txn.tradeDate !== pendingDate) {
+      quantityTimeline.push({ on: pendingDate, quantity: heldNow() });
+    }
+    pendingDate = txn.tradeDate;
+
     firstTradeOn = firstTradeOn === null ? txn.tradeDate : minDate(firstTradeOn, txn.tradeDate);
     lastTradeOn = lastTradeOn === null ? txn.tradeDate : maxDate(lastTradeOn, txn.tradeDate);
 
@@ -428,7 +464,9 @@ export function replay(
     throw new Error(`replay: unhandled investment kind "${txn.kind satisfies never}"`);
   }
 
-  const quantity = qSum(open.map((lot) => lot.remainingQuantity));
+  const quantity = heldNow();
+  if (pendingDate !== null) quantityTimeline.push({ on: pendingDate, quantity });
+
   const costBasis = sum(
     open.map((lot) => lot.remainingCost),
     currency,
@@ -458,6 +496,7 @@ export function replay(
       firstTradeOn,
       lastTradeOn,
     },
+    quantityTimeline,
   });
 }
 

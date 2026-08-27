@@ -14,8 +14,12 @@
 
 import { add, Money, sum, type CurrencyCode, type Money as MoneyValue } from '../../../lib/decimal/money';
 import type { Rate } from '../../../lib/decimal/rate';
+import type { Quantity } from '../../../lib/decimal/quantity';
+import type { UnitPrice } from '../../../lib/decimal/price';
+import type { Freshness } from '../../market-data/freshness';
 import type { IsoDate } from '../../../lib/date';
 import { sideOfAmount, type AccountRole } from '../ledger/balance';
+import type { MissingPriceReason } from '../pricing/price-result';
 
 /**
  * Which source a contribution came from.
@@ -63,6 +67,29 @@ export type NetWorthGroup =
 
 export type ContributionSide = Extract<AccountRole, 'asset' | 'liability'>;
 
+/**
+ * How a market-basis position was priced.
+ *
+ * Carried on the contribution so the reconciliation can answer *"why is it
+ * ₹72,000?"* with **400 × ₹180.00, priced 21 Aug from twelvedata:XNSE** rather
+ * than with the total again ([MARKET-VALUE-NET-WORTH-DESIGN.md §16](../../../../docs/MARKET-VALUE-NET-WORTH-DESIGN.md#16-reconciliation)).
+ * Every field is already on the `PriceResult`; none is recomputed.
+ *
+ * Absent on a `cost` contribution, and on an account, manual asset or liability —
+ * none of those has a price, and inventing one would misrepresent its provenance.
+ */
+export interface PriceProvenance {
+  readonly quantity: Quantity;
+  readonly unitPrice: UnitPrice;
+  /** The session the observation belongs to. *"Priced as of …"*. */
+  readonly tradingDate: IsoDate;
+  /** `stale` contributes and is reported; it never becomes `current` (I-44). */
+  readonly freshness: Freshness;
+  readonly source: string;
+  /** Days the close was carried back to reach the valuation date. Zero on an exact hit. */
+  readonly carriedDays: number;
+}
+
 /** One source's contribution, with everything needed to explain it. */
 export interface Contribution {
   readonly key: SourceKey;
@@ -88,19 +115,57 @@ export interface Contribution {
   readonly base: MoneyValue;
   /** Where the figure came from, so the UI can link to it. */
   readonly sourceRef: { readonly type: string; readonly id: string };
+  /** Present only on a **market-basis position**. See `PriceProvenance`. */
+  readonly price?: PriceProvenance;
 }
 
-/** A source that is eligible but cannot be valued in base currency. */
+/**
+ * Why a source that was eligible could not be valued on this basis.
+ *
+ * Nine members, not one, because each is a different instruction to the user and
+ * collapsing them into "unpriced" would tell them to fix the wrong thing
+ * (invariant **I-45**). The seven price causes are `MissingPriceReason` verbatim
+ * — the same union the Investments pages already report — so a holding gives the
+ * same account of itself on both screens.
+ */
+export type ExclusionReason =
+  /** No FX rate on or before the date. Basis-independent. */
+  | 'no_fx_rate'
+  /** Held, but never valued by this date — a manual asset with no valuation in force. */
+  | 'unvalued'
+  /**
+   * No observation exists on or before this date **within the carry-back bound**
+   * — the instrument is younger than the date, or its history has not been
+   * backfilled that far ([MARKET-VALUE-NET-WORTH-DESIGN.md §8.2](../../../../docs/MARKET-VALUE-NET-WORTH-DESIGN.md#82-historical-edge-rules)).
+   *
+   * Deliberately **not** a `MissingPriceReason`. Those seven are verdicts about a
+   * *provider* — it does not know the symbol, it errored, it is rate limited —
+   * and none of them is true here: the provider may be working perfectly and
+   * simply have published nothing for a date before the instrument listed. Folding
+   * this into `not_found` would tell the user to re-map a symbol that is mapped,
+   * and into `no_provider` that they must enter a price by hand for a date that
+   * has one everywhere else in the series. It is a gap in the point, not a fault
+   * in the feed.
+   */
+  | 'no_price_on_date'
+  | MissingPriceReason;
+
+/** A source that is eligible but cannot be valued on the declared basis. */
 export interface ExcludedComponent {
   readonly key: SourceKey;
   readonly keyId: string;
   readonly label: string;
   readonly group: NetWorthGroup;
   readonly side: AccountRole;
+  /**
+   * The magnitude that was left out, so the exclusion carries a size and not
+   * only a name. For an unpriced position this is its **base cost basis** —
+   * exactly what the `cost` basis would have used — which is what makes market
+   * coverage value-weightable (D-29) while an unvalued asset's is not.
+   */
   readonly native: MoneyValue;
   readonly nativeCurrency: CurrencyCode;
-  /** `no_fx_rate`: no rate on or before the date. `unvalued`: held, but never valued by it. */
-  readonly reason: 'no_fx_rate' | 'unvalued';
+  readonly reason: ExclusionReason;
 }
 
 export class DuplicateContribution extends Error {

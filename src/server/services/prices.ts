@@ -25,18 +25,13 @@ import 'server-only';
 
 import { and, asc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 
-import { compareDates, daysBetween, isoDate, type IsoDate } from '../../lib/date';
+import { isoDate, type IsoDate } from '../../lib/date';
 import { currency, type CurrencyCode } from '../../lib/decimal/money';
 import { UnitPrice, pToDbString } from '../../lib/decimal/price';
 import { setManualPriceSchema, type SetManualPriceInput } from '../../lib/schemas/investments';
 import { err, ok, type DomainError, type Result } from '../../lib/result';
 import { classifyQuote, missing, type PriceResult } from '../domain/pricing/price-result';
-import {
-  cadenceForAssetClass,
-  SESSION_BACKSTOP_DAYS,
-  CONTINUOUS_BACKSTOP_DAYS,
-  type Cadence,
-} from '../market-data';
+import { cadenceForAssetClass } from '../market-data';
 import { instrumentPrices, instrumentQuotes, instruments, settings } from '../db/schema';
 import type { ReadCtx, WriteCtx } from './_ctx';
 import { requireOwnership } from './_guards';
@@ -335,53 +330,20 @@ export async function historicalCloses(
   return out;
 }
 
-/** How far back a close may be carried before the point becomes a gap. */
-export function carryBackLimitDays(cadence: Cadence): number {
-  return cadence === 'continuous' ? CONTINUOUS_BACKSTOP_DAYS : SESSION_BACKSTOP_DAYS;
-}
-
-export interface CarriedClose {
-  readonly close: UnitPrice;
-  readonly asOf: IsoDate;
-  /** Days between the close's session and the date asked for. Zero on an exact hit. */
-  readonly carriedDays: number;
-}
-
 /**
- * The close in force on `on`: the greatest `as_of <= on`, **bounded**.
+ * The bounded carry-back, and the indexed form a series must use.
  *
- * The carry-back is required — Sundays, market holidays and TWR boundary dates
- * all fall on days with no session, and `twr()` matches boundary dates exactly,
- * so without it a SIP dated on a holiday would return `insufficient_price_history`
- * forever.
- *
- * Unbounded, though, it lies: an instrument whose provider stopped covering it
- * in 2024 would be valued at its 2024 close for the rest of time with no gap
- * shown anywhere. Beyond the bound this returns `null`, and a `null` renders as
- * a break in the series with the instrument named — never as zero, and never as
- * a stale figure presented as current.
+ * Both are pure and live in `domain/pricing/price-series.ts`; they are
+ * re-exported here because this module is where a caller looks for a price.
+ * **A fold over many dates must build the index once** — `closeAsOf` per point
+ * is the linear scan the Phase 6.11 measurement clocked at 1,156 ms against the
+ * index's 123 ms ([MARKET-VALUE-NET-WORTH-DESIGN.md §13](../../../docs/MARKET-VALUE-NET-WORTH-DESIGN.md#13-performance)).
  */
-export function closeAsOf(
-  series: readonly { readonly asOf: string; readonly close: string }[],
-  on: IsoDate,
-  cadence: Cadence,
-): CarriedClose | null {
-  let best: { asOf: IsoDate; close: string } | null = null;
-
-  for (const point of series) {
-    const asOf = isoDate(point.asOf);
-    if (compareDates(asOf, on) > 0) continue;
-    if (best === null || compareDates(asOf, best.asOf) > 0) best = { asOf, close: point.close };
-  }
-
-  if (best === null) return null;
-
-  // `daysBetween` is the domain's epoch-day arithmetic, already property-tested
-  // across leap years and month ends. Hand-rolling it here with `Date.UTC` would
-  // silently overflow a month boundary — 31 January plus a one-indexed month is
-  // 3 March — and the bound would be wrong on exactly the dates that matter.
-  const carriedDays = daysBetween(best.asOf, on);
-  if (carriedDays > carryBackLimitDays(cadence)) return null;
-
-  return { close: UnitPrice.fromDbString(best.close), asOf: best.asOf, carriedDays };
-}
+export {
+  carryBackLimitDays,
+  closeAsOf,
+  indexCloses,
+  type CarriedClose,
+  type CloseObservation,
+  type PriceSeriesIndex,
+} from '../domain/pricing/price-series';

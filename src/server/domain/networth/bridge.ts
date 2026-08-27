@@ -72,6 +72,28 @@ export interface BridgeFlows {
   readonly liabilityChange: MoneyValue;
   /** Revaluation of non-base holdings, computed — never a plug. */
   readonly fxEffect: MoneyValue;
+  /**
+   * The change in `(market − cost)` across the period — **`basis: 'market'`
+   * only**, and `null` on a cost bridge, where it is zero *by construction*
+   * rather than unmeasured.
+   *
+   * ```
+   * unrealisedGain = ( NW(t1,'market') − NW(t1,'cost') )
+   *                − ( NW(t0,'market') − NW(t0,'cost') )
+   * ```
+   *
+   * Every non-investment component is identical on both bases, so this is
+   * exactly the investment block's price and FX movement over the period — and
+   * with it the market bridge closes for the same reason the cost bridge does
+   * ([ADR-23](../../../../docs/DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost),
+   * invariant **I-30**).
+   *
+   * It also absorbs a **change in coverage**: a holding priced at `t0` and
+   * unpriced at `t1` leaves the market total, and that difference has to land
+   * somewhere for the identity to hold. The line is therefore a movement in the
+   * *valuation*, not a gain the user made, and the UI must not call it one.
+   */
+  readonly unrealizedGain: MoneyValue | null;
 }
 
 export interface BridgeLine {
@@ -132,8 +154,14 @@ export function bridge(
     line('investment_costs', neg(flows.investmentCosts)),
     line('realized_pnl', flows.realizedPnl),
     // Zero BY CONSTRUCTION at cost basis: Δcost = purchases − consumed exactly,
-    // so there is no price term to measure. Not skipped, not assumed — derived.
-    { key: 'unrealized_gain', amount: Money.zero(base), notMeasured: closing.basis === 'cost' },
+    // so there is no price term to measure. Not skipped, not assumed — derived,
+    // and rendered as "not measured" rather than as ₹0, which would read as "the
+    // portfolio did not move". Under `market` it carries a real figure.
+    {
+      key: 'unrealized_gain',
+      amount: flows.unrealizedGain ?? Money.zero(base),
+      notMeasured: flows.unrealizedGain === null,
+    },
     line('investment_transfers', flows.investmentTransfers),
     line('asset_revaluation', flows.assetRevaluation),
     line('asset_additions', flows.assetAdditions),
@@ -201,6 +229,7 @@ export function noFlows(base: CurrencyCode): BridgeFlows {
     assetAdditions: z,
     liabilityChange: z,
     fxEffect: z,
+    unrealizedGain: null,
   };
 }
 
@@ -216,5 +245,11 @@ export function addFlows(a: BridgeFlows, b: BridgeFlows): BridgeFlows {
     assetAdditions: add(a.assetAdditions, b.assetAdditions),
     liabilityChange: add(a.liabilityChange, b.liabilityChange),
     fxEffect: add(a.fxEffect, b.fxEffect),
+    // `null` is "not measured", and a measured figure plus an unmeasured one is
+    // not a measurement. Only two market periods compose into a market period.
+    unrealizedGain:
+      a.unrealizedGain === null || b.unrealizedGain === null
+        ? null
+        : add(a.unrealizedGain, b.unrealizedGain),
   };
 }

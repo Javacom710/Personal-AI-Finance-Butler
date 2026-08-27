@@ -35,21 +35,41 @@ import {
 import { RATE_SCALE, Rate } from '../../../lib/decimal/rate';
 import { pow10 } from '../../../lib/decimal/rounding';
 import {
+  marketValuation,
+  type MarketBuildSummary,
+  type MarketValuation,
+} from './market';
+import {
   ContributionMap,
   sideOfAmount,
   sourceKeyId,
   type Contribution,
   type ExcludedComponent,
+  type ExclusionReason,
   type NetWorthGroup,
+  type PriceProvenance,
   type SourceKey,
 } from './keys';
 
 /**
- * Phase 5 computes `cost` only, and the figure is called **Net Worth at Cost**.
- * `market` is a distinct Phase 6 calculation; a single figure never mixes the
- * two (ADR-23).
+ * The declared valuation basis — **part of the answer, not an implementation
+ * detail** ([ADR-23](../../../../docs/DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost)).
+ *
+ * | | Investment contribution |
+ * |---|---|
+ * | `cost` | `Σ tax_lots.remaining_cost × lot.fx_rate_to_base`, per lot |
+ * | `market` | `Σ quantityHeldOn × priceOn × fxRateOn`; unpriced holdings **excluded** and named |
+ *
+ * **`cost` is the default and remains so** ([ADR-32](../../../../docs/DECISIONS.md#adr-32--the-default-valuation-basis-remains-cost-market-is-an-explicit-alternate-view)):
+ * `market` is a fully supported view that is reached by asking for it. Neither
+ * replaces the other — they answer *what did I put in* versus *what is it worth
+ * now* — and **a single figure never mixes them** (invariant **I-41**).
+ *
+ * Phase 5 shipped this as a one-member union precisely so that widening it would
+ * be a compile error at every site that had to be reconsidered. Phase 6.11 used
+ * that mechanism rather than circumventing it.
  */
-export type ValuationBasis = 'cost';
+export type ValuationBasis = 'cost' | 'market';
 
 /** One eligible source, with the rate the service resolved for it. */
 export interface ComponentInput {
@@ -75,16 +95,24 @@ export interface ComponentInput {
    */
   readonly sourceCurrency?: CurrencyCode;
   /**
-   * The source is eligible but has **no value at this date** — a manual asset
-   * held on `asOf` with no valuation in force.
+   * The source is eligible but **cannot be valued on this basis**, and the
+   * member says why.
    *
-   * It is **excluded and named**, never counted as zero: a flat contributing ₹0
-   * to a headline figure is a materially wrong number presented as a right one
-   * ([FINANCIAL-DOMAIN.md §9.3](../../../../docs/FINANCIAL-DOMAIN.md#93-calculation),
-   * golden scenario **G5**). Distinct from *not yet held*, which is ineligible
-   * and never reaches this module at all.
+   * Two families reach here. A manual asset held on `asOf` with no valuation in
+   * force is `unvalued`; a market-basis position with no usable price carries
+   * the price cause. Either way it is **excluded and named**, never counted as
+   * zero and never substituted with cost: a flat contributing ₹0 to a headline
+   * figure is a materially wrong number presented as a right one, and a bond
+   * contributing its 2019 purchase price to a market total is a figure in no
+   * basis at all ([FINANCIAL-DOMAIN.md §9.3](../../../../docs/FINANCIAL-DOMAIN.md#93-calculation),
+   * invariants **I-38**, **I-39**, **I-45**).
+   *
+   * Distinct from *not yet held*, which is ineligible and never reaches this
+   * module at all.
    */
-  readonly unvalued?: boolean;
+  readonly excluded?: ExclusionReason;
+  /** Present only on a market-basis position that could be priced. */
+  readonly price?: PriceProvenance;
 }
 
 export interface GroupSubtotal {
@@ -122,12 +150,32 @@ export interface NetWorthResult {
   readonly excluded: readonly ExcludedComponent[];
   readonly contributions: readonly Contribution[];
   readonly groups: readonly GroupSubtotal[];
+
+  /**
+   * Completeness under `basis: 'market'` — status, value-weighted investment
+   * coverage, the excluded cost and the staleness summary.
+   *
+   * **`null` under `cost`**, and that is a statement rather than an omission:
+   * acquisition cost is always known, so a cost figure has nothing to be partial
+   * about and coverage of its investment block is `1.0` by construction.
+   */
+  readonly market: MarketValuation | null;
 }
 
 export interface ComposeOptions {
   readonly asOf: IsoDate;
   readonly base: CurrencyCode;
   readonly basis: ValuationBasis;
+  /**
+   * What only the market component builder knows — which positions it could
+   * price, and how old those prices are.
+   *
+   * `compose()` still **never branches on the basis**: it branches on whether
+   * this was supplied, which is a fact about the inputs it was given. That is
+   * what keeps the basis a property of component *construction* and lets
+   * `reconcile()` work unchanged for both.
+   */
+  readonly market?: MarketBuildSummary;
 }
 
 const RATE_UNIT = pow10(RATE_SCALE);
@@ -152,20 +200,23 @@ export function compose(
     // wherever a base figure exists.
     const side = sideOfAmount(input.native);
 
-    // Eligible but unvalued: excluded and named before any conversion is
-    // attempted, because there is no figure to convert.
-    if (input.unvalued === true) {
+    // Eligible but unvaluable on this basis: excluded and named before any
+    // conversion is attempted, because there is no figure to convert.
+    if (input.excluded !== undefined) {
       map.exclude({
         key: input.key,
         keyId,
         label: input.label,
         group: input.group,
-        // An unvalued source is an asset by construction — a liability with no
-        // recorded balance is simply not yet a debt, and never reaches here.
+        // An unvaluable source is an asset by construction — a liability with no
+        // recorded balance is simply not yet a debt and never reaches here, and
+        // an unpriced holding is not a debt either. Forcing the side also keeps a
+        // zero-magnitude exclusion counted against ASSET coverage rather than
+        // against neither, which is where a missing valuation actually hurts.
         side: 'asset',
         native: input.native,
         nativeCurrency: input.native.currency,
-        reason: 'unvalued',
+        reason: input.excluded,
       });
       continue;
     }
@@ -209,6 +260,7 @@ export function compose(
       rateAsOf: input.fx.asOf,
       base: converted,
       sourceRef: input.sourceRef,
+      ...(input.price === undefined ? {} : { price: input.price }),
     });
   }
 
@@ -230,6 +282,7 @@ export function compose(
     excluded: map.excluded(),
     contributions: map.contributions(),
     groups: groupSubtotals(map, base),
+    market: options.market === undefined ? null : marketValuation(options.market, map.excluded()),
   };
 }
 

@@ -57,7 +57,7 @@ export default async function NetWorthChangePage({
         <Headline label="Closing" amount={format.money(bridge.closing)} />
       </div>
 
-      <BasisNotice />
+      <BasisNotice basis="cost" />
 
       <div className="overflow-x-auto">
         <table className="w-full min-w-[26rem] text-sm">

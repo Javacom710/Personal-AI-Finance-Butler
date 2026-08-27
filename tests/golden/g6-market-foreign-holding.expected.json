@@ -1,0 +1,58 @@
+{
+  "scenario": "G6 — Market value with a foreign holding",
+  "note": "Hand-computed once and frozen. Changing a figure here requires a PR comment explaining why the previously verified number was wrong (TESTING.md §5).",
+  "baseCurrency": "INR",
+
+  "fixture": {
+    "hdfcOpening": "200000.0000",
+    "zerodhaOpening": "1000000.0000",
+    "ibkrOpeningUsd": "50000.0000",
+    "vooQuantity": "100",
+    "vooBuyPriceUsd": "400",
+    "vooCostUsd": "40000.0000",
+    "infyQuantity": "400",
+    "infyBuyPrice": "1500",
+    "infyCost": "600000.0000",
+    "fxAtAcquisition": "75.0000000000",
+    "fxAtValuation": "83.0000000000",
+    "note": "The lot's fx_rate_to_base is fixed at acquisition and never revalued, so the cost figure carries 75 for ever. The market figure converts at the dated rate — which is why the two differ for FX reasons alone, independently of any price."
+  },
+
+  "costAtAugust14": {
+    "note": "HDFC 200,000 + Zerodha 400,000 + IBKR $10,000 × 83 = 830,000 + VOO $40,000 × 75 = 3,000,000 + INFY 600,000.",
+    "assets": "5030000.0000",
+    "liabilities": "0.0000",
+    "netWorth": "5030000.0000"
+  },
+
+  "marketAtAugust3": {
+    "note": "VOO closes at $400 — exactly what it cost. The whole difference from the cost figure is the currency rebasis, which is the release-note fact ADR-23 requires stating.",
+    "netWorth": "5350000.0000",
+    "difference": "320000.0000",
+    "removedUnpriced": "0.0000",
+    "fxRebasis": "320000.0000",
+    "priceEffect": "0.0000",
+    "residual": "0.0000"
+  },
+
+  "marketAtAugust14": {
+    "note": "VOO 100 × $450 = $45,000 × 83 = 3,735,000; INFY 400 × 1,700 = 680,000. Cash is identical on both bases — a balance is a recorded fact, not a price.",
+    "assets": "5845000.0000",
+    "liabilities": "0.0000",
+    "netWorth": "5845000.0000",
+    "status": "complete",
+    "investmentCoverage": "1.0000000000",
+    "excludedInvestmentCost": "0.0000"
+  },
+
+  "restatementAtAugust14": {
+    "note": "FX rebasis: $40,000 of cost at 83 instead of 75 = +320,000. Price: VOO (3,735,000 − 3,320,000) + INFY (680,000 − 600,000) = +495,000. Both computed; neither is a residual.",
+    "cost": "5030000.0000",
+    "market": "5845000.0000",
+    "difference": "815000.0000",
+    "removedUnpriced": "0.0000",
+    "fxRebasis": "320000.0000",
+    "priceEffect": "495000.0000",
+    "residual": "0.0000"
+  }
+}

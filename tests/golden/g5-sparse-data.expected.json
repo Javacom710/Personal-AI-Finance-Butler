@@ -1,0 +1,60 @@
+{
+  "scenario": "G5 — Sparse data and partial coverage",
+  "note": "Hand-computed once and frozen. Changing a figure here requires a PR comment explaining why the previously verified number was wrong (TESTING.md §5).",
+  "baseCurrency": "INR",
+  "asOf": "2026-08-14",
+
+  "fixture": {
+    "hdfcOpening": "500000.0000",
+    "zerodhaOpening": "2000000.0000",
+    "eqAcost": "400000.0000",
+    "eqAclose": "1100.00000000",
+    "eqBcost": "300000.0000",
+    "eqBclose": "1050.00000000",
+    "eqBlastSession": "2026-07-30",
+    "bondCost": "500000.0000",
+    "mutualFundCost": "100000.0000",
+    "flatValuation": "8000000.0000",
+    "homeLoanOutstanding": "2500000.0000",
+    "note": "Two of four holdings can be priced. One is stale by the ten-day backstop. A manual asset is held but unvalued at this date, and a USD manual asset has no exchange rate at all — both basis-independent exclusions."
+  },
+
+  "cost": {
+    "note": "Investments contribute acquisition cost: 400,000 + 300,000 + 500,000 + 100,000. Cash 500,000 + 700,000 (2,000,000 opening less 1,300,000 of purchases). Flat 8,000,000.",
+    "assets": "10500000.0000",
+    "liabilities": "2500000.0000",
+    "netWorth": "8000000.0000",
+    "assetCoverage": "0.7777777777",
+    "liabilityCoverage": "1.0000000000",
+    "coverageNote": "Component-count coverage truncates at RATE_SCALE (7/9, 5/9); the value-weighted investment ratio rounds half_up. Phase 5 behaviour, unchanged.",
+    "excludedCount": 2,
+    "excludedReasons": ["no_fx_rate", "unvalued"]
+  },
+
+  "market": {
+    "note": "EQ_A 400 × 1,100 = 440,000 and EQ_B 300 × 1,050 = 315,000 are priced; the bond and the mutual fund are excluded and named. The total is NOT 10,055,000 — that would be part market value and part acquisition cost, a figure in no basis at all.",
+    "assets": "9955000.0000",
+    "liabilities": "2500000.0000",
+    "netWorth": "7455000.0000",
+    "status": "partial",
+    "investmentCoverage": "0.5384615385",
+    "excludedInvestmentCost": "600000.0000",
+    "assetCoverage": "0.5555555555",
+    "liabilityCoverage": "1.0000000000",
+    "excludedCount": 4,
+    "excludedReasons": ["no_fx_rate", "no_provider", "no_provider", "unvalued"],
+    "stalenessCount": 1,
+    "oldestStaleTradingDate": "2026-07-30"
+  },
+
+  "restatement": {
+    "note": "−600,000 of unpriced cost set aside, no currency term (every priced holding is INR), and +55,000 of price movement: (440,000 − 400,000) + (315,000 − 300,000).",
+    "cost": "8000000.0000",
+    "market": "7455000.0000",
+    "difference": "-545000.0000",
+    "removedUnpriced": "-600000.0000",
+    "fxRebasis": "0.0000",
+    "priceEffect": "55000.0000",
+    "residual": "0.0000"
+  }
+}

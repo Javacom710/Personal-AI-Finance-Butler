@@ -33,7 +33,7 @@ import 'server-only';
 
 import { eq, sql } from 'drizzle-orm';
 
-import { compareDates, isoDate, type IsoDate } from '../../lib/date';
+import { compareDates, isoDate, maxDate, minDate, type IsoDate } from '../../lib/date';
 import {
   add,
   currency,
@@ -45,6 +45,8 @@ import {
   type CurrencyCode,
   type Money as MoneyValue,
 } from '../../lib/decimal/money';
+import { valueOf } from '../../lib/decimal/price';
+import { qIsZero } from '../../lib/decimal/quantity';
 import { Rate } from '../../lib/decimal/rate';
 import { ok, type DomainError, type Result } from '../../lib/result';
 import {
@@ -57,7 +59,14 @@ import {
   compose,
   type ComponentInput,
   type NetWorthResult,
+  type ValuationBasis,
 } from '../domain/networth/compose';
+import type { MarketBuildSummary } from '../domain/networth/market';
+import {
+  restate,
+  type PositionCostAtSpot,
+  type Restatement,
+} from '../domain/networth/restate';
 import type { NetWorthGroup } from '../domain/networth/keys';
 import { reconcile, type Reconciliation } from '../domain/networth/reconcile';
 import {
@@ -80,8 +89,16 @@ import {
   transactions,
 } from '../db/schema';
 import type { ReadCtx } from './_ctx';
+import {
+  loadMarketSources,
+  priceAt,
+  unitsHeldOn,
+  type MarketSources,
+} from './_networth-market';
 
-export type { NetWorthResult } from '../domain/networth/compose';
+export type { NetWorthResult, ValuationBasis } from '../domain/networth/compose';
+export type { MarketValuation, ValuationStatus } from '../domain/networth/market';
+export type { Restatement, RestatementLine } from '../domain/networth/restate';
 export type { Reconciliation } from '../domain/networth/reconcile';
 export type { NetWorthBridge } from '../domain/networth/bridge';
 
@@ -112,6 +129,16 @@ interface RawLot {
   readonly openedOn: IsoDate;
   /** `cost_total × fx_rate_to_base` — already base currency, at the acquisition rate. */
   readonly baseCostTotal: MoneyValue;
+  /**
+   * `cost_total` verbatim, in the **instrument's** currency.
+   *
+   * Carried alongside the base figure because the cost-to-market restatement
+   * needs the same money at *two* rates — acquisition and spot — and
+   * `tax_lots.remaining_cost` is the only place it exists undenominated in base
+   * ([FINANCIAL-DOMAIN.md §9.5](../../../docs/FINANCIAL-DOMAIN.md#95-the-cost-to-market-restatement)).
+   * **No new column**: this is why ADR-31 needs no schema change.
+   */
+  readonly costTotal: MoneyValue;
   readonly lotId: string;
 }
 
@@ -120,6 +147,8 @@ interface RawDisposal {
   readonly closedOn: IsoDate;
   /** `cost_consumed × lot.fx_rate_to_base` — the same acquisition rate as the lot. */
   readonly baseCostConsumed: MoneyValue;
+  /** `cost_consumed` verbatim, in the instrument's currency. */
+  readonly costConsumed: MoneyValue;
 }
 
 interface RawAsset {
@@ -198,6 +227,7 @@ async function loadSources(ctx: ReadCtx): Promise<NetWorthSources> {
         symbol: string;
         instrument_currency: string;
         opened_on: string;
+        cost_total: string;
         base_cost_total: string;
       }>(sql`
         select l.id::text            as lot_id,
@@ -207,6 +237,7 @@ async function loadSources(ctx: ReadCtx): Promise<NetWorthSources> {
                ins.symbol            as symbol,
                ins.currency_code     as instrument_currency,
                l.opened_on::text     as opened_on,
+               l.cost_total::text    as cost_total,
                round(l.cost_total * l.fx_rate_to_base, 4)::text as base_cost_total
           from ${taxLots} l
           join accounts a on a.id = l.account_id
@@ -219,12 +250,21 @@ async function loadSources(ctx: ReadCtx): Promise<NetWorthSources> {
       // acquisition. Using the disposal rate here would leave a currency
       // movement inside the cost block, where INVESTMENT-DOMAIN.md §6.4 says it
       // must not be.
-      ctx.db.execute<{ lot_id: string; closed_on: string; base_cost_consumed: string }>(sql`
+      ctx.db.execute<{
+        lot_id: string;
+        closed_on: string;
+        cost_consumed: string;
+        base_cost_consumed: string;
+        instrument_currency: string;
+      }>(sql`
         select d.lot_id::text   as lot_id,
                d.closed_on::text as closed_on,
+               d.cost_consumed::text as cost_consumed,
+               ins.currency_code as instrument_currency,
                round(d.cost_consumed * l.fx_rate_to_base, 4)::text as base_cost_consumed
           from ${lotDisposals} d
           join ${taxLots} l on l.id = d.lot_id
+          join instruments ins on ins.id = l.instrument_id
          where d.user_id = ${ctx.userId}
       `),
 
@@ -299,11 +339,13 @@ async function loadSources(ctx: ReadCtx): Promise<NetWorthSources> {
       symbol: l.symbol,
       instrumentCurrency: currency(l.instrument_currency.trim()),
       openedOn: isoDate(l.opened_on),
+      costTotal: Money.fromDbString(l.cost_total, currency(l.instrument_currency.trim())),
       baseCostTotal: Money.fromDbString(l.base_cost_total, ctx.base),
     })),
     disposals: disposalRows.rows.map((d) => ({
       lotId: d.lot_id,
       closedOn: isoDate(d.closed_on),
+      costConsumed: Money.fromDbString(d.cost_consumed, currency(d.instrument_currency.trim())),
       baseCostConsumed: Money.fromDbString(d.base_cost_consumed, ctx.base),
     })),
     assets: assetRows.rows.map((a) => {
@@ -374,16 +416,101 @@ const ASSET_KIND_GROUP: Record<string, NetWorthGroup> = {
 };
 
 /**
+ * One position's cost at `asOf`, in both denominations.
+ *
+ * Derived from the lot tables bounded by `opened_on` / `closed_on`, **never**
+ * from `positions`, which is today's cache and has no date bound (ADR-06,
+ * invariants I-23 and I-47). Exact rather than approximate for three reasons: a
+ * split or bonus touches no money, FIFO's total order gives replay a prefix
+ * property, and I-20 makes the subtraction residue-free.
+ *
+ * Both bases read this. `cost` contributes `base` directly; `market` uses
+ * `base` for coverage and for the magnitude of an exclusion, and `instrument`
+ * for the restatement's `costAtSpot` ([§9.5](../../../docs/FINANCIAL-DOMAIN.md#95-the-cost-to-market-restatement)).
+ * Deriving it once is what stops the two bases disagreeing about the same lots.
+ */
+interface PositionCost {
+  readonly accountId: string;
+  readonly instrumentId: string;
+  readonly accountName: string;
+  readonly symbol: string;
+  readonly instrumentCurrency: CurrencyCode;
+  /** `Σ (cost_total − consumed) × lot.fx_rate_to_base`, base currency, minor units. */
+  readonly baseMinor: bigint;
+  /** The same money in the **instrument's** currency, minor units. */
+  readonly instrumentMinor: bigint;
+}
+
+function positionCostsAt(sources: NetWorthSources, asOf: IsoDate): Map<string, PositionCost> {
+  const consumedBase = new Map<string, bigint>();
+  const consumedInstrument = new Map<string, bigint>();
+  for (const d of sources.disposals) {
+    if (compareDates(d.closedOn, asOf) > 0) continue;
+    consumedBase.set(d.lotId, (consumedBase.get(d.lotId) ?? 0n) + d.baseCostConsumed.minor);
+    consumedInstrument.set(d.lotId, (consumedInstrument.get(d.lotId) ?? 0n) + d.costConsumed.minor);
+  }
+
+  const out = new Map<string, PositionCost>();
+
+  for (const lot of sources.lots) {
+    // `opened_on`, never `acquired_on` — a transfer_in carries the acquisition
+    // date back, and using it would count the value in both accounts for the
+    // whole intervening period (I-23).
+    if (!lotEligible(lot.openedOn, asOf)) continue;
+
+    const k = `${lot.accountId}:${lot.instrumentId}`;
+    const existing = out.get(k);
+    const baseMinor = lot.baseCostTotal.minor - (consumedBase.get(lot.lotId) ?? 0n);
+    const instrumentMinor = lot.costTotal.minor - (consumedInstrument.get(lot.lotId) ?? 0n);
+
+    out.set(
+      k,
+      existing === undefined
+        ? {
+            accountId: lot.accountId,
+            instrumentId: lot.instrumentId,
+            accountName: lot.accountName,
+            symbol: lot.symbol,
+            instrumentCurrency: lot.instrumentCurrency,
+            baseMinor,
+            instrumentMinor,
+          }
+        : {
+            ...existing,
+            baseMinor: existing.baseMinor + baseMinor,
+            instrumentMinor: existing.instrumentMinor + instrumentMinor,
+          },
+    );
+  }
+
+  return out;
+}
+
+/** What the market builder produced, for `compose()` and for the restatement. */
+interface MarketBuild {
+  readonly summary: MarketBuildSummary;
+  readonly costAtSpot: readonly PositionCostAtSpot[];
+}
+
+/**
  * Every eligible source at `asOf`, as `compose()` wants them.
  *
  * Pure over the fetched data plus `ctx.fx`, which is a synchronous in-memory
  * lookup — so this runs once per point of a series with no further I/O.
+ *
+ * **The basis matters in exactly one block.** Accounts, manual assets and
+ * liabilities are identical under both: none is a security and none has a market
+ * price ([§9.6](../../../docs/FINANCIAL-DOMAIN.md#96-what-market-basis-does-not-change)).
+ * Only the investment term differs, which is why widening the basis is a change
+ * to this function rather than to the domain.
  */
 function componentsAt(
   ctx: ReadCtx,
   sources: NetWorthSources,
   asOf: IsoDate,
-): ComponentInput[] {
+  basis: ValuationBasis,
+  market: MarketSources | null,
+): { readonly inputs: ComponentInput[]; readonly build: MarketBuild | null } {
   const out: ComponentInput[] = [];
   const rateFor = (from: CurrencyCode) => {
     const selection = ctx.fx.rate(from, ctx.base, asOf);
@@ -421,58 +548,14 @@ function componentsAt(
     });
   }
 
-  // ---- investments at COST, as of the date
-  //
-  // Derived from the lot tables bounded by `opened_on` / `closed_on`, NEVER from
-  // `positions`, which is today's cache and has no date bound (ADR-06). Exact
-  // for three reasons: a split or bonus touches no money, FIFO's total order
-  // gives replay a prefix property, and I-20 makes the subtraction residue-free.
-  const consumedByLot = new Map<string, bigint>();
-  for (const d of sources.disposals) {
-    if (compareDates(d.closedOn, asOf) > 0) continue;
-    consumedByLot.set(d.lotId, (consumedByLot.get(d.lotId) ?? 0n) + d.baseCostConsumed.minor);
-  }
+  // ---- investments — THE ONE BLOCK THE BASIS CHANGES
+  const positionCosts = positionCostsAt(sources, asOf);
 
-  interface PositionAccumulator {
-    minor: bigint;
-    accountName: string;
-    symbol: string;
-    instrumentCurrency: CurrencyCode;
-  }
-  const positions = new Map<string, PositionAccumulator>();
-
-  for (const lot of sources.lots) {
-    // `opened_on`, never `acquired_on` — a transfer_in carries the acquisition
-    // date back, and using it would count the value in both accounts for the
-    // whole intervening period (I-23).
-    if (!lotEligible(lot.openedOn, asOf)) continue;
-
-    const remaining = lot.baseCostTotal.minor - (consumedByLot.get(lot.lotId) ?? 0n);
-    const k = `${lot.accountId}:${lot.instrumentId}`;
-    const existing = positions.get(k);
-    if (existing) existing.minor += remaining;
-    else
-      positions.set(k, {
-        minor: remaining,
-        accountName: lot.accountName,
-        symbol: lot.symbol,
-        instrumentCurrency: lot.instrumentCurrency,
-      });
-  }
-
-  for (const [k, position] of positions) {
-    const [accountId, instrumentId] = k.split(':') as [string, string];
-    out.push({
-      key: { t: 'position', accountId, instrumentId },
-      label: `${position.symbol} · ${position.accountName}`,
-      group: 'investments',
-      // Already base: `tax_lots.fx_rate_to_base` was applied at acquisition and
-      // is never revalued, so no conversion happens here (INVESTMENT-DOMAIN.md §6.4).
-      native: Money.fromMinor(position.minor, ctx.base),
-      sourceRef: { type: 'instrument', id: instrumentId },
-      fx: { rate: Rate.one(), asOf },
-      sourceCurrency: position.instrumentCurrency,
-    });
+  let build: MarketBuild | null = null;
+  if (basis === 'market' && market !== null) {
+    build = marketPositions(ctx, positionCosts, asOf, market, out);
+  } else {
+    costPositions(ctx, positionCosts, asOf, out);
   }
 
   // ---- manual assets
@@ -499,7 +582,7 @@ function componentsAt(
         native: Money.zero(asset.currency),
         sourceRef: { type: 'manual_asset', id: asset.id },
         fx: null,
-        unvalued: true,
+        excluded: 'unvalued',
       });
       continue;
     }
@@ -537,7 +620,196 @@ function componentsAt(
     });
   }
 
-  return out;
+  return { inputs: out, build };
+}
+
+/**
+ * The Phase 5 investment block, **unchanged**.
+ *
+ * The contribution arrives already in base currency: `tax_lots.fx_rate_to_base`
+ * was applied at acquisition and is never revalued, so no conversion happens
+ * here (INVESTMENT-DOMAIN.md §6.4). That asymmetry is deliberate — re-rating it
+ * would make last year's cost basis move every morning.
+ */
+function costPositions(
+  ctx: ReadCtx,
+  positionCosts: ReadonlyMap<string, PositionCost>,
+  asOf: IsoDate,
+  out: ComponentInput[],
+): void {
+  for (const position of positionCosts.values()) {
+    out.push({
+      key: { t: 'position', accountId: position.accountId, instrumentId: position.instrumentId },
+      label: `${position.symbol} · ${position.accountName}`,
+      group: 'investments',
+      native: Money.fromMinor(position.baseMinor, ctx.base),
+      sourceRef: { type: 'instrument', id: position.instrumentId },
+      fx: { rate: Rate.one(), asOf },
+      sourceCurrency: position.instrumentCurrency,
+    });
+  }
+}
+
+/**
+ * The market investment block — `quantityHeldOn × priceOn × fxRateOn`.
+ *
+ * Four rules, each of which the plausible shortcut gets wrong:
+ *
+ * - **The market figure occupies the position's key INSTEAD OF the cost figure,
+ *   never in addition to it.** Emitting both is a `DuplicateContribution` throw
+ *   rather than a wrong number (**I-43**), because the key is `(account,
+ *   instrument)` on both bases.
+ * - **A position that cannot be priced is excluded and named — never valued at
+ *   its cost** (**I-38**, **I-39**). A cost fallback inside a market total
+ *   produces a figure in no basis at all.
+ * - **A stale price contributes and is reported** (**I-44**). Refusing it would
+ *   blank the headline every long weekend.
+ * - **Quantity comes from the ledger, replayed** (**I-46**, **I-47**) — never
+ *   from `positions`, and never from a plain `Σ quantity`, which reports the
+ *   pre-split figure for ever after a corporate action.
+ */
+function marketPositions(
+  ctx: ReadCtx,
+  positionCosts: ReadonlyMap<string, PositionCost>,
+  asOf: IsoDate,
+  market: MarketSources,
+  out: ComponentInput[],
+): MarketBuild {
+  const base = ctx.base;
+  const costAtSpot: PositionCostAtSpot[] = [];
+
+  let pricedCost = 0n;
+  let totalCost = 0n;
+  let openPositions = 0;
+  let pricedPositions = 0;
+  let staleCount = 0;
+  let oldestStaleTradingDate: IsoDate | null = null;
+  let maxCarriedDays = 0;
+
+  for (const position of positionCosts.values()) {
+    const key = {
+      t: 'position',
+      accountId: position.accountId,
+      instrumentId: position.instrumentId,
+    } as const;
+    const label = `${position.symbol} · ${position.accountName}`;
+    const sourceRef = { type: 'instrument', id: position.instrumentId };
+
+    const quantity = unitsHeldOn(market, position.accountId, position.instrumentId, asOf);
+
+    // A position sold down to zero contributes nothing and needs no price: there
+    // is nothing missing, so it is not an exclusion and does not lower coverage.
+    // Its realised P&L is untouched and lives elsewhere.
+    if (qIsZero(quantity)) {
+      out.push({
+        key,
+        label,
+        group: 'investments',
+        native: Money.zero(base),
+        sourceRef,
+        fx: { rate: Rate.one(), asOf },
+        sourceCurrency: position.instrumentCurrency,
+      });
+      continue;
+    }
+
+    openPositions += 1;
+    totalCost += position.baseMinor;
+
+    const instrument = market.instruments.get(position.instrumentId);
+    const resolved =
+      instrument === undefined
+        ? ({ ok: false, reason: 'no_provider' } as const)
+        : priceAt(market, instrument, asOf, ctx.today);
+
+    if (!resolved.ok) {
+      out.push({
+        key,
+        label,
+        group: 'investments',
+        // The magnitude reported beside the exclusion is the holding's BASE COST
+        // BASIS — exactly what the `cost` basis would have used. That is what
+        // makes market coverage value-weightable where an FX exclusion is not
+        // (D-29), and it is named as cost rather than presented as a valuation.
+        native: Money.fromMinor(position.baseMinor, base),
+        sourceRef,
+        fx: null,
+        excluded: resolved.reason,
+      });
+      continue;
+    }
+
+    const rate = ctx.fx.rate(position.instrumentCurrency, base, asOf);
+    if (!rate.ok) {
+      out.push({
+        key,
+        label,
+        group: 'investments',
+        native: Money.fromMinor(position.baseMinor, base),
+        sourceRef,
+        fx: null,
+        excluded: 'no_fx_rate',
+      });
+      continue;
+    }
+
+    pricedPositions += 1;
+    pricedCost += position.baseMinor;
+
+    if (resolved.freshness === 'stale') {
+      staleCount += 1;
+      oldestStaleTradingDate =
+        oldestStaleTradingDate === null
+          ? resolved.tradingDate
+          : minDate(oldestStaleTradingDate, resolved.tradingDate);
+    }
+    if (resolved.carriedDays > maxCarriedDays) maxCarriedDays = resolved.carriedDays;
+
+    // `Σ remaining_cost` at the SPOT rate — the restatement's FX-rebasis input.
+    // Converted by the same `mulRate` at the same scale and mode `compose()`
+    // uses, so the two figures are comparable term by term.
+    costAtSpot.push({
+      key,
+      costAtSpot: mulRate(
+        Money.fromMinor(position.instrumentMinor, base),
+        rate.value.rate,
+        'half_up',
+      ),
+    });
+
+    out.push({
+      key,
+      label,
+      group: 'investments',
+      // Instrument currency: `compose()` converts once, at the dated rate, which
+      // is what gives the reconciliation the rate and its date (§16).
+      native: valueOf(quantity, resolved.price, position.instrumentCurrency, 'half_up'),
+      sourceRef,
+      fx: { rate: rate.value.rate, asOf: rate.value.asOf },
+      sourceCurrency: position.instrumentCurrency,
+      price: {
+        tradingDate: resolved.tradingDate,
+        freshness: resolved.freshness,
+        source: resolved.source,
+        carriedDays: resolved.carriedDays,
+        quantity,
+        unitPrice: resolved.price,
+      },
+    });
+  }
+
+  return {
+    summary: {
+      pricedCostBasis: Money.fromMinor(pricedCost, base),
+      totalCostBasis: Money.fromMinor(totalCost, base),
+      openPositions,
+      pricedPositions,
+      staleCount,
+      oldestStaleTradingDate,
+      maxCarriedDays,
+    },
+    costAtSpot,
+  };
 }
 
 // -------------------------------------------------------------------- queries
@@ -545,23 +817,47 @@ function componentsAt(
 export interface NetWorthOptions {
   /** Defaults to today in the user's timezone. */
   readonly asOf?: IsoDate;
+  /**
+   * **Defaults to `cost`** ([ADR-32](../../../docs/DECISIONS.md#adr-32--the-default-valuation-basis-remains-cost-market-is-an-explicit-alternate-view)).
+   *
+   * `market` is a fully supported alternate view that is reached by asking for
+   * it. The default is not a judgement about which figure matters: it is that a
+   * headline which moved because a price or a rate changed would restate every
+   * figure the user had already seen, with no transaction behind the change.
+   */
+  readonly basis?: ValuationBasis;
 }
 
-/** **Net Worth at Cost** on one date. */
+/**
+ * Net worth on one date, at the declared basis.
+ *
+ * `netWorthAsOf(ctx)` is **Net Worth at Cost** — unchanged from Phase 5, down to
+ * the last minor unit.
+ */
 export async function netWorthAsOf(
   ctx: ReadCtx,
   options: NetWorthOptions = {},
 ): Promise<Result<NetWorthResult, DomainError>> {
   const asOf = options.asOf ?? ctx.today;
+  const basis = options.basis ?? 'cost';
   const sources = await loadSources(ctx);
-  return ok(composeAt(ctx, sources, asOf));
+  const market = basis === 'market' ? await loadMarketSources(ctx, { from: asOf, to: asOf }) : null;
+  return ok(composeAt(ctx, sources, asOf, basis, market));
 }
 
-function composeAt(ctx: ReadCtx, sources: NetWorthSources, asOf: IsoDate): NetWorthResult {
-  return compose(componentsAt(ctx, sources, asOf), {
+function composeAt(
+  ctx: ReadCtx,
+  sources: NetWorthSources,
+  asOf: IsoDate,
+  basis: ValuationBasis = 'cost',
+  market: MarketSources | null = null,
+): NetWorthResult {
+  const { inputs, build } = componentsAt(ctx, sources, asOf, basis, market);
+  return compose(inputs, {
     asOf,
     base: ctx.base,
-    basis: 'cost',
+    basis,
+    ...(build === null ? {} : { market: build.summary }),
   });
 }
 
@@ -571,23 +867,39 @@ export interface NetWorthPoint {
 }
 
 /**
- * A series over the given dates — **five fetches and one fold per point**, not
- * one computation per point.
+ * A series over the given dates — **one fetch and one fold per point**, not one
+ * computation per point.
  *
  * The last point of a series ending today is byte-identical to
  * `netWorthAsOf(today)` because both go through the same `composeAt`
- * (invariant I-29).
+ * (invariant I-29). That holds on **both** bases: the market path routes a
+ * valuation dated today through the stored quote and every earlier one through
+ * `instrument_prices`, and the choice is made inside `priceAt` rather than by
+ * the caller, so the two entry points cannot diverge.
  */
 export async function netWorthSeries(
   ctx: ReadCtx,
   dates: readonly IsoDate[],
+  options: { readonly basis?: ValuationBasis } = {},
 ): Promise<NetWorthPoint[]> {
   if (dates.length === 0) return [];
+  const basis = options.basis ?? 'cost';
   const sources = await loadSources(ctx);
-  return dates.map((asOf) => ({ asOf, result: composeAt(ctx, sources, asOf) }));
+
+  // Bounded by the series' OWN range, never "everything" (§13). One fetch
+  // regardless of point count; the per-point cost is a binary search.
+  const market =
+    basis === 'market'
+      ? await loadMarketSources(ctx, {
+          from: dates.reduce((a, b) => minDate(a, b)),
+          to: dates.reduce((a, b) => maxDate(a, b)),
+        })
+      : null;
+
+  return dates.map((asOf) => ({ asOf, result: composeAt(ctx, sources, asOf, basis, market) }));
 }
 
-/** The reconciliation for one date: *"why is Net Worth at Cost ₹X?"* */
+/** The reconciliation for one date: *"why is net worth ₹X, on this basis?"* */
 export async function netWorthReconciliation(
   ctx: ReadCtx,
   options: NetWorthOptions = {},
@@ -595,6 +907,51 @@ export async function netWorthReconciliation(
   const computed = await netWorthAsOf(ctx, options);
   if (!computed.ok) return computed;
   return ok({ result: computed.value, reconciliation: reconcile(computed.value) });
+}
+
+export interface NetWorthComparison {
+  readonly cost: NetWorthResult;
+  readonly market: NetWorthResult;
+  readonly restatement: Restatement;
+  /** The market figure's independent recomputation (I-22). Pages render it; none computes it. */
+  readonly reconciliation: Reconciliation;
+}
+
+/**
+ * Both bases at one instant, and the **restatement** that explains the gap
+ * ([ADR-31](../../../docs/DECISIONS.md#adr-31--cost-to-market-is-a-restatement-at-an-instant-not-a-bridge-over-time)).
+ *
+ * Deliberately **not** a bridge: a bridge explains movement between two dates on
+ * one basis, and a change of basis is not movement. `bridge()` throws on exactly
+ * this input, and it is right to.
+ *
+ * One `loadSources()` and one `loadMarketSources()` serve both figures, so the
+ * two are guaranteed to be looking at the same rows — which is what lets the
+ * restatement close exactly rather than approximately (**I-48**).
+ */
+export async function netWorthComparison(
+  ctx: ReadCtx,
+  options: { readonly asOf?: IsoDate } = {},
+): Promise<Result<NetWorthComparison, DomainError>> {
+  const asOf = options.asOf ?? ctx.today;
+  const sources = await loadSources(ctx);
+  const market = await loadMarketSources(ctx, { from: asOf, to: asOf });
+
+  const costResult = composeAt(ctx, sources, asOf, 'cost', null);
+  const { inputs, build } = componentsAt(ctx, sources, asOf, 'market', market);
+  const marketResult = compose(inputs, {
+    asOf,
+    base: ctx.base,
+    basis: 'market',
+    ...(build === null ? {} : { market: build.summary }),
+  });
+
+  return ok({
+    cost: costResult,
+    market: marketResult,
+    restatement: restate(costResult, marketResult, build?.costAtSpot ?? []),
+    reconciliation: reconcile(marketResult),
+  });
 }
 
 // --------------------------------------------------------------------- bridge
@@ -610,12 +967,31 @@ export async function netWorthChange(
   ctx: ReadCtx,
   from: IsoDate,
   to: IsoDate,
+  options: { readonly basis?: ValuationBasis } = {},
 ): Promise<Result<NetWorthBridge, DomainError>> {
+  const basis = options.basis ?? 'cost';
   const sources = await loadSources(ctx);
-  const opening = composeAt(ctx, sources, from);
-  const closing = composeAt(ctx, sources, to);
   const flows = await periodFlows(ctx, sources, from, to);
-  return ok(bridge(opening, closing, flows));
+
+  if (basis === 'cost') {
+    return ok(bridge(composeAt(ctx, sources, from), composeAt(ctx, sources, to), flows));
+  }
+
+  // Under `market` the unrealised-gain line stops being `notMeasured` and
+  // carries the change in `(market − cost)` across the period — which needs both
+  // bases at both endpoints. One market fetch covers the whole window.
+  const market = await loadMarketSources(ctx, { from, to });
+  const openingCost = composeAt(ctx, sources, from, 'cost', null);
+  const closingCost = composeAt(ctx, sources, to, 'cost', null);
+  const opening = composeAt(ctx, sources, from, 'market', market);
+  const closing = composeAt(ctx, sources, to, 'market', market);
+
+  const unrealizedGain = sub(
+    sub(closing.netWorth, closingCost.netWorth),
+    sub(opening.netWorth, openingCost.netWorth),
+  );
+
+  return ok(bridge(opening, closing, { ...flows, unrealizedGain }));
 }
 
 async function periodFlows(
@@ -706,6 +1082,9 @@ async function periodFlows(
     // Computed, never a plug. For a single-currency ledger every term below is
     // identically zero, which is what lets I-30 assert EXACT closure there.
     fxEffect: fxEffect(ctx, sources, from, to),
+    // Zero by construction at cost basis; `netWorthChange` supplies the real
+    // figure when the caller asked for `market`.
+    unrealizedGain: null,
   };
 }
 
@@ -800,7 +1179,7 @@ function fxEffect(
   from: IsoDate,
   to: IsoDate,
 ): MoneyValue {
-  const opening = componentsAt(ctx, sources, from);
+  const { inputs: opening } = componentsAt(ctx, sources, from, 'cost', null);
   let total = 0n;
 
   for (const component of opening) {

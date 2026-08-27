@@ -22,7 +22,7 @@ import { isoDate } from '../../lib/date';
 import { currency, mulRate, type CurrencyCode, type Money } from '../../lib/decimal/money';
 import { Rate } from '../../lib/decimal/rate';
 import { err, ok, type Result } from '../../lib/result';
-import { selectRate, type FxRateRow, type FxSelection, type FxUnavailable } from '../domain/fx';
+import { rateSelector, type FxRateRow, type FxSelection, type FxUnavailable } from '../domain/fx';
 import type { DbExecutor } from '../db/client';
 import { fxRates } from '../db/schema';
 
@@ -70,7 +70,10 @@ export async function createFxLookup(
 
 /** The same lookup over rows supplied directly. Used by tests and by the golden fixtures. */
 export function fromRows(rows: readonly FxRateRow[], base: CurrencyCode): FxLookup {
-  const rate = (from: CurrencyCode, to: CurrencyCode, on: IsoDate) => selectRate(rows, from, to, on);
+  // Built once per request. The rule is `selectRate`'s, unchanged; what this
+  // avoids is re-indexing every stored observation on every conversion, which a
+  // market-value SERIES does once per foreign position per point.
+  const rate = rateSelector(rows);
 
   const convert = (amount: Money, to: CurrencyCode, on: IsoDate): Result<FxConversion, FxUnavailable> => {
     const selection = rate(amount.currency, to, on);

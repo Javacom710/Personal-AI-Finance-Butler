@@ -3,8 +3,15 @@ import Link from 'next/link';
 
 import { PageHeader } from '../../_components/page-shell';
 import { addDays } from '@/lib/date';
-import { netWorthChange, netWorthReconciliation } from '@/server/services';
-import { BasisNotice, CoverageNotice, Headline, SideTable, TradeDatedNotice } from './_components';
+import { netWorthChange, netWorthComparison, netWorthReconciliation } from '@/server/services';
+import {
+  BasisComparison,
+  BasisNotice,
+  CoverageNotice,
+  Headline,
+  SideTable,
+  TradeDatedNotice,
+} from './_components';
 import { loadNetWorthContext } from './_page-data';
 
 export const metadata: Metadata = { title: 'Net Worth at Cost' };
@@ -28,6 +35,11 @@ export default async function NetWorthPage() {
   const monthAgo = addDays(ctx.today, -30);
   const change = await netWorthChange(ctx, monthAgo, ctx.today);
   const delta = change.ok ? change.value.delta : null;
+
+  // The reciprocal line only. **The headline above is untouched by it**: the
+  // figure this page reports is the same `basis: 'cost'` result Phase 5 shipped,
+  // and the comparison is an offer to look at a different question (ADR-32).
+  const comparison = await netWorthComparison(ctx);
 
   return (
     <>
@@ -71,7 +83,16 @@ export default async function NetWorthPage() {
         )}
       </div>
 
-      <BasisNotice />
+      {comparison.ok ? (
+        <BasisComparison
+          basis="cost"
+          restatement={comparison.value.restatement}
+          status={comparison.value.market.market}
+          format={format}
+        />
+      ) : null}
+
+      <BasisNotice basis="cost" />
 
       <CoverageNotice
         excluded={result.excluded}

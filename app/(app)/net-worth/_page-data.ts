@@ -13,7 +13,13 @@ import 'server-only';
  * exists to forbid. Everything below renders a `NetWorthResult`.
  */
 
-import { createFormatter, createReadCtx, type Formatter, type ReadCtx } from '@/server/services';
+import {
+  createFormatter,
+  createReadCtx,
+  type Formatter,
+  type ReadCtx,
+  type ValuationBasis,
+} from '@/server/services';
 import { requireSession } from '@/server/auth/guards';
 
 export interface NetWorthPageContext {
@@ -39,6 +45,10 @@ export async function loadNetWorthContext(path: string): Promise<NetWorthPageCon
  *
  * A display concern only — the grouping itself is decided by the engine, and
  * these strings never participate in a total.
+ *
+ * **The investment heading names the basis**, because that group is the only one
+ * whose figure differs between the two and an unqualified "Investments" is
+ * exactly the ambiguity ADR-23 exists to remove.
  */
 export const GROUP_LABELS: Record<string, string> = {
   cash: 'Cash and bank',
@@ -68,6 +78,35 @@ export const BRIDGE_LABELS: Record<string, string> = {
   asset_additions: 'Assets acquired / disposed',
   liability_change: 'Liability change',
   fx_effect: 'FX effect',
+};
+
+/** The same labels, with the investment heading named for the basis on show. */
+export function groupLabels(basis: ValuationBasis): Record<string, string> {
+  return basis === 'market'
+    ? { ...GROUP_LABELS, investments: 'Investments (at market value)' }
+    : GROUP_LABELS;
+}
+
+/** The restatement's three rows, in the order the engine returns them. */
+export const RESTATEMENT_LABELS: Record<string, string> = {
+  removed_unpriced: 'Holdings with no market price, set aside',
+  fx_rebasis: 'Currency rebasis, acquisition rates to today',
+  price_effect: 'Price movement since acquisition',
+};
+
+/** Why a component could not be valued. One sentence per cause, the same everywhere. */
+export const EXCLUSION_REASONS: Record<string, string> = {
+  no_fx_rate: 'no exchange rate on or before this date',
+  unvalued: 'held, but not valued by this date',
+  no_price_on_date: 'no price is stored for this date',
+  no_provider: 'no price source — enter one by hand',
+  not_found: 'not recognised by its price provider',
+  provider_error: 'the price provider returned an error',
+  rate_limited: 'the price provider is rate limited — the last price is being kept',
+  unsupported_asset: 'this kind of asset is not priced by a market feed',
+  delisted: 'no longer trading',
+  unreconciled_corporate_action:
+    'a corporate action is missing from your ledger — record it to resume valuation',
 };
 
 /** Where a contribution's drill-down link points. */

@@ -6,10 +6,11 @@
  * runs against production, after a restore, and in CI against a seeded database.
  *
  * Phase 3 covered I-1, I-2, I-3, I-4, I-9 and I-11; Phase 4 adds I-5, I-6, I-7,
- * I-12, I-13 and I-15 to I-20. I-8 (Phase 5) and I-10/I-14 (Phase 9) arrive with
- * the tables they describe, and are listed as `skipped` rather than silently
- * omitted — a checker that quietly covers less than it claims is worse than no
- * checker.
+ * I-12, I-13 and I-15 to I-20. Phase 5 adds the net-worth engine invariants and
+ * Phase 6.11 the market-value ones (I-38, I-39, I-41, I-43 … I-49). I-10/I-14
+ * (Phase 9) arrive with the tables they describe, and are listed as `skipped`
+ * rather than silently omitted — a checker that quietly covers less than it
+ * claims is worse than no checker.
  *
  * **Two relations are deliberately NOT checked**, because both are intuitive,
  * will be assumed, and are **false** (SCHEMA.md §12, non-invariants):
@@ -572,16 +573,6 @@ const CHECKS: readonly Check[] = [
 const DEFERRED: readonly { invariant: string; description: string; note: string }[] = [
   { invariant: 'I-10', description: 'Applied AI proposals have an ai_confirmed audit entry', note: 'Phase 9' },
   { invariant: 'I-14', description: 'One AI proposal produces at most one record', note: 'Phase 9' },
-  {
-    invariant: 'I-38',
-    description: 'Under market basis every open position is either priced or excluded with a reason',
-    note: 'market-value net worth — a later Phase 6 step',
-  },
-  {
-    invariant: 'I-39',
-    description: 'A market-basis figure never substitutes cost for an unpriced holding',
-    note: 'market-value net worth — a later Phase 6 step',
-  },
 ];
 
 /**
@@ -642,6 +633,67 @@ const ENGINE_ENFORCED: readonly { invariant: string; description: string; note: 
     invariant: 'I-40',
     description: 'No provider or job writes the ledger; a corporate action is a detection until the user accepts it',
     note: 'source scan; tests/unit/market-data-source-scan.test.ts; tests/integration/market-data.test.ts',
+  },
+
+  // ---- Phase 6.11, market-value net worth. I-38 and I-39 were reported
+  // `skipped` until this phase and are live from it; none of I-41 … I-49 is a
+  // database constraint, and that is expected rather than a gap — every one is a
+  // statement about a DERIVED figure, and net worth stores nothing. Writing a SQL
+  // approximation of any would put a second implementation of net worth in the
+  // checker, free to disagree with the engine (FINANCIAL-DOMAIN.md §10.5).
+  //
+  // I-42 is DELIBERATELY ABSENT. The Phase 6.11 draft proposed it, then found
+  // I-38 and I-39 already said exactly the same two things; the number is retired
+  // rather than reused so no reference silently re-points (SCHEMA.md §12).
+  {
+    invariant: 'I-38',
+    description: 'Under market basis every open position either contributes a priced value or is excluded with a reason',
+    note: 'services/networth.ts marketPositions(); tests/integration/networth-market.test.ts',
+  },
+  {
+    invariant: 'I-39',
+    description: 'A market-basis figure never substitutes cost for an unpriced holding',
+    note: 'services/networth.ts marketPositions(); tests/unit/networth-source-scan.test.ts; tests/integration/networth-market.test.ts',
+  },
+  {
+    invariant: 'I-41',
+    description: 'A net-worth figure carries exactly one declared basis; no total mixes cost and market',
+    note: 'domain/networth/compose.ts; tests/unit/networth-market-domain.test.ts',
+  },
+  {
+    invariant: 'I-43',
+    description: 'No source key contributes twice under either basis; a cost-and-market pair for one position throws',
+    note: 'ContributionMap.add(); tests/unit/networth-market-domain.test.ts',
+  },
+  {
+    invariant: 'I-44',
+    description: 'A stale price contributes and is reported as stale; it is never replaced by cost',
+    note: 'services/_networth-market.ts priceAt(); tests/integration/networth-market.test.ts',
+  },
+  {
+    invariant: 'I-45',
+    description: 'Every excluded component carries a machine-readable reason',
+    note: 'domain/networth/keys.ts ExclusionReason; tests/integration/networth-market.test.ts',
+  },
+  {
+    invariant: 'I-46',
+    description: 'quantityHeldOn applies every corporate-action ratio in (trade_date, T]',
+    note: 'domain/lots/quantity.ts; tests/property/quantity-held-on.test.ts',
+  },
+  {
+    invariant: 'I-47',
+    description: 'A historical figure reads no current-state cache — not positions, not is_active',
+    note: 'source scan; tests/unit/networth-source-scan.test.ts',
+  },
+  {
+    invariant: 'I-48',
+    description: 'The cost-to-market restatement closes exactly for single-currency data',
+    note: 'domain/networth/restate.ts; tests/integration/golden-g5.test.ts; tests/integration/golden-g6.test.ts',
+  },
+  {
+    invariant: 'I-49',
+    description: 'Market value preserves provider precision to scale 8, rounding only at valueOf and mulRate',
+    note: 'lib/decimal/price.ts; tests/unit/networth-market-domain.test.ts; numeric(20,8) on instrument_prices',
   },
 ];
 

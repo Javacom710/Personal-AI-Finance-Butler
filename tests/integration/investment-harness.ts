@@ -11,7 +11,12 @@
 import { sql } from 'drizzle-orm';
 
 import { db } from '@/server/db/client';
+import { isoDate } from '@/lib/date';
+import { currency } from '@/lib/decimal/money';
+import { UnitPrice } from '@/lib/decimal/price';
 import type { DomainError, Result } from '@/lib/result';
+import { exchangeCloseInstant, resolveMic } from '@/server/market-data/exchanges';
+import { storePriceObservations } from '@/server/services/market-data';
 import {
   createInstrument,
   createInvestmentTransaction,
@@ -241,6 +246,78 @@ export async function priceIt(
     }),
   );
   must(result as Result<unknown, DomainError>);
+}
+
+/**
+ * Store a historical close, and advance the quote with it.
+ *
+ * The **service** path, not a raw insert: `storePriceObservations` enforces
+ * I-33/I-34 (currency), I-35 (one source per series) and I-36 (the age-guarded
+ * quote), so a fixture the market-data layer would refuse cannot exist here
+ * either.
+ *
+ * `observedAt` defaults to the exchange's close on that trading date, which is
+ * what SCHEMA.md §5 requires a stored quote's `as_of` to be — never midnight and
+ * never the fetch time.
+ */
+export async function storeClose(
+  ctx: ReadCtx,
+  spec: {
+    readonly instrumentId: string;
+    readonly on: string;
+    readonly close: string;
+    readonly currencyCode?: string;
+    readonly source?: string;
+    readonly observedAt?: Date;
+    readonly kind?: 'eod' | 'nav' | 'continuous';
+  },
+): Promise<void> {
+  const tradingDate = isoDate(spec.on);
+  const venue = resolveMic('NSE');
+  const observedAt =
+    spec.observedAt ??
+    (venue === null ? new Date(`${spec.on}T10:00:00Z`) : (exchangeCloseInstant(venue, tradingDate) ?? new Date(`${spec.on}T10:00:00Z`)));
+
+  const outcome = await write(ctx, (w) =>
+    storePriceObservations(w, [
+      {
+        instrumentId: spec.instrumentId,
+        close: UnitPrice.of(spec.close),
+        currency: currency(spec.currencyCode ?? 'INR'),
+        tradingDate,
+        observedAt,
+        kind: spec.kind ?? 'eod',
+        source: spec.source ?? 'test-feed',
+        providerRef: null,
+      },
+    ]),
+  );
+
+  if (outcome.stored !== 1) {
+    throw new Error(
+      `storeClose: the observation was refused (${JSON.stringify(outcome.rejected)}). ` +
+        'A fixture the market-data layer would reject must not be forced into the table.',
+    );
+  }
+}
+
+/** An open corporate-action detection, which suppresses the instrument\'s value (ADR-29). */
+export async function detectSplit(
+  userId: string,
+  spec: {
+    readonly instrumentId: string;
+    readonly exDate: string;
+    readonly num: number;
+    readonly den: number;
+  },
+): Promise<void> {
+  await rawSql(
+    `insert into corporate_action_detections
+       (user_id, instrument_id, kind, ex_date, ratio_num, ratio_den, source, detected_at)
+     values ($1, $2, 'split', $3, $4, $5, 'test-feed', now())
+     on conflict do nothing`,
+    [userId, spec.instrumentId, spec.exDate, spec.num, spec.den],
+  );
 }
 
 // ------------------------------------------------------------------- readers

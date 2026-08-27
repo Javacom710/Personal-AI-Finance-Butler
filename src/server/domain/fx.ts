@@ -114,11 +114,54 @@ export function selectRate(
   to: CurrencyCode,
   on: IsoDate,
 ): Result<FxSelection, FxUnavailable> {
+  return resolve(indexRows(rows, on), from, to, on);
+}
+
+/**
+ * The same rule, with the per-date index built **once per date** instead of once
+ * per call.
+ *
+ * `indexRows` is `O(rows)`, and its result depends on nothing but `(rows, on)`.
+ * One conversion on one page cannot tell the difference; a **market-value series**
+ * can, because it asks for a rate per foreign position per point. Over 2,500
+ * stored observations that is the difference between a lookup and a table scan —
+ * the same shape of mistake the price series had, and the same fix
+ * ([MARKET-VALUE-NET-WORTH-DESIGN.md §13](../../../docs/MARKET-VALUE-NET-WORTH-DESIGN.md#13-performance)).
+ *
+ * **The resolution rule is untouched**, and deliberately so: identity → direct →
+ * inverse → triangulated, dated by the stalest leg, one pivot only. Memoising the
+ * index changes what is recomputed, never what is decided, so every Phase 3, 4
+ * and 5 figure is byte-identical.
+ */
+export function rateSelector(
+  rows: readonly FxRateRow[],
+): (from: CurrencyCode, to: CurrencyCode, on: IsoDate) => Result<FxSelection, FxUnavailable> {
+  const byDate = new Map<string, PairIndex>();
+
+  return (from, to, on) => {
+    // The identity case needs no index at all, so a single-currency ledger never
+    // builds one.
+    if (from === to) return ok({ rate: Rate.one(), asOf: on, source: 'identity' });
+
+    let index = byDate.get(on);
+    if (index === undefined) {
+      index = indexRows(rows, on);
+      byDate.set(on, index);
+    }
+    return resolve(index, from, to, on);
+  };
+}
+
+/** The resolution order, over an already-built index. One implementation, two callers. */
+function resolve(
+  index: PairIndex,
+  from: CurrencyCode,
+  to: CurrencyCode,
+  on: IsoDate,
+): Result<FxSelection, FxUnavailable> {
   if (from === to) {
     return ok({ rate: Rate.one(), asOf: on, source: 'identity' });
   }
-
-  const index = indexRows(rows, on);
 
   // A direct rate always wins, even when an inverse or triangulated route is
   // more recent: the stored direction is the one that was actually quoted.

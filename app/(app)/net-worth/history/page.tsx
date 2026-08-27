@@ -48,7 +48,7 @@ export default async function NetWorthHistoryPage() {
         }
       />
 
-      <BasisNotice />
+      <BasisNotice basis="cost" />
 
       <div className="overflow-x-auto">
         <table className="w-full min-w-[34rem] text-sm">

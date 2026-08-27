@@ -24,6 +24,8 @@
     "db:studio": "drizzle-kit studio",
     "smoke:market-data": "node --conditions=react-server --import tsx scripts/smoke-market-data.ts",
     "verify:integrity": "tsx scripts/verify-integrity.ts",
+    "bench:networth": "tsx scripts/bench-networth.ts",
+    "bench:networth": "node --conditions=react-server --import tsx scripts/bench-networth.ts",
     "jobs:run": "node --conditions=react-server --import tsx scripts/run-jobs.ts",
     "auth:create-user": "node --conditions=react-server --import tsx scripts/create-user.ts",
     "check:no-client-secrets": "tsx scripts/check-no-client-secrets.ts",
