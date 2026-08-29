@@ -304,25 +304,61 @@ outlive it:
 
 ## Phase 7 — AI Infrastructure
 
-**Blocked by OD-1 (`NVIDIA_API_KEY`).** Architecture only, no user-facing features.
+**Design review complete 2026-08-29** — [AI-INFRASTRUCTURE-DESIGN.md](AI-INFRASTRUCTURE-DESIGN.md).
+Implementation **not started**.
 
-- `AiProvider` interface; `nvidia-build.ts`; `npm run ai:catalogue` to verify the live model list
-- `config/models.ts` (env-driven tiers), `capabilities.json` scaffold, `pricing.ts`
-- Orchestrator: requirements, candidate selection, fallback chain, health/circuit breaker
-- All 22 read tools with Zod schemas, row caps, byte budget; the read loop
-- Structured-output strategies and the one-repair-then-reject path
-- Observability: `ai_messages`, `ai_model_attempts`, `ai_usage_daily`; daily budget
+**Partially blocked by OD-1 (`NVIDIA_API_KEY`)** — 7 of 8 steps need no key; only the live smoke
+test (7.7) does, the same shape as Phase 6 where OD-3 gated only step 6.9. Architecture only, no
+user-facing features.
+
+> **The review found three properties `AI-SYSTEM.md` calls non-negotiable that are false against the
+> Phase 6.11 code.** `AI-SYSTEM.md` was written in Phase 1, before the system it describes existed.
+> The load-bearing one: *"the AI layer holds only a `ReadCtx` … so a write from AI code does not
+> compile"* — but `ReadCtx.db` is a full DML executor **and** `withWriteCtx(readCtx, …)` compiles
+> clean. **Step 7.0 closes this before any AI code is written.** See
+> [AI-INFRASTRUCTURE-DESIGN.md §0](AI-INFRASTRUCTURE-DESIGN.md#0-the-finding-that-matters-most).
+
+**Three tools in the registry have no engine behind them** — `run_financial_scenario` (nothing at
+all), `calculate_financial_metrics` (3 of 4 metrics), `get_portfolio_performance` (TWR is
+implemented, tested, and wired to nothing). That is deterministic financial-engine work, not AI
+work, and it is **OD-18**.
+
+| Step | Delivers | Needs the key? |
+|---|---|---|
+| **7.0 boundary pre-work** | the three write mechanisms — named-export import ban, ESLint zone extended to relative paths, source-scan test. **Blocks everything else** | no |
+| **7.1 provider abstraction** | `AiProvider`, wire-agnostic types, `nvidia-build.ts`, registry | no |
+| **7.2 configuration** | `NVIDIA_API_KEY` + tier lists in `src/lib/env.ts`, `config/models.ts`, `capabilities.json` scaffold, `pricing.ts` at zero | no |
+| **7.3 tool framework** | registry, Zod schemas, **explicit per-tool projections**, row/date/byte caps, error projection; the 18 tools that have backing | no |
+| **7.4 orchestrator** | requirements → select → fallback → health/breaker, with the hard capability gate | no |
+| **7.5 structured outputs** | strategy per capability; validate → one repair → reject | no |
+| **7.6 observability + kill switch** | `ai_messages`, `ai_model_attempts`, `ai_usage_daily`, migration `0005`; daily budget checked **before** the request; **make `ai_enabled` real**; the AI rate limit | no |
+| **7.7 live smoke test** | `npm run ai:catalogue`; one real round-trip | **yes — OD-1** |
+
+**Two structural constraints the review surfaced:**
+
+- **`src/server/ai/config/` cannot read `process.env`** — the ESLint rule confines it to
+  `src/lib/env.ts`. ADR-17's env-driven tier lists must be declared there and *passed in*.
+- **Nothing the services return is JSON-serializable.** `Money.minor`, `Rate`, `UnitPrice` and
+  `Quantity` are `bigint`; `JSON.stringify` throws on all of them. Every tool needs an explicit
+  projection — including the 13 that otherwise "need no new code".
 
 **Done when**
+- [ ] AI code cannot obtain a `WriteCtx` — asserted by a `tsc` test **and** an import ban **and** a source scan
+- [ ] No `ctx.db` DML is reachable from `src/server/ai/**` — asserted by source scan
+- [ ] The ESLint AI zone catches relative-path imports, not only `@/` ones
 - [ ] Every candidate model in `CLAUDE.md` is confirmed, corrected, or removed against the authenticated catalogue
 - [ ] Every tool schema asserts `additionalProperties: false` and a complete `required` array
 - [ ] No tool input schema contains a user-identifier field (asserted by test)
+- [ ] Every tool result is explicitly projected; no `bigint` reaches JSON
+- [ ] Every summary tool that partitions carries its own total, and `Σ rows === total` at every depth
 - [ ] Row caps, `truncated` flags, and the byte budget are enforced and tested
 - [ ] Fallback: each failure class routes correctly; the circuit breaker opens and half-opens
-- [ ] **Cross-tier downgrade is impossible** — asserted by test
-- [ ] A model with no `capabilities.json` entry cannot be routed to
+- [ ] **Cross-tier and cross-capability downgrade is impossible** — asserted by test
+- [ ] A model with no `capabilities.json` entry cannot be routed to; startup fails loudly
 - [ ] Daily budget is checked **before** the request
-- [ ] `ai_enabled = false` leaves every other feature working
+- [ ] `ai_enabled = false` produces **zero egress** and leaves every other feature working — asserted by test
+- [ ] `NVIDIA_API_KEY` appears in no client bundle, no log, no test fixture
+- [ ] The full deterministic suite passes with **no key configured**
 
 ---
 
