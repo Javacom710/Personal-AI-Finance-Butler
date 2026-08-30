@@ -299,6 +299,20 @@ Categories and tags are both classification, and they are deliberately different
 
 The parents matter, not just the leaves. `CLAUDE.md`'s own worked example is *"how much did I spend on food in July?"* — if `Groceries` and `Dining` were top-level siblings with no `Food` parent, that question would have no category to resolve to, and answering it would require summing two rows. Summing rows is the model's job only when the engine has failed to provide the total ([AI-SYSTEM.md](AI-SYSTEM.md#the-arithmetic-boundary--every-summary-returns-its-own-total)).
 
+#### The breakdown contract
+
+`rollup()` answers *"what does Food come to?"* for **one** category — a figure per node, with a parent's including its children's. That is right for a budget and wrong as a **row set**, because summing every node double-counts every parent/child pair. `breakdown()` therefore returns a structure rather than an array ([ADR-37](DECISIONS.md#adr-37--a-breakdown-declares-whether-its-rows-partition-its-total), **I-54**):
+
+| Field | Guarantee |
+|---|---|
+| `total` | the period figure for `kind`, over the same entries `periodSummary` reduces. Always authoritative, whatever the rows do |
+| `additivity: 'partition'` | `Σ rows[].total === total`, exactly, no tolerance. Category and account breakdowns |
+| `additivity: 'overlapping'` | the rows do **not** sum to `total`, and must never be shown as if they did. **Tag** breakdowns: a two-tag transaction counts under both, an untagged one under neither |
+| `depth: 'rollup'` | one row per top-level category, children folded in; `isRollup` and `childCount` per row |
+| `depth: 'detail'` | one row per category with spending **of its own**, carrying only that |
+
+Both depths partition: the caller chooses a level of detail, never a level of correctness. `foldToRoots()` assigns each direct amount to exactly one root, so the partition holds **by construction** rather than by assertion — and an orphan whose parent was filtered out becomes its own root rather than vanishing.
+
 ### Tags
 
 Tags attach to the **transaction header**, never to an entry — a transfer's two entries share one tag set, because the tag describes the event, not the leg.
@@ -745,8 +759,9 @@ src/server/services/            APPLICATION SERVICES — impure, transactional
                     Exports NO function taking a WriteCtx — net worth opens no ledger
                     and therefore cannot mutate anything (I-32, ADR-24).
   _guards.ts        requireOwnership, requireActiveAccount, requireCategoryKind
-  _ctx.ts           ReadCtx  = { userId, now, fx }                  <- queries take this
-                    WriteCtx = ReadCtx & { tx, audit }              <- commands take this
+  _ctx.ts           ReadCtx    = { userId, now, fx, db }            <- queries take this
+                    RequestCtx = ReadCtx & { beginTransaction }     <- may OPEN a write
+                    WriteCtx   = RequestCtx & { tx, audit }         <- commands take this
 
 src/server/domain/              FINANCIAL ENGINE — pure, total, no I/O
   ledger/     buildEntries, assertEntryInvariants, deriveBalance
@@ -770,14 +785,17 @@ src/server/services/            instruments.ts, investments.ts, positions.ts, po
 Every service function takes a context as its first argument, and **the context type is the write boundary**:
 
 ```ts
-interface ReadCtx  { userId: UserId; now: Date; fx: FxLookup }
-interface WriteCtx extends ReadCtx { tx: DbTransaction; audit: AuditWriter }
+interface ReadCtx    { userId: UserId; now: Date; fx: FxLookup; db: DbExecutor }
+interface RequestCtx extends ReadCtx  { beginTransaction: TransactionOpener }
+interface WriteCtx   extends RequestCtx { tx: DbTransaction; audit: AuditWriter }
 
 listTransactions(ctx: ReadCtx,  q: Query): Promise<TransactionView[]>
 createTransaction(ctx: WriteCtx, input: NewTransaction): Promise<Result<…>>
 ```
 
-A caller that can only construct a `ReadCtx` — no `tx`, no `audit` — **cannot call a command at all**: it is a type error, caught by `tsc`, not a lint rule or a review comment. The AI tool layer is exactly such a caller ([AI-SYSTEM.md §8](AI-SYSTEM.md#8-tool-architecture)). `now` and `tx` are injected, so time-dependent and transactional behaviour is testable without mocking a global clock or a connection pool.
+A caller that can only construct a `ReadCtx` — no `tx`, no `audit` — **cannot call a command at all**: it is a type error, caught by `tsc`, not a lint rule or a review comment. **Nor can it manufacture one**: `withWriteCtx` requires a `RequestCtx`, and the `beginTransaction` capability it needs is granted by `createReadCtx` alone ([ADR-33](DECISIONS.md#adr-33--the-transaction-opener-is-a-capability-carried-on-the-context-not-an-ambient-import)). That second sentence is the correction of finding **F-1**: until 2026-08-30, `withWriteCtx` took a `ReadCtx` and opened the transaction itself, so read access was one line from write access.
+
+The AI tool layer holds neither — it holds an `AiReadCtx`, which carries no database handle at all ([AI-SYSTEM.md §8](AI-SYSTEM.md#8-tool-architecture), **I-50**). `now` and `tx` are injected, so time-dependent and transactional behaviour is testable without mocking a global clock or a connection pool.
 
 Every engine function takes plain data and returns plain data. `deriveBalance(openingBalance, entries, investmentEntries)` receives rows the service already fetched — it does not fetch them. That is the whole distinction, and it is what makes the edge-case suites in §12 cheap to write.
 

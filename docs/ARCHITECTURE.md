@@ -136,8 +136,8 @@ Three statements govern the boundaries between them, and each is enforced somewh
 - `app/**` MUST NOT import from `src/server/domain/**` or `src/server/db/**`. It calls application services only.
 - `src/server/services/**` is the only layer that may open a transaction, write, or enqueue a job.
 - `src/server/domain/**` MUST NOT import from `src/server/db/**`, `src/server/services/**`, or `src/server/ai/**`. It receives data as arguments and returns values. It never depends on the model, and it never persists.
-- `src/server/ai/**` MUST NOT import from `src/server/db/**` or `src/server/domain/**`. Its tools call application services, which is where permission checks live — so the AI cannot bypass authorization by construction.
-- **`src/server/ai/**` performs no database write of any kind, including creating a proposal.** The orchestrator returns objects; `services/aiProposals.ts` persists them. This is enforced by the type system rather than by convention: the tool layer can only construct a `ReadCtx` (`{ userId, now, fx }`), and every command requires a `WriteCtx` (`{ …, tx, audit }`). Calling `createTransaction` from AI code is a **compile error** ([FINANCIAL-DOMAIN.md §11](FINANCIAL-DOMAIN.md#11-module-map--services-versus-engine)).
+- `src/server/ai/**` MUST NOT import from `src/server/db/**`, `src/server/domain/**` or `src/server/services/**` — **aliased, relative or dynamic**. It reaches data through exactly one capability, `@/server/ai-read`, whose projections call application services, which is where permission checks live — so the AI cannot bypass authorization by construction. Enforced three ways: types, the ESLint AI zone, and a source scan that also covers dynamic `import()` ([ADR-34](DECISIONS.md#adr-34--the-ai-import-boundary-is-enforced-three-ways-and-covers-relative-paths), **I-51**).
+- **`src/server/ai/**` performs no database write of any kind, including creating a proposal.** The orchestrator returns objects; `services/aiProposals.ts` persists them ([ADR-35](DECISIONS.md#adr-35--ai-infrastructure-is-strictly-read-only-a-mutation-needs-a-separate-approved-proposal-workflow)). Enforced by the type system rather than by convention: the AI layer holds an **`AiReadCtx`** — no database handle, no transaction capability, and *not* a `ReadCtx` — while `withWriteCtx` requires a `RequestCtx` that only `createReadCtx` grants. `withWriteCtx(ai, …)`, `ai.db` and `createTransaction(ai, …)` are each a **compile error**, asserted by **I-50** ([ADR-33](DECISIONS.md#adr-33--the-transaction-opener-is-a-capability-carried-on-the-context-not-an-ambient-import), [FINANCIAL-DOMAIN.md §11](FINANCIAL-DOMAIN.md#11-module-map--services-versus-engine)). *Before 2026-08-30 this rule rested on the AI layer holding "only a `ReadCtx`" — which carries a full DML handle and could be escalated in one line. That was finding **F-1**.*
 
   Without that split the guarantee would be far weaker than it sounds: `ai/**` may import `services/**`, and `services/transactions.ts` exports `create`, `update`, and `delete`. "The AI cannot write" would then rest on nobody having written the wrong tool handler — a review property, not a structural one.
 - Anything importing an AI provider client, a market-data provider, or the database is marked `import 'server-only'`.
@@ -212,8 +212,9 @@ src/
       networth.ts   pricing.ts        export.ts      admin.ts
       aiProposals.ts                  createProposal, applyProposal (CAS + re-validate)
       _guards.ts                      requireOwnership, requireActive, requireCapability
-      _ctx.ts                         ReadCtx { userId, now, fx } — queries
-                                      WriteCtx = ReadCtx & { tx, audit } — commands
+      _ctx.ts                         ReadCtx    { userId, now, fx, db } — queries
+                                      RequestCtx = ReadCtx & { beginTransaction } — may open a write
+                                      WriteCtx   = RequestCtx & { tx, audit } — commands
     domain/                         FINANCIAL ENGINE — pure, no I/O, no db handle
       ledger/                         entry shape invariants, balance derivation
       lots/                           cost basis engine (default FIFO), corporate actions
@@ -229,6 +230,12 @@ src/
       index.ts                      public surface
       providers/                    manual.ts, amfi.ts, frankfurter.ts, <equity-provider>.ts
                                     ONLY these files may name a provider or read its credential
+    ai-read/                        THE AI LAYER'S READ CAPABILITY — outside src/server/ai/**
+      index.ts                      AiReadCtx: ambient facts, no db, no fx, no
+                                    transaction capability. Not a ReadCtx (ADR-33).
+                                    Phase 7.3 adds the projected read functions here
+      internal.ts                   the ONE bridge back to a ReadCtx, bound in a private
+                                    WeakMap. BANNED from src/server/ai/** (ADR-34)
     ai/
       provider/                     AiProvider interface; nvidia-build.ts is the only
                                     file aware of the wire format or the API key
@@ -240,7 +247,8 @@ src/
       loop.ts                       the agentic read loop
       structured/                   json_schema / json_object strategies, validate,
                                     one repair attempt, then reject
-      proposals/                    proposal schemas, entity resolution, apply
+      proposals/                    proposal schemas, entity resolution — pure.
+                                    APPLY LIVES IN services/aiProposals.ts, NOT HERE (ADR-35)
       documents/                    Tier 4 image/PDF extraction → proposal
       embeddings/                   deferred (ADR-19) — README with activation criteria
       eval/                         golden task suites, runner, scoring, reports

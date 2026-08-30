@@ -9,6 +9,7 @@ import {
   getAccount,
   listTransactions,
   periodSummary,
+  sumRows,
   unfilteredTotal,
   updateTransfer,
 } from '@/server/services';
@@ -113,12 +114,14 @@ describe('same-currency transfers', () => {
     await record(fixture.ctx, { kind: 'expense', accountId: bank, categoryId: food, amount: '1000', bookedOn: '2026-08-01' });
     await transfer(fixture.ctx, { fromAccountId: bank, toAccountId: wallet, amount: '90000', bookedOn: '2026-08-02' });
 
-    const rows = await breakdown(fixture.ctx, AUGUST, 'category', 'expense');
-    const total = rows.reduce((acc, r) => acc + r.total.minor, 0n);
-    // Food (1,000) plus its parentless self — the 90,000 transfer is absent.
-    expect(rows.find((r) => r.label === 'Food')).toBeDefined();
-    expect(total).toBeLessThanOrEqual(2_000n * 10_000n);
-    expect(rows.every((r) => r.total.minor <= 1000n * 10_000n)).toBe(true);
+    const result = await breakdown(fixture.ctx, AUGUST, 'category', 'expense');
+    // The rows partition the expense total exactly, so the 90,000 transfer is
+    // absent by arithmetic rather than by inspection: were it counted, the sum
+    // could not still be 1,000.
+    expect(result.additivity).toBe('partition');
+    expect(result.rows.find((r) => r.label === 'Food')).toBeDefined();
+    expect(toDbString(result.total)).toBe('1000.0000');
+    expect(toDbString(sumRows(result.rows, fixture.ctx.base))).toBe('1000.0000');
   });
 
   it('is excluded from a tag report even when it carries the same tag (edge case 21)', async () => {
@@ -138,11 +141,14 @@ describe('same-currency transfers', () => {
       tags: ['holiday'],
     });
 
-    const rows = await breakdown(fixture.ctx, AUGUST, 'tag', 'expense');
-    expect(rows).toHaveLength(1);
+    const result = await breakdown(fixture.ctx, AUGUST, 'tag', 'expense');
+    expect(result.rows).toHaveLength(1);
     // Without the kind filter this would read 102,500: the expense plus both
     // legs of the transfer.
-    expect(toDbString(rows[0]!.total)).toBe('2500.0000');
+    expect(toDbString(result.rows[0]!.total)).toBe('2500.0000');
+    // A tag row set never partitions the total — one transaction can carry
+    // several tags, and an untagged one carries none (ADR-34).
+    expect(result.additivity).toBe('overlapping');
   });
 
   it('still shows up in a transaction list, where it belongs', async () => {

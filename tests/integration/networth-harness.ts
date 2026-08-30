@@ -18,7 +18,7 @@ import {
   disposeAsset,
   recordLiabilityBalance,
   revalueAsset,
-  type ReadCtx,
+  type RequestCtx,
 } from '@/server/services';
 import { must, write } from './money-harness';
 
@@ -32,7 +32,7 @@ export interface ManualAssetSpec {
   readonly acquisitionCost?: string;
 }
 
-export async function makeAsset(ctx: ReadCtx, spec: ManualAssetSpec): Promise<string> {
+export async function makeAsset(ctx: RequestCtx, spec: ManualAssetSpec): Promise<string> {
   const created = await write(ctx, (w) =>
     createManualAsset(w, {
       name: spec.name,
@@ -48,7 +48,7 @@ export async function makeAsset(ctx: ReadCtx, spec: ManualAssetSpec): Promise<st
 }
 
 export async function revalue(
-  ctx: ReadCtx,
+  ctx: RequestCtx,
   assetId: string,
   asOf: string,
   value: string,
@@ -56,7 +56,7 @@ export async function revalue(
   must(await write(ctx, (w) => revalueAsset(w, { assetId, asOf, value })));
 }
 
-export async function dispose(ctx: ReadCtx, assetId: string, disposedOn: string): Promise<void> {
+export async function dispose(ctx: RequestCtx, assetId: string, disposedOn: string): Promise<void> {
   must(await write(ctx, (w) => disposeAsset(w, { assetId, disposedOn })));
 }
 
@@ -73,7 +73,7 @@ export interface LiabilitySpec {
   readonly startedOn?: string;
 }
 
-export async function makeLiability(ctx: ReadCtx, spec: LiabilitySpec): Promise<string> {
+export async function makeLiability(ctx: RequestCtx, spec: LiabilitySpec): Promise<string> {
   const created = await write(ctx, (w) =>
     createLiability(w, {
       name: spec.name,
@@ -91,7 +91,7 @@ export async function makeLiability(ctx: ReadCtx, spec: LiabilitySpec): Promise<
 }
 
 export async function recordBalance(
-  ctx: ReadCtx,
+  ctx: RequestCtx,
   liabilityId: string,
   asOf: string,
   outstanding: string,
@@ -99,7 +99,7 @@ export async function recordBalance(
   must(await write(ctx, (w) => recordLiabilityBalance(w, { liabilityId, asOf, outstanding })));
 }
 
-export async function closeIt(ctx: ReadCtx, liabilityId: string, closedOn: string): Promise<void> {
+export async function closeIt(ctx: RequestCtx, liabilityId: string, closedOn: string): Promise<void> {
   must(await write(ctx, (w) => closeLiability(w, { liabilityId, closedOn })));
 }
 

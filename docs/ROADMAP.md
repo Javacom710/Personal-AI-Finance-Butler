@@ -305,27 +305,44 @@ outlive it:
 ## Phase 7 — AI Infrastructure
 
 **Design review complete 2026-08-29** — [AI-INFRASTRUCTURE-DESIGN.md](AI-INFRASTRUCTURE-DESIGN.md).
-Implementation **not started**.
+**Step 7.0 (boundary pre-work) complete 2026-08-30.** AI infrastructure implementation **not
+started**: no provider, no SDK, no `NVIDIA_API_KEY`, no tools, no orchestrator, and no file under
+`src/server/ai/`.
 
 **Partially blocked by OD-1 (`NVIDIA_API_KEY`)** — 7 of 8 steps need no key; only the live smoke
 test (7.7) does, the same shape as Phase 6 where OD-3 gated only step 6.9. Architecture only, no
 user-facing features.
 
-> **The review found three properties `AI-SYSTEM.md` calls non-negotiable that are false against the
-> Phase 6.11 code.** `AI-SYSTEM.md` was written in Phase 1, before the system it describes existed.
-> The load-bearing one: *"the AI layer holds only a `ReadCtx` … so a write from AI code does not
-> compile"* — but `ReadCtx.db` is a full DML executor **and** `withWriteCtx(readCtx, …)` compiles
-> clean. **Step 7.0 closes this before any AI code is written.** See
-> [AI-INFRASTRUCTURE-DESIGN.md §0](AI-INFRASTRUCTURE-DESIGN.md#0-the-finding-that-matters-most).
+> **The review found three properties `AI-SYSTEM.md` calls non-negotiable that were false against the
+> Phase 6.11 code — F-1, F-2 and F-3. All three are now closed**, in code, before any AI code was
+> written, and the canonical documents have been reconciled rather than appended to.
+>
+> | | Was | Is |
+> |---|---|---|
+> | **F-1** | `withWriteCtx(readCtx, …)` compiled clean, and `ReadCtx.db` is a full DML executor | `withWriteCtx` requires a `RequestCtx` carrying `beginTransaction`, granted only by `createReadCtx`; the AI layer holds an `AiReadCtx` with no `db` at all. Both the escalation and the raw write are **compile errors** ([ADR-33](DECISIONS.md#adr-33--the-transaction-opener-is-a-capability-carried-on-the-context-not-an-ambient-import), **I-50**) |
+> | **F-2** | the ESLint AI zone matched only `@/`-aliased paths, so `'../../db/client'` linted clean | aliased **and** relative patterns, plus a source scan covering the dynamic `import()` ESLint cannot see, plus the capability types ([ADR-34](DECISIONS.md#adr-34--the-ai-import-boundary-is-enforced-three-ways-and-covers-relative-paths), **I-51**, **I-52**) |
+> | **F-3** | `breakdown()` returned parent **and** child rows, each rolled up; summing them double-counted | it returns a structure with an authoritative `total` and an `additivity` tag; both depths partition exactly ([ADR-37](DECISIONS.md#adr-37--a-breakdown-declares-whether-its-rows-partition-its-total), **I-54**) |
+>
+> Also closed: exact values now cross a JSON boundary as tagged digit strings rather than not at all
+> ([ADR-36](DECISIONS.md#adr-36--exact-values-cross-a-json-boundary-as-a-tagged-string-projection-never-as-a-json-number), **I-53**).
+> **OD-17 is resolved** by the recommended option — narrow the context the AI layer receives
+> ([ADR-35](DECISIONS.md#adr-35--ai-infrastructure-is-strictly-read-only-a-mutation-needs-a-separate-approved-proposal-workflow)).
+> See [AI-INFRASTRUCTURE-DESIGN.md §0](AI-INFRASTRUCTURE-DESIGN.md#0-the-finding-that-matters-most).
 
-**Three tools in the registry have no engine behind them** — `run_financial_scenario` (nothing at
-all), `calculate_financial_metrics` (3 of 4 metrics), `get_portfolio_performance` (TWR is
-implemented, tested, and wired to nothing). That is deterministic financial-engine work, not AI
-work, and it is **OD-18**.
+**Three tools have no engine behind them, and are removed from the Phase 7 registry rather than
+stubbed** — `run_financial_scenario` (nothing at all), `calculate_financial_metrics` (3 of 4 metrics
+missing), `get_portfolio_performance`'s TWR (implemented, tested, and wired to nothing). That is
+deterministic financial-engine work, not AI work: **OD-18, deferred 2026-08-30**. The governing rule
+is normative in `AI-SYSTEM.md` §8 — *an AI capability exists only where a deterministic application
+capability already exists or has an explicitly approved implementation path.* **AI must not become a
+substitute for missing financial-engine functionality.**
+
+**The Overview page stays a Phase-2 placeholder for now** — **OD-19, deferred 2026-08-30** as a
+product/UI work item scheduled with the Phase 9 UX pass. It does not block Phase 7.
 
 | Step | Delivers | Needs the key? |
 |---|---|---|
-| **7.0 boundary pre-work** | the three write mechanisms — named-export import ban, ESLint zone extended to relative paths, source-scan test. **Blocks everything else** | no |
+| **7.0 boundary pre-work** ✅ **done 2026-08-30** | `RequestCtx` capability + `AiReadCtx`; ESLint zone extended to relative paths and the query builder; source-scan and compile tests (**I-50 … I-54**); the breakdown contract; the exact-value JSON projection; ADR-33 … ADR-37; root lint scoped away from `.claude/worktrees/**` | no |
 | **7.1 provider abstraction** | `AiProvider`, wire-agnostic types, `nvidia-build.ts`, registry | no |
 | **7.2 configuration** | `NVIDIA_API_KEY` + tier lists in `src/lib/env.ts`, `config/models.ts`, `capabilities.json` scaffold, `pricing.ts` at zero | no |
 | **7.3 tool framework** | registry, Zod schemas, **explicit per-tool projections**, row/date/byte caps, error projection; the 18 tools that have backing | no |
@@ -340,17 +357,19 @@ work, and it is **OD-18**.
   `src/lib/env.ts`. ADR-17's env-driven tier lists must be declared there and *passed in*.
 - **Nothing the services return is JSON-serializable.** `Money.minor`, `Rate`, `UnitPrice` and
   `Quantity` are `bigint`; `JSON.stringify` throws on all of them. Every tool needs an explicit
-  projection — including the 13 that otherwise "need no new code".
+  projection — including the 13 that otherwise "need no new code". **Resolved in 7.0:**
+  `src/lib/format/json-projection.ts` provides the per-type projections (ADR-36); what remains for
+  7.3 is the per-tool field selection, which is deliberately not a generic walker.
 
 **Done when**
-- [ ] AI code cannot obtain a `WriteCtx` — asserted by a `tsc` test **and** an import ban **and** a source scan
-- [ ] No `ctx.db` DML is reachable from `src/server/ai/**` — asserted by source scan
-- [ ] The ESLint AI zone catches relative-path imports, not only `@/` ones
+- [x] AI code cannot obtain a `WriteCtx` — asserted by a `tsc` test **and** an import ban **and** a source scan *(step 7.0; **I-50**, **I-51**)*
+- [x] No `ctx.db` DML is reachable from `src/server/ai/**` — asserted by source scan *(step 7.0; **I-51**. The capability carries no `db` at all, so this is belt to the type system's braces)*
+- [x] The ESLint AI zone catches relative-path imports, not only `@/` ones *(step 7.0; verified empirically, and the scan additionally catches the dynamic `import()` ESLint never checks)*
 - [ ] Every candidate model in `CLAUDE.md` is confirmed, corrected, or removed against the authenticated catalogue
 - [ ] Every tool schema asserts `additionalProperties: false` and a complete `required` array
 - [ ] No tool input schema contains a user-identifier field (asserted by test)
-- [ ] Every tool result is explicitly projected; no `bigint` reaches JSON
-- [ ] Every summary tool that partitions carries its own total, and `Σ rows === total` at every depth
+- [ ] Every tool result is explicitly projected; no `bigint` reaches JSON *(the projection primitives exist — step 7.0, **I-53**; the per-tool field selection is 7.3)*
+- [x] Every summary tool that partitions carries its own total, and `Σ rows === total` at every depth *(step 7.0 for the engine contract — `breakdown()` carries `total` and `additivity`, **I-54**. The per-tool projections are 7.3)*
 - [ ] Row caps, `truncated` flags, and the byte budget are enforced and tested
 - [ ] Fallback: each failure class routes correctly; the circuit breaker opens and half-opens
 - [ ] **Cross-tier and cross-capability downgrade is impossible** — asserted by test

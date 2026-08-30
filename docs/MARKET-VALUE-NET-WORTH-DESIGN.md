@@ -671,8 +671,14 @@ Three specific prohibitions for this metric:
 - AI must not **restate the basis**. If asked "what's it worth at market?", the answer comes from the
   engine or it does not come.
 
-The tool layer already makes this structural: an AI caller can build only a `ReadCtx`, and every
-market-data write takes a `WriteCtx` (ADR-21).
+The tool layer makes this structural: an AI caller holds an `AiReadCtx` — no database handle, no
+transaction capability, and not a `ReadCtx` — while every market-data write takes a `WriteCtx` and
+`withWriteCtx` itself requires a `RequestCtx` (ADR-21,
+[ADR-33](DECISIONS.md#adr-33--the-transaction-opener-is-a-capability-carried-on-the-context-not-an-ambient-import)).
+
+*Corrected 2026-08-30.* This paragraph previously said an AI caller "can build only a `ReadCtx`",
+which was true and insufficient: a `ReadCtx` carries a full DML handle, and `withWriteCtx(readCtx, …)`
+compiled clean. That was finding **F-1** of the Phase 7 review, closed before any AI code was written.
 
 ---
 

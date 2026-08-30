@@ -681,6 +681,139 @@ Per `CLAUDE.md <decision_policy>`, these were resolved rather than escalated. Ea
 | D-7 | Equity price provider | Deferred to Phase 6. `ManualProvider` + AMFI (free, no key, official) ship first; the abstraction makes the choice late-binding | None by design |
 | D-8 | Repository hygiene | `core.autocrlf=input`, `.gitattributes` normalising text, rename `Claude.md` → `CLAUDE.md` before `git init` | None |
 
+## ADR-33 — The transaction opener is a capability carried on the context, not an ambient import
+
+**Decision.** Approved 2026-08-30 (**OD-17**), resolving finding **F-1** of the Phase 7 review.
+
+> **`withWriteCtx` takes a `RequestCtx` — a `ReadCtx` that additionally carries `beginTransaction`. The capability is granted by `createReadCtx` and by nothing else. A holder of read access cannot open a write transaction, because the argument does not type-check.**
+
+`AI-SYSTEM.md` §1 has claimed since Phase 1 that *"the AI layer holds only a `ReadCtx`, and every command requires a `WriteCtx`, so a write from AI code does not compile"*. Against the code as Phases 3 – 6.11 built it, that was **false**, and in two independent ways:
+
+| | The hole | Why it existed |
+|---|---|---|
+| **Escalation** | `withWriteCtx(readCtx, (w) => createTransaction(w, …))` compiled clean | `withWriteCtx` took a `ReadCtx` and opened the transaction itself by calling `db()`, an ambient import. The context was never the thing that authorised the write |
+| **Raw write** | `readCtx.db.execute(sql…update accounts…)` compiled clean | `ReadCtx.db` is `DbExecutor`, a union of two drizzle handles that both expose `.insert`, `.update`, `.delete`, `.execute` and `.transaction` |
+
+The first is closed here. A capability that must be *given* cannot be *reached*, and the type system enforces it: `tsc` reported the escalation at every site the moment the signature changed — three test harnesses, all of them legitimately standing in for a user request, and no production code at all.
+
+**`beginTransaction` is a real field, not a phantom brand.** `withWriteCtx` calls it. A brand exists only to be checked, and is exactly the kind of property a future tidy-up deletes as unused; a field the function actually invokes cannot be removed without the code stopping working. That is deliberate, and it is why this is not a `unique symbol`.
+
+The second hole is closed by [ADR-34](#adr-34--the-ai-import-boundary-is-enforced-three-ways-and-covers-relative-paths): the AI layer holds an `AiReadCtx`, which has no `db` at all, so there is no handle to write through. `ai.db` is a compile error, not a lint finding.
+
+**Enforcement is mechanical.** Invariant **I-50** is a *compile* test — `tests/unit/ai-write-boundary.test.ts` type-checks probe sources against the project's own `tsconfig.json` and asserts the exact diagnostic codes. A test that ran `withWriteCtx(aiCtx, …)` and expected a throw would assert the weaker runtime property while the compile-time one rotted.
+
+**Rejected.** *A lint rule banning `withWriteCtx` in the AI zone* — necessary but not sufficient, and it was the status quo that produced the finding; a rule that names only one import style is defeated by another. *A phantom `unique symbol` brand* — invisible at runtime, deletable by refactor, and it would have made `createReadCtx` return a cast. *Removing `db` from `ReadCtx` outright* — 26 read paths legitimately call `ctx.db.execute` for `select`; breaking them to close an AI hole would be a large change to working financial code for no gain, since the AI layer no longer holds a `ReadCtx` at all.
+
+---
+
+## ADR-34 — The AI import boundary is enforced three ways, and covers relative paths
+
+**Decision.** Approved 2026-08-30 (**OD-17**), resolving finding **F-2** of the Phase 7 review.
+
+> **`src/server/ai/**` reads through exactly one capability, `@/server/ai-read`. Its isolation is enforced by the type system, by ESLint, and by a source scan — three mechanisms with three different failure modes, because no one of them is sufficient.**
+
+`AI-SYSTEM.md` §3 said *"nothing inside it imports `src/server/db/`"*. The ESLint rule meant to guarantee that listed only `@/`-aliased specifiers. `no-restricted-imports` matches the **raw specifier string** with gitignore semantics — via the `ignore` package, never a resolved path — so this linted clean and handed AI code a full database handle:
+
+```ts
+import { db } from '../../db/client';   // no error, before this ADR
+```
+
+Adding the engine zone's `**/server/db/*` would **not** have closed it: that pattern still requires a literal `server` segment, which the specifier does not contain. Dropping `server/` from the relative forms is what closes it, and the empirical matrix is recorded in `tests/unit/ai-boundary-source-scan.test.ts` rather than asserted from memory.
+
+| Mechanism | Closes | Cannot close |
+|---|---|---|
+| **Types** — `AiReadCtx` has no `db`, no `fx`, no `beginTransaction`, and is not a `ReadCtx` | the escalation and the raw write, at compile time (**I-50**) | an import that never touches a context |
+| **ESLint AI zone** — aliased *and* relative patterns, plus `drizzle-orm` and `pg` outright | the ordinary static import, at authoring time (**I-51**) | **dynamic `import()` and `require()` — the rule registers no `ImportExpression` listener, in any version** |
+| **Source scan** — `tests/unit/ai-boundary-source-scan.test.ts` | dynamic imports, `require`, `ctx.db` DML, and any mention of a write-boundary symbol (**I-51**, **I-52**) | nothing an import graph cannot see |
+
+Both gaps are verified rather than assumed: a probe importing `'../../db/client'` relatively is rejected by ESLint *and* by the scan; the same import written as `await import('../../db/client')` passes ESLint with exit 0 and is caught only by the scan.
+
+**The capability is where the read surface will live.** `src/server/ai-read/index.ts` exports `AiReadCtx` and nothing else today, because Phase 7 has not started; step 7.3 adds the enumerated, projected read functions there, one per tool. `internal.ts` holds the single bridge back to a `ReadCtx`, binds it in a module-private `WeakMap` so that no value of type `AiReadCtx` can reach it, and is itself banned from the AI zone. That is OD-17's recommended option — *"give the AI layer a narrowed context"* — implemented rather than deferred.
+
+**Rejected.** *ESLint alone* — the finding. *A negation pattern carving `ai-read` out of a `services` ban* — expressible, but it puts the boundary's correctness inside a gitignore-negation subtlety; a sibling directory needs no carve-out. *Trusting `import type`* — `allowTypeImports` is undefined in every zone, so type imports are restricted too, and a type import is how a `WriteCtx` signature would first appear in AI code.
+
+---
+
+## ADR-35 — AI infrastructure is strictly read-only; a mutation needs a separate, approved proposal workflow
+
+**Decision.** Approved 2026-08-30, resolving **OD-17** in full.
+
+> **For Phase 7 and Phase 8, the AI layer reads and never writes. There is no write tool, no write capability, and no code path from a model's output to a financial record. An AI-assisted mutation is a *future* workflow requiring explicit approval, and it is out of scope for the Phase 7 infrastructure task.**
+
+Concretely, and each of these is asserted rather than intended:
+
+- AI tool handlers read financial information through `@/server/ai-read` (**I-51**, **I-52**).
+- AI code cannot obtain a `WriteCtx`; the escalation does not compile (**I-50**, [ADR-33](#adr-33--the-transaction-opener-is-a-capability-carried-on-the-context-not-an-ambient-import)).
+- AI code cannot execute SQL: it has no handle, and no import path to one (**I-51**, [ADR-34](#adr-34--the-ai-import-boundary-is-enforced-three-ways-and-covers-relative-paths)).
+- AI code cannot mutate a financial record by any route, including the `ai_proposals` row itself.
+
+**When a mutation workflow is eventually built**, [ADR-08](#adr-08--ai-proposes-application-code-mutates) already sets its shape and is unchanged: the model emits a structured *proposal*, the server validates it, the **user confirms it**, and an **application service** — not AI code — performs the write. Building that workflow is a separate, explicitly approved piece of work. Phase 7 ships the read infrastructure and the boundary that will contain it.
+
+**Why say this now, before any AI code exists.** Because the boundary is cheapest to build when there is nothing on the other side of it, and because the Phase 7 review found three documented guarantees that had quietly become false while the system grew underneath them. A guarantee asserted by a test at the moment it is written stays true; one asserted by a sentence does not.
+
+**Rejected.** *Deferring the decision until a write tool is wanted* — the write barrier is load-bearing for every other AI security claim, including `SECURITY.md`'s accepted-risk table, and a barrier retrofitted around existing code is a different and worse exercise. *Allowing AI code to persist the proposal row* — it is still a database write by the AI layer, and it would need the very capability this ADR withholds; `services/aiProposals.ts` persists it, per `AI-SYSTEM.md` §9.
+
+---
+
+## ADR-36 — Exact values cross a JSON boundary as a tagged string projection, never as a JSON number
+
+**Decision.** Approved 2026-08-30, resolving the numeric-serialisation gap the Phase 7 review recorded in §6.2.
+
+> **`Money`, `Quantity`, `UnitPrice` and `Rate` cross a JSON boundary as `{ kind, digits…, scale }` — exact decimal digits as a string, tagged with what they are. The domain types are unchanged and gain no `toJSON`; the projection lives at the boundary and depends on the domain, never the reverse.**
+
+All four are `bigint` at a declared scale ([ADR-04](#adr-04--money-is-an-exact-scaled-integer-never-a-float)). `JSON.stringify` **throws** on every one of them by specification, so nothing the engine returns can leave the process as JSON at all — and the first person to need it has two obvious wrong answers:
+
+| Tempting | Why not |
+|---|---|
+| `Number(m.minor)` | loses precision above 2^53. It is exactly the float path ADR-04 exists to exclude, and it fails silently, on large figures, in a financial answer |
+| `m.minor.toString()` | lossless but scale-less. A price of ₹1,121 prints as `112100000000`, which invites comparison against a real price |
+
+A third, subtler wrong answer is a bare decimal string: correct digits, no way to know whether they are rupees or dollars, a price or a quantity, scale 8 or scale 10. `UnitPrice` and `Quantity` are the *same shape* — `{ units: bigint }` at the same scale — and are distinguishable only by where they came from, which is why the projection is a set of explicit per-type functions and **not** a structural walker.
+
+`src/lib/format/diagnostic-json.ts` stays what it is: a blind recursive walker for logs and smoke tests. It is the right shape there and the wrong shape at a tool boundary, because it emits every enumerable property of whatever it is handed — the opposite of field projection.
+
+**Enforcement.** Invariant **I-53**, `tests/unit/json-projection.test.ts`: property tests over generated values past `MAX_SAFE_INTEGER` assert the projection agrees with `toDbString` and round-trips through `fromDbString`, and a structural assertion proves no figure is ever a JSON number.
+
+**Rejected.** *`toJSON` on the domain types* — it would make `Money` depend on a serialisation concern, and it would fire implicitly wherever anything was stringified, including logs that deliberately redact figures. *A single `toExact(value)` helper* — cannot tell a price from a quantity. *Numbers with a documented scale* — the precision is lost before the documentation is read.
+
+---
+
+## ADR-37 — A breakdown declares whether its rows partition its total
+
+**Decision.** Approved 2026-08-30, resolving finding **F-3** of the Phase 7 review.
+
+> **`breakdown()` returns a structure, not an array: an authoritative `total`, an `additivity` tag, and rows that either partition that total exactly or say plainly that they do not. There is no response shape in which summing every row silently double-counts.**
+
+The old signature returned `BreakdownRow[]` holding **every node** of the category tree — `Food` *and* `Food › Groceries` *and* `Food › Dining` — each carrying its **rolled-up** total. Summing that array double-counts every parent/child pair. Nothing in the type said so, and the project's own golden test worked around it by filtering on the `›` in a label:
+
+```ts
+const topLevel = rows.filter((r) => !r.label.includes('›'));  // so children are not counted twice
+```
+
+A string test standing in for a structural guarantee is how the defect stayed invisible for three phases. It would have mattered most at the AI tool boundary, where that row set reaches a model with no way to tell which rows are safe to add — and a model doing financial arithmetic is forbidden outright by `CLAUDE.md`.
+
+The contract, now:
+
+| Field | Guarantee |
+|---|---|
+| `total` | The period figure for `kind`, computed by the engine over the **same entries** `periodSummary` reduces. Always authoritative, whatever the rows do |
+| `additivity: 'partition'` | `Σ rows[].total === total`, exactly, with no tolerance. Category and account breakdowns |
+| `additivity: 'overlapping'` | The rows do **not** sum to `total` and must never be presented as if they did. Tag breakdowns: one transaction can carry several tags, and an untagged one carries none |
+| `depth: 'rollup'` | One row per top-level category, children folded in. `isRollup` and `childCount` say so per row |
+| `depth: 'detail'` | One row per category with spending **of its own**, carrying only that. A parent with direct entries appears beside its children without double-counting them |
+
+Both depths partition. That is the point: the caller chooses a level of detail, never a level of correctness.
+
+**The arithmetic did not change.** `rollup()` is untouched and still answers *"what does Food come to?"* — the right question for a budget and for a single category. What changed is the **row set**: `foldToRoots()` assigns every direct amount to exactly one root, so `Σ rows === total` holds *by construction* rather than by assertion. `CLAUDE.md`'s worked example — *"how much did I spend on food in July?"* — is answered by the `Food` row, not by adding two others.
+
+**Tag breakdowns were always non-additive, and now say so.** This was not in the original finding and was discovered while fixing it: `tagBreakdown` inner-joins `transaction_tags`, so a two-tag transaction contributes its full amount twice and an untagged one is absent entirely. The old bare array gave a consumer no way to know.
+
+**Enforcement.** Invariant **I-54**: property tests over generated two-level trees assert `Σ folded === Σ direct` exactly (`tests/unit/breakdown-contract.test.ts`), and `tests/integration/golden-g1.test.ts` asserts the partition at **both** depths against the golden figures — with the label filter deleted, because it is no longer needed.
+
+**Rejected.** *Changing `rollup()`* — it is correct for what it does, and `CLAUDE.md` forbids changing a correct financial calculation to suit AI formatting. *Returning leaves only* — loses a parent's own direct spending, so the rows would not sum to the total either. *Documenting the hazard and keeping the array* — the review found the existing documentation already claiming the opposite of what the code did; another sentence was not the fix.
+
+---
+
 ## Open decisions requiring the user
 
 | # | Decision | Why it cannot be defaulted | Blocks |
@@ -690,12 +823,15 @@ Per `CLAUDE.md <decision_policy>`, these were resolved rather than escalated. Ea
 | **OD-3** | **Equity/ETF market-data provider terms** | Free sources cover Indian mutual funds (AMFI) and FX; listed equities need a paid API whose terms are a commercial choice, not an engineering one. **Direction set 2026-08-18: Twelve Data**, integrated at a later Phase 6 step behind the provider credential/configuration step. Kite Connect is explicitly **not** to be integrated. No commercial SDK is installed in advance. | The equity adapter only. The abstraction, the registry, AMFI, FX and Manual are all built without it |
 | **OD-11** | **Crypto market data** | **Deferred 2026-08-18.** No crypto provider is implemented. The domain stays extensible — `cadence: 'continuous'` and the wall-clock branch of [ADR-28](#adr-28--staleness-is-measured-in-trading-sessions-not-wall-clock-hours) exist and are tested — but no adapter ships. | Nothing |
 | **OD-12** | **Dedicated gold market data** | **Deferred 2026-08-18.** Gold is represented through supported instruments (gold ETFs and gold mutual funds price through the ordinary adapters) or through a `manual_assets` valuation series. No bullion adapter, no purity/unit-conversion model. | Nothing |
+| **OD-18** | **Where the missing deterministic financial capabilities belong** | **Deferred 2026-08-30, and removed from the Phase 7 tool registry.** Three tools the conceptual list names have no deterministic backing: `run_financial_scenario` (no projection function, no contribution model, no service, no schema — nothing at all), `calculate_financial_metrics` (savings rate exists; expense ratio, runway and commitment coverage do not), and `get_portfolio_performance`'s TWR (`twr()` and `growthSeries()` are implemented and unit-tested but have **no production caller** — `portfolio.ts` hardcodes `twr: unavailable('insufficient_price_history')`). All three are **financial-engine work, not AI work**: shipping them as AI features would put projection arithmetic inside a model, which `CLAUDE.md` forbids outright. The governing rule is now normative — see [ADR-35](#adr-35--ai-infrastructure-is-strictly-read-only-a-mutation-needs-a-separate-approved-proposal-workflow) and `AI-SYSTEM.md` §8: **an AI capability exists only where a deterministic application capability already exists or has an explicitly approved implementation path.** | Nothing in Phase 7. The tools are absent from the registry rather than stubbed |
+| **OD-19** | **The Overview page is still a Phase-2 placeholder** | **Deferred 2026-08-30 as a product/UI work item.** Out of AI scope and explicitly **not** a Phase 7 blocker. It matters because it is the screen the AI's answers will be compared against, and `CLAUDE.md <overview>` makes it a MUST-BUILD; every figure it describes is now computable from Phases 3 – 6.11. Scheduled with the Phase 9 UX work, not before. | Nothing. Phase 7 proceeds without it |
 | **OD-13** | **AMFI reuse terms** | **Open, and documented rather than assumed.** AMFI publishes `NAVAll.txt` and the NAV-history report publicly and without authentication, and the Indian fintech industry consumes both; **no machine-readable licence or explicit reuse grant was located**, so none is asserted. The adapter is built for personal, non-redistributing use and says so in its header. Confirm with AMFI before any non-personal use or redistribution. | Nothing for personal use; would block redistribution |
 
 ### Resolved
 
 | # | Decision | Outcome |
 |---|---|---|
+| **OD-17** | How to close the AI write boundary (Phase 7 review, **F-1**/**F-2**) | ✅ **Resolved 2026-08-30 by the recommended option: narrow the context the AI layer receives.** The AI layer holds an `AiReadCtx` — no `db`, no `fx`, no transaction capability, and not a `ReadCtx` — so both the escalation and the raw write are compile errors. `withWriteCtx` now requires a `RequestCtx` carrying `beginTransaction`, granted only by `createReadCtx`. Normative record: [ADR-33](#adr-33--the-transaction-opener-is-a-capability-carried-on-the-context-not-an-ambient-import), [ADR-34](#adr-34--the-ai-import-boundary-is-enforced-three-ways-and-covers-relative-paths), [ADR-35](#adr-35--ai-infrastructure-is-strictly-read-only-a-mutation-needs-a-separate-approved-proposal-workflow). Invariants **I-50 … I-52**. No AI infrastructure was implemented |
 | **OD-4** | Amend the approved baseline with the Phase 4 review's D1–D15 | ✅ Approved and applied 2026-08-11 |
 | **OD-5** | `investment_transactions.net_amount` currency | ✅ Approved 2026-08-11: the **account's** currency ([ADR-12](#adr-12--base-currency-with-dated-fx-stored-alongside-native-amounts)) |
 | **OD-6** | `settlement_date` semantics | ✅ Resolved 2026-08-11: recognition is trade-dated ([ADR-22](#adr-22--financial-recognition-is-trade-dated-settlement_date-is-informational-metadata)) |

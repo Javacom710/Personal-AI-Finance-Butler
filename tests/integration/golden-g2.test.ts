@@ -25,7 +25,7 @@ import { db } from '@/server/db/client';
 import { isoDate } from '@/lib/date';
 import { Money, currency, toDbString } from '@/lib/decimal/money';
 import { rToNumber } from '@/lib/decimal/rate';
-import { createReadCtx, getAccount, portfolio, realizedDisposals, type ReadCtx } from '@/server/services';
+import { createReadCtx, getAccount, portfolio, realizedDisposals, type RequestCtx } from '@/server/services';
 import { totalReturnByCashCrossCheck } from '@/server/domain/calc/portfolio';
 import { closeHarness } from './harness';
 import { closeMoneyHarness, makeAccount, must, setupMoneyFixture, truncateMoney } from './money-harness';
@@ -47,7 +47,7 @@ const INR = currency('INR');
 const NOW = new Date('2026-08-11T12:00:00Z');
 
 let userId: string;
-let ctx: ReadCtx;
+let ctx: RequestCtx;
 let brokerage: string;
 let reliance: string;
 /** `Σ cost_total` immediately before the split, for the byte-identity check. */

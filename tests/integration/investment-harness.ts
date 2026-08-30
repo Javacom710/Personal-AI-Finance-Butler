@@ -22,7 +22,7 @@ import {
   createInvestmentTransaction,
   setManualPrice,
   withWriteCtxResult,
-  type ReadCtx,
+  type RequestCtx,
   type WriteCtx,
 } from '@/server/services';
 import { must, rawSql, write, type MoneyFixture } from './money-harness';
@@ -35,7 +35,7 @@ import { must, rawSql, write, type MoneyFixture } from './money-harness';
  * nothing" are only the same statement inside `withWriteCtxResult`.
  */
 function writeResult<T>(
-  ctx: ReadCtx,
+  ctx: RequestCtx,
   fn: (w: WriteCtx) => Promise<Result<T, DomainError>>,
 ): Promise<Result<T, DomainError>> {
   return withWriteCtxResult(ctx, fn);
@@ -59,7 +59,7 @@ export interface InstrumentSpec {
   readonly country?: string;
 }
 
-export async function makeInstrument(ctx: ReadCtx, spec: InstrumentSpec): Promise<string> {
+export async function makeInstrument(ctx: RequestCtx, spec: InstrumentSpec): Promise<string> {
   const created = await write(ctx, (w) =>
     createInstrument(w, {
       symbol: spec.symbol,
@@ -85,7 +85,7 @@ export interface TradeSpec {
   readonly notes?: string;
 }
 
-export async function recordBuy(ctx: ReadCtx, spec: TradeSpec, kind: 'buy' | 'mf_purchase' = 'buy') {
+export async function recordBuy(ctx: RequestCtx, spec: TradeSpec, kind: 'buy' | 'mf_purchase' = 'buy') {
   return writeResult(ctx, (w) =>
     createInvestmentTransaction(w, {
       kind,
@@ -101,7 +101,7 @@ export async function recordBuy(ctx: ReadCtx, spec: TradeSpec, kind: 'buy' | 'mf
   );
 }
 
-export async function recordSell(ctx: ReadCtx, spec: TradeSpec, kind: 'sell' | 'mf_redemption' = 'sell') {
+export async function recordSell(ctx: RequestCtx, spec: TradeSpec, kind: 'sell' | 'mf_redemption' = 'sell') {
   return writeResult(ctx, (w) =>
     createInvestmentTransaction(w, {
       kind,
@@ -118,7 +118,7 @@ export async function recordSell(ctx: ReadCtx, spec: TradeSpec, kind: 'sell' | '
 }
 
 export async function recordDividend(
-  ctx: ReadCtx,
+  ctx: RequestCtx,
   spec: {
     readonly accountId: string;
     readonly instrumentId?: string;
@@ -143,7 +143,7 @@ export async function recordDividend(
 }
 
 export async function recordCharge(
-  ctx: ReadCtx,
+  ctx: RequestCtx,
   spec: {
     readonly accountId: string;
     readonly instrumentId?: string;
@@ -164,7 +164,7 @@ export async function recordCharge(
 }
 
 export async function recordCorporateAction(
-  ctx: ReadCtx,
+  ctx: RequestCtx,
   spec: {
     readonly accountId: string;
     readonly instrumentId: string;
@@ -187,7 +187,7 @@ export async function recordCorporateAction(
 }
 
 export async function recordTransferIn(
-  ctx: ReadCtx,
+  ctx: RequestCtx,
   spec: {
     readonly accountId: string;
     readonly instrumentId: string;
@@ -211,7 +211,7 @@ export async function recordTransferIn(
 }
 
 export async function recordTransferOut(
-  ctx: ReadCtx,
+  ctx: RequestCtx,
   spec: {
     readonly accountId: string;
     readonly instrumentId: string;
@@ -233,7 +233,7 @@ export async function recordTransferOut(
 }
 
 export async function priceIt(
-  ctx: ReadCtx,
+  ctx: RequestCtx,
   instrumentId: string,
   price: string,
   asOf?: string,
@@ -261,7 +261,7 @@ export async function priceIt(
  * never the fetch time.
  */
 export async function storeClose(
-  ctx: ReadCtx,
+  ctx: RequestCtx,
   spec: {
     readonly instrumentId: string;
     readonly on: string;

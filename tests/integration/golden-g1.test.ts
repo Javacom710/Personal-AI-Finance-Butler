@@ -14,6 +14,7 @@ import {
   listBudgetStatuses,
   listTransactions,
   periodSummary,
+  sumRows,
   unfilteredTotal,
 } from '@/server/services';
 import { closeHarness, truncateAll } from './harness';
@@ -210,30 +211,71 @@ describe('G1 — annual figures', () => {
 });
 
 describe('G1 — category rollup', () => {
-  it('matches the hand-computed annual totals, with children rolled into parents', async () => {
-    const rows = await breakdown(fixture.ctx, YEAR, 'category', 'expense');
-    const byLabel = new Map(rows.map((r) => [r.label, toDbString(r.total)]));
+  it('rolls children into parents at the default depth', async () => {
+    const result = await breakdown(fixture.ctx, YEAR, 'category', 'expense');
+    const byLabel = new Map(result.rows.map((r) => [r.label, toDbString(r.total)]));
 
-    for (const [label, amount] of Object.entries(expected.expensesByCategory)) {
-      expect(byLabel.get(label), label).toBe(amount);
+    // `Food` is 198,000 = Groceries 144,000 + Dining 54,000, and the children
+    // do not appear as rows of their own — that is what makes the row set safe
+    // to add (ADR-34).
+    for (const label of ['Housing', 'Food', 'Transport', 'Utilities'] as const) {
+      expect(byLabel.get(label), label).toBe(expected.expensesByCategory[label]);
+    }
+    expect(result.rows.some((r) => r.label.includes('›'))).toBe(false);
+
+    const food = result.rows.find((r) => r.label === 'Food');
+    expect(food?.isRollup).toBe(true);
+    expect(food?.childCount).toBe(2);
+  });
+
+  it('reports each category’s own spending at detail depth', async () => {
+    const result = await breakdown(fixture.ctx, YEAR, 'category', 'expense', 'detail');
+    const byLabel = new Map(result.rows.map((r) => [r.label, toDbString(r.total)]));
+
+    // Every figure in this fixture is booked to a child except Utilities, which
+    // is top-level and has no children — so detail depth relabels four of the
+    // five rows and leaves one alone.
+    for (const label of ['Food › Groceries', 'Food › Dining', 'Utilities'] as const) {
+      expect(byLabel.get(label), label).toBe(expected.expensesByCategory[label]);
+    }
+
+    // Rent is Housing's only spending and Fuel is Transport's, so each child's
+    // detail figure equals its parent's rollup figure — the same money, named at
+    // a different level. That equality is the clearest statement of what the two
+    // depths are: one row set or the other, never both at once.
+    expect(byLabel.get('Housing › Rent')).toBe(expected.expensesByCategory['Housing']);
+    expect(byLabel.get('Transport › Fuel')).toBe(expected.expensesByCategory['Transport']);
+
+    // The parents themselves have no direct spending, so they are absent rather
+    // than present at a rolled-up figure that would double-count their children.
+    for (const parent of ['Housing', 'Food', 'Transport'] as const) {
+      expect(byLabel.has(parent), parent).toBe(false);
+    }
+    expect(result.rows.every((r) => r.isRollup === false)).toBe(true);
+    expect(result.rows.every((r) => r.childCount === 0)).toBe(true);
+  });
+
+  it('has no transfer among the categories, at either depth', async () => {
+    // The 45,500 card repayments and 5,000 withdrawals must appear nowhere.
+    for (const depth of ['rollup', 'detail'] as const) {
+      const { rows } = await breakdown(fixture.ctx, YEAR, 'category', 'expense', depth);
+      expect(rows.some((r) => r.total.minor === 546_000n * 10_000n), depth).toBe(false);
+      expect(rows.some((r) => r.total.minor === 60_000n * 10_000n), depth).toBe(false);
     }
   });
 
-  it('has no transfer among the categories', async () => {
-    const rows = await breakdown(fixture.ctx, YEAR, 'category', 'expense');
-    // The 45,500 card repayments and 5,000 withdrawals must appear nowhere.
-    expect(rows.some((r) => r.total.minor === 546_000n * 10_000n)).toBe(false);
-    expect(rows.some((r) => r.total.minor === 60_000n * 10_000n)).toBe(false);
-  });
-
-  it('sums the top-level categories back to the annual expense figure', async () => {
-    const rows = await breakdown(fixture.ctx, YEAR, 'category', 'expense');
+  it('partitions the annual expense figure exactly, at every depth', async () => {
     const year = await periodSummary(fixture.ctx, YEAR);
 
-    // Only parents, so children are not counted twice.
-    const topLevel = rows.filter((r) => !r.label.includes('›'));
-    const total = topLevel.reduce((acc, r) => acc + r.total.minor, 0n);
-    expect(total).toBe(year.expenses.minor);
+    // No label filtering. The old form of this assertion had to drop every row
+    // whose label contained '›' so children were not counted twice — the
+    // workaround that made finding F-3 visible. The contract now guarantees it.
+    for (const depth of ['rollup', 'detail'] as const) {
+      const result = await breakdown(fixture.ctx, YEAR, 'category', 'expense', depth);
+      expect(result.additivity, depth).toBe('partition');
+      expect(result.total.minor, depth).toBe(year.expenses.minor);
+      expect(sumRows(result.rows, fixture.ctx.base).minor, depth).toBe(year.expenses.minor);
+    }
   });
 });
 

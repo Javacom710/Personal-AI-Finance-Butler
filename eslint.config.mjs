@@ -19,6 +19,18 @@ const config = [
       'coverage/**',
       'src/server/db/migrations/**',
       'next-env.d.ts',
+
+      // Claude Code's git worktrees are *complete copies of this repository*
+      // nested inside it. `eslint .` walks them — flat config does not skip
+      // dot-directories, and it does not read `.gitignore` — so the root lint
+      // reported every file of every worktree, several times over, with each
+      // copy's findings indistinguishable from the real tree's.
+      //
+      // Ignoring the directory rather than the file types is deliberate: the
+      // copies are not source, and nothing under here should ever be linted
+      // from the root. Each worktree still lints its own tree correctly,
+      // because from inside one this path does not exist.
+      '.claude/**',
     ],
   },
 
@@ -144,8 +156,30 @@ const config = [
   },
 
   // ----------------------------------------------------------- AI boundary
-  // The AI layer reads through application services. It has no path to the
-  // database and no path to the engine.
+  // The AI layer reads through ONE read-only capability, `@/server/ai-read`.
+  // It has no path to the database, no path to the engine, and no path to the
+  // application services — including the write helpers they re-export.
+  //
+  // The patterns below are written against `no-restricted-imports`' actual
+  // matcher, which is the `ignore` package applied to the **raw specifier
+  // string** with gitignore semantics — not minimatch, and never a resolved
+  // path. The Phase 7 review's finding **F-2** was that the previous rule
+  // listed only `@/`-aliased forms, so `import { db } from '../../db/client'`
+  // linted clean and handed AI code the full database handle.
+  //
+  // Two consequences of that matcher shape drive the list:
+  //   - a "directory" pattern already covers its descendants, so `@/server/db`
+  //     alone blocks `@/server/db/schema/index`; the old `@/server/db/*` twin
+  //     was redundant;
+  //   - `**/server/db/*` does NOT catch `../../db/client`, because the pattern
+  //     still requires a literal `server` segment the specifier does not have.
+  //     Dropping `server/` from the relative forms is what closes it.
+  //
+  // ESLint alone cannot be the whole answer: this rule has no `ImportExpression`
+  // listener, so a dynamic `await import('@/server/db/client')` is not checked
+  // in any zone. `tests/unit/ai-boundary-source-scan.test.ts` is the second
+  // mechanism and does check it, and the capability types are the third
+  // (ADR-33, ADR-34).
   {
     files: ['src/server/ai/**/*.ts'],
     ignores: ['src/server/ai/provider/nvidia-build.ts'],
@@ -155,9 +189,29 @@ const config = [
         {
           patterns: [
             {
-              group: ['@/server/db', '@/server/db/*', '@/server/domain', '@/server/domain/*'],
+              group: [
+                // Aliased.
+                '@/server/db',
+                '@/server/domain',
+                '@/server/services',
+                '@/server/ai-read/internal',
+                // Relative, at any depth. No `server/` segment: a specifier
+                // climbing out of `src/server/ai/` does not contain one.
+                '**/db',
+                '**/db/*',
+                '**/domain',
+                '**/domain/*',
+                '**/services',
+                '**/services/*',
+                '**/ai-read/internal',
+              ],
               message:
-                'ARCHITECTURE.md §2: src/server/ai/** has no write path and no direct read path. Go through an application service.',
+                'ARCHITECTURE.md §2 / ADR-34: src/server/ai/** reads only through the @/server/ai-read capability. It has no database handle, no engine access, and no path to a write context.',
+            },
+            {
+              group: ['drizzle-orm', 'drizzle-orm/*', 'pg'],
+              message:
+                'ADR-34: src/server/ai/** issues no SQL. A query belongs in an application service, behind the @/server/ai-read projection.',
             },
             {
               group: ['openai'],

@@ -5,15 +5,35 @@ import 'server-only';
  * ADR-21).
  *
  * ```ts
- * listTransactions (ctx: ReadCtx,  q)     // queries
- * createTransaction(ctx: WriteCtx, input) // commands
+ * listTransactions (ctx: ReadCtx,    q)     // queries
+ * createTransaction(ctx: WriteCtx,   input) // commands
+ * withWriteCtx     (ctx: RequestCtx, fn)    // the escalation, and its gate
  * ```
  *
- * A caller that can only construct a `ReadCtx` — no `tx`, no `audit` —
- * **cannot call a command at all**: it is a type error caught by `tsc`, not a
- * lint rule and not a review comment. The AI tool layer of Phase 7 is exactly
- * such a caller, which is what makes "the AI cannot write" a structural claim
- * rather than a hopeful one.
+ * **Three types, because two were not enough** ([ADR-33](../../../docs/DECISIONS.md#adr-33--the-transaction-opener-is-a-capability-carried-on-the-context-not-an-ambient-import)).
+ *
+ * A caller holding a `ReadCtx` cannot call a command: no `tx`, no `audit`, so it
+ * is a type error caught by `tsc`. That much was always true. What was **not**
+ * true — and what the Phase 7 review found as **F-1** — is that such a caller
+ * could simply *manufacture* the missing fields:
+ *
+ * ```ts
+ * withWriteCtx(readCtx, (write) => createTransaction(write, …))  // compiled clean
+ * ```
+ *
+ * because `withWriteCtx` took a `ReadCtx` and opened the transaction itself, by
+ * calling `db()` as an ambient import. Any `ReadCtx` holder was therefore one
+ * line away from a `WriteCtx`, and the documented guarantee that "the AI layer
+ * holds only a `ReadCtx`, so a write from AI code does not compile" was false.
+ *
+ * The fix is to make opening a transaction a **capability carried on the
+ * context** rather than a function anyone can reach: `RequestCtx` is a `ReadCtx`
+ * that additionally holds `beginTransaction`, and `withWriteCtx` requires one.
+ * The capability is granted by `createReadCtx`, which is the request context of
+ * a *user-initiated* action. A context built for the AI layer is an
+ * {@link ../ai-read/index.AiReadCtx}, which carries no capability, no database
+ * handle, and is not a `ReadCtx` at all — so both the escalation and the raw
+ * query are rejected by `tsc`, not by a lint rule and not by a review comment.
  *
  * `now` is injected rather than read from the clock inside a calculation, so
  * every time-dependent result is testable without mocking a global.
@@ -51,7 +71,27 @@ export interface ReadCtx {
   readonly db: DbExecutor;
 }
 
-export interface WriteCtx extends ReadCtx {
+/**
+ * Opens the write transaction. Injected rather than imported so that holding
+ * one is a *capability*, and lacking one is a compile error (ADR-33).
+ */
+export type TransactionOpener = <T>(fn: (tx: DbTransaction) => Promise<T>) => Promise<T>;
+
+/**
+ * The request context of a **user-initiated action**: everything a `ReadCtx`
+ * has, plus the capability to open the write transaction.
+ *
+ * Granted by `createReadCtx` and by nothing else. `withWriteCtx` requires it, so
+ * a context that lacks `beginTransaction` cannot escalate — which is the whole
+ * of finding **F-1**'s fix. Nothing else about the type is special: it is not a
+ * phantom brand but a real, used field, so the guarantee cannot be lost to a
+ * refactor that "tidies away an unused property".
+ */
+export interface RequestCtx extends ReadCtx {
+  readonly beginTransaction: TransactionOpener;
+}
+
+export interface WriteCtx extends RequestCtx {
   readonly tx: DbTransaction;
   readonly audit: AuditWriter;
 }
@@ -102,7 +142,7 @@ export async function loadSettings(
 export async function createReadCtx(
   userId: string,
   options: { readonly now?: Date; readonly executor?: DbExecutor } = {},
-): Promise<Result<ReadCtx, DomainError>> {
+): Promise<Result<RequestCtx, DomainError>> {
   const executor = options.executor ?? db();
   const loaded = await loadSettings(executor, userId);
   if (!loaded.ok) return loaded;
@@ -122,6 +162,10 @@ export async function createReadCtx(
       fiscalYearStartMonth: loaded.value.fiscalYearStartMonth,
       fx,
       db: executor,
+      // The capability, granted here and nowhere else. `db()` rather than
+      // `executor` deliberately: a transaction must run on the pool, not on
+      // whatever handle a caller happened to pass for reading.
+      beginTransaction: (fn) => db().transaction(fn),
     },
   };
 }
@@ -134,13 +178,18 @@ export async function createReadCtx(
  * The whole use case runs inside one transaction: the rows, the audit entry and
  * the `money_ledger_version` bump commit together or not at all. A failed write
  * therefore leaves no orphan entry, no bumped version and no audit row.
+ *
+ * **Takes a `RequestCtx`, not a `ReadCtx`** (ADR-33). The transaction is opened
+ * through the capability the context carries, so a caller that was handed only
+ * read access cannot reach this function's effect by calling it — the argument
+ * does not type-check. This is finding **F-1**.
  */
 export async function withWriteCtx<T>(
-  ctx: ReadCtx,
+  ctx: RequestCtx,
   fn: (write: WriteCtx) => Promise<T>,
   options: { readonly requestId?: string } = {},
 ): Promise<T> {
-  return db().transaction(async (tx) => {
+  return ctx.beginTransaction(async (tx) => {
     const write: WriteCtx = {
       ...ctx,
       db: tx,
@@ -178,7 +227,7 @@ class CommandFailed extends Error {
  * no audit row"* — is a property of this function rather than of each service.
  */
 export async function withWriteCtxResult<T>(
-  ctx: ReadCtx,
+  ctx: RequestCtx,
   fn: (write: WriteCtx) => Promise<Result<T, DomainError>>,
   options: { readonly requestId?: string } = {},
 ): Promise<Result<T, DomainError>> {

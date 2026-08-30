@@ -166,13 +166,13 @@ export default async function MoneyPage() {
           <h2 className="text-xs font-semibold uppercase tracking-wider text-ink-faint">
             Where the money went
           </h2>
-          {topExpenses.length === 0 ? (
+          {topExpenses.rows.length === 0 ? (
             <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-sm text-ink-muted">
               No spending recorded this period.
             </p>
           ) : (
             <ul className="divide-y divide-border rounded-lg border border-border">
-              {topExpenses.slice(0, 6).map((row) => (
+              {topExpenses.rows.slice(0, 6).map((row) => (
                 <li key={row.key ?? 'none'} className="flex items-baseline justify-between px-3 py-2 text-sm">
                   <span>{row.label}</span>
                   <span className="tabular text-ink">{format.money(row.total)}</span>

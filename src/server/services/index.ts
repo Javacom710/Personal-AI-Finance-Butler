@@ -9,7 +9,10 @@ import 'server-only';
  * re-exported as types so a page can render them without importing the engine.
  */
 
-export type { ReadCtx, WriteCtx } from './_ctx';
+// `RequestCtx` is what `createReadCtx` returns and what `withWriteCtx` requires
+// (ADR-33). `app/**` server actions hold one; the AI layer holds an `AiReadCtx`
+// from `@/server/ai-read`, which is not a `ReadCtx` and cannot escalate.
+export type { ReadCtx, RequestCtx, WriteCtx, TransactionOpener } from './_ctx';
 export { createReadCtx, withWriteCtx, withWriteCtxResult } from './_ctx';
 
 export type { BudgetStatus } from '../domain/calc/budget';

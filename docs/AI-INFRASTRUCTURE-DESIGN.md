@@ -1,8 +1,10 @@
 # AI Infrastructure — Phase 7 architecture and model evaluation review
 
-**Status:** design review complete 2026-08-29. **Phase 7 implementation has NOT started.** No
-application code, schema, migration, service, API, UI or test changed. No AI SDK installed. No
-`NVIDIA_API_KEY` required or requested.
+**Status:** design review complete 2026-08-29. **Step 7.0 — the pre-implementation corrections —
+was applied 2026-08-30; see [§21](#21-disposition-of-f-1-f-2-and-f-3--2026-08-30).** AI
+infrastructure implementation has still **NOT started**: no provider, no AI SDK installed, no
+`NVIDIA_API_KEY` required or requested, no tools, no orchestrator, and no file under
+`src/server/ai/`.
 
 **Nature of this document:** a review record and rationale, like
 [INVESTMENT-ENGINE-DESIGN.md](INVESTMENT-ENGINE-DESIGN.md), [NET-WORTH-DESIGN.md](NET-WORTH-DESIGN.md),
@@ -47,6 +49,9 @@ The three, in severity order:
 
 **Phase 7 must not start until F-1 and F-2 are closed.** They are pre-work on existing code, not AI
 features, and they are cheap. Everything else in this review is ordinary design.
+
+> **Closed 2026-08-30.** All three, plus the serialization gap of §6.2, before any AI code was
+> written. Disposition and the mechanism for each: [§21](#21-disposition-of-f-1-f-2-and-f-3--2026-08-30).
 
 ---
 
@@ -696,3 +701,37 @@ embeddings, the scenario engine, and the three missing financial metrics.
 | Implementation gates explicit | ✅ §17 |
 | No unresolved architectural contradiction | ⚠️ **Three found and resolved in this document** (F-1, F-2, F-3); their *fixes* are OD-17 and OD-18 |
 | **Implementation started** | ❌ **No.** No code, schema, migration, service, API, UI or test changed |
+
+---
+
+## 21. Disposition of F-1, F-2 and F-3 — 2026-08-30
+
+Applied as **step 7.0**. The corrections are in the code and in the canonical documents; this section
+records what happened to each finding so the review stays readable as a record rather than becoming
+wrong.
+
+| # | Disposition | Mechanism | Normative record |
+|---|---|---|---|
+| **F-1** | ✅ closed | `withWriteCtx` requires a `RequestCtx` carrying `beginTransaction`, granted only by `createReadCtx`. The AI layer holds an `AiReadCtx` — no `db`, no `fx`, no capability, and not a `ReadCtx`. Escalation and raw write are both compile errors (**I-50**) | [ADR-33](DECISIONS.md#adr-33--the-transaction-opener-is-a-capability-carried-on-the-context-not-an-ambient-import) |
+| **F-2** | ✅ closed | ESLint AI zone extended to relative forms and the query builder; source scan covering dynamic `import()`/`require()`, `ctx.db` DML and write-boundary symbols; the capability types (**I-51**, **I-52**) | [ADR-34](DECISIONS.md#adr-34--the-ai-import-boundary-is-enforced-three-ways-and-covers-relative-paths) |
+| **F-3** | ✅ closed | `breakdown()` returns a structure with an authoritative `total` and an `additivity` tag; `foldToRoots()` makes the partition hold by construction; tag breakdowns declare themselves `overlapping` (**I-54**) | [ADR-37](DECISIONS.md#adr-37--a-breakdown-declares-whether-its-rows-partition-its-total) |
+| **§6.2** serialization | ✅ closed | `src/lib/format/json-projection.ts` — tagged exact-digit projection per type, no `Number()`, domain types unchanged (**I-53**) | [ADR-36](DECISIONS.md#adr-36--exact-values-cross-a-json-boundary-as-a-tagged-string-projection-never-as-a-json-number) |
+| **OD-17** | ✅ resolved | The **recommended** option: narrow the context the AI layer receives. AI infrastructure is strictly read-only; any future AI-assisted mutation needs a separate approved proposal/confirmation workflow | [ADR-35](DECISIONS.md#adr-35--ai-infrastructure-is-strictly-read-only-a-mutation-needs-a-separate-approved-proposal-workflow) |
+| **OD-18** | ⏸ deferred | The scenario engine, the three missing metrics and the TWR wiring are **not** built and are **removed from the Phase 7 tool registry** rather than stubbed | `AI-SYSTEM.md` §8; `ROADMAP.md` Phase 7 |
+| **OD-19** | ⏸ deferred | The Overview page is **not** redesigned. A future product/UI work item, scheduled with the Phase 9 UX pass. Not a Phase 7 blocker | `ROADMAP.md`; `PROJECT-STATE.md` |
+
+### Three corrections to this review's own analysis
+
+Recorded because the review is a record, and a record that was wrong in a detail should say so.
+
+1. **§7.1's mechanism 2 — "named-export import ban" — was not the fix taken.** `no-restricted-imports` does support `importNames` alongside `group`, so it was available; it was not used, because the capability types make the escalation inexpressible whether or not `withWriteCtx` is importable. Banning a name is weaker than removing the argument it needs.
+2. **The relative-path hole is wider than §7.1 states.** The review noted that the AI zone needed `**/server/db/*` "the fallback the engine zone already has". That pattern would **not** have closed it: it requires a literal `server` segment, which `'../../db/client'` does not contain — so the *engine* zone has the same hole. Dropping `server/` from the relative forms is what closes it. Verified empirically against the rule's own matcher.
+3. **ESLint cannot see a dynamic import at all.** `no-restricted-imports` registers no `ImportExpression` listener in any version, so `await import('@/server/db/client')` is unchecked in **every** zone. This is not a gap in the AI rule; it is a gap in the mechanism, and it is the concrete reason the source scan is not redundant with the lint rule.
+
+### One finding the review did not make
+
+**Tag breakdowns were already non-additive and undeclared.** `tagBreakdown` inner-joins
+`transaction_tags`, so a transaction carrying two tags contributes its full amount to both and an
+untagged one contributes to neither. Σ tag rows has never equalled the period total. The old bare
+`BreakdownRow[]` gave a consumer no way to know that, and the F-3 fix would have papered over it by
+making every breakdown *look* uniform. It is now declared: `additivity: 'overlapping'`.

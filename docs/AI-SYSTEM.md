@@ -12,8 +12,8 @@ Everything under `src/server/ai/` is `import 'server-only'`. No API key, model i
 
 These are constraints on the code, not aspirations. Each maps to a test.
 
-1. The AI **never** mutates financial records — and performs **no database write at all**, not even the proposal row. AI code returns objects; `services/aiProposals.ts` persists them. Enforced by the type system: the AI layer holds only a `ReadCtx`, and every command requires a `WriteCtx`, so a write from AI code does not compile (§9).
-2. The AI reads only through the controlled tool surface (§8). There is no raw query path and no bulk export.
+1. The AI **never** mutates financial records — and performs **no database write at all**, not even the proposal row. AI code returns objects; `services/aiProposals.ts` persists them ([ADR-35](DECISIONS.md#adr-35--ai-infrastructure-is-strictly-read-only-a-mutation-needs-a-separate-approved-proposal-workflow)). Enforced by the type system: the AI layer holds an **`AiReadCtx`** — which carries no database handle and no transaction capability, and is *not* a `ReadCtx` — while every command requires a `WriteCtx` and `withWriteCtx` itself requires a `RequestCtx`. `withWriteCtx(ai, …)`, `ai.db`, and passing `ai` to any service are each a compile error, asserted by **I-50** in `tests/unit/ai-write-boundary.test.ts` ([ADR-33](DECISIONS.md#adr-33--the-transaction-opener-is-a-capability-carried-on-the-context-not-an-ambient-import)). *Until 2026-08-30 this rule said the AI layer holds "only a `ReadCtx`" — which was true and insufficient: a `ReadCtx` carries a full DML handle, and `withWriteCtx(readCtx, …)` compiled clean. That was finding **F-1**.*
+2. The AI reads only through the controlled tool surface (§8) — reached via the one capability `@/server/ai-read`. There is no raw query path and no bulk export. The AI zone imports no database, engine or service module **by any spelling**: aliased, relative, or dynamic ([ADR-34](DECISIONS.md#adr-34--the-ai-import-boundary-is-enforced-three-ways-and-covers-relative-paths), **I-51**).
 3. No model identifier appears outside `src/server/ai/config/`. The rest of the application requests a *capability*, never a model.
 4. A task is **never** routed to a model that lacks a capability the task requires — availability is not a licence to downgrade (§7).
 5. Authorisation is decided by application services, not by the model and not in the tool layer. No tool accepts a user identifier; `userId` comes from the session. Authentication and authorization are distinct — see [SECURITY.md §0](SECURITY.md#0-authentication--authorization).
@@ -150,7 +150,9 @@ src/server/ai/
   errors.ts
 ```
 
-Nothing outside `src/server/ai/` imports the provider client, and nothing inside it imports `src/server/db/`.
+Nothing outside `src/server/ai/` imports the provider client, and nothing inside it imports `src/server/db/`, `src/server/domain/` or `src/server/services/` — **in any import style**. That last qualifier is load-bearing and was missing until 2026-08-30: the ESLint rule matched only `@/`-aliased specifiers, so `import { db } from '../../db/client'` linted clean (finding **F-2**). The boundary is now enforced three ways — types, ESLint, and a source scan that also covers dynamic `import()`, which ESLint's rule cannot see at all ([ADR-34](DECISIONS.md#adr-34--the-ai-import-boundary-is-enforced-three-ways-and-covers-relative-paths)).
+
+`src/server/ai-read/` is the AI layer's **read capability** and sits deliberately outside the AI zone: `index.ts` exports `AiReadCtx` and, from step 7.3, the projected read functions; `internal.ts` holds the single bridge back to a `ReadCtx` and is banned from `src/server/ai/**` like everything else.
 
 ---
 
@@ -319,7 +321,9 @@ function nextCandidate(req: CapabilityRequirement, tried: string[]): string | nu
 
 ## 8. Tool architecture
 
-All tools are **read-only**. There is no write tool, and adding one is a defect.
+All tools are **read-only**. There is no write tool, and adding one is a defect — now a structural impossibility rather than a rule, since the AI layer has no capability that can open a transaction ([ADR-35](DECISIONS.md#adr-35--ai-infrastructure-is-strictly-read-only-a-mutation-needs-a-separate-approved-proposal-workflow)).
+
+**A tool exists only where a deterministic capability already does.** An AI capability is never a substitute for missing financial-engine functionality: if the engine cannot compute a figure, no tool offers it and the assistant says it is unavailable. Three conceptual tools are therefore **absent** from the Phase 7 registry rather than stubbed — `run_financial_scenario` (no backing of any kind), `calculate_financial_metrics` (only savings rate exists) and `get_portfolio_performance`'s TWR (implemented, tested, and wired to nothing). They are engine work, deferred as **OD-18**.
 
 Each is defined once as a Zod schema and converted with `z.toJSONSchema()` — one definition for validation and for the model ([ADR-16](DECISIONS.md#adr-16--zod-as-the-single-validation-boundary-including-for-ai-schemas)).
 
@@ -362,12 +366,13 @@ get_expense_summary({
   groupBy: 'month' | 'category' | 'account' | 'tag',
   categoryIds?:   string[],  // filter by id. Listing a PARENT includes its children.
   categoryNames?: string[],  // filter by name — resolved SERVER-SIDE (see below)
-  depth?: 1 | 2,             // category grouping only
+  depth?: 'rollup' | 'detail',  // category grouping only; both partition the total
 })
 → { ok: true,
     data: {
       total: Money,                                    // ← the answer, computed by the engine
-      rows: [{ key, label, amount, isRollup, childCount }],
+      rows: [{ key, label, amount, parentKey, isRollup, childCount }],
+      additivity: 'partition',                         // 'overlapping' for tags — rows do NOT sum
       resolvedCategories: [{ input: 'food', id, label: 'Food', matchedBy: 'exact' }]
     },
     meta: { rowCount, truncated, totalMatching, currency, from, to } }
@@ -389,15 +394,16 @@ Unresolvable input is an error the model can act on, never a guess:
 Two properties, both asserted by test, both load-bearing:
 
 1. **`Σ rows[].amount === total`, exactly, at every depth.** Rows *partition* the total.
-2. **Parent and child rows are never mixed in one response.** `depth: 1` (default) returns top-level categories with children rolled in and `isRollup: true`; `depth: 2` returns leaves only. There is no response shape in which summing every row double-counts.
+2. **Parent and child rows are never mixed in one response.** `depth: 'rollup'` (default) returns top-level categories with children folded in, each carrying `isRollup` and `childCount`; `depth: 'detail'` returns one row per category with spending **of its own**, carrying only that. Both partition the total, so there is no response shape in which summing every row double-counts. The `breakdown()` service now carries this contract directly — an authoritative `total` plus an `additivity` tag — rather than the tool layer having to impose it ([ADR-37](DECISIONS.md#adr-37--a-breakdown-declares-whether-its-rows-partition-its-total), **I-54**).
+3. **A row set that cannot partition its total says so.** A **tag** breakdown is `additivity: 'overlapping'`: one transaction can carry several tags and an untagged one carries none, so the rows never sum to the total and must not be rendered as if they did. This was true before and undeclared, which is worse than either alternative.
 
 Without both, "how much on food" over a `Food → {Groceries, Dining}` tree becomes: model receives three rows, adds two of them, and hopes it picked the right two. That is the model doing financial arithmetic — forbidden by `CLAUDE.md <investment_management>` ("do not rely on an AI model for calculations that deterministic application code can perform correctly") and unverifiable when it goes wrong.
 
-The same `total` contract applies to `get_income_summary`, `get_asset_allocation`, and `get_net_worth_history`. Any future tool returning rows that a user might want summed **must** carry the sum.
+The same `total` contract applies to `get_income_summary` and `get_asset_allocation`. It does **not** apply to `get_net_worth_history`: a series of month-end *levels* has no meaningful sum, and requiring one would invite a consumer to add them. Any future tool returning rows that a user might want summed **must** carry the sum.
 
 **The net-worth tools carry their valuation `basis`, and the model must state it** ([ADR-23](DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost)). Until Phase 6 the basis is `cost`, and an answer that calls an at-cost figure "your net worth" without qualification presents an acquisition-cost total as a current market valuation — the same class of error as reporting a `null` metric as zero. `assetCoverage` and `liabilityCoverage` are reported **separately** for the same reason they are on screen: an excluded asset makes the figure look lower, an excluded liability makes it look higher, and one blended number hides which.
 
-**The AI is never authoritative for a net-worth figure.** `get_net_worth` calls the same read-only service the UI calls, which has no `WriteCtx` signature at all — so the model can neither compute its own total nor mutate an input to one.
+**The AI is never authoritative for a net-worth figure.** `get_net_worth` projects the same read-only service the UI calls, which has no `WriteCtx` signature at all (**I-32**) and is reached through a capability that has no database handle — so the model can neither compute its own total nor mutate an input to one.
 
 ### Data minimisation (`CLAUDE.md <ai_data_access>`)
 
@@ -419,6 +425,20 @@ type ToolResult<T> =
 ```
 
 Errors are returned to the model as actionable text, never thrown. Every call writes an `ai_tool_calls` row (input, row count, bytes, duration) so any answer traces to exactly what the model saw.
+
+### Exact figures crossing the boundary
+
+`Money`, `Quantity`, `UnitPrice` and `Rate` are all `bigint` at a declared scale, and **`JSON.stringify` throws on every one of them**. So no tool result — not even one over a service that "needs no new code" — can reach a model without an explicit projection. Every figure crosses as tagged digits
+([ADR-36](DECISIONS.md#adr-36--exact-values-cross-a-json-boundary-as-a-tagged-string-projection-never-as-a-json-number)):
+
+```json
+{ "kind": "money", "amount": "1250.5000", "currency": "INR", "scale": 4 }
+{ "kind": "price", "units":  "1629.80004883", "scale": 8 }
+```
+
+`src/lib/format/json-projection.ts` is the only sanctioned path, and it is a set of **explicit per-type functions**, never a walker: `UnitPrice` and `Quantity` are the same shape at the same scale and are distinguishable only by the call site. `Number()` appears nowhere — a figure that lost precision on the way to the model would be wrong in an answer, silently, and only on large values. A missing figure projects to `null` with its `Metric` reason, **never to zero**.
+
+The projection is per-tool and per-field for a second reason: a blind serializer would ship whatever a service happened to return, which is the opposite of field projection and how a `notes` field or an entity id reaches a provider unnoticed.
 
 ### The read loop
 
@@ -492,7 +512,9 @@ const TransactionProposal = z.object({
    category kind matches transaction kind; FX rate exists for the date
 6. If confidence==='low' OR any hint unresolved OR ambiguities non-empty
      → proposal opens in EDIT mode with those fields highlighted
-7. Persist to ai_proposals (raw + normalized, status='pending', expires_at = now + 24h)
+7. Hand the validated proposal to services/aiProposals.ts, which persists it
+   (raw + normalized, status='pending', expires_at = now + 24h). AI code does
+   not write this row either — it has no capability to (ADR-35).
 ```
 
 **Exactly one repair attempt**, carrying the validation errors back. After that the proposal is stored `invalid` with its errors and shown to the user for editing. Never guessed at, never silently corrected ([CLAUDE.md `<ai_structured_outputs>`](../CLAUDE.md)).

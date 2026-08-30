@@ -2,7 +2,9 @@
 
 Durable status record. Conversation history is temporary; this file is not. Read this first after any context reset, then verify it against `docs/`, the source tree, and the tests before trusting it.
 
-**Last updated:** 2026-08-27 · **Current phase:** **6 — COMPLETE. Steps 6.0–6.9 and 6.11 implemented and verified; 6.10 closed unbuilt. Phase 7 NOT started.**
+**Last updated:** 2026-08-30 · **Current phase:** **7 — step 7.0 (boundary pre-work) COMPLETE. AI infrastructure implementation NOT started.** Phase 6 remains complete (steps 6.0–6.9 and 6.11 implemented and verified; 6.10 closed unbuilt).
+
+**Phase 7 pre-implementation correction pass — 2026-08-30.** The Phase 7 design review found three properties the canonical documents call non-negotiable that were **false** against the Phase 6.11 code (**F-1**, **F-2**, **F-3**). All three are now closed in code, with compile-time and automated regression protection, **before any AI infrastructure exists**. No provider, no SDK, no `NVIDIA_API_KEY`, no tools, no orchestrator, and no file under `src/server/ai/`. See [What step 7.0 delivered](#what-step-70-delivered--phase-7-pre-implementation-corrections--2026-08-30).
 
 **Phase 6.11 — Net Worth at Market Value — is implemented and verified** (2026-08-27). `basis: 'market'` is a distinct, fully reconciled calculation alongside Phase 5's `cost`. **No schema change and no snapshots** were required, exactly as [docs/MARKET-VALUE-NET-WORTH-DESIGN.md](docs/MARKET-VALUE-NET-WORTH-DESIGN.md) §20 and OD-15 concluded.
 
@@ -878,6 +880,57 @@ the benchmark is a committed script rather than a number in a document.
 
 ---
 
+## What step 7.0 delivered — Phase 7 pre-implementation corrections — 2026-08-30
+
+**Scope: architecture and tooling boundaries only. No AI infrastructure was implemented.** No AI provider, no SDK installed, no `NVIDIA_API_KEY` configured or requested, no AI tools, no orchestrator, and **no file under `src/server/ai/`** — that directory still does not exist. The work was to make the corrections the Phase 7 design review identified *before* anything is built on top of them.
+
+### The three findings, and how each is now closed
+
+| | The claim the documents made | What the code actually did | The correction |
+|---|---|---|---|
+| **F-1** | `AI-SYSTEM.md` §1: *"the AI layer holds only a `ReadCtx` … so a write from AI code does not compile"* | Two independent holes. `withWriteCtx(readCtx, …)` **compiled clean**, and `ReadCtx.db` is a `DbExecutor` exposing `.insert`, `.update`, `.delete`, `.execute` and `.transaction` | `withWriteCtx`/`withWriteCtxResult` require a **`RequestCtx`** carrying `beginTransaction`, granted only by `createReadCtx`. The AI layer holds an **`AiReadCtx`** with no `db`, no `fx` and no capability — and which is not a `ReadCtx`. Both holes are now compile errors ([ADR-33](docs/DECISIONS.md#adr-33--the-transaction-opener-is-a-capability-carried-on-the-context-not-an-ambient-import)) |
+| **F-2** | `AI-SYSTEM.md` §3: *"nothing inside it imports `src/server/db/`"* | The ESLint AI zone matched only `@/`-aliased specifiers, so `import { db } from '../../db/client'` linted clean. Adding the engine zone's `**/server/db/*` would not have helped — it requires a literal `server` segment the specifier lacks | Aliased **and** relative patterns, `drizzle-orm`/`pg` banned outright, plus a source scan and the capability types. Three mechanisms ([ADR-34](docs/DECISIONS.md#adr-34--the-ai-import-boundary-is-enforced-three-ways-and-covers-relative-paths)) |
+| **F-3** | `AI-SYSTEM.md` §8: *"Σ rows = total at every depth"* | `breakdown()` returned **every node** of the category tree — parents and children — each rolled up. Summing them double-counted every pair; the golden test worked around it by filtering on `›` in the label | `breakdown()` returns a structure with an authoritative `total` and an `additivity` tag; both depths partition exactly, and a tag breakdown declares itself `overlapping` ([ADR-37](docs/DECISIONS.md#adr-37--a-breakdown-declares-whether-its-rows-partition-its-total)) |
+
+**The type change proved itself on contact.** Changing `withWriteCtx` to require a `RequestCtx` made `tsc` report the escalation at every site that used it. There were three, all test harnesses legitimately standing in for a user request — and **no production code at all**, because every server action already obtains its context from `createReadCtx`.
+
+### Also delivered
+
+| | |
+|---|---|
+| **AI-safe numeric projection** | `src/lib/format/json-projection.ts`. `Money`, `Quantity`, `UnitPrice` and `Rate` cross a JSON boundary as `{ kind, digits…, scale }` — exact digits as a string, tagged. No `Number()` anywhere; the domain types are unchanged and gain no `toJSON` ([ADR-36](docs/DECISIONS.md#adr-36--exact-values-cross-a-json-boundary-as-a-tagged-string-projection-never-as-a-json-number)) |
+| **The read capability** | `src/server/ai-read/` — `index.ts` exports `AiReadCtx` and nothing else; `internal.ts` holds the one bridge back to a `ReadCtx`, bound in a module-private `WeakMap` and banned from the AI zone. Phase 7.3 adds the projected read functions to `index.ts` |
+| **Root lint scope** | `eslint.config.mjs` now ignores `.claude/**`. `eslint .` was walking the sibling Claude worktrees — five complete copies of this repository nested inside it — because flat config skips neither dot-directories nor `.gitignore` |
+| **Tag breakdowns declared non-additive** | Not in the original finding; found while fixing F-3. `tagBreakdown` inner-joins `transaction_tags`, so a two-tag transaction counts twice and an untagged one not at all. The old bare array gave a consumer no way to know |
+
+### Tests and checks added — I-50 … I-54
+
+| Invariant | Mechanism | Where |
+|---|---|---|
+| **I-50** | **Compile test.** Type-checks probe sources against the project's own `tsconfig.json` via an overlay host — nothing is written to the tree — and asserts the diagnostic codes: `withWriteCtx(ai, …)` → TS2345, `ai.db` → TS2339, `listAccounts(ai)` → TS2345. Also asserts a `RequestCtx` **can** still open a write, so a boundary that broke the application fails here rather than mysteriously elsewhere | `tests/unit/ai-write-boundary.test.ts` (10 tests) |
+| **I-51**, **I-52** | **Source scan.** Catches what ESLint structurally cannot — **dynamic `import()` and `require()`**, which `no-restricted-imports` never checks in any zone — plus `ctx.db` DML and any mention of a write-boundary symbol. Also asserts `eslint.config.mjs` still carries the relative patterns | `tests/unit/ai-boundary-source-scan.test.ts` (17 tests) |
+| **I-53** | Property tests over generated values past `MAX_SAFE_INTEGER`: the projection agrees with `toDbString`, round-trips through `fromDbString`, is never a JSON number, keeps a price distinguishable from a quantity, and projects a missing figure to `null` rather than zero | `tests/unit/json-projection.test.ts` (17 tests) |
+| **I-54** | Property tests over generated two-level trees: `Σ folded === Σ direct` exactly, every input id lands in exactly one row, no emitted row is a descendant of another. The integration half asserts the partition at **both** depths against the golden figures | `tests/unit/breakdown-contract.test.ts` (9 tests), `tests/integration/golden-g1.test.ts` |
+
+**Both F-2 mechanisms were verified empirically, not assumed.** A probe importing `'../../db/client'` relatively is rejected by ESLint *and* the scan. The same import written `await import('../../db/client')` **passes ESLint with exit 0** and is caught only by the scan — which is the concrete reason the scan exists.
+
+**Non-vacuity.** `src/server/ai/**` does not exist yet, and a scan over an empty set passes for the wrong reason. The scan therefore asserts a corpus of synthetic violations, the ESLint config itself, and the capability's shape — all of which hold today — and activates its directory checks from the first file Phase 7 places there.
+
+### Deferred, explicitly
+
+- **OD-18** — the scenario engine, the three missing metrics and the TWR wiring are **not** built. They are removed from the Phase 7 tool registry rather than stubbed. *An AI capability exists only where a deterministic application capability already exists or has an explicitly approved implementation path.*
+- **OD-19** — the Overview page is **not** redesigned or implemented. Recorded as a future product/UI work item, scheduled with the Phase 9 UX pass. It does not block Phase 7.
+
+### Verification
+
+**1,456 tests pass and 3 are skipped** (71 files, 1,459 total) — 63 added over the 1,396 of the 6.11 baseline, and every Phase 3, 4, 5 and 6 test still passes. The 3 skips are the AI-zone directory checks, which activate from the first file Phase 7 places under `src/server/ai/` and are deliberately inert until then. `verify:integrity` reports **33 passing, 0 failing, 24 engine-enforced, 2 deferred** (I-50 … I-54 added). Typecheck, lint and the production build are clean, and `eslint .` **from the repository root** now reports **0 problems** where it previously reported **121,213** — it was descending into five complete worktree copies of this repository.
+
+**One test caught a real defect in this very change**, which is the point of writing them first. `breakdown()`'s first cut derived a rollup row's `childCount` as `foldedIds.length - 1`, which undercounts a parent whose children were the only things spent on — the commonest shape in the seed tree, where `Food` has no direct entries of its own. The golden G1 assertion failed on it. The fix reads the descendants directly, and `tests/unit/breakdown-contract.test.ts` now covers both that shape and the single-child case a `length > 1` test for `isRollup` also gets wrong.
+
+**No financial calculation changed.** `rollup()`, `cashflow()`, `periodSummary()` and every engine function are untouched; F-3 changed the *shape* of a row set and the arithmetic that assembles it, not the figures. The golden expectations in `tests/golden/` were not edited.
+
+---
+
 ## Open decisions
 
 | # | Decision | Blocks |
@@ -885,15 +938,15 @@ the benchmark is a committed script rather than a number in a document.
 | **OD-1** | `NVIDIA_API_KEY` — needed to verify the model catalogue authenticated and to run the eval harness | Phases 7–9 |
 | **OD-2** | `AGENTS.md` is byte-identical to `CLAUDE.md`. Two copies of a 2,181-line spec will drift. Recommendation: reduce `AGENTS.md` to a pointer — not done unilaterally, as another tool may require full content at that path | Nothing technically; an instruction-correctness risk |
 | **OD-3** | Equity/ETF market-data provider and its terms. **Phase 4 consequence:** `instrument_prices` stays empty, so TWR returns `null` with `insufficient_price_history` and portfolio growth renders as gaps. Both are the documented behaviour, not defects. **Recommendation added 2026-08-18:** **Twelve Data Grow, $29/mo** (verified: India = XNSE at EOD, needs Grow+; terms permit storing data for internal use) for coverage consolidation across Indian + international equities, ETFs, FX and crypto in one adapter. **Kite Connect at ₹500/mo** is a legitimate cheaper alternative if a Zerodha account exists and no international coverage is needed — but its login expires daily, which is hostile to an unattended refresh job, so it costs engineering what it saves in fees. Free routes were evaluated and **excluded on licence grounds**, not overlooked: NSE's terms prohibit automated collection from its website, and Yahoo-compatible sources have no licence for programmatic access. This is a cost-and-account decision, not an engineering one | **Step 6.9 only — not the phase.** Eleven of twelve steps are unblocked ([MARKET-DATA-DESIGN.md §20.J](docs/MARKET-DATA-DESIGN.md#j-implementation-sequence)) |
-| **OD-17** | **How to close the AI write hole.** Two options: narrow the context the AI layer receives (recommended — only `tools/handlers.ts` holds a `ReadCtx`), or rely on import bans plus source scans over the full `ReadCtx`. The recommended option is cleaner but changes a shared type used by every service, so it is not a decision to take unilaterally | Phase 7 step 7.0, which blocks the rest of Phase 7 |
-| **OD-18** | **Where the scenario engine, the three missing metrics, and the TWR wiring belong.** `run_financial_scenario` has no backing of any kind; `calculate_financial_metrics` has 1 of 4 metrics; `twr()` is implemented, tested and called by nothing. All three are **deterministic financial-engine work** that the AI tool registry assumes exists. Options: a Phase 6.12 step before Phase 7, fold into Phase 9, or drop the tools | Three AI tools; not Phase 7 infrastructure |
-| **OD-19** | **The Overview page is still a Phase-2 placeholder.** `app/(app)/page.tsx` renders "Money arrives in Phase 3" while Phases 3–6.11 are complete. `CLAUDE.md <overview>` makes it a MUST-BUILD surface and every figure it describes is now computable. Out of AI scope, but it is the screen the AI's answers will be compared against | Nothing technically; a visible product gap |
+| **OD-18** | **Where the scenario engine, the three missing metrics, and the TWR wiring belong.** ⏸ **Deferred 2026-08-30 — explicitly not Phase 7.** `run_financial_scenario` has no backing of any kind; `calculate_financial_metrics` has 1 of 4 metrics; `twr()` and `growthSeries()` are implemented, tested and called by nothing (`portfolio.ts` hardcodes `twr: unavailable('insufficient_price_history')`). All three are **deterministic financial-engine work** and are **removed from the Phase 7 tool registry rather than stubbed**. The governing rule is now normative in `AI-SYSTEM.md` §8: *an AI capability exists only where a deterministic application capability already exists or has an explicitly approved implementation path.* **AI must not become a substitute for missing financial-engine functionality.** Scheduling is a later decision — a Phase 6.12 step, or folded into Phase 9 | Nothing in Phase 7 |
+| **OD-19** | **The Overview page is still a Phase-2 placeholder.** ⏸ **Deferred 2026-08-30 as a future product/UI work item — explicitly not a Phase 7 blocker.** `app/(app)/page.tsx` renders "Money arrives in Phase 3" while Phases 3–6.11 are complete. `CLAUDE.md <overview>` makes it a MUST-BUILD surface and every figure it describes is now computable. It is not redesigned or implemented now; it is scheduled with the Phase 9 UX pass | Nothing. Phase 7 proceeds without it |
 | **OD-13** | **AMFI reuse terms.** `NAVAll.txt` is published publicly and the whole Indian fintech industry consumes it, but **no machine-readable licence or explicit reuse grant was found**, so none is asserted. The adapter is built for personal, non-redistributing use and says so in its own header. Confirm with AMFI before any non-personal use | Nothing for personal use; would block redistribution |
 
 ### Resolved
 
 | # | Decision | Outcome |
 |---|---|---|
+| **OD-17** | How to close the AI write boundary (Phase 7 review **F-1**/**F-2**) | ✅ **Resolved 2026-08-30 by the recommended option: narrow the context the AI layer receives.** The AI layer holds an `AiReadCtx` — no `db`, no `fx`, no transaction capability, and **not** a `ReadCtx` — so both the escalation and the raw write are compile errors. `withWriteCtx` now requires a `RequestCtx` carrying `beginTransaction`, granted only by `createReadCtx`; changing that signature made `tsc` report every escalation site, and all three were test harnesses legitimately standing in for a user request. **AI infrastructure is strictly read-only**, and any future AI-assisted mutation needs a separate approved proposal/confirmation workflow. Normative: [ADR-33](docs/DECISIONS.md#adr-33--the-transaction-opener-is-a-capability-carried-on-the-context-not-an-ambient-import), [ADR-34](docs/DECISIONS.md#adr-34--the-ai-import-boundary-is-enforced-three-ways-and-covers-relative-paths), [ADR-35](docs/DECISIONS.md#adr-35--ai-infrastructure-is-strictly-read-only-a-mutation-needs-a-separate-approved-proposal-workflow). Invariants **I-50 … I-52** |
 | **OD-4** | Amend the approved baseline with the Phase 4 review's D1–D15 | ✅ **Approved and applied 2026-08-11.** The corrections are in the canonical documents; the landing table is at the top of [INVESTMENT-ENGINE-DESIGN.md](docs/INVESTMENT-ENGINE-DESIGN.md), which is now a review record, not a specification |
 | **OD-5** | `investment_transactions.net_amount` currency | ✅ **Approved 2026-08-11: the account's currency.** `price` / `gross_amount` / `fees` / `taxes` stay in the instrument's. `deriveBalance()` therefore never mixes currencies, and an account's `currency_code` is immutable once it carries ledger rows. See [FINANCIAL-DOMAIN.md §3](docs/FINANCIAL-DOMAIN.md), [SCHEMA.md §6](docs/SCHEMA.md), [ADR-12](docs/DECISIONS.md) |
 | **OD-7** | Net-worth valuation basis before market data exists | ✅ **Approved 2026-08-12: Net Worth at Cost.** Phase 5 calculates and presents net worth **at cost**; investment positions contribute the **exact Phase 4 cost basis**; market value and cost are **never mixed inside one figure**; no screen shows an unqualified "Net worth" that could imply a current market valuation. Phase 6 introduces market-value net worth as a **distinct** calculation. **No valuation toggle in Phase 5** — the existing design does not need one. Normative: [ADR-23](docs/DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost) |

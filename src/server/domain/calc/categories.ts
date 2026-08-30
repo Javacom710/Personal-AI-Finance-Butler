@@ -103,6 +103,79 @@ export function rollup(
   return out;
 }
 
+/**
+ * One category's contribution to a partition of the period total.
+ *
+ * `foldedIds` names every category whose direct spending was added into
+ * `total` — the root itself first, then its descendants. It is what lets a
+ * caller say "Food (Groceries + Dining)" without re-deriving the tree, and what
+ * `childCount` on a breakdown row is computed from.
+ */
+export interface RootFold {
+  readonly rootId: string;
+  readonly total: Money;
+  readonly foldedIds: readonly string[];
+}
+
+/**
+ * Fold each category's **direct** total onto its top-level ancestor *within the
+ * given node set*.
+ *
+ * This is the additive half of the breakdown contract
+ * ([ADR-37](../../../../docs/DECISIONS.md#adr-37--a-breakdown-declares-whether-its-rows-partition-its-total)).
+ * `rollup` answers "what does Food come to?" for **one** category and is right
+ * for that; it is wrong as a row set, because it returns a figure for every node
+ * and a parent's figure already contains its children's. Summing that row set
+ * double-counts every parent/child pair — finding **F-3**.
+ *
+ * Here every input amount lands in exactly one output entry, so
+ * `Σ output.total === Σ direct.values()` **by construction** rather than by
+ * assertion. A node whose parent is absent from `nodes` — filtered out by kind,
+ * or archived away — is its own root rather than being dropped, so no amount can
+ * silently disappear between the tree and the total.
+ *
+ * The walk is bounded by a visited set rather than by the depth limit. The
+ * database trigger `check_category_shape()` makes a cycle impossible today; a
+ * loop that would hang if it ever became possible is not a good way to find out.
+ */
+export function foldToRoots(
+  nodes: readonly CategoryNode[],
+  direct: ReadonlyMap<string, Money>,
+  base: CurrencyCode,
+): RootFold[] {
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+
+  const rootOf = (id: string): string => {
+    let current = id;
+    const seen = new Set<string>([current]);
+    for (;;) {
+      const node = byId.get(current);
+      if (!node?.parentId) return current;
+      if (!byId.has(node.parentId) || seen.has(node.parentId)) return current;
+      current = node.parentId;
+      seen.add(current);
+    }
+  };
+
+  const parts = new Map<string, Money[]>();
+  const folded = new Map<string, string[]>();
+
+  for (const [id, amount] of direct) {
+    const root = rootOf(id);
+    (parts.get(root) ?? parts.set(root, []).get(root)!).push(amount);
+    const ids = folded.get(root) ?? folded.set(root, []).get(root)!;
+    // The root first, so `foldedIds[0]` is always the row's own category.
+    if (id === root) ids.unshift(id);
+    else ids.push(id);
+  }
+
+  return [...parts].map(([rootId, amounts]) => ({
+    rootId,
+    total: sum(amounts, base),
+    foldedIds: folded.get(rootId) ?? [],
+  }));
+}
+
 /** `Food › Dining`, for a transaction row that shows one label. */
 export function categoryPath(nodes: readonly CategoryNode[], id: string): string {
   const byId = new Map(nodes.map((n) => [n.id, n]));

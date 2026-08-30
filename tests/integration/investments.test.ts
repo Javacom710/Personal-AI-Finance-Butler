@@ -21,7 +21,7 @@ import {
   listInvestmentTransactions,
   portfolio,
   rebuildAllPositions,
-  type ReadCtx,
+  type RequestCtx,
 } from '@/server/services';
 import { closeHarness } from './harness';
 import {
@@ -54,7 +54,7 @@ import {
 } from './investment-harness';
 
 let userId: string;
-let ctx: ReadCtx;
+let ctx: RequestCtx;
 let brokerage: string;
 let bank: string;
 let reliance: string;

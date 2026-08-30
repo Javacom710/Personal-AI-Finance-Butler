@@ -21,14 +21,14 @@ import {
   createTransaction,
   createTransfer,
   withWriteCtx,
-  type ReadCtx,
+  type RequestCtx,
   type WriteCtx,
 } from '@/server/services';
 import { createTestUser } from './harness';
 
 export interface MoneyFixture {
   readonly userId: string;
-  readonly ctx: ReadCtx;
+  readonly ctx: RequestCtx;
 }
 
 /** `today` is injected so time-dependent behaviour is testable without mocking a clock. */
@@ -40,13 +40,13 @@ export async function setupMoneyFixture(options: { readonly now?: Date } = {}): 
 }
 
 /** Rebuild the read context — needed after inserting FX rates, which are preloaded once. */
-export async function refreshCtx(fixture: MoneyFixture): Promise<ReadCtx> {
+export async function refreshCtx(fixture: MoneyFixture): Promise<RequestCtx> {
   const ctx = await createReadCtx(fixture.userId, { now: fixture.ctx.now });
   if (!ctx.ok) throw new Error(`refresh context: ${ctx.error.message}`);
   return ctx.value;
 }
 
-export async function write<T>(ctx: ReadCtx, fn: (w: WriteCtx) => Promise<T>): Promise<T> {
+export async function write<T>(ctx: RequestCtx, fn: (w: WriteCtx) => Promise<T>): Promise<T> {
   return withWriteCtx(ctx, fn);
 }
 
@@ -78,7 +78,7 @@ export interface AccountSpec {
   readonly creditLimit?: string;
 }
 
-export async function makeAccount(ctx: ReadCtx, spec: AccountSpec): Promise<string> {
+export async function makeAccount(ctx: RequestCtx, spec: AccountSpec): Promise<string> {
   const account = await write(ctx, (w) =>
     createAccount(w, {
       name: spec.name,
@@ -93,7 +93,7 @@ export async function makeAccount(ctx: ReadCtx, spec: AccountSpec): Promise<stri
 }
 
 /** Look a seeded category up by name, so tests read as "Food" rather than a uuid. */
-export async function categoryId(ctx: ReadCtx, name: string): Promise<string> {
+export async function categoryId(ctx: RequestCtx, name: string): Promise<string> {
   const { rows } = await db().execute<{ id: string }>(
     sql`select id from ${categories} where user_id = ${ctx.userId} and name = ${name} limit 1`,
   );
@@ -112,7 +112,7 @@ export interface EntrySpec {
   readonly tags?: readonly string[];
 }
 
-export async function record(ctx: ReadCtx, spec: EntrySpec): Promise<string> {
+export async function record(ctx: RequestCtx, spec: EntrySpec): Promise<string> {
   const result = await write(ctx, (w) =>
     createTransaction(w, {
       kind: spec.kind,
@@ -138,7 +138,7 @@ export interface TransferSpec {
   readonly tags?: readonly string[];
 }
 
-export async function transfer(ctx: ReadCtx, spec: TransferSpec) {
+export async function transfer(ctx: RequestCtx, spec: TransferSpec) {
   const result = await write(ctx, (w) =>
     createTransfer(w, {
       fromAccountId: spec.fromAccountId,

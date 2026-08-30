@@ -695,6 +695,35 @@ const ENGINE_ENFORCED: readonly { invariant: string; description: string; note: 
     description: 'Market value preserves provider precision to scale 8, rounding only at valueOf and mulRate',
     note: 'lib/decimal/price.ts; tests/unit/networth-market-domain.test.ts; numeric(20,8) on instrument_prices',
   },
+  // The Phase 7 pre-implementation boundary (F-1, F-2, F-3). None is expressible
+  // as a query: they are properties of the type system, of the import graph and
+  // of a fold, so each is enforced where it can actually be enforced.
+  {
+    invariant: 'I-50',
+    description: 'AI-facing code cannot obtain a WriteCtx; a ReadCtx alone cannot open a transaction',
+    note: 'type system (services/_ctx.ts RequestCtx, ai-read/index.ts AiReadCtx); tests/unit/ai-write-boundary.test.ts',
+  },
+  {
+    invariant: 'I-51',
+    description:
+      'src/server/ai/** imports no database, engine or service module by any spelling — aliased, relative or dynamic',
+    note: 'eslint AI zone + source scan; tests/unit/ai-boundary-source-scan.test.ts',
+  },
+  {
+    invariant: 'I-52',
+    description: 'The AI read capability carries no database handle; the bound context lives in a private WeakMap',
+    note: 'source scan; tests/unit/ai-boundary-source-scan.test.ts',
+  },
+  {
+    invariant: 'I-53',
+    description: 'An exact value crosses a JSON boundary as tagged digits, never as a JSON number',
+    note: 'lib/format/json-projection.ts; tests/unit/json-projection.test.ts',
+  },
+  {
+    invariant: 'I-54',
+    description: 'A category breakdown declares its additivity, and a partition row set sums to its total exactly',
+    note: 'domain/calc/categories.ts foldToRoots; tests/unit/breakdown-contract.test.ts; tests/integration/golden-g1.test.ts',
+  },
 ];
 
 export async function verifyIntegrity(connectionString: string): Promise<IntegrityReport> {
