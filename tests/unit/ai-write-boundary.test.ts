@@ -180,6 +180,40 @@ describe('I-50 — an AiReadCtx cannot become a WriteCtx', () => {
   }, SLOW);
 });
 
+describe('I-54 — a breakdown cannot be consumed as a flat additive list', () => {
+  it('does not type-check as an array of rows', () => {
+    // The structural half of the breakdown contract, and the reason `breakdown()`
+    // returns a struct rather than `BreakdownRow[]`: the old signature let a
+    // consumer write `rows.reduce(...)` over a set containing both a parent and
+    // its children. Now reaching the rows at all means reading the object that
+    // declares whether they partition anything.
+    const diagnostics = diagnose(`
+      import { breakdown, type BreakdownRow, type ReadCtx } from '@/server/services';
+      import type { DateRange } from '@/server/services';
+      export async function sumEverything(ctx: ReadCtx, range: DateRange) {
+        const rows: BreakdownRow[] = await breakdown(ctx, range, 'category', 'expense');
+        return rows;
+      }
+    `);
+    expect(codesOf(diagnostics).length).toBeGreaterThan(0);
+  }, SLOW);
+
+  it('makes additivity a required field, not an optional hint', () => {
+    // A consumer cannot construct a Breakdown that omits the declaration, so
+    // there is no shape in which "are these summable?" is unanswered.
+    const diagnostics = diagnose(`
+      import type { Breakdown } from '@/server/services';
+      import { Money, currency } from '@/lib/decimal/money';
+      export const undeclared: Breakdown = {
+        groupBy: 'tag', kind: 'expense', depth: 'rollup',
+        total: Money.zero(currency('INR')), rows: [],
+      };
+    `);
+    expect(codesOf(diagnostics).length).toBeGreaterThan(0);
+    expect(textOf(diagnostics)).toMatch(/additivity/);
+  }, SLOW);
+});
+
 describe('I-50 — a plain ReadCtx cannot escalate either', () => {
   it('rejects withWriteCtx(readCtx, …) — the F-1 hole itself', () => {
     // The exact line the Phase 7 review reported as compiling clean. It is the

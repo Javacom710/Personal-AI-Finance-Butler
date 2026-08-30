@@ -52,25 +52,26 @@ const AI_ZONE = 'src/server/ai';
 
 /**
  * The forbidden import specifiers, in the same gitignore syntax ESLint's rule
- * uses — and deliberately the *same list*, so the two mechanisms cannot drift
- * into disagreeing about what is banned.
+ * uses — and deliberately read *from the ESLint config itself* rather than
+ * copied, so the two mechanisms cannot drift into disagreeing about what is
+ * banned. The adversarial review found the previous copy already drifting: it
+ * was a denylist of three directories, and `auth`, `jobs`, `market-data`,
+ * `app/**` and `@/lib/env` were all reachable through both.
+ *
+ * An **allowlist** ([ADR-38](../../docs/DECISIONS.md#adr-38--the-ai-zone-is-an-allowlist-a-new-directory-is-closed-on-the-day-it-is-created)):
+ * deny `@/server/**`, re-admit exactly `@/server/ai-read` and the redacting
+ * logger, re-deny the bridge. A directory added tomorrow is closed by default.
  */
-const FORBIDDEN_IMPORTS = [
-  '@/server/db',
-  '@/server/domain',
-  '@/server/services',
-  '@/server/ai-read/internal',
-  '**/db',
-  '**/db/*',
-  '**/domain',
-  '**/domain/*',
-  '**/services',
-  '**/services/*',
-  '**/ai-read/internal',
-  'drizzle-orm',
-  'drizzle-orm/*',
-  'pg',
-];
+const ESLINT_CONFIG = readFileSync(join(ROOT, 'eslint.config.mjs'), 'utf8');
+
+const FORBIDDEN_IMPORTS = (() => {
+  const block = /const aiZonePatterns = \[([\s\S]*?)\n\];/.exec(ESLINT_CONFIG);
+  if (!block?.[1]) throw new Error('ai-boundary scan: aiZonePatterns not found in eslint.config.mjs');
+  return [...block[1].matchAll(/'([^']+)'/g)]
+    .map((m) => m[1] as string)
+    // Pattern strings only; the `message:` prose in the same block is not one.
+    .filter((s) => !s.includes(' '));
+})();
 
 const forbids = (specifier: string): boolean =>
   ignore({ allowRelativePaths: true, ignorecase: true }).add(FORBIDDEN_IMPORTS).ignores(specifier);
@@ -160,6 +161,47 @@ describe('I-51 — the matcher catches what it claims to', () => {
     }
   });
 
+  it('rejects the seven routes the adversarial review found — ADR-38', () => {
+    // A denylist of `db`/`domain`/`services` left every other directory open.
+    // Each of these passed BOTH ESLint and this scan before the allowlist, and
+    // the first four are outright defeats of the write boundary: none of them
+    // needs a `WriteCtx` to reach one.
+    for (const specifier of [
+      // `'use server'` actions take a form, call requireSession(), and build a
+      // WriteCtx internally. Importing one is a mutation path.
+      '@app/(app)/money/actions',
+      '../../../../app/(app)/money/actions',
+      // enqueue / runDueJobs — the same, one indirection further away.
+      '@/server/jobs',
+      '../../jobs',
+      // env() returns DATABASE_URL, APP_ENCRYPTION_KEY, SESSION_COOKIE_SECRET
+      // and every provider credential.
+      '@/lib/env',
+      '../../../lib/env',
+      // Sessions, password verification, and decryption of TOTP secrets and
+      // recovery codes.
+      '@/server/auth/session-store',
+      '@/server/auth/crypto',
+      '../../auth/crypto',
+      // Arbitrary outbound HTTP — an exfiltration channel with credentials.
+      '@/server/market-data/http',
+      '../../market-data/http',
+      // Executes SQL, even if only a fixed probe.
+      '@/server/health',
+    ]) {
+      expect(forbids(specifier), specifier).toBe(true);
+    }
+  });
+
+  it('closes a server directory that does not exist yet', () => {
+    // The property an allowlist has and a denylist cannot: whatever Phase 8
+    // adds under src/server/ is shut on the day it is created, not on the day
+    // someone remembers to come back here.
+    for (const specifier of ['@/server/whatever-comes-next', '@/server/reporting/exports']) {
+      expect(forbids(specifier), specifier).toBe(true);
+    }
+  });
+
   it('leaves the legitimate AI-facing surface alone', () => {
     // The other half. A matcher that rejected everything would satisfy every
     // negative assertion above and be useless.
@@ -204,27 +246,65 @@ describe('I-51 — the matcher catches what it claims to', () => {
   });
 });
 
-describe('I-51 — eslint.config.mjs closes the relative-path hole', () => {
-  const config = readFileSync(join(ROOT, 'eslint.config.mjs'), 'utf8');
-  const zone = config.slice(config.indexOf('AI boundary'), config.indexOf('---------------- tests'));
+describe('I-51 — eslint.config.mjs is an allowlist, and governs every AI file', () => {
+  const config = ESLINT_CONFIG;
+  const zone = config.slice(config.indexOf('const aiZonePatterns'), config.indexOf('---------------- tests'));
 
   it('finds the AI zone it is meant to be checking', () => {
     expect(zone.length).toBeGreaterThan(500);
     expect(zone).toMatch(/files: \['src\/server\/ai\/\*\*\/\*\.ts'\]/);
+    expect(FORBIDDEN_IMPORTS.length).toBeGreaterThanOrEqual(20);
   });
 
-  it('lists a relative form for every aliased form', () => {
-    // The aliased patterns alone were the F-2 defect. Asserting the relative
-    // twins here is what stops a future tidy-up from removing them as
-    // "duplicates" of the `@/` entries.
-    for (const pattern of ["'**/db'", "'**/db/*'", "'**/domain'", "'**/services'", "'**/ai-read/internal'"]) {
-      expect(zone, pattern).toContain(pattern);
+  it('denies the whole server tree and re-admits exactly two modules', () => {
+    // The shape of the fix. `@/server/**` first, then the two re-admissions,
+    // then the bridge re-denied inside one of them — order is load-bearing in
+    // gitignore semantics, so it is asserted rather than assumed.
+    expect(FORBIDDEN_IMPORTS).toContain('@/server/**');
+    expect(FORBIDDEN_IMPORTS).toContain('!@/server/ai-read');
+    expect(FORBIDDEN_IMPORTS).toContain('!@/server/log');
+    expect(FORBIDDEN_IMPORTS.indexOf('@/server/**')).toBeLessThan(
+      FORBIDDEN_IMPORTS.indexOf('!@/server/ai-read'),
+    );
+    expect(FORBIDDEN_IMPORTS.indexOf('!@/server/ai-read')).toBeLessThan(
+      FORBIDDEN_IMPORTS.indexOf('@/server/ai-read/internal'),
+    );
+  });
+
+  it('names every sibling of src/server/ai in its relative form too', () => {
+    // The aliased patterns alone were F-2; the missing siblings were the
+    // adversarial review's finding. A relative specifier climbing out of the AI
+    // zone carries no `server` segment, so each directory is named again.
+    for (const pattern of [
+      '**/db',
+      '**/domain',
+      '**/services',
+      '**/auth',
+      '**/jobs',
+      '**/market-data',
+      '**/health',
+      '**/ai-read/internal',
+      '**/lib/env',
+      '**/app/*',
+    ]) {
+      expect(FORBIDDEN_IMPORTS, pattern).toContain(pattern);
     }
   });
 
   it('bans the query builder outright, so raw SQL cannot be authored', () => {
-    expect(zone).toContain("'drizzle-orm'");
-    expect(zone).toContain("'pg'");
+    expect(FORBIDDEN_IMPORTS).toContain('drizzle-orm');
+    expect(FORBIDDEN_IMPORTS).toContain('pg');
+  });
+
+  it('scopes the wire-client exemption to one import, not to every rule', () => {
+    // `ignores` removes a config object *entirely* for the named file. With the
+    // bans and the `openai` allowance in one object, the single exemption meant
+    // `nvidia-build.ts` could import the database, the services and the engine.
+    // The split is what makes the exemption exactly one import wide.
+    expect(zone).toMatch(/files: \['src\/server\/ai\/provider\/nvidia-build\.ts'\]/);
+    const providerBlock = zone.slice(zone.indexOf("files: ['src/server/ai/provider/nvidia-build.ts']"));
+    expect(providerBlock).toContain('patterns: aiZonePatterns');
+    expect(providerBlock).not.toContain('wireClientPattern');
   });
 
   it('does not lint the nested worktree copies of this repository', () => {

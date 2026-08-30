@@ -2,7 +2,7 @@
 
 Durable status record. Conversation history is temporary; this file is not. Read this first after any context reset, then verify it against `docs/`, the source tree, and the tests before trusting it.
 
-**Last updated:** 2026-08-30 · **Current phase:** **7 — step 7.0 (boundary pre-work) COMPLETE. AI infrastructure implementation NOT started.** Phase 6 remains complete (steps 6.0–6.9 and 6.11 implemented and verified; 6.10 closed unbuilt).
+**Last updated:** 2026-08-30 · **Current phase:** **7 — step 7.0 (boundary pre-work) COMPLETE and through an adversarial security gate. AI infrastructure implementation NOT started.** Phase 6 remains complete (steps 6.0–6.9 and 6.11 implemented and verified; 6.10 closed unbuilt).
 
 **Phase 7 pre-implementation correction pass — 2026-08-30.** The Phase 7 design review found three properties the canonical documents call non-negotiable that were **false** against the Phase 6.11 code (**F-1**, **F-2**, **F-3**). All three are now closed in code, with compile-time and automated regression protection, **before any AI infrastructure exists**. No provider, no SDK, no `NVIDIA_API_KEY`, no tools, no orchestrator, and no file under `src/server/ai/`. See [What step 7.0 delivered](#what-step-70-delivered--phase-7-pre-implementation-corrections--2026-08-30).
 
@@ -928,6 +928,52 @@ the benchmark is a committed script rather than a number in a document.
 **One test caught a real defect in this very change**, which is the point of writing them first. `breakdown()`'s first cut derived a rollup row's `childCount` as `foldedIds.length - 1`, which undercounts a parent whose children were the only things spent on — the commonest shape in the seed tree, where `Food` has no direct entries of its own. The golden G1 assertion failed on it. The fix reads the descendants directly, and `tests/unit/breakdown-contract.test.ts` now covers both that shape and the single-child case a `length > 1` test for `isRollup` also gets wrong.
 
 **No financial calculation changed.** `rollup()`, `cashflow()`, `periodSummary()` and every engine function are untouched; F-3 changed the *shape* of a row set and the arithmetic that assembles it, not the figures. The golden expectations in `tests/golden/` were not edited.
+
+---
+
+## Adversarial security gate — step 7.0 — 2026-08-30
+
+**Ten attack categories, fourteen import probes, five findings, all fixed.** The review attacked the corrected boundary rather than re-reading it: every result below was produced by writing a probe file into `src/server/ai/`, running the real ESLint config and the real source scan against it, and recording what happened.
+
+**The headline: the boundary was the right idea in the wrong shape.** [ADR-34](docs/DECISIONS.md#adr-34--the-ai-import-boundary-is-enforced-three-ways-and-covers-relative-paths) closed the relative-path hole but kept a **denylist** naming `db`, `domain` and `services`. Seven of fourteen probes passed **both** ESLint and the source scan.
+
+| # | Route | Granted | Severity | Status |
+|---|---|---|---|---|
+| **S-1** | `@app/(app)/money/actions`, aliased or relative | A `'use server'` action takes a **form, not a context**, and builds a `WriteCtx` internally from the session. Importing one mutates the ledger with the user's own authority — **no write capability passes through AI code at all**, so ADR-33's type guarantees are bypassed rather than broken | **CRITICAL** | ✅ fixed |
+| **S-2** | `@/server/jobs` | `enqueue` / `runDueJobs` / `scheduleRecurringPost`; the handlers call `withWriteCtx`. The same defeat, one indirection away | **CRITICAL** | ✅ fixed |
+| **S-3** | `@/lib/env` | `env()` returns `DATABASE_URL`, `APP_ENCRYPTION_KEY`, `SESSION_COOKIE_SECRET`, `TWELVE_DATA_API_KEY` and, by design, `NVIDIA_API_KEY` — to the one layer that sends text to a third party | **HIGH** | ✅ fixed |
+| **S-4** | `@/server/auth/**` | Sessions, password verification, and decryption of TOTP secrets and recovery codes under `APP_ENCRYPTION_KEY`; `account.ts` opens its own transaction | **HIGH** | ✅ fixed |
+| **S-5** | `ignores: ['…/nvidia-build.ts']` | `ignores` drops a config object *entirely* for the named file, so the exemption meant to permit `openai` also gave the wire client the database, the services and the engine | **HIGH** | ✅ fixed |
+| | `@/server/market-data/http` | Arbitrary outbound HTTP with provider credentials — an exfiltration channel | MEDIUM | ✅ fixed |
+| | `@/server/health` | Executes SQL, even if only a fixed probe | LOW | ✅ fixed |
+| **S-6** | `AiReadCtx` was mutable | `readonly` is erased at runtime. It could never redirect a read — the `WeakMap` keys on identity — but a projection rendering `ai.userId` could label one user's figures with another's name | LOW | ✅ fixed |
+
+**The fix is a change of shape, not a longer list** ([ADR-38](docs/DECISIONS.md#adr-38--the-ai-zone-is-an-allowlist-a-new-directory-is-closed-on-the-day-it-is-created)). Deny `@/server/**`, re-admit exactly `@/server/ai-read` and `@/server/log`, re-deny the bridge inside the first. Adding the six missing directories to the denylist would have closed these seven routes and left the shape that produced them — the next directory would be open again. `@/server/whatever-comes-next` is now closed, and a test asserts it.
+
+**The source scan no longer keeps its own copy of the list.** It reads the patterns out of `eslint.config.mjs`. The copy had already drifted, which is how five routes stayed open in *both* mechanisms at once — the defence-in-depth was two mechanisms enforcing one stale list, not two independent checks.
+
+### Results by attack category
+
+| Attack | Result | Blocked by |
+|---|---|---|
+| **1 — write escalation** | No path found after the fix. `withWriteCtx(ai, …)` / `ai.db` / service calls are compile errors; every import route to a write helper, a server action or a job is denied | structural (types) + static (ESLint) + source scan |
+| **2 — raw database access** | No path. `db`, `drizzle-orm`, `pg`, `health` all denied; the capability carries no handle to write through | structural + static + scan |
+| **3 — tool escalation** | Bounded by construction: `ai-read/index.ts` exports only the capability type today, so no tool can reach a service until 7.3 adds enumerated projections there. `ai-read/**` now has its own zone banning the write surface **by name** (`importNames`) while leaving queries importable | structural + static |
+| **4 — prompt injection** | No control depends on model behaviour. Authorization is `ctx.userId` filtering inside services; the capability has no database handle; tier and requirements are computed from the *capability*, never from content. A model that decides to misbehave still cannot reach anything | structural |
+| **5 — cross-user access** | Blocked. `createReadCtx(anyUserId)` is denied to the zone; the capability is bound in a module-private `WeakMap` and now frozen; a forged or copied capability is refused at runtime | structural + runtime + static |
+| **6 — JSON projection** | No loss found. Round-trips at `NUMERIC(20,4)`'s maximum and its negation, past `MAX_SAFE_INTEGER`, at zero and negative zero; a price stays distinguishable from a quantity of identical digits; identical digits in different currencies stay distinct; every projection states its own scale | structural + test |
+| **7 — breakdown semantics** | Unambiguous. `additivity` is a **required** field — a `Breakdown` omitting it does not compile — and the result does not type-check as `BreakdownRow[]`, so reaching the rows means reading the declaration | structural + test |
+| **8 — secret exposure** | Closed. `@/lib/env` and `@/server/auth/**` denied; `@/server/log` re-admitted deliberately because it exports `redact`/`log` and re-exports nothing from the environment | static + scan |
+| **9 — dependency escape** | `src/lib/**` verified to import no database, service or engine module; `@/server/ai-read` imports only `@/lib` types; `@/server/log` reads `LOG_LEVEL` and exposes none of it | static + scan |
+| **10 — fail closed** | Every category above is blocked by at least one mechanism that does not depend on a developer remembering a rule. Nothing remains classified CRITICAL, HIGH or MEDIUM | — |
+
+**One residual, accepted and already designed for.** `DomainError` carries an entity id, and for a `settings` error that id **is the user id**, so a tool that returned a raw error would leak it. No tool exists yet; `AI-INFRASTRUCTURE-DESIGN.md` §6.4 already requires a projected error, and Phase 7.3 must implement it. Recorded here so it is a scheduled requirement rather than a discovery.
+
+**What the review did not test.** Live prompt injection against a model, and the runtime behaviour of tools — neither exists. The relevant property was tested instead: that no security control *depends* on the model choosing correctly.
+
+**Verification after the fixes:** 1,470 tests pass and 3 are skipped (71 files), typecheck clean, lint clean, production build clean, `verify:integrity` 33 passing / 0 failing / 24 engine-enforced / 2 deferred.
+
+**AI implementation has still not started.** No provider, no SDK, no `NVIDIA_API_KEY`, no tools, no orchestrator, and `src/server/ai/` does not exist — every probe directory created during this review was deleted, and `git status` is clean.
 
 ---
 

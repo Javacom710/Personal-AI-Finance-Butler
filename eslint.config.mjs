@@ -10,6 +10,68 @@ import nextTypescript from 'eslint-config-next/typescript';
  * that the first file placed in one of those directories is already governed.
  */
 
+/**
+ * The AI zone's import ban, shared by every file in it including the wire
+ * client (ADR-38). Deny `@/server/**`, re-admit exactly `@/server/ai-read`,
+ * then re-deny the bridge inside it; name every sibling directory again in its
+ * relative form, because a specifier climbing out of `src/server/ai/` carries
+ * no `server` segment for a `**\/server\/...` pattern to match.
+ */
+const aiZonePatterns = [
+  {
+    group: [
+      // Everything under src/server, then the one re-admission.
+      '@/server/**',
+      '!@/server/ai-read',
+      '@/server/ai-read/internal',
+      // The redacting logger is deliberately re-admitted: AI-SYSTEM.md §15 wants
+      // Phase 7 to reuse it rather than build a parallel redactor. It exports
+      // `redact` and `log` only — it reads LOG_LEVEL but re-exports nothing from
+      // the environment. `health.ts` stays closed: it executes SQL.
+      '!@/server/log',
+      // Relative escapes: every sibling of src/server/ai/, at any depth.
+      '**/auth',
+      '**/auth/*',
+      '**/db',
+      '**/db/*',
+      '**/domain',
+      '**/domain/*',
+      '**/jobs',
+      '**/jobs/*',
+      '**/market-data',
+      '**/market-data/*',
+      '**/services',
+      '**/services/*',
+      '**/ai-read/internal',
+      '**/health',
+      // The presentation layer: `'use server'` actions build a WriteCtx from a
+      // session and take a form, so importing one is a write path that no
+      // capability check can see.
+      '@app/*',
+      '**/app/*',
+      // The validated environment carries DATABASE_URL, APP_ENCRYPTION_KEY,
+      // SESSION_COOKIE_SECRET and every provider credential. Tier lists are
+      // *passed into* config/, never read by it (AI-SYSTEM.md §12).
+      '@/lib/env',
+      '**/lib/env',
+    ],
+    message:
+      'ARCHITECTURE.md §2 / ADR-38: src/server/ai/** may import @/server/ai-read and @/lib/** only. No database, engine, service, job, auth, market-data, server action, or environment access.',
+  },
+  {
+    group: ['drizzle-orm', 'drizzle-orm/*', 'pg'],
+    message:
+      'ADR-34: src/server/ai/** issues no SQL. A query belongs in an application service, behind the @/server/ai-read projection.',
+  },
+];
+
+/** Only `nvidia-build.ts` may import the wire client. */
+const wireClientPattern = {
+  group: ['openai'],
+  message:
+    'ARCHITECTURE.md §2: only src/server/ai/provider/nvidia-build.ts may import the wire client.',
+};
+
 /** @type {import('eslint').Linter.Config[]} */
 const config = [
   {
@@ -157,66 +219,112 @@ const config = [
 
   // ----------------------------------------------------------- AI boundary
   // The AI layer reads through ONE read-only capability, `@/server/ai-read`.
-  // It has no path to the database, no path to the engine, and no path to the
-  // application services — including the write helpers they re-export.
+  // Everything else under `src/server/` is closed to it, and so are the
+  // presentation layer and the validated environment.
   //
-  // The patterns below are written against `no-restricted-imports`' actual
-  // matcher, which is the `ignore` package applied to the **raw specifier
-  // string** with gitignore semantics — not minimatch, and never a resolved
-  // path. The Phase 7 review's finding **F-2** was that the previous rule
-  // listed only `@/`-aliased forms, so `import { db } from '../../db/client'`
-  // linted clean and handed AI code the full database handle.
+  // **An allowlist, not a denylist** ([ADR-38](docs/DECISIONS.md)). The first
+  // version of this rule enumerated the modules it knew were dangerous — `db`,
+  // `domain`, `services` — which meant every directory nobody had thought of
+  // was permitted by default. The adversarial review found seven such routes,
+  // and two of them were complete defeats of the write boundary:
   //
-  // Two consequences of that matcher shape drive the list:
-  //   - a "directory" pattern already covers its descendants, so `@/server/db`
-  //     alone blocks `@/server/db/schema/index`; the old `@/server/db/*` twin
-  //     was redundant;
-  //   - `**/server/db/*` does NOT catch `../../db/client`, because the pattern
-  //     still requires a literal `server` segment the specifier does not have.
-  //     Dropping `server/` from the relative forms is what closes it.
+  //   - `app/(app)/money/actions.ts` exports `'use server'` actions that take a
+  //     form, not a context, and build a `WriteCtx` internally. Calling one
+  //     mutates the ledger with the session's own authority, with no write
+  //     capability ever passing through AI code;
+  //   - `@/server/jobs` exports `enqueue` / `runDueJobs`, whose handlers do the
+  //     same thing one level of indirection further away.
   //
-  // ESLint alone cannot be the whole answer: this rule has no `ImportExpression`
-  // listener, so a dynamic `await import('@/server/db/client')` is not checked
-  // in any zone. `tests/unit/ai-boundary-source-scan.test.ts` is the second
-  // mechanism and does check it, and the capability types are the third
-  // (ADR-33, ADR-34).
+  // Denying `@/server/**` and re-admitting exactly `@/server/ai-read` is what
+  // makes a *new* directory closed on the day it is created rather than on the
+  // day someone remembers to add it here.
+  //
+  // The patterns are written against `no-restricted-imports`' actual matcher,
+  // which is the `ignore` package applied to the **raw specifier string** with
+  // gitignore semantics — not minimatch, and never a resolved path. Two
+  // consequences drive their shape:
+  //   - a "directory" pattern already covers its descendants, and a later
+  //     pattern can re-deny inside a negation, which is how `ai-read/internal`
+  //     stays closed while `ai-read` opens;
+  //   - `**/server/db/*` does NOT catch `../../db/client` — that pattern needs a
+  //     literal `server` segment the specifier does not have. A relative
+  //     specifier climbing out of `src/server/ai/` never contains one, so every
+  //     sibling directory is named again without it.
+  //
+  // ESLint cannot be the whole answer: this rule has no `ImportExpression`
+  // listener, so `await import('@/server/db/client')` is unchecked in every
+  // zone. `tests/unit/ai-boundary-source-scan.test.ts` is the second mechanism
+  // and does check it; the capability types are the third (ADR-33, ADR-34).
   {
     files: ['src/server/ai/**/*.ts'],
     ignores: ['src/server/ai/provider/nvidia-build.ts'],
     rules: {
       'no-restricted-imports': [
         'error',
+        { patterns: [...aiZonePatterns, wireClientPattern] },
+      ],
+    },
+  },
+
+  // The wire client is the ONE file allowed to import `openai`. It is not
+  // otherwise privileged: every import ban above still applies to it.
+  //
+  // This is a separate config object because `ignores` on the object above
+  // removes that object *entirely* for the named file — rules and all. Before
+  // the adversarial review the two were combined, so the single exemption
+  // intended to permit `openai` also handed `nvidia-build.ts` the database,
+  // the services and the engine. Splitting them is what makes the exemption
+  // exactly one import wide.
+  {
+    files: ['src/server/ai/provider/nvidia-build.ts'],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: aiZonePatterns }],
+    },
+  },
+
+  // ------------------------------------------------ AI read capability
+  // `src/server/ai-read/**` is the bridge, and the only module outside the AI
+  // zone that exists for it. It may call application services — that is its
+  // whole job — but it must never reach a write helper or the database, because
+  // it is the one place holding a real `ReadCtx` on the AI layer's behalf.
+  //
+  // `importNames` bans the write surface by name while leaving queries
+  // importable, which a path-only rule cannot express. It is belt to the type
+  // system's braces: `withWriteCtx` needs a `RequestCtx` and a `ReadCtx` is not
+  // one, so a write here would not compile either (ADR-33).
+  {
+    files: ['src/server/ai-read/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
         {
           patterns: [
             {
+              group: ['@/server/services', '**/services', '**/services/*'],
+              importNames: [
+                'withWriteCtx',
+                'withWriteCtxResult',
+                'WriteCtx',
+                'RequestCtx',
+                'createReadCtx',
+              ],
+              message:
+                'ADR-35: the AI read capability is read-only. It holds a ReadCtx to project queries with, and has no business naming the write boundary.',
+            },
+            {
               group: [
-                // Aliased.
                 '@/server/db',
                 '@/server/domain',
-                '@/server/services',
-                '@/server/ai-read/internal',
-                // Relative, at any depth. No `server/` segment: a specifier
-                // climbing out of `src/server/ai/` does not contain one.
                 '**/db',
                 '**/db/*',
                 '**/domain',
                 '**/domain/*',
-                '**/services',
-                '**/services/*',
-                '**/ai-read/internal',
+                'drizzle-orm',
+                'drizzle-orm/*',
+                'pg',
               ],
               message:
-                'ARCHITECTURE.md §2 / ADR-34: src/server/ai/** reads only through the @/server/ai-read capability. It has no database handle, no engine access, and no path to a write context.',
-            },
-            {
-              group: ['drizzle-orm', 'drizzle-orm/*', 'pg'],
-              message:
-                'ADR-34: src/server/ai/** issues no SQL. A query belongs in an application service, behind the @/server/ai-read projection.',
-            },
-            {
-              group: ['openai'],
-              message:
-                'ARCHITECTURE.md §2: only src/server/ai/provider/nvidia-build.ts may import the wire client.',
+                'ADR-21: the AI read capability projects application services. It issues no SQL and imports no engine module directly.',
             },
           ],
         },

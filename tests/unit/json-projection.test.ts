@@ -144,6 +144,49 @@ describe('I-53 — the projection is JSON-safe and deterministic', () => {
   });
 });
 
+describe('I-53 — adversarial values survive the boundary', () => {
+  it('renders the maximum a NUMERIC(20,4) can hold, exactly', () => {
+    // 10^20 - 1 minor units. `Number()` would lose 4 digits of it silently.
+    const max = Money.fromMinor(10n ** 20n - 1n, INR);
+    const projected = projectMoney(max);
+    expect(projected.amount).toBe('9999999999999999.9999');
+    expect(Money.fromDbString(projected.amount, INR).minor).toBe(max.minor);
+  });
+
+  it('renders the most negative figure without dropping the sign', () => {
+    const min = Money.fromMinor(-(10n ** 20n - 1n), INR);
+    expect(projectMoney(min).amount).toBe('-9999999999999999.9999');
+    expect(Money.fromDbString(projectMoney(min).amount, INR).minor).toBe(min.minor);
+  });
+
+  it('has no negative zero to be ambiguous about', () => {
+    // -0n === 0n in bigint, so the float hazard cannot arise here. Asserted
+    // rather than assumed, because it is exactly the kind of thing that would
+    // change if anyone routed this through a number.
+    expect(projectMoney(Money.fromMinor(-0n, INR)).amount).toBe('0.0000');
+    expect(projectMoney(Money.fromMinor(0n, INR)).amount).toBe('0.0000');
+  });
+
+  it('keeps identical digits in different currencies distinguishable', () => {
+    // The reason the currency travels inside the projection rather than beside
+    // it: ₹1,000 and $1,000 are the same digits and not the same money.
+    const rupees = projectMoney(Money.of('1000', INR));
+    const dollars = projectMoney(Money.of('1000', currency('USD')));
+    expect(rupees.amount).toBe(dollars.amount);
+    expect(rupees.currency).not.toBe(dollars.currency);
+    expect(JSON.stringify(rupees)).not.toBe(JSON.stringify(dollars));
+  });
+
+  it('cannot be re-read as a different scale', () => {
+    // Every projection states its own scale, so a consumer never infers one
+    // from the digit count. 1.5 at scale 4 and 1.5 at scale 8 are the same
+    // quantity of money and price respectively, and say so.
+    expect(projectMoney(Money.of('1.5', INR))).toMatchObject({ amount: '1.5000', scale: 4 });
+    expect(projectPrice(UnitPrice.of('1.5'))).toMatchObject({ units: '1.50000000', scale: 8 });
+    expect(projectRate(Rate.of('1.5'))).toMatchObject({ value: '1.5000000000', scale: 10 });
+  });
+});
+
 describe('I-53 — absence stays absent', () => {
   it('projects null as null, never as zero', () => {
     // FINANCIAL-DOMAIN.md §10.3. A boundary is where this is most easily lost:

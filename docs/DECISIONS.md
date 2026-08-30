@@ -814,6 +814,51 @@ Both depths partition. That is the point: the caller chooses a level of detail, 
 
 ---
 
+## ADR-38 — The AI zone is an allowlist; a new directory is closed on the day it is created
+
+**Decision.** Approved 2026-08-30, resolving findings **S-1 … S-4** of the adversarial security review of step 7.0.
+
+> **`src/server/ai/**` may import `@/server/ai-read`, `@/server/log` and `@/lib/**` (except `@/lib/env`), and nothing else under `src/server/`, `app/` or the environment. The rule denies `@/server/**` and re-admits by exception — so a directory added tomorrow is closed without anyone editing this list.**
+
+[ADR-34](#adr-34--the-ai-import-boundary-is-enforced-three-ways-and-covers-relative-paths) closed the relative-path hole but kept the rule's original **shape**: a denylist naming `db`, `domain` and `services`. That shape is the defect. It answers "is this one of the three modules we thought of?" when the question is "is this one of the two modules the AI layer is supposed to reach?" The review attacked it with fourteen probes; **seven passed both ESLint and the source scan**, and two were outright defeats of the write boundary:
+
+| # | Route | What it granted | Severity |
+|---|---|---|---|
+| **S-1** | `@app/(app)/money/actions` — or the same file by relative path | `'use server'` actions take a **form, not a context**. Each calls `requireSession()`, then `createReadCtx()`, then `withWriteCtx()` internally. Calling one mutates the ledger with the session's own authority, and **no write capability ever passes through AI code** — so every type-level guarantee in ADR-33 is bypassed rather than broken | **CRITICAL** |
+| **S-2** | `@/server/jobs` | `enqueue`, `runDueJobs`, `scheduleRecurringPost`, `scheduleMarketDataRefresh`. The handlers call `withWriteCtx`: recurring postings, price writes, corporate-action detections. The same defeat, one indirection further away | **CRITICAL** |
+| **S-3** | `@/lib/env` | `env()` returns `DATABASE_URL`, `APP_ENCRYPTION_KEY`, `SESSION_COOKIE_SECRET`, `TWELVE_DATA_API_KEY` — and, by design, `NVIDIA_API_KEY`. A layer whose whole purpose is sending text to an external provider had unrestricted access to every credential | **HIGH** |
+| **S-4** | `@/server/auth/**` | `session-store` (read, create, delete sessions), `crypto` (decrypt under `APP_ENCRYPTION_KEY` — TOTP secrets and recovery codes), `password`, `account.ts` (which opens its own `db().transaction`) | **HIGH** |
+| | `@/server/market-data/http` | Arbitrary outbound HTTP with provider credentials — an exfiltration channel | MEDIUM |
+| | `@/server/health` | Executes SQL, even if only a fixed probe | LOW |
+
+**A fifth finding was the exemption itself.** `ignores: ['src/server/ai/provider/nvidia-build.ts']` removes the config object *entirely* for that file — rules and all — so the single exemption intended to permit `openai` also handed the wire client the database, the services and the engine. The bans and the `openai` allowance are now two config objects sharing one pattern array, which makes the exemption exactly one import wide.
+
+**Why an allowlist is the right shape here specifically.** The AI layer is the one part of this system that processes untrusted natural language and sends data to a third party. Its correct import surface is *two modules*, and it will not grow much: Phase 7.3 adds projections **inside** `ai-read`, not new dependencies. When the safe set is small, closed and stable, and the unsafe set is open-ended and grows with the codebase, enumerating the unsafe set is the wrong way round.
+
+**`@/server/log` is deliberately re-admitted.** `AI-SYSTEM.md` §15 wants Phase 7 to reuse its redactor rather than build a parallel one. It exports `redact`, `log` and `newCorrelationId`; it reads `LOG_LEVEL` but re-exports nothing from the environment, so admitting it does not re-open **S-3**.
+
+**`src/server/ai-read/**` gains its own zone.** It is the one module outside the AI zone that holds a real `ReadCtx` on the layer's behalf, so it may call services — that is its job — but `importNames` bans `withWriteCtx`, `withWriteCtxResult`, `WriteCtx`, `RequestCtx` and `createReadCtx` by name while leaving queries importable, which a path-only rule cannot express. Belt to the type system's braces: a `ReadCtx` is not a `RequestCtx`, so a write there would not compile either.
+
+**Enforcement.** Invariant **I-51**, extended. The source scan now reads its pattern list **out of `eslint.config.mjs`** rather than keeping a copy — the copy had already drifted, which is how five of these routes stayed open in both mechanisms at once. `tests/unit/ai-boundary-source-scan.test.ts` asserts the allowlist shape, the ordering the negation depends on, every route above, that an invented directory (`@/server/whatever-comes-next`) is closed, and that the provider file is still governed.
+
+**Rejected.** *Adding the six missing directories to the denylist* — it would have closed these seven routes and left the shape that produced them, so the next directory would be open again. *Banning `@/lib/**` wholesale* — the AI layer legitimately needs `Money`, `IsoDate` and the JSON projection; `@/lib/env` is the one module there that carries secrets, and naming it is precise rather than broad. *Relying on the type system alone for S-1* — a server action takes a `FormData`, so there is no context in its signature for a capability type to constrain; only an import ban can reach it.
+
+---
+
+## ADR-39 — The AI read capability is frozen
+
+**Decision.** Approved 2026-08-30, resolving finding **S-5**.
+
+> **`createAiReadCtx` returns a frozen object.**
+
+`readonly` is a compile-time annotation and is erased at runtime, so `(ai as { userId: string }).userId = 'attacker'` succeeded. It could never redirect a **read**: `withFinanceReads` keys its `WeakMap` on object *identity*, so the bound `ReadCtx` is whatever the capability was minted with, and every service still filters on that context's `userId`. The exposure is narrower and quieter — a projection that rendered `ai.userId` instead of `read.userId` would label one user's figures with another's name, and nothing would report an error.
+
+Freezing removes the divergence rather than documenting it, and matches what `src/lib/decimal` already does with every `Money`. **LOW** severity, fixed because it is three characters and the alternative is a comment asking future readers to remember.
+
+**Rejected.** *A `Proxy` that throws on write* — heavier, and freezing already throws in strict mode, which every ES module is.
+
+---
+
 ## Open decisions requiring the user
 
 | # | Decision | Why it cannot be defaulted | Blocks |

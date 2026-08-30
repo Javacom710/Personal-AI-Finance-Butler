@@ -42,7 +42,14 @@ const bound = new WeakMap<AiReadCtx, ReadCtx>();
  * the AI zone has no way to obtain one.
  */
 export function createAiReadCtx(read: ReadCtx): AiReadCtx {
-  const ai: AiReadCtx = {
+  // Frozen, like every value in `src/lib/decimal`. `readonly` is erased at
+  // runtime, and the adversarial review found the consequence: `ai.userId` could
+  // be overwritten. It could never redirect a *read* — `withFinanceReads` keys
+  // the WeakMap on object identity, so the bound context is whatever it was
+  // minted with — but it could make the capability's own fields disagree with
+  // the context behind it, and a projection rendering `ai.userId` would then
+  // label one user's figures with another's name.
+  const ai: AiReadCtx = Object.freeze({
     userId: read.userId,
     now: read.now,
     today: read.today,
@@ -50,7 +57,7 @@ export function createAiReadCtx(read: ReadCtx): AiReadCtx {
     locale: read.locale,
     timezone: read.timezone,
     fiscalYearStartMonth: read.fiscalYearStartMonth,
-  };
+  });
   bound.set(ai, read);
   return ai;
 }

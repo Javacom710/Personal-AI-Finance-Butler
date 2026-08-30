@@ -109,6 +109,24 @@ describe('I-52 — the binding is unforgeable', () => {
     );
   });
 
+  it('cannot be re-pointed at another user by mutating userId', async () => {
+    // Found by the adversarial review. `withFinanceReads` keys the WeakMap on
+    // object *identity*, so overwriting `ai.userId` never changes which context
+    // is resolved — reads stay on the real user either way. The danger is
+    // narrower and subtler: a projection that rendered `ai.userId` instead of
+    // `read.userId` would label one user's figures with another's name. The
+    // capability is frozen so the two can never disagree.
+    const ai = createAiReadCtx(readCtx('victim'));
+    expect(Object.isFrozen(ai)).toBe(true);
+
+    expect(() => {
+      (ai as unknown as { userId: string }).userId = 'attacker';
+    }).toThrow(TypeError);
+
+    expect(ai.userId).toBe('victim');
+    expect(await withFinanceReads(ai, async (r) => r.userId)).toBe('victim');
+  });
+
   it('keeps two capabilities bound to their own contexts', async () => {
     // The isolation that makes `userId` come from the session rather than from
     // anything the AI layer holds.
