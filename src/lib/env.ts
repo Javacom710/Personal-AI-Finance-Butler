@@ -79,6 +79,47 @@ const envSchema = z.object({
    * `check:no-client-secrets` and a source scan).
    */
   TWELVE_DATA_API_KEY: z.string().min(1).optional(),
+
+  /**
+   * NVIDIA Build — the AI provider ([ADR-09](../../docs/DECISIONS.md)).
+   *
+   * **Optional for exactly the reasons `TWELVE_DATA_API_KEY` is.** Absent, the
+   * application starts, every financial figure is still computed, every
+   * deterministic test still runs, and the AI provider reports a typed
+   * `not_configured` error instead of producing a fabricated result. A required
+   * key would turn one degraded feature into a dead application.
+   *
+   * Read **only** inside `src/server/ai-runtime.ts`, the composition root that
+   * constructs the provider — never inside `src/server/ai/**`, which cannot
+   * import this module at all (ADR-38). The key is passed *into* the provider,
+   * so the AI layer holds a configured client and never a credential it could
+   * put in a prompt.
+   */
+  NVIDIA_API_KEY: z.string().min(1).optional(),
+
+  /** Overrides the base URL for the provider. Set only to point at a mock in a smoke test. */
+  NVIDIA_BASE_URL: z.url().default('https://integrate.api.nvidia.com/v1'),
+
+  /**
+   * Tier → ordered candidate model identifiers, comma-separated
+   * ([ADR-17](../../docs/DECISIONS.md#adr-17--model-identifiers-are-configuration-not-code)).
+   *
+   * Declared here rather than in `src/server/ai/config/` because that directory
+   * cannot read `process.env` — the ESLint rule confines environment access to
+   * this file, and the AI zone cannot import it. The lists are read here and
+   * **passed into** the config module. Empty means "use the built-in default
+   * order", which is itself configuration rather than a hard-coded routing
+   * decision.
+   */
+  AI_TIER1_MODELS: z.string().default(''),
+  AI_TIER2_MODELS: z.string().default(''),
+  AI_TIER3_MODELS: z.string().default(''),
+  AI_TIER4_MODELS: z.string().default(''),
+
+  /** Requests per minute for the AI endpoints. One user, so a small number is the right one. */
+  AI_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(10),
+  /** Hard ceiling on a single provider call, in milliseconds. */
+  AI_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(60_000),
 });
 
 export type Env = z.infer<typeof envSchema>;

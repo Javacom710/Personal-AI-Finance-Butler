@@ -724,6 +724,32 @@ const ENGINE_ENFORCED: readonly { invariant: string; description: string; note: 
     description: 'A category breakdown declares its additivity, and a partition row set sums to its total exactly',
     note: 'domain/calc/categories.ts foldToRoots; tests/unit/breakdown-contract.test.ts; tests/integration/golden-g1.test.ts',
   },
+  // Phase 7 — AI infrastructure. None is expressible as a query: they are
+  // properties of an adapter's error handling, a router's filter, a frozen
+  // registry, and a settings flag that must be read before any egress.
+  {
+    invariant: 'I-55',
+    description: 'The AI provider classifies every failure and never throws; the credential appears only in the auth header',
+    note: 'ai/provider/nvidia-build.ts; tests/unit/ai-provider.test.ts',
+  },
+  {
+    invariant: 'I-56',
+    description:
+      'A task is never routed to a model lacking a required capability; cross-tier downgrade is impossible and Tier 3 needs an explicit user request',
+    note: 'ai/orchestrator/select.ts + requirements.ts; tests/unit/ai-routing.test.ts',
+  },
+  {
+    invariant: 'I-57',
+    description:
+      'Every AI tool is read-only, schema-validated and strict; no tool input accepts a user identifier',
+    note: 'ai/tools/registry.ts + dispatch.ts; tests/unit/ai-tools.test.ts',
+  },
+  {
+    invariant: 'I-58',
+    description:
+      'ai_enabled = false produces zero AI egress; the rate limiter is per-user; every tool result stays inside the calling user\'s data',
+    note: 'ai-runtime.ts; tests/integration/ai-infrastructure.test.ts',
+  },
 ];
 
 export async function verifyIntegrity(connectionString: string): Promise<IntegrityReport> {

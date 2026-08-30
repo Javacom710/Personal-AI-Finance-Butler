@@ -22,6 +22,8 @@
     "db:rollback": "tsx scripts/db-rollback.ts",
     "db:seed": "tsx scripts/db-seed.ts",
     "db:studio": "drizzle-kit studio",
+    "ai:smoke": "node --conditions=react-server --import tsx scripts/ai-smoke.ts",
+    "ai:catalogue": "node --conditions=react-server --import tsx scripts/ai-smoke.ts --catalogue",
     "smoke:market-data": "node --conditions=react-server --import tsx scripts/smoke-market-data.ts",
     "verify:integrity": "tsx scripts/verify-integrity.ts",
     "bench:networth": "node --conditions=react-server --import tsx scripts/bench-networth.ts",
@@ -58,3 +60,4 @@
     "vitest": "^4.1.10"
   }
 }
+

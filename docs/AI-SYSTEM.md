@@ -12,11 +12,11 @@ Everything under `src/server/ai/` is `import 'server-only'`. No API key, model i
 
 These are constraints on the code, not aspirations. Each maps to a test.
 
-1. The AI **never** mutates financial records — and performs **no database write at all**, not even the proposal row. AI code returns objects; `services/aiProposals.ts` persists them ([ADR-35](DECISIONS.md#adr-35--ai-infrastructure-is-strictly-read-only-a-mutation-needs-a-separate-approved-proposal-workflow)). Enforced by the type system: the AI layer holds an **`AiReadCtx`** — which carries no database handle and no transaction capability, and is *not* a `ReadCtx` — while every command requires a `WriteCtx` and `withWriteCtx` itself requires a `RequestCtx`. `withWriteCtx(ai, …)`, `ai.db`, and passing `ai` to any service are each a compile error, asserted by **I-50** in `tests/unit/ai-write-boundary.test.ts` ([ADR-33](DECISIONS.md#adr-33--the-transaction-opener-is-a-capability-carried-on-the-context-not-an-ambient-import)). *Until 2026-08-30 this rule said the AI layer holds "only a `ReadCtx`" — which was true and insufficient: a `ReadCtx` carries a full DML handle, and `withWriteCtx(readCtx, …)` compiled clean. That was finding **F-1**.*
-2. The AI reads only through the controlled tool surface (§8) — reached via the one capability `@/server/ai-read`. There is no raw query path and no bulk export. The AI zone imports no database, engine or service module **by any spelling**: aliased, relative, or dynamic ([ADR-34](DECISIONS.md#adr-34--the-ai-import-boundary-is-enforced-three-ways-and-covers-relative-paths), **I-51**).
+1. The AI **never** mutates financial records â€” and performs **no database write at all**, not even the proposal row. AI code returns objects; `services/aiProposals.ts` persists them ([ADR-35](DECISIONS.md#adr-35--ai-infrastructure-is-strictly-read-only-a-mutation-needs-a-separate-approved-proposal-workflow)). Enforced by the type system: the AI layer holds an **`AiReadCtx`** â€” which carries no database handle and no transaction capability, and is *not* a `ReadCtx` â€” while every command requires a `WriteCtx` and `withWriteCtx` itself requires a `RequestCtx`. `withWriteCtx(ai, â€¦)`, `ai.db`, and passing `ai` to any service are each a compile error, asserted by **I-50** in `tests/unit/ai-write-boundary.test.ts` ([ADR-33](DECISIONS.md#adr-33--the-transaction-opener-is-a-capability-carried-on-the-context-not-an-ambient-import)). *Until 2026-08-30 this rule said the AI layer holds "only a `ReadCtx`" â€” which was true and insufficient: a `ReadCtx` carries a full DML handle, and `withWriteCtx(readCtx, â€¦)` compiled clean. That was finding **F-1**.*
+2. The AI reads only through the controlled tool surface (Â§8) â€” reached via the one capability `@/server/ai-read`. There is no raw query path and no bulk export. The AI zone imports no database, engine or service module **by any spelling**: aliased, relative, or dynamic ([ADR-34](DECISIONS.md#adr-34--the-ai-import-boundary-is-enforced-three-ways-and-covers-relative-paths), **I-51**).
 3. No model identifier appears outside `src/server/ai/config/`. The rest of the application requests a *capability*, never a model.
-4. A task is **never** routed to a model that lacks a capability the task requires — availability is not a licence to downgrade (§7).
-5. Authorisation is decided by application services, not by the model and not in the tool layer. No tool accepts a user identifier; `userId` comes from the session. Authentication and authorization are distinct — see [SECURITY.md §0](SECURITY.md#0-authentication--authorization).
+4. A task is **never** routed to a model that lacks a capability the task requires â€” availability is not a licence to downgrade (Â§7).
+5. Authorisation is decided by application services, not by the model and not in the tool layer. No tool accepts a user identifier; `userId` comes from the session. Authentication and authorization are distinct â€” see [SECURITY.md Â§0](SECURITY.md#0-authentication--authorization).
 6. Structured output that fails validation is **rejected**, not repaired by guessing.
 7. Every figure the AI states must come from a tool result. The engine calculates; the model explains.
 
@@ -62,7 +62,7 @@ export interface ChatResponse {
 }
 ```
 
-`src/server/ai/provider/nvidia-build.ts` implements this over the OpenAI-compatible wire format. It is the only file that knows about `Authorization: Bearer nvapi-…`, `/chat/completions`, or NVIDIA's error shapes.
+`src/server/ai/provider/nvidia-build.ts` implements this over the OpenAI-compatible wire format. It is the only file that knows about `Authorization: Bearer nvapi-â€¦`, `/chat/completions`, or NVIDIA's error shapes.
 
 ### 2.2 What NVIDIA Build gives us, and what it does not
 
@@ -70,18 +70,18 @@ Measured against the Anthropic-style feature set assumed in the previous draft:
 
 | Capability | Status | Consequence for this design |
 |---|---|---|
-| OpenAI-compatible `/chat/completions` | ✅ | Use the `openai` npm client with `baseURL` override, or plain `fetch`. Chosen: `openai` client — it handles SSE parsing and retries; it is a wire-format client here, not an OpenAI dependency. |
-| Streaming (SSE) | ✅ | Used for chat and analysis routes |
-| Function/tool calling | ⚠️ **varies by model** | Must be measured per model (§5), not assumed |
-| `response_format: json_schema` | ⚠️ **varies by model** | Same — this is the single biggest routing input |
-| Vision / image input | ⚠️ Tier 4 models only | Gates document extraction |
-| Embeddings endpoint | ✅ | Tier 5, deferred (§11) |
-| **Prompt caching** | ❌ **not available** | No 0.1× cached-read discount. Prompt size is a direct, linear cost — §12 rewrites the cost model around trimming, not caching. |
-| Server-side fallback | ❌ | Fallback is ours to implement (§7) |
-| Refusal as a typed stop reason | ❌ | Content filtering surfaces as `finish_reason: 'content_filter'` or a provider error; handled in §16 |
-| Reasoning-effort parameter | ❌ | Depth is a model choice (tier selection), not a request parameter |
+| OpenAI-compatible `/chat/completions` | OK | Use the `openai` npm client with `baseURL` override, or plain `fetch`. **Built over injected `fetch`** ([ADR-40](DECISIONS.md#adr-40--the-nvidia-adapter-is-written-over-fetch-the-openai-client-is-deferred-to-the-phase-that-needs-streaming)): the client was chosen for SSE parsing and retries, and Phase 7 needs neither — no streaming caller until Phase 9, and retry policy belongs to the orchestrator so two providers cannot grow two policies. The ban on importing `openai` outside `nvidia-build.ts` stays, so adopting it later is a change to that one file. |
+| Streaming (SSE) | âœ… | Used for chat and analysis routes |
+| Function/tool calling | âš ï¸ **varies by model** | Must be measured per model (Â§5), not assumed |
+| `response_format: json_schema` | âš ï¸ **varies by model** | Same â€” this is the single biggest routing input |
+| Vision / image input | âš ï¸ Tier 4 models only | Gates document extraction |
+| Embeddings endpoint | âœ… | Tier 5, deferred (Â§11) |
+| **Prompt caching** | âŒ **not available** | No 0.1Ã— cached-read discount. Prompt size is a direct, linear cost â€” Â§12 rewrites the cost model around trimming, not caching. |
+| Server-side fallback | âŒ | Fallback is ours to implement (Â§7) |
+| Refusal as a typed stop reason | âŒ | Content filtering surfaces as `finish_reason: 'content_filter'` or a provider error; handled in Â§16 |
+| Reasoning-effort parameter | âŒ | Depth is a model choice (tier selection), not a request parameter |
 
-**The recurring word is "varies by model."** That is the defining property of an open-weight multi-model architecture and the reason `CLAUDE.md` mandates an evaluation suite. The design answer is the capability matrix (§5): a *measured, stored* record of what each model actually does, consulted by the router on every request.
+**The recurring word is "varies by model."** That is the defining property of an open-weight multi-model architecture and the reason `CLAUDE.md` mandates an evaluation suite. The design answer is the capability matrix (Â§5): a *measured, stored* record of what each model actually does, consulted by the router on every request.
 
 ### 2.3 Model catalogue reality check
 
@@ -89,19 +89,19 @@ Against the live unauthenticated catalogue (Phase 0), the candidate list in `CLA
 
 | `CLAUDE.md` candidate | Catalogue |
 |---|---|
-| `nvidia/nemotron-3-super-120b-a12b` | ✅ present |
-| `nvidia/nemotron-3-ultra-550b-a55b` | ✅ present |
-| `nvidia/nemotron-3-nano-30b-a3b` | ✅ present |
-| `google/gemma-4-31b-it` | ✅ present |
-| `openai/gpt-oss-20b` | ✅ present |
-| `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning` | ✅ present |
-| `nvidia/nemotron-nano-12b-v2-vl` | ✅ present |
-| `nvidia/nemotron-3-embed-1b` | ✅ present |
-| `deepseek-ai/deepseek-v4-flash` | ⚠️ actual id `deepseek-ai/deepseek-v4-flash-0731` |
-| `zai-org/glm-5.2` | ⚠️ actual id `z-ai/glm-5.2` |
-| `deepseek-ai/deepseek-v4-pro` | ❌ not listed |
-| `mistralai/mistral-medium-3.5-128b` | ❌ not listed |
-| `qwen/qwen3-next-80b-a3b-instruct` | ❌ not listed (no Qwen models at all) |
+| `nvidia/nemotron-3-super-120b-a12b` | âœ… present |
+| `nvidia/nemotron-3-ultra-550b-a55b` | âœ… present |
+| `nvidia/nemotron-3-nano-30b-a3b` | âœ… present |
+| `google/gemma-4-31b-it` | âœ… present |
+| `openai/gpt-oss-20b` | âœ… present |
+| `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning` | âœ… present |
+| `nvidia/nemotron-nano-12b-v2-vl` | âœ… present |
+| `nvidia/nemotron-3-embed-1b` | âœ… present |
+| `deepseek-ai/deepseek-v4-flash` | âš ï¸ actual id `deepseek-ai/deepseek-v4-flash-0731` |
+| `zai-org/glm-5.2` | âš ï¸ actual id `z-ai/glm-5.2` |
+| `deepseek-ai/deepseek-v4-pro` | âŒ not listed |
+| `mistralai/mistral-medium-3.5-128b` | âŒ not listed |
+| `qwen/qwen3-next-80b-a3b-instruct` | âŒ not listed (no Qwen models at all) |
 
 The list was read without an API key and may be partial. **`npm run ai:catalogue` re-verifies it authenticated and is the first action of Phase 8.** Every tier has at least one confirmed model, so no tier is blocked.
 
@@ -116,32 +116,32 @@ src/server/ai/
     nvidia-build.ts       the only NVIDIA-aware file
     registry.ts           active provider resolution
   config/
-    models.ts             tier → ordered candidate list, from env (ADR-17)
+    models.ts             tier â†’ ordered candidate list, from env (ADR-17)
     capabilities.json     MEASURED capability matrix, written by the eval harness
     pricing.ts            cost per model, config-driven, may be zero/unknown
   orchestrator/
     index.ts              the entry point: run(task, input, ctx)
-    requirements.ts       task → CapabilityRequirement
+    requirements.ts       task â†’ CapabilityRequirement
     select.ts             candidate filtering + ordering
     fallback.ts           attempt chain, failure classification, circuit breaker
     health.ts             per-model health and rate-limit state
   tools/
-    definitions.ts        Zod → JSON Schema tool definitions
+    definitions.ts        Zod â†’ JSON Schema tool definitions
     handlers.ts           read-only projections over APPLICATION SERVICES (never the db,
-                          never the domain layer directly — guards live in the services)
+                          never the domain layer directly â€” guards live in the services)
     registry.ts           frozen, ordered tool list
   loop.ts                 the agentic read loop
   structured/
     request.ts            json_schema vs json_object vs prompted-JSON strategies
     validate.ts           parse, validate, one repair attempt, then reject
   proposals/
-    schemas.ts            Zod schemas for each proposal kind — pure
-    resolve.ts            hint → entity resolution over data passed IN — pure
-                          (apply lives in services/aiProposals.ts, NOT here — §9)
+    schemas.ts            Zod schemas for each proposal kind â€” pure
+    resolve.ts            hint â†’ entity resolution over data passed IN â€” pure
+                          (apply lives in services/aiProposals.ts, NOT here â€” Â§9)
   documents/
-    extract.ts            Tier 4 image/PDF → structured proposal
+    extract.ts            Tier 4 image/PDF â†’ structured proposal
   embeddings/
-    README.md             deferred; activation criteria (§11)
+    README.md             deferred; activation criteria (Â§11)
   eval/
     tasks/                golden task set
     runner.ts  score.ts  report.ts
@@ -150,7 +150,7 @@ src/server/ai/
   errors.ts
 ```
 
-Nothing outside `src/server/ai/` imports the provider client, and nothing inside it imports `src/server/db/`, `src/server/domain/` or `src/server/services/` — **in any import style**. That last qualifier is load-bearing and was missing until 2026-08-30: the ESLint rule matched only `@/`-aliased specifiers, so `import { db } from '../../db/client'` linted clean (finding **F-2**). The boundary is now enforced three ways — types, ESLint, and a source scan that also covers dynamic `import()`, which ESLint's rule cannot see at all ([ADR-34](DECISIONS.md#adr-34--the-ai-import-boundary-is-enforced-three-ways-and-covers-relative-paths)).
+Nothing outside `src/server/ai/` imports the provider client, and nothing inside it imports `src/server/db/`, `src/server/domain/` or `src/server/services/` â€” **in any import style**. That last qualifier is load-bearing and was missing until 2026-08-30: the ESLint rule matched only `@/`-aliased specifiers, so `import { db } from '../../db/client'` linted clean (finding **F-2**). The boundary is now enforced three ways â€” types, ESLint, and a source scan that also covers dynamic `import()`, which ESLint's rule cannot see at all ([ADR-34](DECISIONS.md#adr-34--the-ai-import-boundary-is-enforced-three-ways-and-covers-relative-paths)).
 
 `src/server/ai-read/` is the AI layer's **read capability** and sits deliberately outside the AI zone: `index.ts` exports `AiReadCtx` and, from step 7.3, the projected read functions; `internal.ts` holds the single bridge back to a `ReadCtx` and is banned from `src/server/ai/**` like everything else.
 
@@ -162,22 +162,22 @@ Per `CLAUDE.md <ai_model_tiers>`. Tiers are **capability classes**, not model na
 
 | Tier | Purpose | Confirmed candidates | Optimise for |
 |---|---|---|---|
-| **1 — Routine** | Transaction parsing, categorisation, routine chat, summaries, simple portfolio questions | `nvidia/nemotron-3-nano-30b-a3b`, `openai/gpt-oss-20b`, `google/gemma-4-31b-it` | Latency, cost, **schema adherence**, tool-call reliability |
-| **2 — Advanced reasoning** | Portfolio analysis, multi-period and cross-domain analysis, spending patterns, financial-health reviews, hard tool selection | `nvidia/nemotron-3-super-120b-a12b`, `z-ai/glm-5.2`, `deepseek-ai/deepseek-v4-flash-0731` | Reasoning quality, tool selection |
-| **3 — Maximum reasoning** | Exceptionally complex investigations only. **Never** routed to by default | `nvidia/nemotron-3-ultra-550b-a55b` | Capability ceiling |
-| **4 — Multimodal / document** | Receipts, invoices, statements, financial PDFs, screenshots | `nvidia/nemotron-nano-12b-v2-vl`, `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning` | Extraction accuracy |
-| **5 — Retrieval / embeddings** | Semantic search over notes and documents | `nvidia/nemotron-3-embed-1b` | **Deferred — not justified at launch (§11)** |
+| **1 â€” Routine** | Transaction parsing, categorisation, routine chat, summaries, simple portfolio questions | `nvidia/nemotron-3-nano-30b-a3b`, `openai/gpt-oss-20b`, `google/gemma-4-31b-it` | Latency, cost, **schema adherence**, tool-call reliability |
+| **2 â€” Advanced reasoning** | Portfolio analysis, multi-period and cross-domain analysis, spending patterns, financial-health reviews, hard tool selection | `nvidia/nemotron-3-super-120b-a12b`, `z-ai/glm-5.2`, `deepseek-ai/deepseek-v4-flash-0731` | Reasoning quality, tool selection |
+| **3 â€” Maximum reasoning** | Exceptionally complex investigations only. **Never** routed to by default | `nvidia/nemotron-3-ultra-550b-a55b` | Capability ceiling |
+| **4 â€” Multimodal / document** | Receipts, invoices, statements, financial PDFs, screenshots | `nvidia/nemotron-nano-12b-v2-vl`, `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning` | Extraction accuracy |
+| **5 â€” Retrieval / embeddings** | Semantic search over notes and documents | `nvidia/nemotron-3-embed-1b` | **Deferred â€” not justified at launch (Â§11)** |
 
 **Tier 3 access rule.** Reachable only when the user explicitly requests deep analysis from the UI, or when a Tier 2 attempt returns a self-declared low-confidence result on a flagged-complex task. Never by automatic escalation from ordinary chat. Enforced in `select.ts` and asserted by test.
 
 ---
 
-## 5. Capability matrix — the core mechanism
+## 5. Capability matrix â€” the core mechanism
 
 Because support varies by model, the router cannot assume; it consults measurements.
 
 ```ts
-// src/server/ai/config/capabilities.json  (written by the eval harness)
+// src/server/ai/config/capabilities.ts  (declared defaults; measured entries written by the eval harness)
 {
   "nvidia/nemotron-3-nano-30b-a3b": {
     "tier": 1,
@@ -203,11 +203,12 @@ Because support varies by model, the router cannot assume; it consults measureme
 
 Rules:
 
-- A model with no entry is **unusable**. Startup fails loudly rather than routing blind.
-- An entry older than 30 days, or measured against an older eval version, is flagged stale in Settings → AI and in CI.
-- `structuredOutput: "none"` disqualifies a model from every proposal task, permanently — no prompt trick promotes it.
+- A model with no entry is **unusable**. The router refuses rather than routing blind.
+- **Every entry carries `source`.** `declared` comes from the provider's documentation and is *not evidence*; `measured` is produced by `npm run ai:eval`. A route with a score threshold — every structured-output and tool-using route — requires `measured`. This split is what lets a connectivity smoke test run before the eval has, without ever letting an unmeasured model parse a transaction. **No score in the repository is a benchmark result: none have been measured (OD-1).**
+- An entry older than 30 days, or measured against an older eval version, is flagged stale in Settings â†’ AI and in CI.
+- `structuredOutput: "none"` disqualifies a model from every proposal task, permanently â€” no prompt trick promotes it.
 - `toolCalling: "none"` disqualifies a model from the read loop.
-- Thresholds for production use: `schemaAdherence ≥ 0.95` for Tier 1 parsing, `toolCallCorrectness ≥ 0.90` for any tool-using route. Below threshold the model may sit in the candidate list only as a last-resort fallback for non-mutating tasks, and is marked as such.
+- Thresholds for production use: `schemaAdherence â‰¥ 0.95` for Tier 1 parsing, `toolCallCorrectness â‰¥ 0.90` for any tool-using route. Below threshold the model may sit in the candidate list only as a last-resort fallback for non-mutating tasks, and is marked as such.
 
 ---
 
@@ -215,27 +216,27 @@ Rules:
 
 ```
 run(task, input, ctx)
-  │
-  ├─ requirements.ts   task ─────────────► CapabilityRequirement
-  │                                        { tier, needsTools, needsSchema,
-  │                                          needsVision, minSchemaAdherence,
-  │                                          maxLatencyMs, allowTierEscalation }
-  │
-  ├─ select.ts         candidates = config.tier[req.tier]
-  │                      .filter(satisfies capability requirement)   ← hard gate
-  │                      .filter(health.isAvailable)                 ← circuit breaker
-  │                      .sort(by score, then latency, then cost)
-  │
-  ├─ fallback.ts       attempt candidates in order, classifying failures
-  │
-  └─ observability     record model, task, latency, tokens, outcome, fallback depth
+  â”‚
+  â”œâ”€ requirements.ts   task â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â–º CapabilityRequirement
+  â”‚                                        { tier, needsTools, needsSchema,
+  â”‚                                          needsVision, minSchemaAdherence,
+  â”‚                                          maxLatencyMs, allowTierEscalation }
+  â”‚
+  â”œâ”€ select.ts         candidates = config.tier[req.tier]
+  â”‚                      .filter(satisfies capability requirement)   â† hard gate
+  â”‚                      .filter(health.isAvailable)                 â† circuit breaker
+  â”‚                      .sort(by score, then latency, then cost)
+  â”‚
+  â”œâ”€ fallback.ts       attempt candidates in order, classifying failures
+  â”‚
+  â””â”€ observability     record model, task, latency, tokens, outcome, fallback depth
 ```
 
-### 6.1 Task → requirement
+### 6.1 Task â†’ requirement
 
 | Task | Tier | Tools | Schema | Vision | Notes |
 |---|---|---|---|---|---|
-| `parseTransaction` | 1 | no | **json_schema, ≥0.95** | no | No tools — nothing is read while drafting a write |
+| `parseTransaction` | 1 | no | **json_schema, â‰¥0.95** | no | No tools â€” nothing is read while drafting a write |
 | `classifyTransaction` | 1 | no | json_schema | no | |
 | `answerFinanceQuestion` | 1 | **yes** | no | no | The read loop |
 | `summarizeFinancialData` | 1 | yes | no | no | |
@@ -244,28 +245,28 @@ run(task, input, ctx)
 | `analyzeFinancialPeriod` | 2 | yes | no | no | |
 | `runFinancialScenario` | 2 | yes | no | no | Engine computes; model explains |
 | `deepInvestigation` | 3 | yes | no | no | Explicit user request only |
-| `extractReceiptData` | 4 | no | json_schema | **yes** | → proposal pipeline |
+| `extractReceiptData` | 4 | no | json_schema | **yes** | â†’ proposal pipeline |
 | `analyzeDocument` | 4 | no | json_schema | yes | |
-| `retrieveRelevantContext` | 5 | — | — | — | Deferred (§11) |
+| `retrieveRelevantContext` | 5 | â€” | â€” | â€” | Deferred (Â§11) |
 
 These are exactly the application-level capabilities named in `CLAUDE.md <ai_architecture>`. Callers use these names; they never see a model.
 
-### 6.2 Escalation — evaluated per message, never sticky
+### 6.2 Escalation â€” evaluated per message, never sticky
 
-Tier 1 → Tier 2 escalation is decided by **deterministic classification in application code**, not by the model. Triggers: an explicit review/analysis request, a multi-period comparison, a scenario, or a "why did X change" question.
+Tier 1 â†’ Tier 2 escalation is decided by **deterministic classification in application code**, not by the model. Triggers: an explicit review/analysis request, a multi-period comparison, a scenario, or a "why did X change" question.
 
-**Escalation does not persist across messages.** Each user message is classified on its own. An earlier escalation carries forward only for a **dependent follow-up** — a message that cannot be understood without the previous answer (`"why?"`, `"and last year?"`, `"break that down"`). A fresh, self-contained question re-enters at Tier 1 even if the previous turn ran on Tier 2.
+**Escalation does not persist across messages.** Each user message is classified on its own. An earlier escalation carries forward only for a **dependent follow-up** â€” a message that cannot be understood without the previous answer (`"why?"`, `"and last year?"`, `"break that down"`). A fresh, self-contained question re-enters at Tier 1 even if the previous turn ran on Tier 2.
 
-This matters more than it looks. Sticky escalation is the standard way a well-intentioned router degenerates into "everything runs on the big model": one deep question early in a session, and every trivial follow-up for the rest of the conversation inherits Tier 2. The cost is invisible because nothing looks wrong — the answers are fine, they are just several times more expensive than they need to be, and with no prompt caching (§12) that cost is paid in full on every turn.
+This matters more than it looks. Sticky escalation is the standard way a well-intentioned router degenerates into "everything runs on the big model": one deep question early in a session, and every trivial follow-up for the rest of the conversation inherits Tier 2. The cost is invisible because nothing looks wrong â€” the answers are fine, they are just several times more expensive than they need to be, and with no prompt caching (Â§12) that cost is paid in full on every turn.
 
-Tier 2 → Tier 3 requires an explicit user action; it is never reached by classification. The active tier is shown in the message header so cost and latency are never a surprise ([CLAUDE.md `<ai_orchestrator>`](../CLAUDE.md): model selection is hidden, but diagnostics are permitted).
+Tier 2 â†’ Tier 3 requires an explicit user action; it is never reached by classification. The active tier is shown in the message header so cost and latency are never a surprise ([CLAUDE.md `<ai_orchestrator>`](../CLAUDE.md): model selection is hidden, but diagnostics are permitted).
 
 ### 6.3 Guarding against tier drift
 
-A classifier that quietly over-escalates is indistinguishable from a correct one by looking at answers — only the bill changes. Two checks:
+A classifier that quietly over-escalates is indistinguishable from a correct one by looking at answers â€” only the bill changes. Two checks:
 
-- **Measured distribution.** `ai_usage_daily` carries `tier`, so Settings → AI shows the split. In normal use Tier 1 should serve the large majority of requests. A sustained Tier-2 share above roughly 25% is a miscalibration signal, not a hard cap — the system reports it rather than refusing to escalate, because degrading an answer to hit a quota is the wrong trade.
-- **Classifier eval.** The Phase 8 `tool-select` suite is extended with a labelled routing corpus: ~40 messages, each tagged with its expected tier, including the sticky-escalation trap (a deep question followed by `"what's my HDFC balance?"`, which **must** return to Tier 1). Scored deterministically — the classifier is application code, so its output is exactly checkable.
+- **Measured distribution.** `ai_usage_daily` carries `tier`, so Settings â†’ AI shows the split. In normal use Tier 1 should serve the large majority of requests. A sustained Tier-2 share above roughly 25% is a miscalibration signal, not a hard cap â€” the system reports it rather than refusing to escalate, because degrading an answer to hit a quota is the wrong trade.
+- **Classifier eval.** The Phase 8 `tool-select` suite is extended with a labelled routing corpus: ~40 messages, each tagged with its expected tier, including the sticky-escalation trap (a deep question followed by `"what's my HDFC balance?"`, which **must** return to Tier 1). Scored deterministically â€” the classifier is application code, so its output is exactly checkable.
 
 Where a task genuinely does not need the bigger model, say so in the routing table rather than escalating out of caution. `runFinancialScenario` is the clearest case: the engine computes every figure and the model only explains the assumptions ([CLAUDE.md `<scenario_analysis>`](../CLAUDE.md)), so the reasoning load is far lower than the word "scenario" suggests. It sits at Tier 2, not Tier 3.
 
@@ -273,7 +274,7 @@ Where a task genuinely does not need the bigger model, say so in the routing tab
 
 The pair most easily confused, made explicit:
 
-| | `summarizeFinancialData` — Tier 1 | `analyzeFinancialPeriod` — Tier 2 |
+| | `summarizeFinancialData` â€” Tier 1 | `analyzeFinancialPeriod` â€” Tier 2 |
 |---|---|---|
 | Question shape | "What did I spend last month?" | "Give me a financial review of last month." |
 | Model's job | Restate tool output in prose | Compare periods, find patterns, judge significance |
@@ -297,8 +298,8 @@ If a single tool call answers the question, it is Tier 1. That rule covers most 
 | `timeout` | No first token within `timeoutMs` | Next candidate; record latency breach |
 | `invalid_schema` | Output fails Zod after one repair attempt | Next candidate **that also satisfies the schema requirement** |
 | `tool_call_failed` | Malformed tool call, unknown tool, unparseable arguments | One reprompt with the error, then next candidate |
-| `content_filter` | `finish_reason: 'content_filter'` | Surface to the user; **do not** retry on another model — retrying a filter is not a fallback |
-| `transport` | Network/5xx | SDK retry (2×, backoff), then next candidate |
+| `content_filter` | `finish_reason: 'content_filter'` | Surface to the user; **do not** retry on another model â€” retrying a filter is not a fallback |
+| `transport` | Network/5xx | SDK retry (2Ã—, backoff), then next candidate |
 
 ### Rules
 
@@ -312,20 +313,20 @@ function nextCandidate(req: CapabilityRequirement, tried: string[]): string | nu
 ```
 
 - The capability filter is applied **before** fallback ordering, so an incapable model is never reachable. A structured financial proposal cannot fall back to a `structuredOutput: "none"` model; a vision task cannot fall back to a text-only model unless the image has already been converted to text by a Tier 4 model in an earlier step.
-- **Cross-tier downgrade is forbidden.** Fallback moves sideways within a tier. If every Tier 2 candidate fails, the request fails with `all_candidates_exhausted` — it does not silently become a Tier 1 answer. Upward escalation to a more capable tier is permitted.
+- **Cross-tier downgrade is forbidden.** Fallback moves sideways within a tier. If every Tier 2 candidate fails, the request fails with `all_candidates_exhausted` â€” it does not silently become a Tier 1 answer. Upward escalation to a more capable tier is permitted.
 - Maximum 3 attempts per request. Each attempt is recorded with its failure class.
 - **Circuit breaker:** 3 consecutive failures of the same class opens the circuit for 5 minutes (exponential to 1 hour). Half-open probes with a single cheap request.
-- Every fallback is visible: the response carries `fallbackDepth` and the serving model, shown in Settings → AI and logged in `ai_model_attempts`.
+- Every fallback is visible: the response carries `fallbackDepth` and the serving model, shown in Settings â†’ AI and logged in `ai_model_attempts`.
 
 ---
 
 ## 8. Tool architecture
 
-All tools are **read-only**. There is no write tool, and adding one is a defect — now a structural impossibility rather than a rule, since the AI layer has no capability that can open a transaction ([ADR-35](DECISIONS.md#adr-35--ai-infrastructure-is-strictly-read-only-a-mutation-needs-a-separate-approved-proposal-workflow)).
+All tools are **read-only**. There is no write tool, and adding one is a defect â€” now a structural impossibility rather than a rule, since the AI layer has no capability that can open a transaction ([ADR-35](DECISIONS.md#adr-35--ai-infrastructure-is-strictly-read-only-a-mutation-needs-a-separate-approved-proposal-workflow)).
 
-**A tool exists only where a deterministic capability already does.** An AI capability is never a substitute for missing financial-engine functionality: if the engine cannot compute a figure, no tool offers it and the assistant says it is unavailable. Three conceptual tools are therefore **absent** from the Phase 7 registry rather than stubbed — `run_financial_scenario` (no backing of any kind), `calculate_financial_metrics` (only savings rate exists) and `get_portfolio_performance`'s TWR (implemented, tested, and wired to nothing). They are engine work, deferred as **OD-18**.
+**A tool exists only where a deterministic capability already does.** An AI capability is never a substitute for missing financial-engine functionality: if the engine cannot compute a figure, no tool offers it and the assistant says it is unavailable. Three conceptual tools are therefore **absent** from the Phase 7 registry rather than stubbed â€” `run_financial_scenario` (no backing of any kind), `calculate_financial_metrics` (only savings rate exists) and `get_portfolio_performance`'s TWR (implemented, tested, and wired to nothing). They are engine work, deferred as **OD-18**.
 
-Each is defined once as a Zod schema and converted with `z.toJSONSchema()` — one definition for validation and for the model ([ADR-16](DECISIONS.md#adr-16--zod-as-the-single-validation-boundary-including-for-ai-schemas)).
+Each is defined once as a Zod schema and converted with `z.toJSONSchema()` â€” one definition for validation and for the model ([ADR-16](DECISIONS.md#adr-16--zod-as-the-single-validation-boundary-including-for-ai-schemas)).
 
 ### Registry
 
@@ -354,9 +355,9 @@ Each is defined once as a Zod schema and converted with `z.toJSONSchema()` — o
 | `calculate_portfolio_metrics` | concentration (top-n, HHI), class and currency weights | 1 |
 | `run_financial_scenario` | deterministic projection + stated assumptions | 1 |
 
-Every tool calls the same **application service** the UI calls ([ADR-21](DECISIONS.md#adr-21--application-services-are-a-distinct-layer-from-the-financial-engine)). Two consequences: the model cannot see a different number than the screen, because there is no second implementation; and authorization is enforced on the AI path by construction, because the guards live in the only function the tool can reach. A tool handler is a thin projection over a service call — it contains no queries and no permission logic of its own.
+Every tool calls the same **application service** the UI calls ([ADR-21](DECISIONS.md#adr-21--application-services-are-a-distinct-layer-from-the-financial-engine)). Two consequences: the model cannot see a different number than the screen, because there is no second implementation; and authorization is enforced on the AI path by construction, because the guards live in the only function the tool can reach. A tool handler is a thin projection over a service call â€” it contains no queries and no permission logic of its own.
 
-### The arithmetic boundary — every summary returns its own total
+### The arithmetic boundary â€” every summary returns its own total
 
 Non-negotiable rule 7 says the model never states a figure it did not receive. That is only achievable if **the figure the user asked for is a field in the response**, not something assembled from several fields.
 
@@ -365,14 +366,14 @@ get_expense_summary({
   from, to,
   groupBy: 'month' | 'category' | 'account' | 'tag',
   categoryIds?:   string[],  // filter by id. Listing a PARENT includes its children.
-  categoryNames?: string[],  // filter by name — resolved SERVER-SIDE (see below)
+  categoryNames?: string[],  // filter by name â€” resolved SERVER-SIDE (see below)
   depth?: 'rollup' | 'detail',  // category grouping only; both partition the total
 })
-→ { ok: true,
+â†’ { ok: true,
     data: {
-      total: Money,                                    // ← the answer, computed by the engine
+      total: Money,                                    // â† the answer, computed by the engine
       rows: [{ key, label, amount, parentKey, isRollup, childCount }],
-      additivity: 'partition',                         // 'overlapping' for tags — rows do NOT sum
+      additivity: 'partition',                         // 'overlapping' for tags â€” rows do NOT sum
       resolvedCategories: [{ input: 'food', id, label: 'Food', matchedBy: 'exact' }]
     },
     meta: { rowCount, truncated, totalMatching, currency, from, to } }
@@ -380,9 +381,9 @@ get_expense_summary({
 
 **Why `categoryNames` exists.** The user says "food"; the tool needs a category. Three ways to bridge that, and only one is right here:
 
-- *List the categories in the system prompt* — rejected. With no prompt caching (§12), a category list is a cost paid on **every** request, including the ones that never mention a category.
-- *Make the model call `get_categories` first* — works, but spends a round trip and leaves the model matching strings.
-- **Resolve server-side** — chosen. The tool accepts the user's word and runs the *same* resolver the proposal flow uses (exact → case-insensitive → unique fuzzy ≥ 0.8), then echoes what it matched in `resolvedCategories` so the answer can say "Food (Groceries + Dining)".
+- *List the categories in the system prompt* â€” rejected. With no prompt caching (Â§12), a category list is a cost paid on **every** request, including the ones that never mention a category.
+- *Make the model call `get_categories` first* â€” works, but spends a round trip and leaves the model matching strings.
+- **Resolve server-side** â€” chosen. The tool accepts the user's word and runs the *same* resolver the proposal flow uses (exact â†’ case-insensitive â†’ unique fuzzy â‰¥ 0.8), then echoes what it matched in `resolvedCategories` so the answer can say "Food (Groceries + Dining)".
 
 Unresolvable input is an error the model can act on, never a guess:
 
@@ -393,21 +394,21 @@ Unresolvable input is an error the model can act on, never a guess:
 
 Two properties, both asserted by test, both load-bearing:
 
-1. **`Σ rows[].amount === total`, exactly, at every depth.** Rows *partition* the total.
-2. **Parent and child rows are never mixed in one response.** `depth: 'rollup'` (default) returns top-level categories with children folded in, each carrying `isRollup` and `childCount`; `depth: 'detail'` returns one row per category with spending **of its own**, carrying only that. Both partition the total, so there is no response shape in which summing every row double-counts. The `breakdown()` service now carries this contract directly — an authoritative `total` plus an `additivity` tag — rather than the tool layer having to impose it ([ADR-37](DECISIONS.md#adr-37--a-breakdown-declares-whether-its-rows-partition-its-total), **I-54**).
+1. **`Î£ rows[].amount === total`, exactly, at every depth.** Rows *partition* the total.
+2. **Parent and child rows are never mixed in one response.** `depth: 'rollup'` (default) returns top-level categories with children folded in, each carrying `isRollup` and `childCount`; `depth: 'detail'` returns one row per category with spending **of its own**, carrying only that. Both partition the total, so there is no response shape in which summing every row double-counts. The `breakdown()` service now carries this contract directly â€” an authoritative `total` plus an `additivity` tag â€” rather than the tool layer having to impose it ([ADR-37](DECISIONS.md#adr-37--a-breakdown-declares-whether-its-rows-partition-its-total), **I-54**).
 3. **A row set that cannot partition its total says so.** A **tag** breakdown is `additivity: 'overlapping'`: one transaction can carry several tags and an untagged one carries none, so the rows never sum to the total and must not be rendered as if they did. This was true before and undeclared, which is worse than either alternative.
 
-Without both, "how much on food" over a `Food → {Groceries, Dining}` tree becomes: model receives three rows, adds two of them, and hopes it picked the right two. That is the model doing financial arithmetic — forbidden by `CLAUDE.md <investment_management>` ("do not rely on an AI model for calculations that deterministic application code can perform correctly") and unverifiable when it goes wrong.
+Without both, "how much on food" over a `Food â†’ {Groceries, Dining}` tree becomes: model receives three rows, adds two of them, and hopes it picked the right two. That is the model doing financial arithmetic â€” forbidden by `CLAUDE.md <investment_management>` ("do not rely on an AI model for calculations that deterministic application code can perform correctly") and unverifiable when it goes wrong.
 
 The same `total` contract applies to `get_income_summary` and `get_asset_allocation`. It does **not** apply to `get_net_worth_history`: a series of month-end *levels* has no meaningful sum, and requiring one would invite a consumer to add them. Any future tool returning rows that a user might want summed **must** carry the sum.
 
-**The net-worth tools carry their valuation `basis`, and the model must state it** ([ADR-23](DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost)). Until Phase 6 the basis is `cost`, and an answer that calls an at-cost figure "your net worth" without qualification presents an acquisition-cost total as a current market valuation — the same class of error as reporting a `null` metric as zero. `assetCoverage` and `liabilityCoverage` are reported **separately** for the same reason they are on screen: an excluded asset makes the figure look lower, an excluded liability makes it look higher, and one blended number hides which.
+**The net-worth tools carry their valuation `basis`, and the model must state it** ([ADR-23](DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost)). Until Phase 6 the basis is `cost`, and an answer that calls an at-cost figure "your net worth" without qualification presents an acquisition-cost total as a current market valuation â€” the same class of error as reporting a `null` metric as zero. `assetCoverage` and `liabilityCoverage` are reported **separately** for the same reason they are on screen: an excluded asset makes the figure look lower, an excluded liability makes it look higher, and one blended number hides which.
 
-**The AI is never authoritative for a net-worth figure.** `get_net_worth` projects the same read-only service the UI calls, which has no `WriteCtx` signature at all (**I-32**) and is reached through a capability that has no database handle — so the model can neither compute its own total nor mutate an input to one.
+**The AI is never authoritative for a net-worth figure.** `get_net_worth` projects the same read-only service the UI calls, which has no `WriteCtx` signature at all (**I-32**) and is reached through a capability that has no database handle â€” so the model can neither compute its own total nor mutate an input to one.
 
 ### Data minimisation (`CLAUDE.md <ai_data_access>`)
 
-Without prompt caching, every token is paid at full price on every request — so minimisation is now a cost control as well as a privacy control.
+Without prompt caching, every token is paid at full price on every request â€” so minimisation is now a cost control as well as a privacy control.
 
 1. **Aggregates before records.** `get_expense_summary` exists so `get_transactions` is not needed to answer "where did my money go". Stated in the system prompt as a preference order.
 2. **Row caps** as tabled. Exceeding one returns the capped set plus `{ truncated: true, totalMatching: n }` so the model narrows instead of guessing.
@@ -428,7 +429,7 @@ Errors are returned to the model as actionable text, never thrown. Every call wr
 
 ### Exact figures crossing the boundary
 
-`Money`, `Quantity`, `UnitPrice` and `Rate` are all `bigint` at a declared scale, and **`JSON.stringify` throws on every one of them**. So no tool result — not even one over a service that "needs no new code" — can reach a model without an explicit projection. Every figure crosses as tagged digits
+`Money`, `Quantity`, `UnitPrice` and `Rate` are all `bigint` at a declared scale, and **`JSON.stringify` throws on every one of them**. So no tool result â€” not even one over a service that "needs no new code" â€” can reach a model without an explicit projection. Every figure crosses as tagged digits
 ([ADR-36](DECISIONS.md#adr-36--exact-values-cross-a-json-boundary-as-a-tagged-string-projection-never-as-a-json-number)):
 
 ```json
@@ -436,7 +437,7 @@ Errors are returned to the model as actionable text, never thrown. Every call wr
 { "kind": "price", "units":  "1629.80004883", "scale": 8 }
 ```
 
-`src/lib/format/json-projection.ts` is the only sanctioned path, and it is a set of **explicit per-type functions**, never a walker: `UnitPrice` and `Quantity` are the same shape at the same scale and are distinguishable only by the call site. `Number()` appears nowhere — a figure that lost precision on the way to the model would be wrong in an answer, silently, and only on large values. A missing figure projects to `null` with its `Metric` reason, **never to zero**.
+`src/lib/format/json-projection.ts` is the only sanctioned path, and it is a set of **explicit per-type functions**, never a walker: `UnitPrice` and `Quantity` are the same shape at the same scale and are distinguishable only by the call site. `Number()` appears nowhere â€” a figure that lost precision on the way to the model would be wrong in an answer, silently, and only on large values. A missing figure projects to `null` with its `Metric` reason, **never to zero**.
 
 The projection is per-tool and per-field for a second reason: a blind serializer would ship whatever a service happened to return, which is the opposite of field projection and how a `notes` field or an entity id reaches a provider unnoticed.
 
@@ -448,15 +449,15 @@ for attempt in fallback chain:
     assertDailyBudgetRemaining()
     res = provider.chat({ model, messages, tools, toolChoice: 'auto' })
     record(res)
-    if res.finishReason === 'content_filter' → surface, stop
-    if no toolCalls → return final answer
+    if res.finishReason === 'content_filter' â†’ surface, stop
+    if no toolCalls â†’ return final answer
     for each toolCall (concurrently):
-       validate arguments against the tool's Zod schema   ← malformed args are a tool_call_failed
+       validate arguments against the tool's Zod schema   â† malformed args are a tool_call_failed
        run handler; accumulate bytes; append result message
-  if loop exhausted → return partial with 'iteration_limit'
+  if loop exhausted â†’ return partial with 'iteration_limit'
 ```
 
-Tool results are appended as `role: 'tool'` messages keyed by `tool_call_id`. Every call must be answered — an unanswered call makes the next request invalid on most models.
+Tool results are appended as `role: 'tool'` messages keyed by `tool_call_id`. Every call must be answered â€” an unanswered call makes the next request invalid on most models.
 
 ---
 
@@ -465,13 +466,13 @@ Tool results are appended as `role: 'tool'` messages keyed by `tool_call_id`. Ev
 `CLAUDE.md <ai_mutation_rule>`, implemented literally:
 
 ```
-USER INPUT → AI INTERPRETATION → STRUCTURED OUTPUT → BACKEND VALIDATION
-           → APPLICATION BUSINESS LOGIC → DATABASE → USER CONFIRMATION/RESULT
+USER INPUT â†’ AI INTERPRETATION â†’ STRUCTURED OUTPUT â†’ BACKEND VALIDATION
+           â†’ APPLICATION BUSINESS LOGIC â†’ DATABASE â†’ USER CONFIRMATION/RESULT
 ```
 
 ### Generation
 
-The parse task runs with **no tools** — nothing is read while drafting a write — and a strict schema:
+The parse task runs with **no tools** â€” nothing is read while drafting a write â€” and a strict schema:
 
 ```ts
 const TransactionProposal = z.object({
@@ -497,31 +498,31 @@ const TransactionProposal = z.object({
 | Model capability | Strategy |
 |---|---|
 | `json_schema` | Native `response_format` with the schema. Preferred; only these models are used for proposals in production. |
-| `json_object` | JSON mode + schema in the prompt + Zod validation. Permitted only if measured `schemaAdherence ≥ 0.95`. |
+| `json_object` | JSON mode + schema in the prompt + Zod validation. Permitted only if measured `schemaAdherence â‰¥ 0.95`. |
 | `prompted` | Schema in the prompt, extract the JSON block, validate. **Not permitted for proposals.** |
 | `none` | Disqualified from proposals entirely. |
 
 ### Validation, repair, and rejection
 
 ```
-1. Parse the model output as JSON             → fail: one repair attempt
-2. Zod validate                                → fail: one repair attempt with the field errors
-3. Money.parseUserInput(amount, currency)      → fail: reject
-4. Resolve accountHint/categoryHint → IDs (exact → unique fuzzy ≥0.8 → unresolved)
-5. Business validation: date ≥ account opening; transfer accounts differ;
+1. Parse the model output as JSON             â†’ fail: one repair attempt
+2. Zod validate                                â†’ fail: one repair attempt with the field errors
+3. Money.parseUserInput(amount, currency)      â†’ fail: reject
+4. Resolve accountHint/categoryHint â†’ IDs (exact â†’ unique fuzzy â‰¥0.8 â†’ unresolved)
+5. Business validation: date â‰¥ account opening; transfer accounts differ;
    category kind matches transaction kind; FX rate exists for the date
 6. If confidence==='low' OR any hint unresolved OR ambiguities non-empty
-     → proposal opens in EDIT mode with those fields highlighted
+     â†’ proposal opens in EDIT mode with those fields highlighted
 7. Hand the validated proposal to services/aiProposals.ts, which persists it
    (raw + normalized, status='pending', expires_at = now + 24h). AI code does
-   not write this row either — it has no capability to (ADR-35).
+   not write this row either â€” it has no capability to (ADR-35).
 ```
 
 **Exactly one repair attempt**, carrying the validation errors back. After that the proposal is stored `invalid` with its errors and shown to the user for editing. Never guessed at, never silently corrected ([CLAUDE.md `<ai_structured_outputs>`](../CLAUDE.md)).
 
 ### Confirmation
 
-The card shows resolved names and formatted amounts, not raw JSON. Confirmation is handled by `services/aiProposals.applyProposal()` — **an application service, not AI code**:
+The card shows resolved names and formatted amounts, not raw JSON. Confirmation is handled by `services/aiProposals.applyProposal()` â€” **an application service, not AI code**:
 
 ```sql
 BEGIN
@@ -538,7 +539,7 @@ BEGIN
 COMMIT
 ```
 
-Two independent guards against a double-apply — a double-clicked button, a retried request, two open tabs:
+Two independent guards against a double-apply â€” a double-clicked button, a retried request, two open tabs:
 
 1. The **compare-and-swap** above. Only one transaction can move a row out of `pending`.
 2. A **partial unique index** on `transactions.ai_proposal_id` (and the investment equivalent). Even if the CAS were removed, the database refuses a second record from the same proposal. Same shape as the `recurring_occurrences` idempotency key ([ADR-15](DECISIONS.md#adr-15--idempotency-for-recurring-postings-via-a-materialised-occurrence-row)).
@@ -549,18 +550,18 @@ Proposal kinds: `transaction`, `investment_transaction`, `account`, `category`, 
 
 ---
 
-## 10. Tier 4 — document and image extraction
+## 10. Tier 4 â€” document and image extraction
 
 Justified because it feeds the proposal pipeline that already exists, adding value with no new trust surface.
 
 ```
-image/PDF upload → Tier 4 model → structured extraction (json_schema)
-                 → SAME Zod validation and entity resolution as §9
-                 → ai_proposals (pending) → user confirms → application service
+image/PDF upload â†’ Tier 4 model â†’ structured extraction (json_schema)
+                 â†’ SAME Zod validation and entity resolution as Â§9
+                 â†’ ai_proposals (pending) â†’ user confirms â†’ application service
 ```
 
 Rules:
-- Raw document interpretation **never** mutates financial records — it produces a proposal like any other ([CLAUDE.md `<ai_model_tiers>` Tier 4](../CLAUDE.md)).
+- Raw document interpretation **never** mutates financial records â€” it produces a proposal like any other ([CLAUDE.md `<ai_model_tiers>` Tier 4](../CLAUDE.md)).
 - A multi-line receipt produces one proposal per line item, batched into one confirmation screen.
 - The source image is stored alongside the proposal so the user can check the extraction, and is deleted with it.
 - Uploads are size-capped, MIME-sniffed (not trusted by extension), and never executed or rendered as HTML.
@@ -568,13 +569,13 @@ Rules:
 
 ---
 
-## 11. Tier 5 — embeddings: deferred, with explicit activation criteria
+## 11. Tier 5 â€” embeddings: deferred, with explicit activation criteria
 
 `CLAUDE.md` is direct: *"Do NOT introduce a vector database or RAG architecture merely because an embedding model is available. Structured financial data should normally be retrieved using direct database queries."*
 
-**Decision: not built at launch.** Every question the assistant must answer is a structured query over relational data — accounts, transactions, holdings, budgets, net worth. SQL answers those exactly; embeddings would answer them approximately. Approximate retrieval over financial facts is a correctness regression, not a feature.
+**Decision: not built at launch.** Every question the assistant must answer is a structured query over relational data â€” accounts, transactions, holdings, budgets, net worth. SQL answers those exactly; embeddings would answer them approximately. Approximate retrieval over financial facts is a correctness regression, not a feature.
 
-Activation criteria — all three must hold before any embedding code is written:
+Activation criteria â€” all three must hold before any embedding code is written:
 
 1. The user has accumulated a body of **unstructured** text (uploaded documents, long-form notes) that is not answerable by SQL.
 2. A measured search-quality gap exists against Postgres full-text search (`tsvector`), which is tried **first**.
@@ -590,14 +591,14 @@ There is no prompt caching, so **prompt size is a linear cost on every request**
 
 | Control | Mechanism |
 |---|---|
-| System prompt size | Kept under a hard token budget, asserted by test. **No account lists, no category dumps** — entity resolution happens server-side inside the tool (§8), not by putting the catalogue in every prompt. |
+| System prompt size | Kept under a hard token budget, asserted by test. **No account lists, no category dumps** â€” entity resolution happens server-side inside the tool (Â§8), not by putting the catalogue in every prompt. |
 | Tool schema size | 22 tools with terse descriptions; measured token cost tracked in CI and budgeted |
 | Conversation history | Trimmed to the last N turns plus a rolling summary once a threshold is crossed |
-| Tool output | Row caps, field projection, 150 KB byte budget (§8) |
+| Tool output | Row caps, field projection, 150 KB byte budget (Â§8) |
 | Tier discipline | Tier 3 unreachable by default; Tier 2 only on deterministic escalation |
 | Daily budget | Checked **before** each request, not after |
 
-Accounting: every request records prompt/completion tokens, model, tier, fallback depth, latency, and outcome into `ai_messages`, rolled up into `ai_usage_daily`. Cost is computed from `config/pricing.ts` — **rates are configuration, default zero, and marked unverified until confirmed against the account's actual billing.** Reporting a fabricated cost would be worse than reporting none.
+Accounting: every request records prompt/completion tokens, model, tier, fallback depth, latency, and outcome into `ai_messages`, rolled up into `ai_usage_daily`. Cost is computed from `config/pricing.ts` â€” **rates are configuration, default zero, and marked unverified until confirmed against the account's actual billing.** Reporting a fabricated cost would be worse than reporting none.
 
 ---
 
@@ -607,11 +608,11 @@ Per `CLAUDE.md <ai_observability>`. Sufficient to answer the questions the spec 
 
 Recorded per request: task, tier, model, fallback depth, latency, prompt/completion tokens, outcome, failure class, schema-validation result, tool-call count and failures.
 
-**Not recorded in application logs:** complete conversations, financial figures, tool result payloads. Conversation content lives in `ai_messages` because the product needs it — a deliberate, documented storage decision covered by export and delete, distinct from logs.
+**Not recorded in application logs:** complete conversations, financial figures, tool result payloads. Conversation content lives in `ai_messages` because the product needs it â€” a deliberate, documented storage decision covered by export and delete, distinct from logs.
 
-Settings → AI answers, from data: which models are actually serving; which fail most, and how; which are slow; which produce invalid structured output; spend by tier and task; how often fallback fires and to what depth; whether any capability entry is stale.
+Settings â†’ AI answers, from data: which models are actually serving; which fail most, and how; which are slow; which produce invalid structured output; spend by tier and task; how often fallback fires and to what depth; whether any capability entry is stale.
 
-These metrics feed routing changes — which is the point of measuring them.
+These metrics feed routing changes â€” which is the point of measuring them.
 
 ---
 
@@ -621,22 +622,22 @@ These metrics feed routing changes — which is the point of measuring them.
 
 ### Task set
 
-`src/server/ai/eval/tasks/` — versioned, checked in, derived from the examples in `CLAUDE.md`:
+`src/server/ai/eval/tasks/` â€” versioned, checked in, derived from the examples in `CLAUDE.md`:
 
 | Suite | Cases | Scoring |
 |---|---|---|
 | `parse` | 40 NL transaction strings incl. ambiguous, multi-currency, relative dates, adversarial | **Deterministic**: schema valid; field-exact match against expected |
-| `classify` | 60 descriptions → category | Deterministic: exact match |
-| `tool-select` | 30 questions → expected tool + arguments | Deterministic: correct tool, correct arguments |
-| `routing` | 40 messages → expected tier, incl. the sticky-escalation trap (deep question followed by a trivial one) | **Deterministic**: the classifier is application code, so its tier assignment is exactly checkable. Asserts no message escalates without a trigger, and that a self-contained question returns to Tier 1 |
-| `grounding` | 25 questions over a fixed fixture database, including **"how much did I spend on food last month"** over a `Food → {Groceries, Dining}` tree | **Deterministic**: does the stated figure equal the engine's figure? Asserts the model reported `total` rather than summing rows, and never mixed a parent row with its children |
+| `classify` | 60 descriptions â†’ category | Deterministic: exact match |
+| `tool-select` | 30 questions â†’ expected tool + arguments | Deterministic: correct tool, correct arguments |
+| `routing` | 40 messages â†’ expected tier, incl. the sticky-escalation trap (deep question followed by a trivial one) | **Deterministic**: the classifier is application code, so its tier assignment is exactly checkable. Asserts no message escalates without a trigger, and that a self-contained question returns to Tier 1 |
+| `grounding` | 25 questions over a fixed fixture database, including **"how much did I spend on food last month"** over a `Food â†’ {Groceries, Dining}` tree | **Deterministic**: does the stated figure equal the engine's figure? Asserts the model reported `total` rather than summing rows, and never mixed a parent row with its children |
 | `analysis` | 15 open analyses (portfolio, health, period, cross-domain) | Rubric; LLM-as-judge **advisory only** |
 | `scenario` | 10 scenarios | Deterministic on the arithmetic; rubric on the explanation |
 | `document` | 20 receipt/statement images | Deterministic: field-exact extraction |
 | `injection` | 25 payloads embedded in tool results | **Deterministic**: any write attempted? any unexpected tool call? |
 | `robustness` | Malformed inputs, missing data, empty results | Deterministic: does it say "unavailable" rather than invent? |
 
-**Scoring is deterministic wherever a right answer exists.** LLM-as-judge is used only for prose quality, is never the gate for production routing, and never scores a numeric claim — the `grounding` suite does that by comparing against the engine.
+**Scoring is deterministic wherever a right answer exists.** LLM-as-judge is used only for prose quality, is never the gate for production routing, and never scores a numeric claim â€” the `grounding` suite does that by comparing against the engine.
 
 ### Runner and output
 
@@ -645,15 +646,15 @@ npm run ai:eval -- --tier 1 --suite parse,classify,tool-select
 ```
 
 Runs every candidate in the tier over the suites, produces:
-- `config/capabilities.json` — the measured matrix (§5)
-- `eval/reports/<date>-<tier>.md` — per-model scores, latency percentiles, failure examples
+- `config/capabilities.json` â€” the measured matrix (Â§5)
+- `eval/reports/<date>-<tier>.md` â€” per-model scores, latency percentiles, failure examples
 - A proposed routing order, which a human accepts into `config/models.ts`
 
 Re-run on model change, provider change, or quarterly. CI fails if any production-routed model has no entry, or an entry older than 30 days.
 
 ### Selection criteria
 
-Weighted, in this order, per `CLAUDE.md <model_selection>`: schema/structured-output reliability → tool-calling reliability → grounding accuracy → financial reasoning quality → injection resistance → latency → cost. **A model that scores well on reasoning but poorly on schema adherence is not usable for Tier 1**, because Tier 1's dominant job is producing valid structured output.
+Weighted, in this order, per `CLAUDE.md <model_selection>`: schema/structured-output reliability â†’ tool-calling reliability â†’ grounding accuracy â†’ financial reasoning quality â†’ injection resistance â†’ latency â†’ cost. **A model that scores well on reasoning but poorly on schema adherence is not usable for Tier 1**, because Tier 1's dominant job is producing valid structured output.
 
 ---
 
@@ -662,13 +663,13 @@ Weighted, in this order, per `CLAUDE.md <model_selection>`: schema/structured-ou
 Detail in [SECURITY.md](SECURITY.md). The AI-specific controls:
 
 1. **There is no write tool.** The maximum impact of a successful prompt injection is a proposal the user sees and rejects. This is the load-bearing control.
-2. **`userId` comes from the session**, never from tool input. No tool schema contains a user identifier — asserted by test.
+2. **`userId` comes from the session**, never from tool input. No tool schema contains a user identifier â€” asserted by test.
 3. **Tool results are data, not instructions.** The system prompt states this; instructions found inside user data are to be reported to the user, not followed.
-4. **Caps are server-side** — rows, bytes, date ranges, iterations, daily budget. None is requested of the model.
-5. **No execution capability** — no code execution, no shell, no filesystem, no network tool, no MCP server.
-6. **Confirmation is out-of-band** — a UI action against a `pending` row, not a message the model can emit.
-7. **Data minimisation** — aggregates before records, projected fields, capped results.
-8. **Documented egress.** What is sent to NVIDIA Build: the system prompt, tool schemas, the user's message, and tool results (financial figures and descriptions within the caps above). Not sent: credentials, full table dumps, IDs of unrelated entities, or anything from a user who did not initiate the request. Recorded in [SECURITY.md §12](SECURITY.md#12-known-accepted-risks).
+4. **Caps are server-side** â€” rows, bytes, date ranges, iterations, daily budget. None is requested of the model.
+5. **No execution capability** â€” no code execution, no shell, no filesystem, no network tool, no MCP server.
+6. **Confirmation is out-of-band** â€” a UI action against a `pending` row, not a message the model can emit.
+7. **Data minimisation** â€” aggregates before records, projected fields, capped results.
+8. **Documented egress.** What is sent to NVIDIA Build: the system prompt, tool schemas, the user's message, and tool results (financial figures and descriptions within the caps above). Not sent: credentials, full table dumps, IDs of unrelated entities, or anything from a user who did not initiate the request. Recorded in [SECURITY.md Â§12](SECURITY.md#12-known-accepted-risks).
 9. **`ai_enabled = false`** removes the entire egress surface, and every other feature keeps working.
 
 ---
@@ -682,11 +683,11 @@ Detail in [SECURITY.md](SECURITY.md). The AI-specific controls:
 | `finish_reason: 'content_filter'` | Surfaced plainly; not retried on another model |
 | Structured output invalid after one repair | Proposal stored `invalid` with field errors; editable form shown |
 | Tool handler throws | `ok:false` result to the model; loop continues; logged |
-| Malformed tool arguments | One reprompt with the error, then `tool_call_failed` → next candidate |
+| Malformed tool arguments | One reprompt with the error, then `tool_call_failed` â†’ next candidate |
 | Iteration cap (8) | Partial answer + "try a narrower question" |
 | Byte budget (150 KB) | Model told the budget is spent; answers from what it has |
 | Daily budget exhausted | AI disabled until tomorrow; rest of the app unaffected |
-| Capability entry missing/stale | Model excluded from routing; warning in Settings → AI; CI failure |
+| Capability entry missing/stale | Model excluded from routing; warning in Settings â†’ AI; CI failure |
 | `ai_enabled = false` | AI area hidden; quick-add falls back to structured entry |
 
 The last row is a design constraint: **the financial engine has no dependency on any model**, so a total provider outage degrades one page rather than the product.
@@ -703,7 +704,7 @@ The test that matters: NVIDIA ships a better reasoning model tomorrow. What has 
 npm run ai:catalogue                              # 1. confirm the id exists, authenticated
 npm run ai:eval -- --tier 2 --model <new-id>      # 2. measure it; writes capabilities.json
                                                   #    + ai_model_evaluations rows
-#    3. read eval/reports/<date>-tier2.md — does it clear the tier thresholds?
+#    3. read eval/reports/<date>-tier2.md â€” does it clear the tier thresholds?
 #    4. edit ONE line in the environment:
 AI_TIER2_MODELS=<new-id>,nvidia/nemotron-3-super-120b-a12b,z-ai/glm-5.2
 #    5. restart
@@ -712,13 +713,13 @@ AI_TIER2_MODELS=<new-id>,nvidia/nemotron-3-super-120b-a12b,z-ai/glm-5.2
 | What changes | Count |
 |---|---|
 | **Application code files** | **0** |
-| Hand-edited files | **1** — the environment (`AI_TIER2_MODELS`) |
-| Tool-generated files | 1 — `config/capabilities.json`, written by the eval harness, never hand-edited |
+| Hand-edited files | **1** â€” the environment (`AI_TIER2_MODELS`) |
+| Tool-generated files | 1 â€” `config/capabilities.json`, written by the eval harness, never hand-edited |
 | Database migrations | 0 |
 | Prompt edits | 0 |
 | Optional | one line in `config/pricing.ts` if you want cost reporting; its absence degrades to "cost unknown", not a crash |
 
-Leaving the old model second in the list keeps it as an automatic fallback (§7). **Rollback is the reverse edit and a restart** — the old model's capability entry is still on disk, so nothing needs re-measuring.
+Leaving the old model second in the list keeps it as an automatic fallback (Â§7). **Rollback is the reverse edit and a restart** â€” the old model's capability entry is still on disk, so nothing needs re-measuring.
 
 ### Why the eval step is a feature, not overhead
 
@@ -728,12 +729,13 @@ A model with no `capabilities.json` entry is unroutable and the app refuses to s
 
 Five rules, each with a mechanism rather than an intention:
 
-1. **No model identifier outside `src/server/ai/config/`** ([ADR-17](DECISIONS.md#adr-17--model-identifiers-are-configuration-not-code)) — a source-scan test fails the build otherwise.
-2. **No per-model prompt branching.** One system prompt per *task*, never per model. If a model needs bespoke phrasing to behave, it has failed its eval — that is a routing decision, not a prompt patch. `if (model === …)` anywhere under `prompts/` is a build failure.
-3. **No per-model code paths** in the loop, the tools, or structured-output handling. Branching is on capability *classes* (`json_schema` vs `json_object` vs `prompted`), which are properties measured about a model — never on its identity.
+1. **No model identifier outside `src/server/ai/config/`** ([ADR-17](DECISIONS.md#adr-17--model-identifiers-are-configuration-not-code)) â€” a source-scan test fails the build otherwise.
+2. **No per-model prompt branching.** One system prompt per *task*, never per model. If a model needs bespoke phrasing to behave, it has failed its eval â€” that is a routing decision, not a prompt patch. `if (model === â€¦)` anywhere under `prompts/` is a build failure.
+3. **No per-model code paths** in the loop, the tools, or structured-output handling. Branching is on capability *classes* (`json_schema` vs `json_object` vs `prompted`), which are properties measured about a model â€” never on its identity.
 4. **`model` columns are `text`, not a Postgres `ENUM`.** Deliberate, and against the convention used everywhere else in the schema: enums are right for `account_kind` and `transaction_kind`, which change with the domain, but a model enum would turn "try the new model" into a migration.
-5. **Tier lists are ordered environment values**, so fallback order is configuration too — reordering preference needs no code either.
+5. **Tier lists are ordered environment values**, so fallback order is configuration too â€” reordering preference needs no code either.
 
 ### What would break the claim
 
-Worth naming, because each is a plausible shortcut: a prompt tweaked for one model's quirks; a hardcoded id asserted in a test fixture rather than parameterised; a `CREATE TYPE ai_model AS ENUM`; a "temporary" `if` in the loop for a model that mishandles tool results. Rules 1–4 exist because each of those turns tomorrow's one-line swap into a code change, and none of them announces itself at the time.
+Worth naming, because each is a plausible shortcut: a prompt tweaked for one model's quirks; a hardcoded id asserted in a test fixture rather than parameterised; a `CREATE TYPE ai_model AS ENUM`; a "temporary" `if` in the loop for a model that mishandles tool results. Rules 1â€“4 exist because each of those turns tomorrow's one-line swap into a code change, and none of them announces itself at the time.
+
