@@ -71,9 +71,9 @@ AI_ENABLED=true
 # Tier candidate lists, in fallback order (ADR-17).
 # Verify against the authenticated catalogue before setting: npm run ai:catalogue
 AI_TIER1_MODELS=nvidia/nemotron-3-nano-30b-a3b,openai/gpt-oss-20b,google/gemma-4-31b-it
-AI_TIER2_MODELS=nvidia/nemotron-3-super-120b-a12b,z-ai/glm-5.2
+AI_TIER2_MODELS=nvidia/nemotron-3-super-120b-a12b,deepseek-ai/deepseek-v4-flash-0731
 AI_TIER3_MODELS=nvidia/nemotron-3-ultra-550b-a55b
-AI_TIER4_MODELS=nvidia/nemotron-nano-12b-v2-vl,nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
+AI_TIER4_MODELS=nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
 AI_TIER5_MODELS=                                  # empty — embeddings deferred (ADR-19)
 
 # --- Market data -----------------------------------------------------------

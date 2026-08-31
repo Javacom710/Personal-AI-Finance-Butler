@@ -12,7 +12,7 @@ The bar: **a feature is not done until the calculation behind it is tested, incl
 | Golden scenario | Vitest + real Postgres | Full multi-year fixtures with hand-verified expected outputs | < 60 s | every commit |
 | Contract | Vitest + recorded fixtures | Market-data adapters against captured provider responses | < 10 s | every commit |
 | AI | Vitest, no network | Tool schemas, capability gating, fallback classes, loop policy, proposal validation, injection cases | < 10 s | every commit |
-| Model eval | Live provider | Model quality per tier â€” **manual, never in CI** (Â§7a) | minutes | Phase 8, quarterly |
+| Model eval | Live provider | Model quality per tier â€” **manual, never in CI** (§7a) | minutes | Phase 8, quarterly |
 | E2E | Playwright | The handful of flows a broken build must not ship | < 3 min | pre-deploy |
 
 Integration tests require a Postgres instance. `testcontainers` was the original preference (decision **D-4**), but Docker was never installed, so they run against a dedicated `financeos_test` database on the local **PostgreSQL 18.4 service** (**D-23**), truncated between test files. The database is always available â€” it starts with Windows â€” so no test setup starts or waits for it.
@@ -88,13 +88,13 @@ Table-driven, covering:
 
 The last three are the properties that catch the classes of bug where a rebuild produces a different answer than the incremental path, and where the answer depends on the order rows happened to be entered.
 
-`Î£ remaining_cost === cost_basis` is asserted **exactly**. The former `Â± 1 minor unit per lot` tolerance was a consequence of storing `cost_per_unit` and multiplying it on read; lots now store money exactly and derive the rate, so there is nothing to drift ([INVESTMENT-DOMAIN.md Â§4](INVESTMENT-DOMAIN.md#rounding-in-the-engine)). A property test with a tolerance would pass against an engine that leaks a paisa per disposal.
+`Î£ remaining_cost === cost_basis` is asserted **exactly**. The former `± 1 minor unit per lot` tolerance was a consequence of storing `cost_per_unit` and multiplying it on read; lots now store money exactly and derive the rate, so there is nothing to drift ([INVESTMENT-DOMAIN.md §4](INVESTMENT-DOMAIN.md#rounding-in-the-engine)). A property test with a tolerance would pass against an engine that leaks a paisa per disposal.
 
-**Not asserted, deliberately:** `Î£ lot_disposals.quantity + remaining_quantity === original_quantity`. It is false after a corporate action touches a partially disposed lot â€” see the non-invariants table in [SCHEMA.md Â§12](SCHEMA.md#12-invariants-summary).
+**Not asserted, deliberately:** `Î£ lot_disposals.quantity + remaining_quantity === original_quantity`. It is false after a corporate action touches a partially disposed lot â€” see the non-invariants table in [SCHEMA.md §12](SCHEMA.md#12-invariants-summary).
 
 ### Lot engine
 
-Every case listed in [INVESTMENT-DOMAIN.md Â§12](INVESTMENT-DOMAIN.md#12-edge-cases-that-must-be-covered-by-tests) is a named test. Each is a plain array of transactions in, expected lots/disposals/position out â€” no database, no mocks.
+Every case listed in [INVESTMENT-DOMAIN.md §12](INVESTMENT-DOMAIN.md#12-edge-cases-that-must-be-covered-by-tests) is a named test. Each is a plain array of transactions in, expected lots/disposals/position out â€” no database, no mocks.
 
 Hand-verified reference cases (computed independently in a spreadsheet, checked into `tests/golden/`):
 - **L0 â€” the average-cost drift case (minimal, run first).** Buy 100 @ â‚¹100, buy 100 @ â‚¹150 â†’ quantity 200, `cost_basis` â‚¹25,000, derived average â‚¹125. Then sell 100 @ â‚¹200 â†’ FIFO closes the â‚¹100 lot entirely, realised P&L â‚¹10,000, remaining `cost_basis` â‚¹15,000, **derived average jumps to â‚¹150 with nothing purchased**. Asserts that average cost is computed from surviving lots, never carried forward. A stored average would report â‚¹125 and a realised P&L of â‚¹7,500 â€” wrong by â‚¹2,500 on a taxable gain.
@@ -102,16 +102,16 @@ Hand-verified reference cases (computed independently in a spreadsheet, checked 
 - Buy, 1:5 split, sell â€” realised P&L must be identical to the no-split equivalent at the adjusted price, and `Î£ cost_total` byte-identical before and after the split.
 - Buy, 1:1 bonus, sell half â€” derived average cost halves, basis unchanged, realised P&L exact.
 - Buy in USD with an FX move, sell â€” base-currency P&L splits correctly into price and FX components, and the two sum back to `base_realized_pnl` exactly (I-18).
-- **L1 â€” the fee double-count case.** The worked fixture in [INVESTMENT-DOMAIN.md Â§6.3](INVESTMENT-DOMAIN.md#63-worked-verification-that-nothing-is-counted-twice): buy 100 @ â‚¹100 + â‚¹50 fee, â‚¹500 dividend with â‚¹50 TDS, sell 40 @ â‚¹150 + â‚¹30 fee, remainder at â‚¹160. Asserts `totalReturn = â‚¹5,970` by **both** the component sum and the cash cross-check, `totalReturnPct = 59.40%` on `costDeployed`, and `unrealizedReturnPct = 59.20%` on `investedCapital`. Accruing trade fees to `fees_total` as well gives â‚¹5,890; using one denominator for both gives 99.00%.
+- **L1 â€” the fee double-count case.** The worked fixture in [INVESTMENT-DOMAIN.md §6.3](INVESTMENT-DOMAIN.md#63-worked-verification-that-nothing-is-counted-twice): buy 100 @ â‚¹100 + â‚¹50 fee, â‚¹500 dividend with â‚¹50 TDS, sell 40 @ â‚¹150 + â‚¹30 fee, remainder at â‚¹160. Asserts `totalReturn = â‚¹5,970` by **both** the component sum and the cash cross-check, `totalReturnPct = 59.40%` on `costDeployed`, and `unrealizedReturnPct = 59.20%` on `investedCapital`. Accruing trade fees to `fees_total` as well gives â‚¹5,890; using one denominator for both gives 99.00%.
 
-Every case in [INVESTMENT-DOMAIN.md Â§12](INVESTMENT-DOMAIN.md#12-edge-cases-that-must-be-covered-by-tests) is a named test, including cases **21â€“31** added by the Phase 4 design review â€” each guards a specific defect that the pre-review documents would have produced.
+Every case in [INVESTMENT-DOMAIN.md §12](INVESTMENT-DOMAIN.md#12-edge-cases-that-must-be-covered-by-tests) is a named test, including cases **21â€“31** added by the Phase 4 design review â€” each guards a specific defect that the pre-review documents would have produced.
 
 ### XIRR / TWR
 
 - Known-answer tests against Excel/LibreOffice `XIRR` for 10 cash-flow series, agreeing to 6 decimal places.
 - Convergence: a series with a âˆ’95% return (near the bracket edge) resolves via bisection.
 - All `null` paths: fewer than 2 flows, single-sign flows, same-date flows, non-convergence, insufficient price history for TWR. Each asserts `null` **and** the stated reason â€” a test that only asserts `null` would pass if the function always returned `null`.
-- **Scope construction**, which is where the series is most easily built wrong ([INVESTMENT-DOMAIN.md Â§7](INVESTMENT-DOMAIN.md#7-xirr)):
+- **Scope construction**, which is where the series is most easily built wrong ([INVESTMENT-DOMAIN.md §7](INVESTMENT-DOMAIN.md#7-xirr)):
   - Brokerage cash is **excluded** from the terminal value; a dividend reinvested the same day contributes `+500` then `âˆ’500` and nets to zero, while an un-reinvested one remains a return.
   - A matched `transfer_out`/`transfer_in` pair is **excluded** at portfolio scope and produces the same XIRR as if the transfer had never happened.
   - The same unmatched leg at **account** and **instrument** scope enters at `gross_amount` â€” asserted against a fixture where treating it as a zero flow yields a divergent or infinite return.
@@ -127,7 +127,7 @@ Every case in [INVESTMENT-DOMAIN.md Â§12](INVESTMENT-DOMAIN.md#12-edge-cases-t
 
 Against a real Postgres, because half the invariants are database constraints and triggers.
 
-- The `check_transaction_shape()` trigger rejects every invalid shape in the [FINANCIAL-DOMAIN.md Â§12](FINANCIAL-DOMAIN.md#12-edge-cases-that-must-be-covered-by-tests) list.
+- The `check_transaction_shape()` trigger rejects every invalid shape in the [FINANCIAL-DOMAIN.md §12](FINANCIAL-DOMAIN.md#12-edge-cases-that-must-be-covered-by-tests) list.
 - `ON DELETE RESTRICT` blocks deleting a category in use, an account with entries, an instrument with transactions.
 - `UNIQUE (rule_id, due_on)` â€” the posting job run twice on the same day creates exactly one transaction. Also tested with two concurrent runners.
 - A failed write inside an application service rolls back completely (the service owns the transaction boundary): no orphan entries, no bumped `ledger_version`, no audit row.
@@ -136,23 +136,23 @@ Against a real Postgres, because half the invariants are database constraints an
 - **Investment `CHECK` constraints reject at the database, not merely at the service.** Each asserted by a direct `INSERT` that bypasses the service layer: `cash_settled = false` with a non-zero `net_amount` (I-16); `realized_pnl â‰  proceeds âˆ’ cost_consumed` (I-15); a lot with `remaining_quantity = 0` but non-zero `remaining_cost` (I-19); a `split` carrying a quantity or a price; `gross_amount` disagreeing with `|quantity| Ã— price`. A rule enforced only in TypeScript is not enforced against a restore, a script, or `psql`.
 - **The three-denomination cash chain (OD-5).** A USD instrument bought, and a USD dividend received, into an **INR** brokerage account: both rows insert successfully; `net_amount_instrument` satisfies its per-kind identity in USD; `net_amount = round(net_amount_instrument Ã— fx_rate_instrument_to_account, 4)` in INR; `base_net_amount` follows from that; and `deriveBalance()` returns rupees throughout. **A regression test asserts the row is not rejected** â€” stating the identity on `net_amount` instead makes every foreign-currency dividend and trade unrecordable, which is a schema-level failure no engine test would catch.
 - **Same-currency collapse.** With instrument and account currency equal, `fx_rate_instrument_to_account = 1` and `net_amount_instrument = net_amount` exactly â€” asserted so the common path cannot drift from the general one.
-- **A backdated oversell rolls back completely.** Inserting a sell dated before existing purchases such that the position goes short at that instant leaves lots, disposals, positions and `investment_ledger_version` byte-identical to before â€” the rebuild shares the mutation's transaction ([INVESTMENT-DOMAIN.md Â§4](INVESTMENT-DOMAIN.md#rebuild)).
+- **A backdated oversell rolls back completely.** Inserting a sell dated before existing purchases such that the position goes short at that instant leaves lots, disposals, positions and `investment_ledger_version` byte-identical to before â€” the rebuild shares the mutation's transaction ([INVESTMENT-DOMAIN.md §4](INVESTMENT-DOMAIN.md#rebuild)).
 - Job claiming with `FOR UPDATE SKIP LOCKED` under two concurrent runners: each job executes exactly once.
 - `verify:integrity` passes on a freshly seeded database and fails on a deliberately corrupted one (a test that asserts the checker actually catches something).
 
 ### Net worth (Phase 5)
 
-Each case guards a defect the pre-review rules would have produced. The full list is [FINANCIAL-DOMAIN.md Â§12](FINANCIAL-DOMAIN.md#12-edge-cases-that-must-be-covered-by-tests) cases 14â€“16 and 29â€“40; the ones that need a real database:
+Each case guards a defect the pre-review rules would have produced. The full list is [FINANCIAL-DOMAIN.md §12](FINANCIAL-DOMAIN.md#12-edge-cases-that-must-be-covered-by-tests) cases 14â€“16 and 29â€“40; the ones that need a real database:
 
-- **The eligibility table, row by row** ([FINANCIAL-DOMAIN.md Â§9.3](FINANCIAL-DOMAIN.md#93-calculation)): an account, a lot, a manual asset and a liability each crossing `asOf`, asserted the day before, the day of, and the day after their own boundary date.
+- **The eligibility table, row by row** ([FINANCIAL-DOMAIN.md §9.3](FINANCIAL-DOMAIN.md#93-calculation)): an account, a lot, a manual asset and a liability each crossing `asOf`, asserted the day before, the day of, and the day after their own boundary date.
 - **Account created after `asOf`** contributes **nothing â€” including its opening balance** (case 31). Named for the defect, because the date bound covers movements and an opening position is not a movement.
 - **An overpaid credit card at `+â‚¹5,000` contributes a `+â‚¹5,000` asset** (case 29) â€” asserted against both wrong answers: zero, and a â‚¹5,000 liability.
-- **`is_active` is read by no calculation** (**I-26**) â€” a **source scan** over `src/server/domain/networth/**` and the net-worth read path, in the same style as the model-identifier scan in Â§7. A rule that depends on every future reader remembering it is not a rule.
+- **`is_active` is read by no calculation** (**I-26**) â€” a **source scan** over `src/server/domain/networth/**` and the net-worth read path, in the same style as the model-identifier scan in §7. A rule that depends on every future reader remembering it is not a rule.
 - **A `transfer_in` carrying an `acquired_on` two years before its `opened_on`** contributes to neither account before `opened_on` (**I-23**).
 - **`investmentCostBasisAsOf(today)` equals `Î£ positions.base_cost_basis`** exactly (**I-24**) â€” the as-of derivation and the Phase 4 cache cannot drift apart unnoticed.
 - **`verify:integrity` fails on a deliberately corrupted database**: a liability linked to a `bank` account (**I-27**), a scheduled liability closed with no terminal zero row (**I-28**), a duplicated source key (**I-21**).
 - **User isolation** â€” a second user's accounts, assets, liabilities and lots are invisible to every net-worth query (**I-32**).
-- **`networth.ts` exports no function taking a `WriteCtx`** â€” a `tsc`-based test, the same mechanism as the AI write-unreachability test in Â§7.
+- **`networth.ts` exports no function taking a `WriteCtx`** â€” a `tsc`-based test, the same mechanism as the AI write-unreachability test in §7.
 
 ## 5. Golden scenarios
 
@@ -168,8 +168,8 @@ Multi-year fixtures with every figure verified by hand once and then frozen. The
 | **G6 â€” Market value with a foreign holding** | âœ… A USD ETF bought at â‚¹75 to the dollar and valued at â‚¹83, beside an INR equity. Asserts the FX rebasis and the price effect separately, and pins the release-note fact at a date where the price has **not** moved: the entire difference is currency. `tests/integration/golden-g6.test.ts` |
 | **G7 â€” Corrections** | A transaction edited, one deleted, an investment transaction back-dated before existing ones. Asserts: derived state rebuilt correctly, historical figures recomputed, audit trail complete. **Not yet built.** |
 
-> **G6 was renumbered.** This table previously named G6 *"Corrections"*, while Â§6.7 and
-> [MARKET-VALUE-NET-WORTH-DESIGN.md Â§21](MARKET-VALUE-NET-WORTH-DESIGN.md#21-implementation-gates)
+> **G6 was renumbered.** This table previously named G6 *"Corrections"*, while §6.7 and
+> [MARKET-VALUE-NET-WORTH-DESIGN.md §21](MARKET-VALUE-NET-WORTH-DESIGN.md#21-implementation-gates)
 > both named it the market-value foreign-holding scenario. Phase 6.11 gates on the latter, so the
 > market-value scenario is **G6** and corrections becomes **G7**. Recorded rather than silently
 > resolved, because a scenario number appearing in two places with two meanings is how a frozen
@@ -208,7 +208,7 @@ One classifier, so one test file covers every provider.
 - **Bootstrap:** one instrument on an exchange is its own reference and reports `current`, never a false alarm.
 - **Future-dated:** reported at age zero, not "fresher than fresh" â€” a clock problem, still the best price available.
 
-### 6.2 FX ([FINANCIAL-DOMAIN.md Â§2](FINANCIAL-DOMAIN.md#2-fx))
+### 6.2 FX ([FINANCIAL-DOMAIN.md §2](FINANCIAL-DOMAIN.md#2-fx))
 
 - **Direct**, **inverse**, **triangulated** and **no route**, each asserting the `source` label.
 - **A direct pair wins over a more recent inverse or triangulated route.**
@@ -291,21 +291,21 @@ Two notes where the suite differs from the sketch above:
 - **The exclusion-reason test covers ten reasons, not nine.** Implementation found a tenth case â€”
   no observation on or before `T` within the carry-back bound, which is a gap in the point rather
   than a fault in the feed. See
-  [MARKET-VALUE-NET-WORTH-DESIGN.md Â§24.2](MARKET-VALUE-NET-WORTH-DESIGN.md#24-what-implementation-found).
+  [MARKET-VALUE-NET-WORTH-DESIGN.md §24.2](MARKET-VALUE-NET-WORTH-DESIGN.md#24-what-implementation-found).
 - **`quantityHeldOn`'s property test compares against a bounded `replay()`**, which is what this
   section asks for â€” but the implementation *derives* the timeline from `replay()` rather than
-  re-deriving it as a cumulative ratio product. The two forms disagree by units of 10â»â¸ on a
+  re-deriving it as a cumulative ratio product. The two forms disagree by units of 10⁻⁸ on a
   reverse split that does not divide evenly, and the per-lot answer is the one `positions.quantity`
   carries. The ratio-product form is kept in the suite only as the wrong answer it proves wrong.
 
 ## 7. AI tests â€” all offline
 
-**No test in CI calls NVIDIA Build.** The model is not the system under test; our handling of it is. Model quality is measured separately by the evaluation harness (Â§7a), which is online, manual, and never gates a merge.
+**No test in CI calls NVIDIA Build.** The model is not the system under test; our handling of it is. Model quality is measured separately by the evaluation harness (§7a), which is online, manual, and never gates a merge.
 
 - **Schema generation:** every tool's `z.toJSONSchema()` output has `additionalProperties: false` and a complete `required` array.
 - **Tool handlers:** each tested directly, including the row cap, the `truncated` flag, and the projected field set. A test asserts no handler's output contains a field outside its declared contract â€” the data-minimisation guarantee.
 - **Authorisation:** a test asserts that no tool input schema contains a user-identifier field. If someone adds one, this fails.
-- **Model-identifier leakage:** a source scan asserts no model id string appears outside `src/server/ai/config/`, and that no file under `prompts/`, `loop.ts`, `tools/`, or `structured/` branches on a model identity. This is what keeps "swap a model = one env line" true over time (AI-SYSTEM.md Â§17).
+- **Model-identifier leakage:** a source scan asserts no model id string appears outside `src/server/ai/config/`, and that no file under `prompts/`, `loop.ts`, `tools/`, or `structured/` branches on a model identity. This is what keeps "swap a model = one env line" true over time (AI-SYSTEM.md §17).
 - **Routing:** a labelled corpus asserts the tier for each message shape. Explicitly includes the **sticky-escalation trap** â€” a Tier-2 question followed by "what's my HDFC balance?" must route back to Tier 1, not inherit Tier 2. Also asserts Tier 3 is unreachable without an explicit user action, and that `runFinancialScenario` stays at Tier 2.
 - **Write-unreachability â€” three mechanisms, built and asserted 2026-08-30, before any AI code exists** ([ADR-33](DECISIONS.md#adr-33--the-transaction-opener-is-a-capability-carried-on-the-context-not-an-ambient-import), [ADR-34](DECISIONS.md#adr-34--the-ai-import-boundary-is-enforced-three-ways-and-covers-relative-paths)). Two are not enough, and the Phase 7 review showed why: each closes a hole the others cannot see.
   - **Types (I-50)** â€” `tests/unit/ai-write-boundary.test.ts` type-checks probe sources against the project's own `tsconfig.json` and asserts the diagnostic codes. `withWriteCtx(ai, â€¦)` â†’ TS2345; `ai.db` â†’ TS2339; `listAccounts(ai)` and `deleteTransaction(ai, â€¦)` â†’ TS2345. It also asserts the **negative**: a `RequestCtx` *can* still open a write, so a boundary that broke the application would fail here rather than mysteriously elsewhere. A runtime test expecting a throw would assert the weaker property while the compile-time one rotted.

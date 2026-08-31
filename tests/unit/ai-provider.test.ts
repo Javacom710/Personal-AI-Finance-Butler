@@ -246,12 +246,12 @@ describe('I-55 â€” dispositions drive fallback, not messages', () => {
 describe('I-55 â€” catalogue', () => {
   it('normalises the model list', async () => {
     const p = provider(async () =>
-      json({ data: [{ id: 'z-ai/glm-5.2', owned_by: 'z-ai', created: 1 }, { notAnId: true }] }),
+      json({ data: [{ id: 'some/other-model', owned_by: 'z-ai', created: 1 }, { notAnId: true }] }),
     );
     const result = await p.listModels();
     if (!result.ok) throw new Error('expected success');
     // The malformed entry is dropped, not guessed at.
-    expect(result.value).toEqual([{ id: 'z-ai/glm-5.2', ownedBy: 'z-ai', created: 1 }]);
+    expect(result.value).toEqual([{ id: 'some/other-model', ownedBy: 'z-ai', created: 1 }]);
   });
 });
 

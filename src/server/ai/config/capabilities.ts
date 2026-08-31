@@ -127,17 +127,7 @@ export const DECLARED_CAPABILITIES: Readonly<Record<string, ModelCapabilities>> 
     streaming: true,
     source: 'declared',
   },
-  'z-ai/glm-5.2': {
-    tier: 2,
-    toolCalling: 'native',
-    structuredOutput: 'json_object',
-    vision: false,
-    embedding: false,
-    contextTokens: 131_072,
-    maxOutputTokens: 16_384,
-    streaming: true,
-    source: 'declared',
-  },
+
   'deepseek-ai/deepseek-v4-flash-0731': {
     tier: 2,
     toolCalling: 'native',
@@ -160,17 +150,7 @@ export const DECLARED_CAPABILITIES: Readonly<Record<string, ModelCapabilities>> 
     streaming: true,
     source: 'declared',
   },
-  'nvidia/nemotron-nano-12b-v2-vl': {
-    tier: 4,
-    toolCalling: 'none',
-    structuredOutput: 'json_object',
-    vision: true,
-    embedding: false,
-    contextTokens: 128_000,
-    maxOutputTokens: 8_192,
-    streaming: true,
-    source: 'declared',
-  },
+
   'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning': {
     tier: 4,
     toolCalling: 'none',

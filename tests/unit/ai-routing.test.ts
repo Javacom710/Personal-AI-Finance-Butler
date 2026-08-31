@@ -57,20 +57,53 @@ const configOf = (tier1: string[], tier2: string[] = [], tier4: string[] = []) =
 
 describe('I-56 — the catalogue identifiers are normalised, not guessed', () => {
   it('maps CLAUDE.md names onto the identifiers the catalogue actually uses', () => {
-    expect(normaliseModelId('zai-org/glm-5.2')).toBe('z-ai/glm-5.2');
+    // GLM is NOT here: the authenticated catalogue read found no GLM model of
+    // any publisher prefix, so zai-org/glm-5.2 normalises to nothing routable
+    // and is recorded as absent instead (see the absent-candidates test below).
     expect(normaliseModelId('deepseek-ai/deepseek-v4-flash')).toBe('deepseek-ai/deepseek-v4-flash-0731');
     // Unknown ids pass through: normalisation corrects, it does not filter.
     expect(normaliseModelId('some/new-model')).toBe('some/new-model');
   });
 
-  it('records the three candidates the catalogue does not carry', () => {
+  it('records every candidate the authenticated catalogue does not carry', () => {
     const absent = unavailableCandidates().map((c) => c.declared);
     expect(absent).toContain('deepseek-ai/deepseek-v4-pro');
     expect(absent).toContain('mistralai/mistral-medium-3.5-128b');
     expect(absent).toContain('qwen/qwen3-next-80b-a3b-instruct');
+    // Found by the live `npm run ai:catalogue` read against the real provider,
+    // which disproved AI-SYSTEM.md §2.3's unauthenticated notes: it recorded
+    // `z-ai/glm-5.2` as GLM's real identifier (no GLM model exists at all) and
+    // listed the 12b vision model as present (it is not).
+    expect(absent).toContain('zai-org/glm-5.2');
+    expect(absent).toContain('nvidia/nemotron-nano-12b-v2-vl');
     // Recorded rather than silently substituted: a routing table written against
     // a name that 404s fails at runtime, and this is where that is prevented.
     expect(CANDIDATE_POOL.length).toBe(13);
+  });
+
+  it('routes to no model the catalogue lacks, in any tier', () => {
+    // The property that actually matters, asserted over the default order rather
+    // than over the pool: every id the router can reach must be one the provider
+    // will answer for. Two entries failed this before the live catalogue read.
+    const unroutable = new Set(unavailableCandidates().flatMap((c) => [c.declared, c.catalogue ?? c.declared]));
+    const config = resolveModelConfig();
+    for (const tier of [1, 2, 3, 4, 5] as const) {
+      for (const modelId of config.candidates(tier)) {
+        expect(unroutable.has(modelId), `tier ${tier} routes to absent model ${modelId}`).toBe(false);
+      }
+    }
+  });
+
+  it('keeps a fallback wherever one is possible, and says so where it is not', () => {
+    const config = resolveModelConfig();
+    // Tiers 1 and 2 have a genuine second candidate.
+    expect(config.candidates(1).length).toBeGreaterThanOrEqual(2);
+    expect(config.candidates(2).length).toBeGreaterThanOrEqual(2);
+    // Tier 3 has none by design; Tier 4 has none because the only vision model
+    // CLAUDE.md names that exists is the omni one. Both fail closed rather than
+    // answering a document question without having seen the document.
+    expect(config.candidates(3)).toHaveLength(1);
+    expect(config.candidates(4)).toHaveLength(1);
   });
 
   it('takes tier order from configuration, replacing the default outright', () => {

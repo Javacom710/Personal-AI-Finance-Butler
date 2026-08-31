@@ -56,37 +56,48 @@ export const CANDIDATE_POOL: readonly CandidateId[] = [
     declared: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
     catalogue: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
   },
-  { declared: 'nvidia/nemotron-nano-12b-v2-vl', catalogue: 'nvidia/nemotron-nano-12b-v2-vl' },
   { declared: 'nvidia/nemotron-3-embed-1b', catalogue: 'nvidia/nemotron-3-embed-1b' },
 
   // Present, under a different identifier. Routing must use the catalogue one.
   {
     declared: 'deepseek-ai/deepseek-v4-flash',
     catalogue: 'deepseek-ai/deepseek-v4-flash-0731',
-    note: 'CLAUDE.md omits the -0731 suffix the catalogue carries.',
-  },
-  {
-    declared: 'zai-org/glm-5.2',
-    catalogue: 'z-ai/glm-5.2',
-    note: 'Publisher prefix is z-ai, not zai-org.',
+    note: 'CLAUDE.md omits the -0731 suffix the catalogue carries. Confirmed by the authenticated read.',
   },
 
-  // Not found in the unauthenticated catalogue. Unroutable until `ai:catalogue`
-  // re-reads it with a credential and either finds them or confirms absence.
+  // Absent from the AUTHENTICATED catalogue (`npm run ai:catalogue`, 83 models).
+  // These cannot be routed to, and saying so here is what stops a routing table
+  // being written against a name that fails at runtime.
+  {
+    declared: 'zai-org/glm-5.2',
+    catalogue: null,
+    note:
+      'No GLM model of any publisher prefix exists in the catalogue. AI-SYSTEM.md §2.3 recorded ' +
+      '`z-ai/glm-5.2` as the real identifier from an UNAUTHENTICATED read; the authenticated read ' +
+      'disproves it. Neither spelling is routable.',
+  },
+  {
+    declared: 'nvidia/nemotron-nano-12b-v2-vl',
+    catalogue: null,
+    note:
+      'Absent. AI-SYSTEM.md §2.3 listed it as present from the unauthenticated read; the ' +
+      'authenticated read disproves that. The only Tier 4 candidate from CLAUDE.md that exists is ' +
+      'the omni model.',
+  },
   {
     declared: 'deepseek-ai/deepseek-v4-pro',
     catalogue: null,
-    note: 'Not in the unauthenticated catalogue.',
+    note: 'Absent from the authenticated catalogue.',
   },
   {
     declared: 'mistralai/mistral-medium-3.5-128b',
     catalogue: null,
-    note: 'Not in the unauthenticated catalogue.',
+    note: 'Absent from the authenticated catalogue.',
   },
   {
     declared: 'qwen/qwen3-next-80b-a3b-instruct',
     catalogue: null,
-    note: 'Not in the unauthenticated catalogue; no Qwen models were listed at all.',
+    note: 'Absent from the authenticated catalogue; no Qwen models are listed at all.',
   },
 ];
 
@@ -110,11 +121,21 @@ export function unavailableCandidates(): readonly CandidateId[] {
  */
 const DEFAULT_ORDER: Readonly<Record<Tier, readonly string[]>> = {
   1: ['nvidia/nemotron-3-nano-30b-a3b', 'openai/gpt-oss-20b', 'google/gemma-4-31b-it'],
-  2: ['nvidia/nemotron-3-super-120b-a12b', 'z-ai/glm-5.2', 'deepseek-ai/deepseek-v4-flash-0731'],
+  // GLM was here until the authenticated catalogue read showed no GLM model
+  // exists. Two candidates remain, so Tier 2 still has a fallback.
+  2: ['nvidia/nemotron-3-super-120b-a12b', 'deepseek-ai/deepseek-v4-flash-0731'],
   // No fallback by design: a Tier 3 request that cannot be served should fail,
   // not quietly become a Tier 2 answer the user believes is a Tier 3 one.
   3: ['nvidia/nemotron-3-ultra-550b-a55b'],
-  4: ['nvidia/nemotron-nano-12b-v2-vl', 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning'],
+  // **One candidate, and therefore no fallback.** `nemotron-nano-12b-v2-vl` was
+  // the intended primary and does not exist. Vision cannot fall back to a text
+  // model, so the honest configuration is a single model whose failure fails the
+  // request — not a second entry that would quietly answer a document question
+  // without having seen the document. The catalogue does carry other vision
+  // models (`meta/llama-3.2-*-vision-instruct`, `microsoft/phi-3-vision-*`), but
+  // they are outside `CLAUDE.md`'s approved candidate pool, so adding one is a
+  // scope decision rather than a routing fix.
+  4: ['nvidia/nemotron-3-nano-omni-30b-a3b-reasoning'],
   5: [],
 };
 
