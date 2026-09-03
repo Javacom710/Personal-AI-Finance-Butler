@@ -1007,7 +1007,7 @@ Corrected: Tier 2 drops GLM and keeps two candidates; **Tier 4 now has exactly o
 | Step | Delivered |
 |---|---|
 | **7.1 provider** | `AiProvider` interface (`provider/types.ts`) and the NVIDIA Build adapter (`provider/nvidia-build.ts`) — the only file that knows the wire format, the endpoints, or the bearer header. Every method returns a classified `Result`; nothing throws |
-| **7.2 configuration** | `config/models.ts` — tier → ordered candidates, env-driven, with **`CLAUDE.md`'s candidate list reconciled against the catalogue**: two identifiers corrected (`zai-org/glm-5.2` → `z-ai/glm-5.2`, `deepseek-v4-flash` → `-0731`) and three recorded as absent rather than silently substituted. `config/capabilities.ts` — the gate |
+| **7.2 configuration** | `config/models.ts` — tier → ordered candidates, env-driven, with **`CLAUDE.md`'s candidate list reconciled against the catalogue**: one identifier corrected (`deepseek-v4-flash` → `-0731`) and **five** recorded as absent rather than silently substituted. `config/capabilities.ts` — the gate |
 | **7.3 tools** | 18 read-only tools over real services, `AiReadCtx` throughout, per-field JSON projection, row caps, a 150 KB byte budget and visible truncation. Zod `.strict()` schemas → JSON Schema |
 | **7.4 orchestrator** | `requirements` → `select` → `fallback`, with a circuit breaker. Routing is decided from the capability alone, before any content is read |
 | **7.5 structured output** | Parse → validate → **one** repair carrying the field errors → reject. Zod is the single validation boundary (ADR-16) |
@@ -1044,6 +1044,90 @@ The AI layer cannot obtain a `WriteCtx`, execute SQL, reach a service directly, 
 - **No model has been measured.** Phase 8 runs `ai:eval`; the harness exists (`ai/eval/harness.ts`) and records schema adherence, tool-call correctness, latency percentiles and error class, with `null` printed as *not measured* rather than `0`.
 - **No AI database tables.** `ai_messages`, `ai_model_attempts` and `ai_usage_daily` are specified in `SCHEMA.md` and not created: nothing writes conversations yet, and a migration for tables no code fills is schema debt. Observability records to an injected sink; the database sink lands with the feature that produces conversations.
 - **The read loop is not built.** The orchestrator can call a model with tools, and `dispatchToolCall` executes one — but the multi-turn loop that feeds results back belongs with the assistant in Phase 9.
+
+---
+
+## Phase 7 final verification — 2026-09-03
+
+**Verdict: B — implementation complete, verification partially blocked by the environment.** Every application check passes. Two things stop this being an unqualified pass, and neither is application code: the machine's storage is physically unreliable, and the provider's catalogue moved under a routing table written against it.
+
+### The environment fault, found and named
+
+The "repeated machine-level I/O/process failures" carried through Phases 6 and 7 are a **hardware storage fault**, not a code or tooling problem. The Windows System log records, over 30 days:
+
+| Event | Count | Meaning |
+|---|---|---|
+| `disk` 51 | 30,318 | I/O error during a paging operation on `\Device\Harddisk0\DR0` |
+| `storahci` 129 | 245 | the AHCI controller reset the device |
+| `disk` 153 | 160 | I/O operation retried |
+| `disk` 157 | 160 | **"Disk 0 has been surprise removed"** — the drive left the bus mid-operation |
+| `Ntfs` 50 | — | **"{Delayed Write Failed} … The data has been lost"**, naming files inside this worktree |
+
+Disk 0 is the 932 GB `ST1000DM010` HDD hosting `E:\`, and therefore the repository. SMART still reports *Healthy*, which fits a cable, power or controller fault rather than media wear.
+
+**It was caught in the act.** At 01:06:29 on 2026-09-03, during `npm ci`, the drive surprise-removed and NTFS reported a lost delayed write. The result was a silently corrupted 106 MB native binary: `@next/swc-win32-x64-msvc/next-swc.win32-x64-msvc.node` had **every byte from offset 94,371,840 (exactly 90 MiB) to EOF zeroed**, while retaining its full length — a pre-allocated file whose tail never flushed. `next build` loaded that PE image and died with `0xC0000005` (access violation) in 1.6 s. The npm cache was intact (`npm cache verify`: 1,063 entries), so the corruption occurred on extraction, not download. Reinstalling produced a binary byte-identical to a known-good copy, and the build then passed in 48 s.
+
+**Consequence for trust.** Any file on `E:` can be silently corrupted at any moment, with correct length and no error surfaced to the writing process. A green run on this machine is evidence about the code only insofar as the disk behaved during that run. **The drive's cable/power/controller should be replaced, and the repository re-verified afterwards, before Phase 7 is called fully verified.**
+
+A second, unrelated environment effect is worth recording because it wastes time: Git-Bash on Windows emulates `fork()` via `CreateProcessW`, so a shell loop spawning a subprocess per file exhausts the process table at a few hundred spawns (`fork: Resource temporarily unavailable`, and a spurious "working directory was deleted"). Whole-tree scans must run as **one** process, not a per-file loop.
+
+### Corruption found and repaired
+
+**14 tracked files carried double-encoded UTF-8** (mojibake): text written as UTF-8, misread as CP1252, re-encoded as UTF-8. An em dash — one character, bytes `E2 80 94` — came back as the three characters CP1252 assigns to those bytes (`U+00E2 U+20AC U+201D`), and every other non-ASCII character expanded the same way. It is *valid* UTF-8, which is why an encoding-validity check cannot see it and why it survived earlier passes.
+
+*(Described by codepoint rather than quoted, deliberately: a literal example here would make this file register as corrupt in its own scan, and invite a later repair pass to "fix" the illustration.)*
+
+Two separate write events, both from the PowerShell write path already blamed in the 2026-08-31 entry:
+
+| Introduced by | Files | Previously repaired? |
+|---|---|---|
+| `ddbaf86` (Phase 6.9) | `scripts/check-no-client-secrets.ts`, `src/server/services/market-data.ts`, `tests/integration/market-data-equity.test.ts`, `tests/unit/market-data-source-scan.test.ts` | **no — never** |
+| `c9fe823` (Phase 7) | `docs/ARCHITECTURE.md`, `docs/DECISIONS.md`, `docs/ROADMAP.md`, `docs/SECURITY.md`, `docs/TESTING.md`, `src/server/ai-read/{index,projections,queries}.ts`, `src/server/ai/tools/dispatch.ts`, `tests/unit/ai-provider.test.ts` | **partially** — `cbc0637` fixed four documents and missed these ten |
+
+The 2026-08-31 claim that the mojibake was "repaired here" was therefore **incomplete**, and is corrected by this entry.
+
+**1,468 sequences repaired across the 14 files, verified three ways:** every file shows equal `+N -N` in `git diff --numstat` (pure in-place substitution, no structural change); re-corrupting the repaired text reproduces the original byte-for-byte; and for `docs/ARCHITECTURE.md` the repaired box diagram is **byte-identical to the last clean ancestor** (`c773551`), including its pre-existing ragged right edge. All 16 non-comment occurrences were `describe()` labels and one `console.error` string — no identifier, key, comparison or control flow. The affected tests were re-run and pass unchanged.
+
+The box-drawing characters needed a second pass: `┐` is `E2 94 90`, and `0x90` is **undefined** in CP1252, so the decoder emitted the C1 control character `U+0090` rather than a printable one.
+
+**Two NUL bytes are not corruption and were left alone**: `'\0uncategorised'` in `domain/calc/cashflow.ts` is a deliberate sentinel map key that no user category can collide with, and `'/\0'` in `tests/unit/safe-redirect.test.ts` is a NUL-injection vector that must be rejected. Both predate Phase 7 and parse cleanly.
+
+### The catalogue moved again
+
+`npm run ai:smoke` on 2026-09-03 returns **82 models, not the 83 recorded on 2026-08-31**, and **`nvidia/nemotron-3-nano-30b-a3b` — the Tier 1 primary — is no longer in it.**
+
+It appears **renamed, not withdrawn**: the catalogue now carries `nvidia/nemotron-nano-3-30b-a3b`, the same words with the version segment transposed. A new generation has also appeared (`nvidia/nemotron-3.5-lightning-30b-a3b`, `nvidia/nemotron-3.5-content-safety`). This is the third identifier drift in this pool, after `deepseek-v4-flash` → `-0731` and the GLM correction.
+
+**Routing was deliberately not changed.** A transposed name is not proof of the same model, `CLAUDE.md` requires evaluation against real workloads before a route is finalised, and inventing a replacement is exactly the failure this project keeps catching. It is recorded here for Phase 8 to resolve with the eval harness.
+
+**Runtime impact — degraded, not broken.** `transport` carries the `next_candidate` disposition (`ai/errors.ts`), so the dead identifier fails and the chain falls through to `openai/gpt-oss-20b`; the circuit breaker then opens on it and stops trying. Tier 1 keeps serving. The cost is one wasted request and round-trip per breaker window. **Tiers 2, 3 and 4 are unaffected — every identifier they route to is still present.**
+
+### Verification matrix — run sequentially, one at a time
+
+| Check | Result |
+|---|---|
+| **Full test suite** | ❌ **1,555 passed, 3 failed, 1,558 total** (75 files) · **641 s** |
+| Typecheck | ✅ clean (4 s) |
+| Lint | ✅ clean (59 s) |
+| Production build | ✅ clean (48 s) — **after** repairing the disk-corrupted native binary; it segfaulted before |
+| `verify:integrity` | ✅ **33 passed, 0 failed, 28 engine-enforced, 2 deferred** |
+| `check:no-client-secrets` | ✅ no secret in 21 client files (7 values checked across `.next/static`) |
+| AI security probes | ✅ boundary source scan, write boundary, read capability — all pass |
+| Deterministic AI provider/routing/tools | ✅ **114 passed** across 6 files |
+| AI integration (`ai-infrastructure`) | ✅ pass |
+| Live NVIDIA smoke test | ✅ catalogue, generation (2,897 ms), structured output *valid*, unknown model → `transport` |
+
+**The three failures are a test defect, not an application regression, and not the environment.** All three are in `tests/integration/jobs.test.ts` (a Phase 3 file, untouched by Phase 7) and all assert `expected 3 to be 2`. They fail identically in isolation, so they are deterministic rather than contention.
+
+The cause is a **date-dependent test**. The fixture pins the clock — `setupMoneyFixture({ now: '2026-08-10' })` — but `runDueJobs()` reaches the job handler, which calls `createReadCtx(userId)` and builds a **fresh context from the real system clock** (`services/_ctx.ts`, `today: todayIn(timezone, now)`). The pin covers the assertion context and not the job's execution context. With a rule starting `2026-07-01` and `postDueOccurrences` posting everything where `due_on <= ctx.today`, three occurrences are due on 2026-09-03 where two were due on 2026-08-10. **Three is the correct application answer.** The suite was last green on 2026-08-30 and broke on 2026-09-01 with no code change.
+
+Not fixed here: this task was scoped to verification, and the fix belongs with the recurring/ledger area — either injecting a clock into the job path or making the assertion relational (post-run count unchanged by a second run) rather than absolute. Bumping `2` to `3` would re-arm the same bomb for October.
+
+### What remains true, and what is not yet proven
+
+- The AI layer is still read-only, and each control is enforced by a mechanism rather than a convention: types (`AiReadCtx` cannot become a `WriteCtx`), the ESLint allowlist (deny `@/server/**`, re-admit `ai-read` and `log`), a source scan that reads its patterns *from* `eslint.config.mjs`, and runtime binding in a module-private `WeakMap`. I-50 … I-58 all pass.
+- No credential reaches a client bundle, a log, a test file or a tracked file — re-checked against the real build.
+- **Not proven on this machine:** that a full-suite green run is repeatable, because the disk can corrupt any file mid-run without reporting it. This is the sole reason the phase is **B** rather than **A**.
 
 ---
 

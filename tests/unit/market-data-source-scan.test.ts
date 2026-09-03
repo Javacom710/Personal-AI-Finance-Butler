@@ -9,19 +9,19 @@ import { describe, expect, it } from 'vitest';
  * Three rules here are architectural rather than behavioural, and each fails in
  * a way no output assertion catches until it is too late:
  *
- * - **I-40** â€” no provider or job writes the investment ledger
+ * - **I-40** — no provider or job writes the investment ledger
  *   ([ADR-29](../../docs/DECISIONS.md)). A behavioural test only catches this
  *   once somebody writes the one scenario that happens to cross a split.
- * - **ADR-27** â€” an adapter returns observations, never a freshness verdict. The
+ * - **ADR-27** — an adapter returns observations, never a freshness verdict. The
  *   failure mode is a future adapter author deciding `'stale'` locally, and the
  *   system then having N freshness policies instead of one.
- * - **Provider isolation** â€” nothing outside `providers/` names a provider. The
+ * - **Provider isolation** — nothing outside `providers/` names a provider. The
  *   whole point of the abstraction is that swapping a provider is one file plus
  *   one registry line, and that stops being true the moment a service imports an
  *   adapter directly.
  *
  * Same mechanism `networth-source-scan.test.ts` uses for I-26, and `TESTING.md`
- * Â§7 uses to keep model identifiers out of the orchestrator: assert the property
+ * §7 uses to keep model identifiers out of the orchestrator: assert the property
  * over the source, where the mistake is made.
  */
 
@@ -49,7 +49,7 @@ function code(source: string): string {
   return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 }
 
-describe('I-40 â€” no provider and no job writes the investment ledger', () => {
+describe('I-40 — no provider and no job writes the investment ledger', () => {
   const marketDataFiles = tsFilesUnder('src/server/market-data');
   const jobFiles = tsFilesUnder('src/server/jobs');
 
@@ -86,7 +86,7 @@ describe('I-40 â€” no provider and no job writes the investment ledger', ()
   });
 
   it('the market-data service says so in its own words, so the rule is discoverable', () => {
-    // Not a behavioural claim â€” a documentation guard. Someone reading the file
+    // Not a behavioural claim — a documentation guard. Someone reading the file
     // to add a feature should meet the rule before they meet the schema.
     const service = read(join(ROOT, 'src/server/services/market-data.ts'));
     expect(service).toMatch(/ADR-29/);
@@ -94,7 +94,7 @@ describe('I-40 â€” no provider and no job writes the investment ledger', ()
   });
 });
 
-describe('ADR-27 â€” adapters report observations, not verdicts', () => {
+describe('ADR-27 — adapters report observations, not verdicts', () => {
   const providerFiles = tsFilesUnder('src/server/market-data/providers');
 
   it('has at least the adapters this phase ships', () => {
@@ -165,7 +165,7 @@ describe('provider isolation', () => {
     }
   });
 
-  it('no adapter reads the environment â€” a key is injected, never fetched', () => {
+  it('no adapter reads the environment — a key is injected, never fetched', () => {
     // The credential is resolved once, in the composition root, and passed in.
     // An adapter that read `process.env` itself would be untestable without
     // mutating global state, and would put a second place to look for a leak.
@@ -216,7 +216,7 @@ describe('provider isolation', () => {
     for (const path of found) {
       expect(allowed.has(path), `${path} must not name the credential`).toBe(true);
     }
-    // Present, not merely absent â€” a rename that silently dropped the wiring
+    // Present, not merely absent — a rename that silently dropped the wiring
     // would otherwise pass this test.
     expect(found).toContain('src/server/market-data/index.ts');
   });

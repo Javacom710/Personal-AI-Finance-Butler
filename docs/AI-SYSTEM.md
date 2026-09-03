@@ -91,7 +91,7 @@ Against the live unauthenticated catalogue (Phase 0), the candidate list in `CLA
 |---|---|
 | `nvidia/nemotron-3-super-120b-a12b` | ✅ present |
 | `nvidia/nemotron-3-ultra-550b-a55b` | ✅ present |
-| `nvidia/nemotron-3-nano-30b-a3b` | ✅ present |
+| `nvidia/nemotron-3-nano-30b-a3b` | ❌ **absent as of 2026-09-03** — present on 2026-08-31, gone from the next authenticated read. Apparently **renamed** to `nvidia/nemotron-nano-3-30b-a3b` (version segment transposed), but that is not asserted and **routing was not changed**. Still Tier 1's first candidate, so it fails and falls through to `openai/gpt-oss-20b`. |
 | `google/gemma-4-31b-it` | ✅ present |
 | `openai/gpt-oss-20b` | ✅ present |
 | `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning` | ✅ present |
@@ -105,7 +105,11 @@ Against the live unauthenticated catalogue (Phase 0), the candidate list in `CLA
 
 That list was read **without** an API key. `npm run ai:catalogue` has since re-read it **authenticated** (83 models, 2026-08-31), and corrected two rows above: no GLM model exists under any prefix, and the 12b vision model is absent. Five of thirteen candidates are therefore unroutable, and `config/models.ts` records each as `catalogue: null` rather than substituting a name.
 
-Every tier still has at least one confirmed model, so no tier is blocked — but **Tier 4 now has exactly one**, and vision cannot fall back to a text model. A Tier 4 request whose only model fails, fails.
+**The catalogue is not stable, and this table is a dated observation rather than a fact.** A third read on **2026-09-03** returned **82** models — one fewer — and `nvidia/nemotron-3-nano-30b-a3b` had disappeared while `nvidia/nemotron-nano-3-30b-a3b` had appeared, along with a new `nemotron-3.5` generation. That is the third identifier drift in this pool, after the `-0731` suffix and the GLM correction.
+
+The standing rule when it drifts again: **report it, do not re-route.** A name that looks like a rename is not evidence of the same weights, and `CLAUDE.md` requires evaluation against real workloads before a route is finalised. Phase 8 resolves these with the eval harness; until then a dead identifier costs one failed attempt per circuit-breaker window and nothing else.
+
+Every tier still serves. Tier 1 falls through its dead primary to `openai/gpt-oss-20b`; Tiers 2, 3 and 4 route only to identifiers confirmed present on 2026-09-03. But **Tier 4 has exactly one model**, and vision cannot fall back to a text model. A Tier 4 request whose only model fails, fails.
 
 ---
 

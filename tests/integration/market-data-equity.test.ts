@@ -1,5 +1,5 @@
 /**
- * Equity market data through the financial engine â€” Task 9 of step 6.9.
+ * Equity market data through the financial engine — Task 9 of step 6.9.
  *
  * The adapter's own contract is covered deterministically in
  * `tests/unit/market-data-twelvedata.test.ts`. These tests answer a different
@@ -7,7 +7,7 @@
  * correctly, and can it damage anything on the way?
  *
  * The first test is a **regression**. `instruments.exchange` is free text a user
- * types â€” `NSE`, not `XNSE` â€” and the refs builder used to assert it was a MIC,
+ * types — `NSE`, not `XNSE` — and the refs builder used to assert it was a MIC,
  * which threw on the ordinary stored value and took the whole refresh down.
  * Every earlier market-data test used a mutual fund, whose exchange is null, so
  * the equity path was never exercised.
@@ -104,9 +104,9 @@ beforeEach(async () => {
 afterAll(closeHarness);
 
 /**
- * A brokerage account holding 400 INFY bought at â‚¹1,000.
+ * A brokerage account holding 400 INFY bought at ₹1,000.
  *
- * The exchange is left as the service stores it â€” the plain string `NSE` â€” which
+ * The exchange is left as the service stores it — the plain string `NSE` — which
  * is the whole point of the regression below.
  */
 async function equityFixture() {
@@ -129,7 +129,7 @@ async function equityFixture() {
   return { accountId, instrumentId };
 }
 
-describe('regression â€” a user-typed exchange does not crash the refresh', () => {
+describe('regression — a user-typed exchange does not crash the refresh', () => {
   it('resolves the stored label `NSE` to a MIC instead of throwing', async () => {
     const { instrumentId } = await equityFixture();
     const ctx = await refreshCtx(fixture);
@@ -172,7 +172,7 @@ describe('regression â€” a user-typed exchange does not crash the refresh',
   });
 });
 
-describe('1 â€” an equity holding obtains a market valuation', () => {
+describe('1 — an equity holding obtains a market valuation', () => {
   it('prices INFY and computes market value and unrealised P&L', async () => {
     const { instrumentId } = await equityFixture();
 
@@ -193,14 +193,14 @@ describe('1 â€” an equity holding obtains a market valuation', () => {
 
     const valued = await holdings(ctx);
     const holding = valued.holdings.find((h) => h.instrument.id === instrumentId)!;
-    // 400 Ã— â‚¹1,592.35 = â‚¹6,36,940 against â‚¹4,00,000 invested.
+    // 400 × ₹1,592.35 = ₹6,36,940 against ₹4,00,000 invested.
     expect(holding.marketValue?.minor).toBe(6369400000n);
     expect(holding.unrealizedPnl?.minor).toBe(2369400000n);
     expect(valued.unpriced).toEqual([]);
   });
 });
 
-describe('4 â€” freshness comes from the central classifier, not the adapter', () => {
+describe('4 — freshness comes from the central classifier, not the adapter', () => {
   it("Friday's close read on Monday is current, not stale", async () => {
     const { instrumentId } = await equityFixture();
     // The provider's latest session is Friday; today is Monday.
@@ -250,12 +250,12 @@ describe('4 â€” freshness comes from the central classifier, not the adapte
     const quote = (await quotesFor(ctx, [instrumentId])).get(instrumentId)!;
     expect(quote.status).toBe('stale');
     if (quote.status !== 'stale') return;
-    // Four sessions have closed since â€” well past the three-session threshold.
+    // Four sessions have closed since — well past the three-session threshold.
     expect(quote.sessionsBehind).toBe(4);
   });
 });
 
-describe('2, 5 â€” historical prices are stored, retrieved, and feed TWR', () => {
+describe('2, 5 — historical prices are stored, retrieved, and feed TWR', () => {
   const SERIES: readonly [string, string][] = [
     ['2026-08-03', '1400.00000000'],
     ['2026-08-10', '1500.00000000'],
@@ -318,7 +318,7 @@ describe('2, 5 â€” historical prices are stored, retrieved, and feed TWR', 
       instrumentId,
     )!;
 
-    // 16 August is a Sunday â€” a SIP debit could Ð»ÐµÐ³itimately fall there, and
+    // 16 August is a Sunday — a SIP debit could Ð»ÐµÐ³itimately fall there, and
     // `twr()` matches boundary dates exactly, so the builder must supply a point.
     const boundaries: IsoDate[] = ['2026-08-03', '2026-08-10', '2026-08-16', '2026-08-17'].map(isoDate);
     const valuations = boundaries.map((on) => {
@@ -341,13 +341,13 @@ describe('2, 5 â€” historical prices are stored, retrieved, and feed TWR', 
     });
 
     expect(result.value).not.toBeNull();
-    // No flows, so TWR is simply the price change: 1400 â†’ 1592.35 = +13.7393%.
+    // No flows, so TWR is simply the price change: 1400 → 1592.35 = +13.7393%.
     expect(Number(result.value!.twr.value) / 1e10).toBeCloseTo(0.137393, 5);
     expect(daysBetween(isoDate('2026-08-03'), isoDate('2026-08-17'))).toBe(14);
   });
 });
 
-describe('3, 4 â€” Phase 5 Net Worth at Cost is unaffected by prices arriving', () => {
+describe('3, 4 — Phase 5 Net Worth at Cost is unaffected by prices arriving', () => {
   it('reports the same figure before and after an equity is priced', async () => {
     await equityFixture();
 
@@ -361,7 +361,7 @@ describe('3, 4 â€” Phase 5 Net Worth at Cost is unaffected by prices arrivi
     ctx = await refreshCtx(fixture);
     const after = must(await netWorthAsOf(ctx, { asOf: isoDate('2026-08-17') }));
 
-    // A â‚¹2.37 lakh unrealised gain is now visible on the Investments page and
+    // A ₹2.37 lakh unrealised gain is now visible on the Investments page and
     // must be invisible here: Phase 5 is at cost, and the two bases are never
     // mixed inside one figure (ADR-23).
     expect(after.netWorth.minor).toBe(before.netWorth.minor);
@@ -370,7 +370,7 @@ describe('3, 4 â€” Phase 5 Net Worth at Cost is unaffected by prices arrivi
   });
 });
 
-describe('6, 7 â€” provider failures produce no financial value', () => {
+describe('6, 7 — provider failures produce no financial value', () => {
   it.each([
     ['authentication rejected', JSON.stringify({ code: 401, message: 'Invalid API key', status: 'error' })],
     ['rate limited', JSON.stringify({ code: 429, message: 'out of credits', status: 'error' })],
@@ -418,7 +418,7 @@ describe('6, 7 â€” provider failures produce no financial value', () => {
   });
 });
 
-describe('8 â€” corporate-action safety survives a real provider', () => {
+describe('8 — corporate-action safety survives a real provider', () => {
   it('a split detected from the feed never becomes a ledger row', async () => {
     const { instrumentId } = await equityFixture();
     const versionBefore = await investmentLedgerVersion(fixture.userId);
@@ -445,7 +445,7 @@ describe('8 â€” corporate-action safety survives a real provider', () => {
     expect(await derivedFingerprint(fixture.userId)).toBe(fingerprintBefore);
   });
 
-  it('suppresses the valuation rather than reporting post-split price Ã— pre-split quantity', async () => {
+  it('suppresses the valuation rather than reporting post-split price × pre-split quantity', async () => {
     const { instrumentId } = await equityFixture();
     await write(fixture.ctx, (w) =>
       refreshPrices(w, registryWith(respond(() => ({ body: quoteBody('318.47000000') })))),
@@ -472,12 +472,12 @@ describe('8 â€” corporate-action safety survives a real provider', () => {
 
     const valued = await holdings(ctx);
     const holding = valued.holdings.find((h) => h.instrument.id === instrumentId)!;
-    // 400 (pre-split) Ã— â‚¹318.47 (post-split) = â‚¹1,27,388 â€” a 68% phantom loss
-    // against â‚¹4,00,000 invested. It must not appear anywhere.
+    // 400 (pre-split) × ₹318.47 (post-split) = ₹1,27,388 — a 68% phantom loss
+    // against ₹4,00,000 invested. It must not appear anywhere.
     expect(holding.marketValue).toBeNull();
     expect(holding.unrealizedPnl).toBeNull();
     expect(valued.unpriced.map((i) => i.id)).toContain(instrumentId);
-    // Quantity and basis are untouched â€” nothing was "fixed".
+    // Quantity and basis are untouched — nothing was "fixed".
     expect(holding.quantity.units).toBe(400_00000000n);
     expect(holding.invested.minor).toBe(4000000000n);
   });

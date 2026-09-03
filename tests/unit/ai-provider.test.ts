@@ -4,7 +4,7 @@ import { createNvidiaProvider, type FetchLike } from '@/server/ai/provider/nvidi
 import { dispositionOf } from '@/server/ai/errors';
 
 /**
- * Invariant **I-55** â€” *the provider adapter reports; it never throws, and never
+ * Invariant **I-55** — *the provider adapter reports; it never throws, and never
  * decides* ([ADR-09](../../docs/DECISIONS.md#adr-09--nvidia-build-as-the-model-provider-behind-a-provider-abstraction),
  * [ADR-40](../../docs/DECISIONS.md#adr-40--the-nvidia-adapter-is-written-over-fetch-the-openai-client-is-deferred-to-the-phase-that-needs-streaming)).
  *
@@ -13,7 +13,7 @@ import { dispositionOf } from '@/server/ai/errors';
  * *"this model cannot do that"* from *"the network was down"*, and those demand
  * opposite responses.
  *
- * `fetch` is injected, so nothing here touches the network â€” the technique the
+ * `fetch` is injected, so nothing here touches the network — the technique the
  * market-data adapter tests already use.
  */
 
@@ -53,7 +53,7 @@ const request = {
   timeoutMs: 5_000,
 };
 
-describe('I-55 â€” configuration', () => {
+describe('I-55 — configuration', () => {
   it('is unconfigured without a key, and says so rather than calling out', async () => {
     let called = false;
     const p = createNvidiaProvider({
@@ -83,13 +83,13 @@ describe('I-55 â€” configuration', () => {
 
     await p.chat(request);
     expect(seen!.headers['Authorization']).toBe('Bearer nvapi-test-key');
-    // Never in the body â€” a request that echoed it would put it wherever the
+    // Never in the body — a request that echoed it would put it wherever the
     // body is logged.
     expect(seen!.body ?? '').not.toContain('nvapi-test-key');
   });
 });
 
-describe('I-55 â€” response normalisation', () => {
+describe('I-55 — response normalisation', () => {
   it('normalises a plain completion', async () => {
     const p = provider(async () => json(CHAT_OK));
     const result = await p.chat(request);
@@ -160,7 +160,7 @@ describe('I-55 â€” response normalisation', () => {
   });
 });
 
-describe('I-55 â€” every failure is classified, never thrown', () => {
+describe('I-55 — every failure is classified, never thrown', () => {
   const cases: { name: string; response: () => Promise<Response>; kind: string }[] = [
     { name: '401', response: async () => json({ error: 'nope' }, 401), kind: 'unauthorized' },
     { name: '403', response: async () => json({}, 403), kind: 'unauthorized' },
@@ -228,7 +228,7 @@ describe('I-55 â€” every failure is classified, never thrown', () => {
   });
 });
 
-describe('I-55 â€” dispositions drive fallback, not messages', () => {
+describe('I-55 — dispositions drive fallback, not messages', () => {
   it('classifies terminal failures as fail_closed', () => {
     for (const kind of ['not_configured', 'unauthorized', 'no_capable_model', 'refused'] as const) {
       expect(dispositionOf({ kind, message: '' } as never)).toBe('fail_closed');
@@ -243,7 +243,7 @@ describe('I-55 â€” dispositions drive fallback, not messages', () => {
   });
 });
 
-describe('I-55 â€” catalogue', () => {
+describe('I-55 — catalogue', () => {
   it('normalises the model list', async () => {
     const p = provider(async () =>
       json({ data: [{ id: 'some/other-model', owned_by: 'z-ai', created: 1 }, { notAnId: true }] }),

@@ -124,9 +124,22 @@ from ordinary chat. Enforced in `select.ts`, asserted by test.
 | `zai-org/glm-5.2` | ❌ **absent** — corrected 2026-08-31 by the authenticated read. No GLM model exists under any publisher prefix, so `z-ai/glm-5.2` was not the real identifier either. |
 | `deepseek-ai/deepseek-v4-pro`, `mistralai/mistral-medium-3.5-128b`, `qwen/qwen3-next-80b-a3b-instruct` | ❌ not listed |
 
-**Three of thirteen candidates do not exist under the given identifier, and two are misspelled.** Any
-routing table written against `CLAUDE.md`'s list verbatim would fail at runtime on five of thirteen
-entries.
+**Five of thirteen candidates do not exist under the given identifier.** Any routing table written
+against `CLAUDE.md`'s list verbatim would fail at runtime on those five entries.
+
+**The catalogue drifts, so treat every row above as a dated observation.** A third authenticated read
+on **2026-09-03** returned **82** models rather than 83, and `nvidia/nemotron-3-nano-30b-a3b` — listed
+present above, and Tier 1's first candidate — was gone. `nvidia/nemotron-nano-3-30b-a3b` had appeared
+in its place (the same words, version segment transposed), together with a new generation
+(`nvidia/nemotron-3.5-lightning-30b-a3b`, `nvidia/nemotron-3.5-content-safety`). Counting the `-0731`
+suffix and the GLM correction, that is three drifts in this pool inside five weeks.
+
+The rule this establishes: **a drift is reported, never silently re-routed.** A transposed identifier
+is a plausible rename and not evidence of the same weights, and §3.3's gate — no route without a
+measured capability entry — applies to a renamed model exactly as it does to a new one. The runtime
+cost of leaving a dead identifier in place is bounded and visible: `transport` carries the
+`next_candidate` disposition, so the chain falls through to the next candidate in the same tier and
+the circuit breaker then stops trying the dead one. Phase 8 resolves these with the eval harness.
 
 ### 3.2 The evaluation cannot be run yet, and that is the honest answer
 

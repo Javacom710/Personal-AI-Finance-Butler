@@ -1,8 +1,8 @@
 import 'server-only';
 
 /**
- * Field projection â€” what a tool result actually contains
- * ([AI-SYSTEM.md Â§8](../../../docs/AI-SYSTEM.md),
+ * Field projection — what a tool result actually contains
+ * ([AI-SYSTEM.md §8](../../../docs/AI-SYSTEM.md),
  * [ADR-36](../../../docs/DECISIONS.md#adr-36--exact-values-cross-a-json-boundary-as-a-tagged-string-projection-never-as-a-json-number)).
  *
  * Two rules, and the second is the one that is easy to get wrong.
@@ -13,12 +13,12 @@ import 'server-only';
  *
  * **2. Projection is explicit, per field.** Every function here names the fields
  * it emits. It never spreads a service result, because a service result carries
- * whatever the service happens to return â€” `notes`, internal ids, an
- * institution name â€” and a blind serializer would ship all of it to a third
+ * whatever the service happens to return — `notes`, internal ids, an
+ * institution name — and a blind serializer would ship all of it to a third
  * party. Adding a field to a `*View` must not silently widen what leaves the
  * process; here it cannot, because the field has to be written down.
  *
- * That is also why `notes` is absent everywhere below. `SECURITY.md` Â§8's egress
+ * That is also why `notes` is absent everywhere below. `SECURITY.md` §8's egress
  * inventory excludes it unless a tool's contract names it, and no tool's does.
  */
 
@@ -49,9 +49,9 @@ export const maybeMoney = (m: Money | null): MoneyJson | null => (m === null ? n
 export const maybeRate = (r: Rate | null): RateJson | null => (r === null ? null : rate(r));
 
 /**
- * A `Metric<T>` â€” a value, or `null` **with a machine-readable reason**.
+ * A `Metric<T>` — a value, or `null` **with a machine-readable reason**.
  *
- * The reason is the point. `FINANCIAL-DOMAIN.md` Â§10.3 requires missing data to
+ * The reason is the point. `FINANCIAL-DOMAIN.md` §10.3 requires missing data to
  * propagate as null and never as zero, and it must survive to the model so the
  * answer can say *"time-weighted return is unavailable: insufficient price
  * history"* rather than *"0%"*. A projection that dropped the reason would turn
@@ -109,7 +109,7 @@ export const toolErr = (code: ToolError['code'], message: string): ToolResult<ne
  * A `DomainError`, projected.
  *
  * **The entity id is dropped.** `DomainError` carries one, and for a `settings`
- * error that id *is* the user id â€” so returning the raw error would leak an
+ * error that id *is* the user id — so returning the raw error would leak an
  * identifier to a third party on a code path nobody would think to audit. This
  * function is the reason that cannot happen, and the adversarial security review
  * recorded it as the one residual to close here.
@@ -134,7 +134,7 @@ export function projectDomainError(error: { code: string; message: string }): To
 
 // ------------------------------------------------------------ caps
 
-/** Row cap. A tool never returns an unbounded list (AI-SYSTEM.md Â§8). */
+/** Row cap. A tool never returns an unbounded list (AI-SYSTEM.md §8). */
 export const DEFAULT_ROW_CAP = 50;
 export const MAX_ROW_CAP = 200;
 

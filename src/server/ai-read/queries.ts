@@ -1,9 +1,9 @@
 import 'server-only';
 
 /**
- * The AI layer's read surface â€” one function per tool, each a thin projection
+ * The AI layer's read surface — one function per tool, each a thin projection
  * over the application service the UI already calls
- * ([AI-SYSTEM.md Â§8](../../../docs/AI-SYSTEM.md),
+ * ([AI-SYSTEM.md §8](../../../docs/AI-SYSTEM.md),
  * [ADR-21](../../../docs/DECISIONS.md#adr-21--application-services-are-a-distinct-layer-from-the-financial-engine)).
  *
  * Two consequences of calling the *same* service the screen calls: the model
@@ -23,7 +23,7 @@ import 'server-only';
  * Not one function below accepts a user identifier, and no tool schema exposes
  * one. Identity comes from the capability, which was minted from an
  * authenticated request's `ReadCtx` and bound in a private `WeakMap`. A model
- * asking for another user's data has no argument to ask with â€” which is what
+ * asking for another user's data has no argument to ask with — which is what
  * makes user isolation structural rather than a validation rule that could be
  * forgotten on one tool.
  */
@@ -185,7 +185,7 @@ export async function comparePeriods(ai: AiReadCtx, args: { asOf?: string } = {}
 }
 
 /**
- * The breakdown tools â€” and the one place the additivity contract must survive
+ * The breakdown tools — and the one place the additivity contract must survive
  * projection ([ADR-37](../../../docs/DECISIONS.md#adr-37--a-breakdown-declares-whether-its-rows-partition-its-total)).
  *
  * `total` and `additivity` are emitted on every response, always. A model that
@@ -366,8 +366,8 @@ export async function getNetWorthHistory(ai: AiReadCtx, args: { dates: readonly 
       basis: pt.result.basis,
     }));
     return p.toolOk(
-      // A series of month-end *levels* has no meaningful sum, so â€” unlike a
-      // breakdown â€” this result deliberately carries no total (AI-SYSTEM.md Â§8).
+      // A series of month-end *levels* has no meaningful sum, so — unlike a
+      // breakdown — this result deliberately carries no total (AI-SYSTEM.md §8).
       { points: rows },
       meta(ai, rows.length),
     );

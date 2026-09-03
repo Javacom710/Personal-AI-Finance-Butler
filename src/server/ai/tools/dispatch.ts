@@ -1,8 +1,8 @@
 import 'server-only';
 
 /**
- * Executing a model's tool call â€” the point where untrusted output becomes a
- * function call ([AI-SYSTEM.md Â§8](../../../../docs/AI-SYSTEM.md), `SECURITY.md` Â§8).
+ * Executing a model's tool call — the point where untrusted output becomes a
+ * function call ([AI-SYSTEM.md §8](../../../../docs/AI-SYSTEM.md), `SECURITY.md` §8).
  *
  * Four things happen before a handler runs, in this order, and none of them
  * consults the model:
@@ -13,14 +13,14 @@ import 'server-only';
  *    JSON at all.
  * 3. **They are validated against that tool's Zod schema**, `.strict()`, so an
  *    invented argument is rejected rather than passed through.
- * 4. **The handler is invoked with the caller's own capability** â€” never with
+ * 4. **The handler is invoked with the caller's own capability** — never with
  *    anything the model supplied. There is no parameter through which a model
  *    could name a different user.
  *
  * A tool failure is **returned to the model as data**, not thrown. A model that
- * receives `{ ok: false, error: â€¦ }` can correct its call; an exception would
+ * receives `{ ok: false, error: … }` can correct its call; an exception would
  * end the turn and tell the user nothing useful. That is also why the failure
- * text is fixed and generic â€” an error message is a channel, and a raw
+ * text is fixed and generic — an error message is a channel, and a raw
  * `DomainError` carries an entity id that for a settings error *is* the user id.
  */
 
