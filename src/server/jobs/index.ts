@@ -11,6 +11,7 @@ import 'server-only';
 import { addDays } from '../../lib/date';
 import { log } from '../log';
 import { db } from '../db/client';
+import type { DbTransaction } from '../db/client';
 import { users } from '../db/schema';
 import { defaultRegistry } from '../market-data';
 import type { CorporateActionObservation } from '../market-data';
@@ -23,7 +24,7 @@ import {
   refreshPrices,
 } from '../services/market-data';
 import { postDueOccurrences, DEFAULT_HORIZON_DAYS } from '../services/recurring';
-import { enqueue, registerJobHandler, type JobRecord } from './runner';
+import { enqueue, registerJobHandler, type JobDeps, type JobRecord } from './runner';
 
 export { enqueue, registeredKinds, runDueJobs, type JobRecord } from './runner';
 
@@ -37,7 +38,7 @@ export const RECURRING_POST = 'recurring.post';
  * idempotent (ADR-15). Running it twice on one day produces exactly one
  * transaction per due date.
  */
-registerJobHandler(RECURRING_POST, async (job: JobRecord) => {
+registerJobHandler(RECURRING_POST, async (job: JobRecord, _tx: DbTransaction, { now }: JobDeps) => {
   const horizonDays =
     typeof job.payload['horizonDays'] === 'number' ? job.payload['horizonDays'] : DEFAULT_HORIZON_DAYS;
 
@@ -47,7 +48,11 @@ registerJobHandler(RECURRING_POST, async (job: JobRecord) => {
       : (await db().select({ id: users.id }).from(users)).map((r) => r.id);
 
   for (const userId of userIds) {
-    const ctx = await createReadCtx(userId);
+    // The run's clock, not this line's. Which occurrences are due is a function
+    // of `ctx.today`, so a handler reading `new Date()` here would make the
+    // outcome depend on the wall clock at the moment the job happened to run —
+    // untestable, and different for two jobs claimed by the same run.
+    const ctx = await createReadCtx(userId, { now });
     if (!ctx.ok) {
       log.warn('recurring.post skipped a user with no settings row', { userId });
       continue;

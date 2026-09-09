@@ -1131,6 +1131,79 @@ Not fixed here: this task was scoped to verification, and the fix belongs with t
 
 ---
 
+## Development environment moved to SSD — 2026-09-09
+
+**`E:` is no longer the canonical development location.** The repository now lives at:
+
+```
+C:\Dev\AI Enabled Personal Finance          ← canonical, on the SSD
+```
+
+### Why
+
+`E:` is a partition of **Disk 0** (`ST1000DM010`, 931.5 GB, HDD), the drive whose fault is documented in the 2026-09-03 entry. It was still failing at the time of the move: in the seven days to 2026-09-09 it logged a further **93 paging-I/O errors, 5 surprise-removal events and 6 NTFS delayed-write failures**. `G:` is the other partition of the same disk and is equally affected. `H:` is a second HDD (Disk 1). **Disk 2 — `WDC WDS240G2G0B`, 223.6 GB, SSD — is the only solid-state device, and it is `C:`.** That made the target unambiguous.
+
+**Nothing was repaired.** The failing drive has not been fixed, replaced or re-cabled. The work was moved off it.
+
+### How, and why it was a clone rather than a copy
+
+The migration used `git clone`, not a file copy, for one reason: **git verifies a checksum over every object it transfers, and a file copy verifies nothing.** On a disk that silently returns zeroed tails — as it did to a 106 MB binary on 2026-09-03 — a copy is exactly the operation that cannot detect what it just lost.
+
+Before the clone, `git fsck --full --strict` on the source **exited 0**: the object database on the failing disk was intact, so there was a good copy to take. After the clone, verification was explicit rather than assumed:
+
+| Check | Result |
+|---|---|
+| `git fsck --full --strict` on the SSD clone | exit 0 |
+| All 10 branch SHAs, source vs clone | identical |
+| `HEAD^{tree}` source vs clone | `1a6f135e…` on both sides |
+| Tracked files vs their blobs | clean |
+| `.env` SHA-256, source vs copy | identical (824 bytes, 10 variables) |
+
+`node_modules`, `.next` and every other generated artefact were **not** copied; they were rebuilt from the lockfile with `npm ci`. The point of the move is to stop trusting what that disk wrote, and a generated artefact is the cheapest thing in the tree to reconstruct.
+
+**The `origin` remote was removed.** The clone briefly pointed at `E:`, and leaving it would have made a failing disk the upstream of the healthy checkout.
+
+**This repository has no remote at all, and that is now the largest single risk to the project.** Every commit from Phase 0 to here exists in exactly two places, both local, one of them on a dying drive. A backup — an external disk or a private remote — is worth more than any remaining Phase 7 work.
+
+### What was left where it was
+
+**PostgreSQL was not touched.** Its data directory is `C:\Program Files\PostgreSQL\18\data` — already on the SSD, never on the failing disk. Service `postgresql-x64-18` running and listening on 5432; all four roles connect; `financeos` and `financeos_test` both reachable with 30 tables each; data intact (2 users, 6 accounts, 58 categories, 20 audit rows). No reset, no migration, no recreation.
+
+The old `E:` tree was left in place, untouched and clean, as a fallback. It is no longer canonical and no longer receives work.
+
+### The date-bomb test, fixed at the runner
+
+The three `jobs.test.ts` failures recorded on 2026-09-03 are resolved, and the fix is in the job runner rather than in the assertions.
+
+**The defect.** `setupMoneyFixture({ now })` pinned `fixture.ctx` — which is what the assertions read — but `runDueJobs()` reached `createReadCtx(userId)` inside the handler, which built a *fresh* context from `new Date()`. The fixture pinned the observer and not the subject, so how many occurrences the job posted was a function of the machine's calendar. The file was green on 2026-08-30 and red on 2026-09-01 with no code change.
+
+**The fix.** `JobDeps { now: Date }` is threaded from `runDueJobs` through `runOne` into every handler, and `RECURRING_POST` passes it to `createReadCtx`. The instant is resolved **once per run**, so two jobs claimed by the same run cannot disagree about the date. This is the injection the codebase already uses everywhere else — `createReadCtx`'s `now`, the AI circuit breaker's `now` — extended to the one path still reading the clock behind its caller.
+
+**Recurring semantics are unchanged.** `postDueOccurrences` still posts exactly `due_on <= ctx.today`, and production calls `runDueJobs()` with no `now` and gets the wall clock as before. What changed is that the clock became *reachable* from a caller.
+
+**No assertion was weakened.** `toBe(2)` still stands; bumping it to `3` was explicitly rejected, because that would have re-armed the same bomb for October. Two regression tests were added: one runs the identical rule at three injected instants (2026-08-10 → 2, 2026-11-05 → 5, 2027-02-01 → 8), and one asserts that two runs at the same instant agree with each other and with the literal 2.
+
+**The guard was proved non-vacuous.** With the one-line fix reverted, 5 of the 10 tests in the file fail, including both new ones. With it in place, all 10 pass.
+
+### Baseline on the SSD
+
+| Check | E: (2026-09-03) | C: (2026-09-09) |
+|---|---|---|
+| Typecheck | ✅ 4 s | ✅ **4 s** |
+| Lint | ✅ 59 s | ✅ **63 s** |
+| Production build | ❌ **segfault `0xC0000005`** until a corrupt binary was reinstalled | ✅ **38 s, first attempt** |
+| `verify:integrity` | ✅ 33 / 0 / 28 / 2 | ✅ **33 / 0 / 28 / 2** |
+| `check:no-client-secrets` | ✅ | ✅ **21 files, 7 values** |
+| Full suite | ❌ 1,555 pass / **3 fail** / 1,558 · 641 s | ✅ **1,560 pass / 0 fail / 0 skipped · 75 files · 547 s** |
+
+The authoritative run is `npm test` from `C:\Dev\AI Enabled Personal Finance` on 2026-09-09: **75 test files, 1,560 passed, 0 failed, 0 skipped, 547 s** (exit 0). Two more tests than the 1,558 counted on `E:`, which are the two regression guards added with the runner fix. Wall-clock fell from 641 s to 547 s.
+
+**Phase 7 is now category A — fully verified** — on the SSD checkout, with one qualification that is deliberately *not* an environment caveat: no model has been measured, so routing remains gated by `capabilities.ts` and Phase 8 still owns model selection. The reason the phase was **B** on 2026-09-03 was the storage, and the repository no longer sits on that storage.
+
+**The failing drive still exists and is still failing.** Nothing in this entry should be read as a repair. `E:` and `G:` remain partitions of Disk 0, and anything still stored there is at risk.
+
+---
+
 ## Open decisions
 
 | # | Decision | Blocks |

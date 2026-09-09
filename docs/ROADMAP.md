@@ -307,10 +307,19 @@ outlive it:
 **Design review complete 2026-08-29** — [AI-INFRASTRUCTURE-DESIGN.md](AI-INFRASTRUCTURE-DESIGN.md).
 **Steps 7.0-7.7 complete.** 7.0-7.6 landed 2026-08-30; 7.7 (the live smoke test) ran once `NVIDIA_API_KEY` was configured, closing OD-1. Phase 8 (model evaluation) and Phase 9 (AI features) have NOT started.
 
-**Final verification 2026-09-03 — category B: implementation complete, verification partially blocked by the environment.** Typecheck, lint, production build, `verify:integrity` (33/0), `check:no-client-secrets`, every AI security probe, all 114 deterministic AI tests and the live NVIDIA smoke test pass. Two qualifications, neither in application code:
+**Environment migrated to SSD 2026-09-09, and both category-B qualifications are now closed.** The canonical repository is `C:\Dev\AI Enabled Personal Finance`; **`E:` is no longer the development location.** Full detail in PROJECT-STATE.md, "Development environment moved to SSD".
 
-- **The machine's storage is physically unreliable.** Disk 0 (`ST1000DM010`, hosting `E:`) logged 160 "surprise removed" events and 30,318 paging-I/O errors in 30 days, and silently zeroed the tail of a 106 MB native binary mid-`npm ci` — which is what made `next build` segfault until the file was reinstalled. A green run here is trustworthy only for the run in which the disk behaved. See PROJECT-STATE.md, "Phase 7 final verification".
-- **Three tests fail, and they are a date-dependent test defect, not a regression.** `tests/integration/jobs.test.ts` (Phase 3, untouched by Phase 7) pins the fixture clock but not the job handler's, which builds its context from the real system date. The suite was green on 2026-08-30 and broke on 2026-09-01 with no code change.
+The two things that blocked category A on 2026-09-03:
+
+- **The unreliable storage is no longer under the repository.** `E:` is a partition of Disk 0 (`ST1000DM010`, HDD), which logged a further 93 paging-I/O errors, 5 surprise-removals and 6 NTFS delayed-write failures in the seven days to 2026-09-09. The work moved to Disk 2 (`WDC WDS240G2G0B`, SSD — that is `C:`) by `git clone` rather than file copy, so every object was checksum-verified in transit; all 10 branch SHAs and the `HEAD` tree hash match the source exactly. **The failing drive was not repaired** — it was vacated. `next build`, which segfaulted on `E:` with `0xC0000005` until a disk-corrupted binary was reinstalled, now completes in 38 s on the first attempt.
+- **The date-dependent test defect is fixed at the runner, not in the assertions.** `runDueJobs` now resolves the run's instant once and threads it to every handler as `JobDeps { now }`; `RECURRING_POST` passes it to `createReadCtx`. Recurring semantics are untouched, and production still gets the wall clock. No assertion was weakened — `toBe(2)` stands — and two regression tests pin three different injected instants. Reverting the one-line fix fails 5 of that file's 10 tests, so the guard is not vacuous.
+
+**Authoritative baseline on the SSD, 2026-09-09:** `npm test` → **75 files, 1,560 passed, 0 failed, 0 skipped, 547 s**. Typecheck 4 s, lint 63 s, build 38 s, `verify:integrity` 33/0/28/2, `check:no-client-secrets` clean. **Phase 7 is category A — fully verified.**
+
+**Remaining risks, neither an environment caveat:**
+
+- The repository still has **no remote**. Every commit exists in two local copies, one of them on the dying drive. A backup is the highest-value next action.
+- **No model has been measured.** Routing stays gated by `capabilities.ts`, and Phase 8 owns model selection — including the `nemotron-3-nano-30b-a3b` → `nemotron-nano-3-30b-a3b` drift recorded under [ADR-41](DECISIONS.md#adr-41--a-catalogue-drift-is-reported-never-silently-re-routed).
 
 **The authenticated catalogue moved again on 2026-09-03**: 82 models, and Tier 1's primary `nvidia/nemotron-3-nano-30b-a3b` is absent — apparently renamed to `nvidia/nemotron-nano-3-30b-a3b`. **Routing was not changed**; a transposed identifier is not proof of the same model, and `CLAUDE.md` requires evaluation first. Tier 1 still serves via fallback to `openai/gpt-oss-20b`. Phase 8 resolves it with the eval harness.
 

@@ -28,9 +28,18 @@ let fixture: MoneyFixture;
 let bank: string;
 let housing: string;
 
+/**
+ * The one instant this file treats as "now".
+ *
+ * Both the fixture context and every `runDueJobs` call take it, so the
+ * assertions and the job under test cannot disagree about the date — the defect
+ * that made this file fail on 2026-09-01 without a code change.
+ */
+const RUN_AT = new Date('2026-08-10T12:00:00+05:30');
+
 beforeAll(async () => {
   await truncateAll();
-  fixture = await setupMoneyFixture({ now: new Date('2026-08-10T12:00:00+05:30') });
+  fixture = await setupMoneyFixture({ now: RUN_AT });
   housing = await categoryId(fixture.ctx, 'Housing');
 });
 
@@ -125,7 +134,7 @@ describe('recurring.post as a job', () => {
 
   it('materialises and posts what is due', async () => {
     await enqueue(RECURRING_POST, { userId: fixture.userId });
-    await runDueJobs();
+    await runDueJobs({ now: RUN_AT });
 
     // 1 July and 1 August are due on 10 August; 1 September and 1 October are not.
     expect(must(await listTransactions(fixture.ctx)).total).toBe(2);
@@ -135,9 +144,9 @@ describe('recurring.post as a job', () => {
 
   it('running the job twice on one day still creates exactly one transaction per date', async () => {
     await enqueue(RECURRING_POST, { userId: fixture.userId });
-    await runDueJobs();
+    await runDueJobs({ now: RUN_AT });
     await enqueue(RECURRING_POST, { userId: fixture.userId });
-    await runDueJobs();
+    await runDueJobs({ now: RUN_AT });
 
     expect(must(await listTransactions(fixture.ctx)).total).toBe(2);
   });
@@ -146,9 +155,103 @@ describe('recurring.post as a job', () => {
     await enqueue(RECURRING_POST, { userId: fixture.userId });
     await enqueue(RECURRING_POST, { userId: fixture.userId });
 
-    await Promise.all([runDueJobs({ max: 5 }), runDueJobs({ max: 5 })]);
+    await Promise.all([runDueJobs({ max: 5, now: RUN_AT }), runDueJobs({ max: 5, now: RUN_AT })]);
 
     expect(must(await listTransactions(fixture.ctx)).total).toBe(2);
     expect(await listOccurrences(fixture.ctx, { status: 'posted' })).toHaveLength(2);
+  });
+
+  /**
+   * The regression guard for the defect these three tests carried until
+   * 2026-09-09.
+   *
+   * `setupMoneyFixture({ now })` pinned `fixture.ctx`, which is what the
+   * assertions read — but `runDueJobs()` reached `createReadCtx(userId)` inside
+   * the handler, which built a *fresh* context from `new Date()`. So the number
+   * of occurrences the job posted was a function of the machine's calendar, not
+   * of the fixture. The suite was green on 2026-08-30 and failed on 2026-09-01
+   * with no code change, because 1 September had become due.
+   *
+   * Asserting a different count would only have re-armed the same bomb for
+   * October. What follows instead pins the clock explicitly and proves the
+   * outcome tracks *that* value: same rule, three different injected instants,
+   * three different-but-exact answers. If the handler ever reads the wall clock
+   * again, the two non-`RUN_AT` cases stop matching their expected counts.
+   */
+  it('posts exactly the occurrences due at the injected instant, whatever today is', async () => {
+    // 2026-07-01 start, monthly on the 1st. Due = every 1st from July up to the
+    // injected instant inclusive.
+    const cases = [
+      { now: RUN_AT, label: '2026-08-10', expected: 2 }, //  Jul, Aug
+      { now: new Date('2026-11-05T09:00:00+05:30'), label: '2026-11-05', expected: 5 }, //  Jul … Nov
+      { now: new Date('2027-02-01T09:00:00+05:30'), label: '2027-02-01', expected: 8 }, //  Jul … Feb
+    ];
+
+    for (const { now, label, expected } of cases) {
+      await truncateMoney();
+      bank = await makeAccount(fixture.ctx, { name: 'Bank', openingBalance: '100000' });
+      must(
+        await write(fixture.ctx, (w) =>
+          createRule(w, {
+            name: 'Rent',
+            template: {
+              kind: 'expense',
+              accountId: bank,
+              categoryId: housing,
+              amount: '35000',
+              description: 'Monthly rent',
+            },
+            rrule: 'FREQ=MONTHLY;BYMONTHDAY=1',
+            startsOn: '2026-07-01',
+            endsOn: null,
+            autoPost: true,
+          }),
+        ),
+      );
+
+      await enqueue(RECURRING_POST, { userId: fixture.userId });
+      await runDueJobs({ now });
+
+      expect(must(await listTransactions(fixture.ctx)).total, `posted as at ${label}`).toBe(expected);
+      expect(await listOccurrences(fixture.ctx, { status: 'posted' }), `occurrences as at ${label}`).toHaveLength(
+        expected,
+      );
+    }
+  });
+
+  it('is unaffected by the real system date: two runs at one injected instant agree', async () => {
+    // The property the calendar broke. Both runs pin the same instant, so they
+    // must agree with each other *and* with the literal 2 — no arithmetic
+    // against `new Date()` anywhere in the assertion, which is the point.
+    await enqueue(RECURRING_POST, { userId: fixture.userId });
+    await runDueJobs({ now: RUN_AT });
+    const first = must(await listTransactions(fixture.ctx)).total;
+
+    await truncateMoney();
+    bank = await makeAccount(fixture.ctx, { name: 'Bank', openingBalance: '100000' });
+    must(
+      await write(fixture.ctx, (w) =>
+        createRule(w, {
+          name: 'Rent',
+          template: {
+            kind: 'expense',
+            accountId: bank,
+            categoryId: housing,
+            amount: '35000',
+            description: 'Monthly rent',
+          },
+          rrule: 'FREQ=MONTHLY;BYMONTHDAY=1',
+          startsOn: '2026-07-01',
+          endsOn: null,
+          autoPost: true,
+        }),
+      ),
+    );
+    await enqueue(RECURRING_POST, { userId: fixture.userId });
+    await runDueJobs({ now: RUN_AT });
+    const second = must(await listTransactions(fixture.ctx)).total;
+
+    expect(first).toBe(2);
+    expect(second).toBe(first);
   });
 });

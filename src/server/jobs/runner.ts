@@ -27,7 +27,22 @@ export interface JobRecord {
   readonly maxAttempts: number;
 }
 
-export type JobHandler = (job: JobRecord, tx: DbTransaction) => Promise<void>;
+/**
+ * What the runner supplies to a handler beyond the job row itself.
+ *
+ * `now` is the instant the *run* began — resolved once in {@link runDueJobs} and
+ * shared by every job that run claims, so two jobs in one batch cannot disagree
+ * about what day it is. It exists because a handler that calls `new Date()`
+ * itself is unreachable from a test: the caller can pin every other clock in the
+ * request and still not pin that one. This is the same injection the rest of the
+ * codebase already relies on (`createReadCtx`'s `now`, the AI circuit breaker's
+ * `now`), extended to the one path that still read the clock behind its caller.
+ */
+export interface JobDeps {
+  readonly now: Date;
+}
+
+export type JobHandler = (job: JobRecord, tx: DbTransaction, deps: JobDeps) => Promise<void>;
 
 const handlers = new Map<string, JobHandler>();
 
@@ -71,17 +86,20 @@ export interface RunResult {
  * `pending` with its attempt count unchanged rather than half-done.
  */
 export async function runDueJobs(
-  options: { readonly max?: number; readonly workerId?: string } = {},
+  options: { readonly max?: number; readonly workerId?: string; readonly now?: Date } = {},
 ): Promise<RunResult> {
   const max = Math.min(Math.max(options.max ?? 10, 1), 100);
   const workerId = options.workerId ?? `worker-${process.pid}`;
+  // Resolved once, deliberately: every job this run claims shares one instant.
+  // Production passes nothing and gets the wall clock, exactly as before.
+  const now = options.now ?? new Date();
 
   let claimed = 0;
   let succeeded = 0;
   let failed = 0;
 
   for (let i = 0; i < max; i += 1) {
-    const ran = await runOne(workerId);
+    const ran = await runOne(workerId, now);
     if (ran === null) break;
     claimed += 1;
     if (ran) succeeded += 1;
@@ -92,7 +110,7 @@ export async function runDueJobs(
 }
 
 /** `null` when there was nothing to claim; `true`/`false` for success/failure. */
-async function runOne(workerId: string): Promise<boolean | null> {
+async function runOne(workerId: string, now: Date): Promise<boolean | null> {
   return db().transaction(async (tx) => {
     const { rows } = await tx.execute<{
       id: string;
@@ -141,7 +159,7 @@ async function runOne(workerId: string): Promise<boolean | null> {
          where id = ${job.id}
       `);
 
-      await handler(job, tx);
+      await handler(job, tx, { now });
 
       await tx.execute(sql`
         update jobs set status = 'done', completed_at = now(), locked_at = null, locked_by = null
