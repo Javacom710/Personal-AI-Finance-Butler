@@ -207,7 +207,7 @@ Nightly `pg_dump --format=custom`, compressed, encrypted with **age** to a key t
 
 ## 11. Dependency and supply chain
 
-- `npm audit` in CI; a high or critical advisory fails the build.
+- `npm audit` in CI. A high or critical advisory in a **production** dependency fails the build (`npm audit --omit=dev --audit-level=high`); a critical advisory in **any** dependency fails it (`npm audit --audit-level=critical`). A high advisory confined to development tooling does not fail the build but MUST be recorded in §12 with its path and the condition for removing it, and is re-checked whenever the lockfile changes ([ADR-42](DECISIONS.md#adr-42--the-high-severity-audit-gate-covers-production-dependencies)).
 - Lockfile committed; `npm ci` in every build.
 - New runtime dependencies require a justification line in the PR ([ARCHITECTURE.md §3](ARCHITECTURE.md#3-technical-stack)).
 - No analytics, no telemetry, no error-reporting SaaS, no fonts or scripts from a CDN. The CSP would block them anyway; the point is that nothing tries.
@@ -226,4 +226,6 @@ Recorded rather than hidden.
 | TOTP secrets are recoverable if both the database and `APP_ENCRYPTION_KEY` leak | Key lives only in the environment, never in the database or in the same backup | Accepted |
 | Browser extension with page access can read rendered figures | Strict CSP, no third-party scripts | Not fully mitigable client-side |
 | Session cookie theft via a physical device compromise | Idle timeout, session list with revoke, TOTP on re-auth for sensitive actions | Accepted |
+| `braces` stack-exhaustion denial of service — GHSA-vfj7-8cjw-p6xm, **high**, published 2026-09-18 — reached through `eslint-config-next → @next/eslint-plugin-next → fast-glob → micromatch → braces` | Development tooling only: never in a client bundle or the running server. Its only input is glob patterns from this repository's own ESLint configuration, so no attacker-supplied pattern can reach it | Accepted 2026-10-17 ([ADR-42](DECISIONS.md#adr-42--the-high-severity-audit-gate-covers-production-dependencies)). Every published `braces` version is affected (3.0.3 is the newest). **Remove this row** when a fixed release ships: update, or pin it with an npm `overrides` entry |
+| esbuild development-server request leak — GHSA-67mh-4wv8-2f99, moderate — reached through `drizzle-kit → @esbuild-kit/*` | Development CLI only; the esbuild development server is never started | Accepted — the only fix is a semver-major drizzle-kit downgrade to 0.18.1. Re-check when drizzle-kit drops the dependency (PROJECT-STATE, 2026-09-03 verification) |
 

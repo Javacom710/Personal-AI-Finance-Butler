@@ -906,6 +906,27 @@ The tempting move is to treat that as a rename and edit one line. It is refused,
 
 ---
 
+## ADR-42 — The high-severity audit gate covers production dependencies
+
+**Decision.** Approved by the user 2026-10-17, during the post-disk-failure recovery. **Amends [SECURITY.md §11](SECURITY.md#11-dependency-and-supply-chain).**
+
+> **CI fails on a high or critical advisory in any production dependency, and on a critical advisory in any dependency at all. A high advisory confined to development tooling does not fail the build; it is recorded in [SECURITY.md §12](SECURITY.md#12-known-accepted-risks) with its path and its removal condition.**
+
+On 2026-09-18 GHSA-vfj7-8cjw-p6xm (stack-exhaustion denial of service, **high**) was published against **every** released version of `braces`; 3.0.3, the newest, is affected and no fixed release exists. It reaches this project only through `eslint-config-next → @next/eslint-plugin-next → fast-glob → micromatch → braces`, five times over in `npm audit`'s count. The previous gate (`npm audit --audit-level=high` across all dependencies) therefore could not pass, and nothing in this repository could make it pass.
+
+| | |
+|---|---|
+| **The exposure is not reachable** | The vulnerable code runs only inside ESLint, on glob patterns taken from this repository's own `eslint.config.mjs`. It is never bundled, never runs in the server, and never receives input from a user or a third party |
+| **Production stays at the full bar** | `npm audit --omit=dev --audit-level=high` exits 0 today. Everything that runs with the user's financial data is held to the unchanged threshold |
+| **Critical stays global** | A critical advisory in development tooling can mean code execution at install or build time — a supply-chain risk to the machine that holds the secrets. That still fails the build, wherever it sits |
+| **Nothing is hidden** | `npm audit` prints every advisory whatever `--audit-level` is, so the full report remains in every CI log, and §12 must explain each dev-only high |
+
+**Rejected.** *`npm audit fix --force`* — it installs `eslint-config-next` 14.2.35, two majors behind the Next 16 codebase it lints. *An npm `overrides` pin* — there is no fixed `braces` version to pin to. *Leaving the gate red until upstream ships* — a step that always fails teaches everyone, human or agent, to ignore CI, which is worse than a scoped and recorded gate. *Dropping the audit step* — no.
+
+**Consequence to accept:** a **new** high advisory in development tooling will not fail CI on its own. The mitigation is the §12 rule — every dev-only high is recorded with the condition that removes it — and the re-check §11 now requires whenever the lockfile changes.
+
+---
+
 ## Open decisions requiring the user
 
 | # | Decision | Why it cannot be defaulted | Blocks |

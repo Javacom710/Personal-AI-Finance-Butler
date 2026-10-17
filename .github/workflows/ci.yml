@@ -96,6 +96,13 @@ jobs:
       - name: Assert no secret reached a client bundle
         run: npm run check:no-client-secrets
 
-      - name: Audit dependencies
-        # SECURITY.md §11 — a high or critical advisory fails the build.
-        run: npm audit --audit-level=high
+      - name: Audit production dependencies
+        # SECURITY.md §11 / ADR-42 — a high or critical advisory in anything that
+        # ships fails the build.
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Audit all dependencies
+        # SECURITY.md §11 / ADR-42 — a critical advisory anywhere fails the build.
+        # The full report, high and moderate included, is printed either way;
+        # a dev-only high is recorded in SECURITY.md §12, never left unexplained.
+        run: npm audit --audit-level=critical
