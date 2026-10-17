@@ -2,6 +2,8 @@
 
 Durable status record. Conversation history is temporary; this file is not. Read this first after any context reset, then verify it against `docs/`, the source tree, and the tests before trusting it.
 
+> **Read first — status as of 2026-10-17.** The status lines below date from 2026-08-30 to 2026-09-09 and are stale until blocker B-4 corrects them. Phase 7 is implemented; **Phase 8 (Model Evaluation) has not started** and is blocked by B-3 and B-4. Both hard drives that held working copies have failed. The repository now lives on GitHub, and Claude, Codex and ChatGPT work from it through pull requests. For what was lost and rebuilt, the current blocker register, the order of remaining work and the working rules, see [docs/RECOVERY-2026-10.md](docs/RECOVERY-2026-10.md).
+
 **Last updated:** 2026-08-30 · **Current phase:** **7 — step 7.0 (boundary pre-work) COMPLETE and through an adversarial security gate. AI infrastructure implementation NOT started.** Phase 6 remains complete (steps 6.0–6.9 and 6.11 implemented and verified; 6.10 closed unbuilt).
 
 **Phase 7 pre-implementation correction pass — 2026-08-30.** The Phase 7 design review found three properties the canonical documents call non-negotiable that were **false** against the Phase 6.11 code (**F-1**, **F-2**, **F-3**). All three are now closed in code, with compile-time and automated regression protection, **before any AI infrastructure exists**. No provider, no SDK, no `NVIDIA_API_KEY`, no tools, no orchestrator, and no file under `src/server/ai/`. See [What step 7.0 delivered](#what-step-70-delivered--phase-7-pre-implementation-corrections--2026-08-30).

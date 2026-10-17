@@ -14,6 +14,8 @@ Durable technical reference for the Personal Finance & Investment OS. Read in th
 | [TESTING.md](TESTING.md) | Test strategy, layers, fixtures, golden scenarios, coverage bar |
 | [DEPLOYMENT.md](DEPLOYMENT.md) | Environments, hosting, TLS, backup/restore, operations |
 | [ROADMAP.md](ROADMAP.md) | Phased delivery plan with per-phase definition of done |
+| [RECOVERY-2026-10.md](RECOVERY-2026-10.md) | The October 2026 disk-failure recovery: what was rebuilt, the current blocker register, the order of remaining work, and how agents work from GitHub |
+| [audits/](audits/) | Dated audit reports kept as historical records, such as the 2026-09-24 Phase 8 entry-gate audit |
 
 ## Conventions used in these documents
 
