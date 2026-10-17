@@ -50,6 +50,12 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Use the project's npm
+        # package.json "packageManager". Node 22 bundles npm 10, which treats
+        # optional peer dependencies differently and rejects npm 11's lockfile
+        # ("Missing: esbuild@0.28.2 from lock file").
+        run: npm install -g npm@11.19.1 && npm --version
+
       - name: Generate ephemeral secrets
         # Real values live in the deployment environment; CI only needs
         # well-formed ones, and generating them here keeps them out of the repo.

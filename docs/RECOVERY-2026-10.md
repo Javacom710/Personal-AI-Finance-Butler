@@ -37,7 +37,7 @@ Every older branch survived on `C:\Dev` and is on GitHub unchanged. The [entry-g
 
 ## Verified on 2026-10-17
 
-On `0abc48d`, on the Windows PC; the audit commands were also run under Node 22, the version CI uses:
+On `0abc48d`, on the Windows PC (Node 26, npm 11.19), and again on Linux under Node 22 with npm 11.19.1, which is the CI configuration:
 
 | Check | Result |
 |---|---|
@@ -89,6 +89,7 @@ The repository lives on GitHub. Claude, Codex and ChatGPT all work from it, and 
 - **`main` is the only long-lived branch.** Every change reaches it through a pull request whose CI run is green.
 - **One task, one branch, one agent.** Name branches `claude/<topic>`, `codex/<topic>` or `chatgpt/<topic>`. Two agents never push to the same branch at the same time.
 - **Instructions are already in the repo.** Codex reads `AGENTS.md`, Claude reads `CLAUDE.md`, and both start from `PROJECT-STATE.md`. A pull request that changes project status updates `PROJECT-STATE.md` in the same PR. The PR description says what changed, how it was verified, and what comes next.
+- **The package manager is npm 11.** `package.json` declares `packageManager: npm@11.19.1` and CI pins it. Node 22 bundles npm 10, which rejects this lockfile (`Missing: esbuild@0.28.2`), so on such a machine run `npx -y npm@11.19.1 ci`. Never commit a lockfile written by npm 10: it drops the `libc` fields and adds optional-peer entries that npm 11 removes again.
 - **CI is the authority for integration tests.** Its PostgreSQL 17 service is the only database right now. A hosted database for running the app is a decision for the deployment phase.
 - **Secrets never enter git.** When a cloud agent needs `NVIDIA_API_KEY` (Phase 8 evaluation), it goes into that agent's environment settings or a GitHub Actions secret, never into a file.
 - **Backups:** every branch on GitHub; the `C:\Dev` mirror; and a periodic `git bundle --all` copied off the machine. `.env` is backed up only offline or in a password manager.
