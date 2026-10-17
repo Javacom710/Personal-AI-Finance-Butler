@@ -403,19 +403,46 @@ describe('positions CHECK constraints', () => {
   });
 });
 
+/**
+ * A foreign key's `ON DELETE` rule, read from the catalogue (`'r'` = RESTRICT).
+ *
+ * The rule is asserted directly rather than through the error. PostgreSQL 18
+ * reports a RESTRICT violation with its own SQLSTATE (`23001`
+ * restrict_violation) and message ("violates RESTRICT setting of foreign key
+ * constraint"). PostgreSQL 17 — the version the schema targets, CI runs and
+ * production deploys — reports RESTRICT and NO ACTION alike (`23503`
+ * foreign_key_violation), so the error alone cannot tell them apart there.
+ */
+async function deleteRuleOf(constraint: string): Promise<string> {
+  const { rows } = await rawSql(`select confdeltype from pg_constraint where conname = $1`, [
+    constraint,
+  ]);
+  expect(rows).toHaveLength(1);
+  return (rows[0] as { confdeltype: string }).confdeltype;
+}
+
+/** The delete was refused by a foreign key: `23001` on PostgreSQL 18+, `23503` before. */
+const FK_DELETE_REFUSED = expect.stringMatching(/^(23001|23503)$/);
+
 describe('foreign keys and uniqueness', () => {
   it('blocks deleting an account that carries investment history', async () => {
     await insertRow();
-    await expect(rawSql(`delete from accounts where id = '${accountId}'`)).rejects.toThrow(
-      /violates RESTRICT setting of foreign key constraint/,
-    );
+    await expect(rawSql(`delete from accounts where id = '${accountId}'`)).rejects.toMatchObject({
+      code: FK_DELETE_REFUSED,
+      constraint: 'investment_transactions_account_id_accounts_id_fk',
+    });
+    expect(await deleteRuleOf('investment_transactions_account_id_accounts_id_fk')).toBe('r');
   });
 
   it('blocks deleting an instrument that has been traded', async () => {
     await insertRow();
-    await expect(rawSql(`delete from instruments where id = '${instrumentId}'`)).rejects.toThrow(
-      /violates RESTRICT setting of foreign key constraint/,
-    );
+    await expect(
+      rawSql(`delete from instruments where id = '${instrumentId}'`),
+    ).rejects.toMatchObject({
+      code: FK_DELETE_REFUSED,
+      constraint: 'investment_transactions_instrument_id_instruments_id_fk',
+    });
+    expect(await deleteRuleOf('investment_transactions_instrument_id_instruments_id_fk')).toBe('r');
   });
 
   it('treats a null exchange as NOT distinct, so a mutual fund cannot be created twice', async () => {
