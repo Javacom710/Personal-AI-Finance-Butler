@@ -31,9 +31,9 @@ Both hard drives that held working copies of this repository have failed.
 
 Every older branch survived on `C:\Dev` and is on GitHub unchanged. The [entry-gate audit](audits/2026-09-24-phase8-entry-gate-audit.md) and the [B-2 audit](audits/2026-09-25-b2-boundary-audit.md) had been written outside the repository; both are now in `docs/audits/`, recovered byte-for-byte.
 
-**Lost and not rebuilt:**
-- **The portable PostgreSQL 17 under `E:\Claude\_tools`, and the `financeos` / `financeos_test` databases.** They held baseline content only: the audit's 2026-09-24 row count matched the migration baseline on all 30 tables. `npm run db:migrate && npm run db:seed` recreates them.
-- **The `.env` files on `E:` and `H:`.** See R-1.
+**Lost and not rebuilt:** the `.env` files on `E:` and `H:` (see R-1).
+
+**Never at risk:** the local databases. They live in the PostgreSQL 18.4 Windows service on `C:` (decision D-23), which is still running. The portable PostgreSQL 17 on `E:` was only its rollback copy.
 
 ## Verified on 2026-10-17
 
@@ -49,7 +49,7 @@ On `0abc48d`, on the Windows PC (Node 26, npm 11.19), and again on Linux under N
 | build | exit 0 |
 | `check:no-client-secrets` | exit 0: 21 files, 7 values |
 | `npm audit --omit=dev --audit-level=high` | exit 0: 0 vulnerabilities |
-| integration (500) | **runs in CI**, against its PostgreSQL 17 service. No local database exists any more |
+| integration | **501 / 501 on PostgreSQL 17.10** in the CI configuration, after the test fix below. The changed file also passes 30 / 30 on the PC's PostgreSQL 18.4 |
 | `verify:integrity` | **not run.** It needs a database, and CI does not run it (R-2) |
 | secret scan of all 32 commits | clean |
 
@@ -68,13 +68,14 @@ On `0abc48d`, on the Windows PC (Node 26, npm 11.19), and again on Linux under N
 | **H-1** | Global capability surface (B-2 audit §7, MEDIUM): `globalThis.__financeOsDb` (`src/server/db/client.ts:57`), `globalThis.process.env` (missed by the lint selector), ambient `fetch`, indirect / aliased `eval`. LOW: the DML scan misses aliased `db` handles | ⬜ Open. Not part of the Phase 8 gate, but should be closed before the AI zone is called confined |
 | **R-1** | Rotate secrets: `.env` files were on both failed drives, and `H:` is with a repair lab. Replace `NVIDIA_API_KEY`. Generate a new `APP_ENCRYPTION_KEY` and `SESSION_COOKIE_SECRET`; nothing needs re-encrypting because the database is gone | ⬜ Open, user action |
 | **R-2** | Add `verify:integrity` to CI, using the read-only database role | ⬜ Open |
+| **R-3** | **PostgreSQL 17 / 18 divergence.** PostgreSQL 18 reports a RESTRICT foreign-key refusal as SQLSTATE `23001`, not `23503`. `toDomainError` (`src/server/services/_errors.ts`) maps only `23503`, so on 18 such a delete becomes an unhandled fault instead of a `conflict`. Two integration tests also matched 18's wording; they now assert the code and the catalogue's delete rule, which holds on both versions. Remaining: map `23001` with a test, and decide whether CI should also run on 18 | ⬜ Open |
 
 **Line numbers.** The audits cite the `H:` copy. `PROJECT-STATE.md` has since grown by 73 lines, and ROADMAP Phase 7 "Done when" now spans L377–L392, so find each item by its text.
 
 ## Order of work
 
 1. ~~Publish to GitHub; CI runs the integration suite.~~ Done 2026-10-17.
-2. B-3a to B-3e and H-1. These are independent of each other, so take one branch each.
+2. B-3a to B-3e, H-1 and R-3. These are independent of each other, so take one branch each.
 3. R-2, so the Phase 8 entry contract can be checked in CI.
 4. B-4: tick each ROADMAP box whose evidence now exists, correct the status lines, and close D-1 to D-5.
 5. Full Phase 7 gate on the final commit, with and without `NVIDIA_API_KEY`: at least 1,606 tests, 0 skips, plus every check in the entry contract (entry-gate audit §9).
@@ -90,6 +91,6 @@ The repository lives on GitHub. Claude, Codex and ChatGPT all work from it, and 
 - **One task, one branch, one agent.** Name branches `claude/<topic>`, `codex/<topic>` or `chatgpt/<topic>`. Two agents never push to the same branch at the same time.
 - **Instructions are already in the repo.** Codex reads `AGENTS.md`, Claude reads `CLAUDE.md`, and both start from `PROJECT-STATE.md`. A pull request that changes project status updates `PROJECT-STATE.md` in the same PR. The PR description says what changed, how it was verified, and what comes next.
 - **The package manager is npm 11.** `package.json` declares `packageManager: npm@11.19.1` and CI pins it. Node 22 bundles npm 10, which rejects this lockfile (`Missing: esbuild@0.28.2`), so on such a machine run `npx -y npm@11.19.1 ci`. Never commit a lockfile written by npm 10: it drops the `libc` fields and adds optional-peer entries that npm 11 removes again.
-- **CI is the authority for integration tests.** Its PostgreSQL 17 service is the only database right now. A hosted database for running the app is a decision for the deployment phase.
+- **CI is the authority for integration tests.** It runs PostgreSQL 17, the version the schema and production target. The PC runs PostgreSQL 18.4 (D-23), so a test that passes on only one of them is a defect, not a flake (R-3). A hosted database for running the app is a decision for the deployment phase.
 - **Secrets never enter git.** When a cloud agent needs `NVIDIA_API_KEY` (Phase 8 evaluation), it goes into that agent's environment settings or a GitHub Actions secret, never into a file.
 - **Backups:** every branch on GitHub; the `C:\Dev` mirror; and a periodic `git bundle --all` copied off the machine. `.env` is backed up only offline or in a password manager.
