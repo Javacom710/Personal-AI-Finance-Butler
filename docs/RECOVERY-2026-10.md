@@ -68,14 +68,15 @@ On `0abc48d`, on the Windows PC (Node 26, npm 11.19), and again on Linux under N
 | **H-1** | Global capability surface (B-2 audit §7, MEDIUM): `globalThis.__financeOsDb` (`src/server/db/client.ts:57`), `globalThis.process.env` (missed by the lint selector), ambient `fetch`, indirect / aliased `eval`. LOW: the DML scan misses aliased `db` handles | ⬜ Open. Not part of the Phase 8 gate, but should be closed before the AI zone is called confined |
 | **R-1** | Rotate secrets: `.env` files were on both failed drives, and `H:` is with a repair lab. Replace `NVIDIA_API_KEY`. Generate a new `APP_ENCRYPTION_KEY` and `SESSION_COOKIE_SECRET`; nothing needs re-encrypting because the database is gone | ⬜ Open, user action |
 | **R-2** | Add `verify:integrity` to CI, using the read-only database role | ⬜ Open |
-| **R-3** | **PostgreSQL 17 / 18 divergence.** PostgreSQL 18 reports a RESTRICT foreign-key refusal as SQLSTATE `23001`, not `23503`. `toDomainError` (`src/server/services/_errors.ts`) maps only `23503`, so on 18 such a delete becomes an unhandled fault instead of a `conflict`. Two integration tests also matched 18's wording; they now assert the code and the catalogue's delete rule, which holds on both versions. `toDomainError` now maps `23001` too, with a unit test. Remaining: decide whether CI should also run on 18 | 🟨 Partly done |
+| **R-3** | **PostgreSQL 17 / 18 divergence.** PostgreSQL 18 reports a RESTRICT foreign-key refusal as SQLSTATE `23001` with its own wording; 17 reports `23503` for RESTRICT and NO ACTION alike. Two integration tests depended on 18's wording; since PR #1 they assert the code and the catalogue's delete rule, which holds on both. Application code is not affected, because it translates no database error anywhere (R-4). A constraint that fires surfaces as a fault with a correlation id, on both versions. Remaining: decide whether CI should also run on 18 | 🟨 Partly done |
+| **R-4** | **`src/server/services/_errors.ts` has never been wired in.** `toDomainError` and `runCommand` date from Phase 3 and are imported nowhere; `withWriteCtx` and `withWriteCtxResult` rethrow database errors, and services pre-check the cases a user can trip (for example `accounts.ts`'s duplicate-name check). Found by the Codex review of PR #2. Decide between two options. **Wire it in** to `withWriteCtxResult` after rollback: every constraint failure becomes a typed `conflict` or `invariant_violation`, and `23001` must then be mapped alongside `23503`. **Or delete it**, leaving pre-checks as the only path. It changes the error contract of every write, so it is a decision, not a fix | ⬜ Open, decision |
 
 **Line numbers.** The audits cite the `H:` copy. `PROJECT-STATE.md` has since grown by 73 lines, and ROADMAP Phase 7 "Done when" now spans L377–L392, so find each item by its text.
 
 ## Order of work
 
 1. ~~Publish to GitHub; CI runs the integration suite.~~ Done 2026-10-17.
-2. B-3a to B-3e, H-1 and R-3. These are independent of each other, so take one branch each.
+2. B-3a to B-3e, H-1, R-3 and R-4. These are independent of each other, so take one branch each.
 3. R-2, so the Phase 8 entry contract can be checked in CI.
 4. B-4: tick each ROADMAP box whose evidence now exists, correct the status lines, and close D-1 to D-5.
 5. Full Phase 7 gate on the final commit, with and without `NVIDIA_API_KEY`: at least 1,606 tests, 0 skips, plus every check in the entry contract (entry-gate audit §9).

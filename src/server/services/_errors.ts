@@ -28,12 +28,6 @@ interface PgError {
 
 const UNIQUE_VIOLATION = '23505';
 const FOREIGN_KEY_VIOLATION = '23503';
-/**
- * PostgreSQL 18 reports a refusal by an `ON DELETE RESTRICT` key with its own
- * code; PostgreSQL 17, which production targets, reports it as
- * `FOREIGN_KEY_VIOLATION`. Both mean the same thing to the user.
- */
-const RESTRICT_VIOLATION = '23001';
 const CHECK_VIOLATION = '23514';
 const RAISE_EXCEPTION = 'P0001';
 
@@ -68,7 +62,6 @@ export function toDomainError(error: unknown): DomainError | null {
     case UNIQUE_VIOLATION:
       return conflict(named ?? 'That value is already in use.');
     case FOREIGN_KEY_VIOLATION:
-    case RESTRICT_VIOLATION:
       return conflict(
         named ?? 'Something else still refers to this record, so it cannot be changed or removed.',
       );
