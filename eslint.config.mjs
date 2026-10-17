@@ -1,5 +1,10 @@
+import { dirname, relative, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import nextCoreWebVitals from 'eslint-config-next/core-web-vitals';
 import nextTypescript from 'eslint-config-next/typescript';
+
+import { classifyTarget, DENY_REASON, isAllowedFromAiZone } from './ai-import-boundary.mjs';
 
 /**
  * Layer boundaries from ARCHITECTURE.md §2 are enforced here, not merely
@@ -9,6 +14,82 @@ import nextTypescript from 'eslint-config-next/typescript';
  * Phases 3+ add `domain/`, `services/`, and `ai/`. The rules are written now so
  * that the first file placed in one of those directories is already governed.
  */
+
+const ROOT = dirname(fileURLToPath(import.meta.url));
+const toRepoRel = (absolute) => relative(ROOT, absolute).split(sep).join('/');
+
+/**
+ * The resolved-path half of the AI boundary (finding B-2, ADR-34/38). Where
+ * `no-restricted-imports` below matches the raw specifier string,
+ * `no-restricted-imports` cannot resolve a path, normalise `@/lib/./env`, see a
+ * relative sibling like `../ai-runtime`, or look inside a dynamic `import()`.
+ * This rule decides on the **resolved module** via the shared
+ * `ai-import-boundary.mjs` — the same decision the I-51 source scan makes — and
+ * it inspects static imports, `export … from`, dynamic `import()` and
+ * `require()`. A dynamic call whose argument is not a single static string is
+ * rejected rather than waved through.
+ */
+const aiResolvedImportRule = {
+  meta: {
+    type: 'problem',
+    docs: { description: 'src/server/ai/** may import only its resolved allowlist (I-51).' },
+    schema: [],
+    messages: {
+      denied: "ADR-34/38 (I-51): src/server/ai/** may not import '{{spec}}' — it reaches {{reason}}.",
+      dynamic:
+        'ADR-34/38 (I-51): a dynamic import/require in src/server/ai/** must take a single static string so the boundary can resolve it.',
+      codeLoading:
+        'ADR-34/38 (I-51): eval / Function load code the import boundary cannot see, so src/server/ai/** may not use them.',
+    },
+  },
+  create(context) {
+    const importer = toRepoRel(context.filename ?? context.getFilename());
+    const check = (node, spec) => {
+      if (isAllowedFromAiZone(importer, spec)) return;
+      const label = classifyTarget(importer, spec);
+      context.report({ node, messageId: 'denied', data: { spec, reason: DENY_REASON[label] ?? label } });
+    };
+    const staticStringOf = (arg) => {
+      if (arg?.type === 'Literal' && typeof arg.value === 'string') return arg.value;
+      if (arg?.type === 'TemplateLiteral' && arg.expressions.length === 0 && arg.quasis.length === 1)
+        return arg.quasis[0].value.cooked;
+      return undefined;
+    };
+    const checkDynamic = (node, arg) => {
+      const spec = staticStringOf(arg);
+      if (spec === undefined) context.report({ node, messageId: 'dynamic' });
+      else check(node, spec);
+    };
+    return {
+      ImportDeclaration: (node) => check(node, node.source.value),
+      ExportNamedDeclaration: (node) => node.source && check(node, node.source.value),
+      ExportAllDeclaration: (node) => node.source && check(node, node.source.value),
+      // `import x = require('…')` and the type-position `import('…')`.
+      TSImportEqualsDeclaration: (node) => {
+        if (node.moduleReference.type === 'TSExternalModuleReference')
+          checkDynamic(node, node.moduleReference.expression);
+      },
+      TSImportType: (node) => {
+        const arg = node.argument?.type === 'TSLiteralType' ? node.argument.literal : node.argument;
+        checkDynamic(node, arg);
+      },
+      ImportExpression: (node) => checkDynamic(node, node.source),
+      CallExpression: (node) => {
+        if (node.callee.type !== 'Identifier') return;
+        if (node.callee.name === 'require') {
+          if (node.arguments.length === 1) checkDynamic(node, node.arguments[0]);
+          else context.report({ node, messageId: 'dynamic' });
+        }
+        if (node.callee.name === 'eval' || node.callee.name === 'Function')
+          context.report({ node, messageId: 'codeLoading' });
+      },
+      NewExpression: (node) => {
+        if (node.callee.type === 'Identifier' && node.callee.name === 'Function')
+          context.report({ node, messageId: 'codeLoading' });
+      },
+    };
+  },
+};
 
 /**
  * The AI zone's import ban, shared by every file in it including the wire
@@ -251,10 +332,13 @@ const config = [
   //     specifier climbing out of `src/server/ai/` never contains one, so every
   //     sibling directory is named again without it.
   //
-  // ESLint cannot be the whole answer: this rule has no `ImportExpression`
-  // listener, so `await import('@/server/db/client')` is unchecked in every
-  // zone. `tests/unit/ai-boundary-source-scan.test.ts` is the second mechanism
-  // and does check it; the capability types are the third (ADR-33, ADR-34).
+  // This rule alone cannot be the whole answer: it matches raw strings and has
+  // no `ImportExpression` listener, so `await import('@/server/db/client')` is
+  // unchecked by it in every zone. For the AI zone the resolved-path rule below
+  // (`ai-boundary/resolved-imports`) checks dynamic imports and require();
+  // `tests/unit/ai-boundary-source-scan.test.ts` makes the same decision from
+  // the parse tree, and the capability types are the third mechanism (ADR-33,
+  // ADR-34).
   {
     files: ['src/server/ai/**/*.ts'],
     ignores: ['src/server/ai/provider/nvidia-build.ts'],
@@ -280,6 +364,18 @@ const config = [
     rules: {
       'no-restricted-imports': ['error', { patterns: aiZonePatterns }],
     },
+  },
+
+  // The resolved-path half of the same boundary, over every AI-zone file
+  // including the wire client. `no-restricted-imports` above is the raw-string
+  // first net; this closes what a string match structurally cannot — path
+  // normalisation, relative sibling files, and dynamic import()/require()
+  // (finding B-2). The openai/drizzle/pg package bans live in the decision
+  // itself, so nvidia-build.ts is governed here too.
+  {
+    files: ['src/server/ai/**/*.ts'],
+    plugins: { 'ai-boundary': { rules: { 'resolved-imports': aiResolvedImportRule } } },
+    rules: { 'ai-boundary/resolved-imports': 'error' },
   },
 
   // ------------------------------------------------ AI read capability
