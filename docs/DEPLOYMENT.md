@@ -6,7 +6,10 @@
 |---|---|---|---|
 | `local` | Development on Windows | **Postgres 18.4 as the `postgresql-x64-18` Windows service** (decision **D-23**) | Real key, low daily budget |
 | `test` | CI and integration tests | Ephemeral Postgres container, per-run | Mocked; no network |
+| `cloud` | Claude Code cloud sessions (claude.ai/code, `claude --cloud`) | The VM's bundled Postgres (16), provisioned by `scripts/cloud-session-setup.sh` | Unset unless `NVIDIA_API_KEY` is added to the cloud environment |
 | `production` | The user's domain | Postgres on the same host | Real API key, real budget |
+
+**Cloud sessions.** `.claude/settings.json` runs `scripts/cloud-session-setup.sh` at every session start. On a developer machine it exits at once (`CLAUDE_CODE_REMOTE` is never `true` locally). In a cloud VM it reproduces the CI setup: npm 11, `npm ci`, the `financeos_migrator`/`financeos_app` roles, the `financeos` and `financeos_test` databases, a throwaway git-ignored `.env` with VM-only secrets, migrations and seed. First start ≈ 25 s, later starts ≈ 2 s. The full suite (typecheck, unit, property, integration) passes there on Postgres 16; CI remains the gate on 17. Real third-party keys are never written to the repo — add them as environment variables on the cloud environment at claude.ai/code only when a session needs them.
 
 There is deliberately no staging environment. For a single-user application it would be a third copy of production data to secure and back up, for a rehearsal that a golden-scenario suite already covers.
 
