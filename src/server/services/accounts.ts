@@ -311,7 +311,8 @@ export async function createAccount(
 
   // Checked before the insert rather than caught after it: a constraint
   // violation aborts the whole Postgres transaction, so there is no "catch and
-  // carry on" once it has fired (see _errors.ts).
+  // carry on" once it has fired. Nothing translates database errors (R-4): a
+  // constraint that still fires is a bug, and surfaces as a fault.
   const duplicate = await findByName(ctx, input.name);
   if (duplicate) return err(conflict(`An account named "${input.name}" already exists.`));
 
