@@ -26,7 +26,7 @@ import 'server-only';
 
 import type { z } from 'zod';
 
-import type { AiReadCtx } from '../../ai-read';
+import { jsonBytes, MAX_TOOL_RESULT_BYTES, type AiReadCtx } from '../../ai-read';
 import type { ToolCall } from '../provider/types';
 import { findTool } from './registry';
 
@@ -53,6 +53,14 @@ const badArguments = (detail: string) => ({
     message: `The arguments were not valid: ${detail}`,
   },
 });
+
+const tooLarge = {
+  ok: false as const,
+  error: {
+    code: 'unavailable' as const,
+    message: 'That result is too large to return. Ask for a narrower date range or a smaller limit.',
+  },
+};
 
 function describeIssues(error: z.ZodError): string {
   return error.issues
@@ -98,6 +106,13 @@ export async function dispatchToolCall(ai: AiReadCtx, call: ToolCall): Promise<T
   try {
     // The capability is the caller's, always. Nothing from `call` reaches it.
     const result = await tool.handler(ai, parsed.data as never);
+    // The backstop under every tool's own caps (B-3c). Paged tools clip rows and
+    // say so; a result that is still over budget — a list with no limit grown
+    // past it, or a tool that forgot its cap — is refused whole rather than
+    // passed on unbounded or cut mid-figure.
+    if (jsonBytes(result) > MAX_TOOL_RESULT_BYTES) {
+      return { name: call.name, callId: call.id, result: tooLarge, failed: true };
+    }
     return { name: call.name, callId: call.id, result, failed: false };
   } catch {
     return {
