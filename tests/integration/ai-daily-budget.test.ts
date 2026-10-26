@@ -3,10 +3,16 @@ import { eq } from 'drizzle-orm';
 
 import { resetEnvCache } from '@/lib/env';
 import { aiUsageDaily, settings } from '@/server/db/schema';
+import { err, ok } from '@/lib/result';
+import { transport } from '@/server/ai/errors';
+import type { AiProvider, ChatRequest } from '@/server/ai/provider/types';
 import {
   aiUsageDayFor,
   dailyAiUsage,
+  markDailyFallback,
+  meterProvider,
   recordDailyAiUsage,
+  withMetering,
   resetAiRateLimits,
   resetAiRuntime,
   runAiCapability,
@@ -133,5 +139,75 @@ describe('B-3a — the daily budget is checked before the request, from a table'
       requests: 10_000,
     });
     expect(reasonOf(await run())).toBe('unsupported_capability');
+  });
+});
+
+describe('B-3a — every call to the provider is counted, not every run', () => {
+  // A provider that fails `failures` times, then answers with fixed usage — the
+  // shape of a fallback chain, without the network.
+  const fakeProvider = (failures: number): AiProvider => {
+    let calls = 0;
+    return {
+      key: 'fake',
+      isConfigured: () => true,
+      listModels: async () => ok([]),
+      chat: async (request: ChatRequest) => {
+        calls += 1;
+        if (calls <= failures) return err(transport('down', 503));
+        return ok({
+          content: 'ok',
+          toolCalls: [],
+          reasoning: null,
+          finishReason: 'stop',
+          usage: { promptTokens: 40, completionTokens: 2 },
+          model: request.model,
+          latencyMs: 1,
+        });
+      },
+    } as AiProvider;
+  };
+  const ask = (provider: AiProvider, model: string) =>
+    provider.chat({ model, messages: [{ role: 'user', content: 'hi' }], maxTokens: 8, timeoutMs: 1000 });
+
+  afterAll(async () => {
+    await database().delete(aiUsageDaily);
+  });
+
+  it('charges each attempt of a fallback chain, with its own model and tokens', async () => {
+    const provider = meterProvider(fakeProvider(2));
+    await withMetering({ userId: alice.userId, day: '2026-02-01', tier: 1 }, async () => {
+      await ask(provider, 'first');
+      await ask(provider, 'second');
+      await ask(provider, 'third');
+    });
+    expect(await dailyAiUsage(alice.userId, '2026-02-01')).toEqual({ requests: 3, tokens: 42 });
+    const rows = await database().select().from(aiUsageDaily).where(eq(aiUsageDaily.day, '2026-02-01'));
+    const byModel = Object.fromEntries(rows.map((r) => [r.model, r]));
+    expect(byModel['first']).toMatchObject({ requests: 1, failures: 1, promptTokens: 0 });
+    expect(byModel['second']).toMatchObject({ requests: 1, failures: 1 });
+    expect(byModel['third']).toMatchObject({ requests: 1, failures: 0, promptTokens: 40, completionTokens: 2 });
+
+    await markDailyFallback(alice.userId, '2026-02-01', 1, 'third');
+    const [third] = await database().select().from(aiUsageDaily).where(eq(aiUsageDaily.model, 'third'));
+    expect(third).toMatchObject({ requests: 1, fallbackRequests: 1 });
+  });
+
+  it('charges nothing for a call made outside a metered run', async () => {
+    const provider = meterProvider(fakeProvider(0));
+    await ask(provider, 'unmetered');
+    const rows = await database().select().from(aiUsageDaily).where(eq(aiUsageDaily.model, 'unmetered'));
+    expect(rows).toEqual([]);
+  });
+
+  it('charges nothing for a run refused before any call', async () => {
+    resetAiRateLimits();
+    await setAiEnabled(alice.userId, false);
+    await runAiCapability({
+      read: alice.ctx,
+      input: { capability: 'summarizeFinancialData', messages: [{ role: 'user', content: 'hi' }] },
+      sink: createMemorySink(),
+      now: () => new Date('2026-03-01T12:00:00Z'),
+    });
+    expect(await dailyAiUsage(alice.userId, '2026-03-01')).toEqual({ requests: 0, tokens: 0 });
   });
 });

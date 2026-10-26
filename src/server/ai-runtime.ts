@@ -21,6 +21,7 @@ import 'server-only';
  * before constructing a request, let alone sending one.
  */
 
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'node:crypto';
 
 import { and, eq, sql } from 'drizzle-orm';
@@ -42,6 +43,7 @@ import { createCapabilityMatrix } from './ai/config/capabilities';
 import { resolveModelConfig } from './ai/config/models';
 import { createHealthRegistry } from './ai/orchestrator/breaker';
 import { createOrchestrator, type Orchestrator, type RunInput, type RunOutput } from './ai/orchestrator';
+import { requirementFor } from './ai/orchestrator/requirements';
 import { toolDefinitions } from './ai/tools/registry';
 import { toLogFields, type AiRequestRecord, type UsageSink } from './ai/observability/usage';
 import { nullSink } from './ai/observability/usage';
@@ -125,10 +127,17 @@ export function resetAiRateLimits(): void {
  * every request that reached the provider. A table, because an in-memory count
  * resets on every restart, and a budget that a restart clears is not a budget.
  *
- * The day is the user's calendar day in `settings.timezone`. The check and the
- * write are not one transaction, so two requests racing at the limit can both
- * pass — for one user that overshoot is at most one request, and the limit
- * exists to stop a runaway loop, not to meter to the token.
+ * **What counts is a call to the provider**, not a call to `runAiCapability`:
+ * the provider handed to the orchestrator is wrapped by {@link meterProvider},
+ * so each fallback attempt is one request on the ledger, with its own model and
+ * tokens, and a request refused before any call costs nothing.
+ *
+ * The day is the user's calendar day in `settings.timezone`. The gate runs once
+ * per `runAiCapability`, before the request is built; the fallback chain behind
+ * it is bounded at `MAX_ATTEMPTS` (3). So the most a day can exceed its request
+ * limit by is the rest of one chain — two calls — and two requests racing at
+ * the limit can both pass. The limit exists to stop a runaway loop, not to meter
+ * to the token.
  */
 export interface DailyUsage {
   readonly requests: number;
@@ -169,14 +178,74 @@ export async function dailyAiUsage(userId: string, day: string): Promise<DailyUs
 export interface DailyUsageEntry {
   readonly userId: string;
   readonly day: string;
-  /** `0` when the request failed before any model served it. */
   readonly tier: number;
-  /** The serving model, or `'none'`. */
+  /** The model the call was sent to. */
   readonly model: string;
   readonly failed: boolean;
   readonly fallback: boolean;
   readonly promptTokens: number;
   readonly completionTokens: number;
+}
+
+/**
+ * Mark the serving model's row as having served after a fallback. The calls
+ * themselves were already counted, one by one, by {@link meterProvider}.
+ */
+export async function markDailyFallback(userId: string, day: string, tier: number, model: string): Promise<void> {
+  await db()
+    .update(aiUsageDaily)
+    .set({ fallbackRequests: sql`${aiUsageDaily.fallbackRequests} + 1` })
+    .where(
+      and(
+        eq(aiUsageDaily.userId, userId),
+        eq(aiUsageDaily.day, day),
+        eq(aiUsageDaily.tier, tier),
+        eq(aiUsageDaily.model, model),
+      ),
+    );
+}
+
+/** Who a provider call is charged to. Set for the duration of one run. */
+interface Metering {
+  readonly userId: string;
+  readonly day: string;
+  readonly tier: number;
+}
+
+const metering = new AsyncLocalStorage<Metering>();
+
+/** Run `fn` with every provider call inside it charged to `meter`. */
+export function withMetering<T>(meter: Metering, fn: () => Promise<T>): Promise<T> {
+  return metering.run(meter, fn);
+}
+
+/**
+ * Wrap a provider so that every `chat` call made while a {@link withMetering}
+ * scope is active is added to `ai_usage_daily`: one request, its model, and the
+ * tokens it reports. A call outside any scope (the smoke test) is not charged.
+ * A failed ledger write is logged and never changes the provider's result.
+ */
+export function meterProvider(inner: AiProvider): AiProvider {
+  return {
+    key: inner.key,
+    isConfigured: () => inner.isConfigured(),
+    listModels: () => inner.listModels(),
+    async chat(request) {
+      const result = await inner.chat(request);
+      const meter = metering.getStore();
+      if (meter) {
+        await recordDailyAiUsage({
+          ...meter,
+          model: request.model,
+          failed: !result.ok,
+          fallback: false,
+          promptTokens: result.ok ? result.value.usage.promptTokens : 0,
+          completionTokens: result.ok ? result.value.usage.completionTokens : 0,
+        }).catch(() => log.error('ai.usage_daily.write_failed', { model: request.model }));
+      }
+      return result;
+    },
+  };
 }
 
 /** Add one request to the day's ledger row, creating it on first use. */
@@ -229,12 +298,12 @@ export function aiRuntime(): AiRuntime {
   if (cached) return cached;
 
   const e = env();
-  const provider = createNvidiaProvider({
+  const provider = meterProvider(createNvidiaProvider({
     apiKey: e.NVIDIA_API_KEY,
     baseUrl: e.NVIDIA_BASE_URL,
     fetch: globalThis.fetch as never,
     defaultTimeoutMs: e.AI_REQUEST_TIMEOUT_MS,
-  });
+  }));
 
   const orchestrator = createOrchestrator({
     provider,
@@ -367,32 +436,24 @@ export async function runAiCapability(options: RunOptions): Promise<Result<RunOu
     return err(failure);
   }
 
-  const result = await runtime.orchestrator.run({
-    ...options.input,
-    ...(options.input.withTools ? { tools: toolDefinitions() } : {}),
-  });
-
-  // The request reached the provider: it counts against today's budget whatever
-  // its outcome. A failed write is logged, not surfaced — the answer exists.
-  const ledger = (entry: Omit<DailyUsageEntry, 'userId' | 'day'>) =>
-    recordDailyAiUsage({ userId: options.read.userId, day: day as string, ...entry }).catch(() => {
-      log.error('ai.usage_daily.write_failed', { requestId });
-    });
+  const tier = requirementFor(options.input.capability).tier;
+  const result = await withMetering({ userId: options.read.userId, day: day as string, tier }, () =>
+    runtime.orchestrator.run({
+      ...options.input,
+      ...(options.input.withTools ? { tools: toolDefinitions() } : {}),
+    }),
+  );
 
   if (!result.ok) {
-    await ledger({ tier: 0, model: 'none', failed: true, fallback: false, promptTokens: 0, completionTokens: 0 });
     finish('failure', { failureKind: result.error.kind });
     return err(result.error);
   }
 
-  await ledger({
-    tier: result.value.tier,
-    model: result.value.modelId,
-    failed: false,
-    fallback: result.value.fallbackDepth > 0,
-    promptTokens: result.value.response.usage.promptTokens,
-    completionTokens: result.value.response.usage.completionTokens,
-  });
+  if (result.value.fallbackDepth > 0) {
+    await markDailyFallback(options.read.userId, day as string, tier, result.value.modelId).catch(() => {
+      log.error('ai.usage_daily.write_failed', { requestId });
+    });
+  }
 
   finish('success', {
     modelId: result.value.modelId,
