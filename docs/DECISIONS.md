@@ -931,7 +931,7 @@ On 2026-09-18 GHSA-vfj7-8cjw-p6xm (stack-exhaustion denial of service, **high**)
 
 **Decision.** Approved by the user 2026-10-26, resolving entry-gate finding **B-3a**. Implemented in PR #10.
 
-> **The daily AI budget is read from `ai_usage_daily` before a request is built, and every request that reached the provider is added to it. The limits are `AI_DAILY_REQUEST_LIMIT` and `AI_DAILY_TOKEN_LIMIT`, per user per calendar day in `settings.timezone`; the first one reached refuses the rest of the day with `daily_budget`.**
+> **The daily AI budget is read from `ai_usage_daily` before a request is built, and every call made to the provider — each fallback attempt separately — is added to it. The limits are `AI_DAILY_REQUEST_LIMIT` and `AI_DAILY_TOKEN_LIMIT`, per user per calendar day in `settings.timezone`; the first one reached refuses the rest of the day with `daily_budget`.**
 
 | | |
 |---|---|
@@ -941,7 +941,9 @@ On 2026-09-18 GHSA-vfj7-8cjw-p6xm (stack-exhaustion denial of service, **high**)
 
 **Rejected.** *An in-memory counter*, for the reason above. *Counting refused requests*: they never reached the provider and cost nothing.
 
-**Consequences to accept:** the check and the write are separate statements, so two requests racing at the limit can both pass — at most one request over, for one user. Tokens are taken from the final response, so tokens spent on fallback attempts that failed are not counted.
+**Counted at the provider boundary.** The provider handed to the orchestrator is wrapped so that each call is one request on the model it was sent to, with the tokens it reported; a run refused before any call costs nothing (Codex review of PR #10).
+
+**Consequences to accept:** the gate runs once per run, and the fallback chain behind it is bounded at three attempts, so a day can exceed its request limit by at most the rest of one chain — two calls. Two runs racing at the limit can both pass. A failed attempt reports no tokens and is counted with zero.
 
 ---
 
