@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import nextCoreWebVitals from 'eslint-config-next/core-web-vitals';
 import nextTypescript from 'eslint-config-next/typescript';
 
-import { classifyTarget, DENY_REASON, isAllowedFromAiZone } from './ai-import-boundary.mjs';
+import { AMBIENT_GLOBALS, classifyTarget, DENY_REASON, isAllowedFromAiZone } from './ai-import-boundary.mjs';
 
 /**
  * Layer boundaries from ARCHITECTURE.md §2 are enforced here, not merely
@@ -40,6 +40,8 @@ const aiResolvedImportRule = {
         'ADR-34/38 (I-51): a dynamic import/require in src/server/ai/** must take a single static string so the boundary can resolve it.',
       codeLoading:
         'ADR-34/38 (I-51): eval / Function load code the import boundary cannot see, so src/server/ai/** may not use them.',
+      ambient:
+        "H-1: src/server/ai/** may not use the global '{{name}}' — it reaches {{reason}}, with no import for the boundary to see.",
     },
   },
   create(context) {
@@ -86,6 +88,35 @@ const aiResolvedImportRule = {
       NewExpression: (node) => {
         if (node.callee.type === 'Identifier' && node.callee.name === 'Function')
           context.report({ node, messageId: 'codeLoading' });
+      },
+      // `''.constructor.constructor('…')` is `Function` without the name.
+      MemberExpression: (node) => {
+        const name = node.computed ? staticStringOf(node.property) : node.property.name;
+        if (name === 'constructor') context.report({ node, messageId: 'codeLoading' });
+      },
+      // H-1: every reference that resolves to an ambient global, whatever its
+      // form — `globalThis.__financeOsDb`, `const g = globalThis`, `(0, eval)`,
+      // `const r = require` — found from the scope analysis, not from text.
+      'Program:exit': (node) => {
+        const sourceCode = context.sourceCode ?? context.getSourceCode();
+        let scope = sourceCode.getScope(node);
+        while (scope.upper) scope = scope.upper;
+        const seen = new Set();
+        const visit = (s) => {
+          for (const ref of s.through) {
+            const id = ref.identifier;
+            const reason = Object.hasOwn(AMBIENT_GLOBALS, id.name) ? AMBIENT_GLOBALS[id.name] : undefined;
+            if (reason === undefined || seen.has(id)) continue;
+            seen.add(id);
+            // Already decided above: a direct require('x') is resolved like an
+            // import, and a direct eval(…) / Function(…) is reported as code loading.
+            const callee = id.parent && (id.parent.type === 'CallExpression' || id.parent.type === 'NewExpression') && id.parent.callee === id;
+            if (callee && ['require', 'eval', 'Function'].includes(id.name)) continue;
+            context.report({ node: id, messageId: 'ambient', data: { name: id.name, reason } });
+          }
+          s.childScopes.forEach(visit);
+        };
+        visit(scope);
       },
     };
   },
@@ -229,6 +260,14 @@ const config = [
         {
           selector:
             "MemberExpression[object.object.name='process'][object.property.name='env'][property.name!=/^NODE_ENV$/]",
+          message:
+            'Read environment through src/lib/env.ts, which validates it with Zod and fails fast (SECURITY.md §3).',
+        },
+        {
+          // H-1: the same read through the global object, which the selector
+          // above cannot see because its object is a member expression.
+          selector:
+            "MemberExpression[object.property.name='env'][object.object.property.name='process'][object.object.object.name=/^(globalThis|global|self|window)$/]",
           message:
             'Read environment through src/lib/env.ts, which validates it with Zod and fails fast (SECURITY.md §3).',
         },

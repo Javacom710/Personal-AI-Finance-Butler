@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   ALLOWED_PACKAGES,
+  AMBIENT_GLOBALS,
   classifyTarget,
   isAllowedFromAiZone,
   resolveSpecifier,
@@ -65,7 +66,7 @@ const WIRE = 'src/server/ai/provider/nvidia-build.ts';
 interface ModuleRef {
   /** The specifier as the loader sees it, or `null` if it is not a single static string. */
   readonly spec: string | null;
-  readonly form: 'import' | 'export' | 'import=require' | 'import-type' | 'import()' | 'require()' | 'code-loading';
+  readonly form: 'import' | 'export' | 'import=require' | 'import-type' | 'import()' | 'require()' | 'code-loading' | 'ambient';
   readonly line: number;
 }
 
@@ -99,6 +100,21 @@ function importsIn(source: string, fileName = 'probe.ts'): ModuleRef[] {
       }
     } else if (ts.isNewExpression(n) && isCalled(n, 'Function')) {
       out.push({ spec: null, form: 'code-loading', line: line(n) });
+    } else if (memberName(n) === 'constructor') {
+      // `''.constructor.constructor('…')` is `Function` without the name.
+      out.push({ spec: null, form: 'code-loading', line: line(n) });
+    } else if (ts.isIdentifier(n) && Object.hasOwn(AMBIENT_GLOBALS, n.text) && !isPropertyName(n)) {
+      // H-1. A direct `require('x')` is resolved as an import above, and a direct
+      // `eval(…)` / `Function(…)` is already code loading; every other use of the
+      // name — a member of it, an alias, a parenthesised call — is refused. This
+      // has no scope analysis, so it fails closed: a local merely *named* `fetch`
+      // is refused too. ESLint, which has scope analysis, refuses the global only.
+      const parent = n.parent;
+      const directCall =
+        (ts.isCallExpression(parent) || ts.isNewExpression(parent)) &&
+        parent.expression === n &&
+        ['require', 'eval', 'Function'].includes(n.text);
+      if (!directCall) out.push({ spec: n.text, form: 'ambient', line: line(n) });
     }
     ts.forEachChild(n, visit);
   };
@@ -106,9 +122,28 @@ function importsIn(source: string, fileName = 'probe.ts'): ModuleRef[] {
   return out;
 }
 
+/** An identifier that names a property or member rather than referring to a binding. */
+function isPropertyName(n: ts.Identifier): boolean {
+  const p = n.parent;
+  if (ts.isPropertyAccessExpression(p) || ts.isQualifiedName(p)) return (ts.isPropertyAccessExpression(p) ? p.name : p.right) === n;
+  if (ts.isBindingElement(p)) return p.propertyName === n;
+  return (
+    (ts.isPropertyAssignment(p) ||
+      ts.isPropertySignature(p) ||
+      ts.isPropertyDeclaration(p) ||
+      ts.isMethodDeclaration(p) ||
+      ts.isMethodSignature(p) ||
+      ts.isGetAccessorDeclaration(p) ||
+      ts.isSetAccessorDeclaration(p) ||
+      ts.isEnumMember(p)) &&
+    p.name === n
+  );
+}
+
 /** Why a reference is refused, or `'allowed'`. */
-function verdict(importerRel: string, ref: ModuleRef): TargetLabel | 'code-loading' {
+function verdict(importerRel: string, ref: ModuleRef): TargetLabel | 'code-loading' | 'ambient' {
   if (ref.form === 'code-loading') return 'code-loading';
+  if (ref.form === 'ambient') return 'ambient';
   if (ref.spec === null) return 'dynamic-unresolved';
   return classifyTarget(importerRel, ref.spec);
 }
@@ -625,6 +660,83 @@ describe('B-2 — no AI-zone file can reach a privileged capability, in any form
       expect(missed).toEqual([]);
     },
     120_000,
+  );
+});
+
+// ------------------------------------------------- ambient capabilities
+
+/**
+ * H-1 (B-2 audit §7): capabilities that need no import. Each was reachable from
+ * AI-zone source and caught by neither mechanism before this change.
+ */
+const H1_CORPUS: readonly { id: string; source: string }[] = [
+  { id: 'the cached write-capable Database', source: 'export const f = () => (globalThis as any).__financeOsDb.insert({});' },
+  { id: 'the database through an alias of the global object', source: 'const g: any = globalThis; export const f = () => g.__financeOsDb;' },
+  { id: 'a secret through globalThis.process.env', source: 'export const k = (globalThis as any).process.env.NVIDIA_API_KEY;' },
+  { id: 'a secret through bare process.env', source: 'export const k = process.env.APP_ENCRYPTION_KEY;' },
+  { id: 'the global object as global', source: 'export const g = (global as any).__financeOsDb;' },
+  { id: 'the global object as self', source: 'export const g = (self as any).__financeOsDb;' },
+  { id: 'ambient fetch', source: "export const f = () => fetch('https://example.com');" },
+  { id: 'ambient fetch through globalThis', source: "export const f = () => globalThis.fetch('https://example.com');" },
+  { id: 'a WebSocket', source: "export const f = () => new WebSocket('wss://example.com');" },
+  { id: 'indirect eval', source: "export const f = () => (0, eval)('1');" },
+  { id: 'eval through an alias', source: "const e = eval; export const f = () => e('1');" },
+  { id: 'Function through .constructor', source: "export const f = () => ''.constructor.constructor('return 1')();" },
+  { id: 'Function through a computed constructor', source: "export const f = () => (() => 0)['constructor']('return 1');" },
+  { id: 'require through an alias', source: "const r = require; export const m = r('../db/client');" },
+];
+
+describe('H-1 — no AI-zone file reaches a capability without an import', () => {
+  it.each(H1_CORPUS)('$id is rejected by the I-51 scan', ({ source }) => {
+    expect(violationsIn(source, D1).length, source).toBeGreaterThan(0);
+  });
+
+  it(
+    'every one is rejected by ESLint too — the two mechanisms agree',
+    async () => {
+      const missed: string[] = [];
+      for (const { id, source } of H1_CORPUS) {
+        if ((await eslintBoundaryMessages(source, D1)).length === 0) missed.push(id);
+      }
+      expect(missed).toEqual([]);
+    },
+    120_000,
+  );
+
+  it('leaves property names alone: an injected fetch is the provider\'s legitimate route', () => {
+    const legitimate = [
+      'export interface Config { readonly fetch: (u: string) => Promise<unknown> }',
+      'export const call = (config: { fetch: (u: string) => Promise<unknown> }) => config.fetch("/x");',
+      'export const o = { process: 1, window: 2 };',
+      'export const { fetch: f } = { fetch: 1 };',
+    ];
+    for (const source of legitimate) expect(violationsIn(source, WIRE), source).toEqual([]);
+  });
+
+  it(
+    'ESLint judges by scope: a local merely named fetch is not the global',
+    async () => {
+      expect(await eslintBoundaryMessages('export const f = (fetch: () => void) => fetch();', D1)).toEqual([]);
+    },
+    60_000,
+  );
+
+  it('names a reason for every ambient global', () => {
+    for (const name of ['globalThis', 'process', 'fetch', 'eval', 'Function', 'require']) {
+      expect(AMBIENT_GLOBALS[name], name).toMatch(/\w/);
+    }
+  });
+
+  it(
+    'closes globalThis.process.env outside the AI zone as well, where the old selector missed it',
+    async () => {
+      const [result] = await eslint().lintText('export const k = globalThis.process.env.SESSION_COOKIE_SECRET;\n', {
+        filePath: join(ROOT, 'src/server/services/probe.ts'),
+      });
+      const messages = (result?.messages ?? []).filter((m) => m.ruleId === 'no-restricted-syntax');
+      expect(messages.map((m) => m.message).join('\n')).toContain('src/lib/env.ts');
+    },
+    60_000,
   );
 });
 

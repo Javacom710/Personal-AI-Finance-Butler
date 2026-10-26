@@ -188,3 +188,35 @@ export const DENY_REASON = {
 
 export const AI_ZONE_GLOB = 'src/server/ai/**/*.ts';
 export const AI_WIRE_CLIENT_FILE = 'src/server/ai/provider/nvidia-build.ts';
+
+/**
+ * Ambient capabilities (finding H-1, B-2 audit §7). The import boundary decides
+ * what the AI zone may *import*; these globals hand over a capability with no
+ * import at all, so neither half of that boundary sees them:
+ *
+ * - `globalThis` (and its aliases) reaches anything cached on it — the live,
+ *   write-capable `Database` at `globalThis.__financeOsDb`, and `process.env`;
+ * - `process` reaches every secret through `process.env`;
+ * - `fetch` and the other network globals reach the outside without the
+ *   provider's injected, credential-scoped client;
+ * - `eval`, `Function` and a bare `require` load code no analysis can follow.
+ *
+ * The zone needs none of them: the provider's `fetch` is passed in by
+ * `ai-runtime.ts`, outside the zone. Any reference to one of these names that
+ * resolves to the global is refused by ESLint, and any use of the name at all is
+ * refused by the I-51 source scan.
+ */
+export const AMBIENT_GLOBALS = Object.freeze({
+  globalThis: 'the global object, and through it every handle and secret cached on it',
+  global: 'the global object, and through it every handle and secret cached on it',
+  self: 'the global object, and through it every handle and secret cached on it',
+  window: 'the global object, and through it every handle and secret cached on it',
+  process: 'process.env, and every secret in it',
+  fetch: 'outbound HTTP outside the injected, credential-scoped provider client',
+  XMLHttpRequest: 'outbound network access',
+  WebSocket: 'outbound network access',
+  EventSource: 'outbound network access',
+  eval: 'code loading the import boundary cannot see',
+  Function: 'code loading the import boundary cannot see',
+  require: 'a module loader the import boundary cannot see',
+});

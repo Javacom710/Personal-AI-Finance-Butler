@@ -36,3 +36,4 @@ export const DENY_REASON: Record<string, string>;
 export const ALLOWED_PACKAGES: readonly string[];
 export const AI_ZONE_GLOB: string;
 export const AI_WIRE_CLIENT_FILE: string;
+export const AMBIENT_GLOBALS: Readonly<Record<string, string>>;
