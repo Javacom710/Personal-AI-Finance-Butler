@@ -2,9 +2,11 @@
 
 Durable status record. Conversation history is temporary; this file is not. Read this first after any context reset, then verify it against `docs/`, the source tree, and the tests before trusting it.
 
-> **Read first — status as of 2026-10-17.** The status lines below date from 2026-08-30 to 2026-09-09 and are stale until blocker B-4 corrects them. Phase 7 is implemented; **Phase 8 (Model Evaluation) has not started** and is blocked by B-3 and B-4. Both hard drives that held working copies have failed. The repository now lives on GitHub, and Claude, Codex and ChatGPT work from it through pull requests. For what was lost and rebuilt, the current blocker register, the order of remaining work and the working rules, see [docs/RECOVERY-2026-10.md](docs/RECOVERY-2026-10.md).
+> **Read first — status as of 2026-10-26.** **Phase 7 (AI Infrastructure) is complete**: every ROADMAP Phase 7 "Done when" box is ticked, with the evidence named on each. **Phase 8 (Model Evaluation) has not started and is now unblocked**; its first dependency is the golden task corpora for `src/server/ai/eval/harness.ts`. Both hard drives that held working copies have failed; the repository lives on GitHub, and Claude, Codex and ChatGPT work from it through pull requests. The dated sections further down are historical records. For the recovery, the blocker register and the working rules, see [docs/RECOVERY-2026-10.md](docs/RECOVERY-2026-10.md).
 
-**Last updated:** 2026-08-30 · **Current phase:** **7 — step 7.0 (boundary pre-work) COMPLETE and through an adversarial security gate. AI infrastructure implementation NOT started.** Phase 6 remains complete (steps 6.0–6.9 and 6.11 implemented and verified; 6.10 closed unbuilt).
+**Last updated:** 2026-10-26 · **Current phase:** **7 — AI Infrastructure COMPLETE** (steps 7.0–7.7; blockers B-1 … B-4, H-1, R-1, R-2 and R-4 closed; R-3's one remaining question, whether CI should also run PostgreSQL 18, is open and blocks nothing). **Next: Phase 8 — Model Evaluation.** Phase 6 remains complete (steps 6.0–6.9 and 6.11 implemented and verified; 6.10 closed unbuilt).
+
+*The paragraphs from here to "Working protocol" are the 2026-08-30 record, kept as written.*
 
 **Phase 7 pre-implementation correction pass — 2026-08-30.** The Phase 7 design review found three properties the canonical documents call non-negotiable that were **false** against the Phase 6.11 code (**F-1**, **F-2**, **F-3**). All three are now closed in code, with compile-time and automated regression protection, **before any AI infrastructure exists**. No provider, no SDK, no `NVIDIA_API_KEY`, no tools, no orchestrator, and no file under `src/server/ai/`. See [What step 7.0 delivered](#what-step-70-delivered--phase-7-pre-implementation-corrections--2026-08-30).
 
@@ -90,8 +92,10 @@ Corollaries that follow from the above:
 | 4 — Investment Engine | ✅ complete, verified |
 | 5 — Net Worth at Cost | ✅ **complete, verified** |
 | 6 — Market Data | ✅ **complete, verified.** 6.0–6.9 and **6.11** implemented; **6.10 closed — not built** (OD-15). No open decision remains |
-| 7 — AI Infrastructure | not started; **blocked** on OD-1 (`NVIDIA_API_KEY`) |
-| 8–14 | not started |
+| 6.5 — Recovery (Oct 2026) | ✅ repository rebuilt from the failed drives and published to GitHub — [docs/RECOVERY-2026-10.md](docs/RECOVERY-2026-10.md) |
+| 7 — AI Infrastructure | ✅ **complete, 2026-10-26.** 7.0–7.7 built; the Phase 8 entry-gate blockers closed (PRs #5–#12) |
+| 8 — Model Evaluation | not started; **unblocked** |
+| 9–14 | not started |
 
 ---
 
@@ -1065,7 +1069,7 @@ The "repeated machine-level I/O/process failures" carried through Phases 6 and 7
 | `disk` 157 | 160 | **"Disk 0 has been surprise removed"** — the drive left the bus mid-operation |
 | `Ntfs` 50 | — | **"{Delayed Write Failed} … The data has been lost"**, naming files inside this worktree |
 
-Disk 0 is the 932 GB `ST1000DM010` HDD hosting `E:\`, and therefore the repository. SMART still reports *Healthy*, which fits a cable, power or controller fault rather than media wear.
+Disk 0 is the 932 GB `ST1000DM010` HDD hosting `E:\`, and therefore the repository *(true when written; the repository later moved to the SSD, then to `H:`, and now lives on GitHub — see docs/RECOVERY-2026-10.md)*. SMART still reports *Healthy*, which fits a cable, power or controller fault rather than media wear.
 
 **It was caught in the act.** At 01:06:29 on 2026-09-03, during `npm ci`, the drive surprise-removed and NTFS reported a lost delayed write. The result was a silently corrupted 106 MB native binary: `@next/swc-win32-x64-msvc/next-swc.win32-x64-msvc.node` had **every byte from offset 94,371,840 (exactly 90 MiB) to EOF zeroed**, while retaining its full length — a pre-allocated file whose tail never flushed. `next build` loaded that PE image and died with `0xC0000005` (access violation) in 1.6 s. The npm cache was intact (`npm cache verify`: 1,063 entries), so the corruption occurred on extraction, not download. Reinstalling produced a binary byte-identical to a known-good copy, and the build then passed in 48 s.
 
@@ -1210,7 +1214,6 @@ The authoritative run is `npm test` from `C:\Dev\AI Enabled Personal Finance` on
 
 | # | Decision | Blocks |
 |---|---|---|
-| **OD-1** | `NVIDIA_API_KEY` — needed to verify the model catalogue authenticated and to run the eval harness | Phases 7–9 |
 | **OD-2** | `AGENTS.md` is byte-identical to `CLAUDE.md`. Two copies of a 2,181-line spec will drift. Recommendation: reduce `AGENTS.md` to a pointer — not done unilaterally, as another tool may require full content at that path | Nothing technically; an instruction-correctness risk |
 | **OD-3** | Equity/ETF market-data provider and its terms. **Phase 4 consequence:** `instrument_prices` stays empty, so TWR returns `null` with `insufficient_price_history` and portfolio growth renders as gaps. Both are the documented behaviour, not defects. **Recommendation added 2026-08-18:** **Twelve Data Grow, $29/mo** (verified: India = XNSE at EOD, needs Grow+; terms permit storing data for internal use) for coverage consolidation across Indian + international equities, ETFs, FX and crypto in one adapter. **Kite Connect at ₹500/mo** is a legitimate cheaper alternative if a Zerodha account exists and no international coverage is needed — but its login expires daily, which is hostile to an unattended refresh job, so it costs engineering what it saves in fees. Free routes were evaluated and **excluded on licence grounds**, not overlooked: NSE's terms prohibit automated collection from its website, and Yahoo-compatible sources have no licence for programmatic access. This is a cost-and-account decision, not an engineering one | **Step 6.9 only — not the phase.** Eleven of twelve steps are unblocked ([MARKET-DATA-DESIGN.md §20.J](docs/MARKET-DATA-DESIGN.md#j-implementation-sequence)) |
 | **OD-18** | **Where the scenario engine, the three missing metrics, and the TWR wiring belong.** ⏸ **Deferred 2026-08-30 — explicitly not Phase 7.** `run_financial_scenario` has no backing of any kind; `calculate_financial_metrics` has 1 of 4 metrics; `twr()` and `growthSeries()` are implemented, tested and called by nothing (`portfolio.ts` hardcodes `twr: unavailable('insufficient_price_history')`). All three are **deterministic financial-engine work** and are **removed from the Phase 7 tool registry rather than stubbed**. The governing rule is now normative in `AI-SYSTEM.md` §8: *an AI capability exists only where a deterministic application capability already exists or has an explicitly approved implementation path.* **AI must not become a substitute for missing financial-engine functionality.** Scheduling is a later decision — a Phase 6.12 step, or folded into Phase 9 | Nothing in Phase 7 |
@@ -1221,6 +1224,7 @@ The authoritative run is `npm test` from `C:\Dev\AI Enabled Personal Finance` on
 
 | # | Decision | Outcome |
 |---|---|---|
+| **OD-1** | `NVIDIA_API_KEY` | ✅ **Resolved: the key was configured and the 7.7 live smoke test and the authenticated catalogue read ran.** No longer blocks anything |
 | **OD-17** | How to close the AI write boundary (Phase 7 review **F-1**/**F-2**) | ✅ **Resolved 2026-08-30 by the recommended option: narrow the context the AI layer receives.** The AI layer holds an `AiReadCtx` — no `db`, no `fx`, no transaction capability, and **not** a `ReadCtx` — so both the escalation and the raw write are compile errors. `withWriteCtx` now requires a `RequestCtx` carrying `beginTransaction`, granted only by `createReadCtx`; changing that signature made `tsc` report every escalation site, and all three were test harnesses legitimately standing in for a user request. **AI infrastructure is strictly read-only**, and any future AI-assisted mutation needs a separate approved proposal/confirmation workflow. Normative: [ADR-33](docs/DECISIONS.md#adr-33--the-transaction-opener-is-a-capability-carried-on-the-context-not-an-ambient-import), [ADR-34](docs/DECISIONS.md#adr-34--the-ai-import-boundary-is-enforced-three-ways-and-covers-relative-paths), [ADR-35](docs/DECISIONS.md#adr-35--ai-infrastructure-is-strictly-read-only-a-mutation-needs-a-separate-approved-proposal-workflow). Invariants **I-50 … I-52** |
 | **OD-4** | Amend the approved baseline with the Phase 4 review's D1–D15 | ✅ **Approved and applied 2026-08-11.** The corrections are in the canonical documents; the landing table is at the top of [INVESTMENT-ENGINE-DESIGN.md](docs/INVESTMENT-ENGINE-DESIGN.md), which is now a review record, not a specification |
 | **OD-5** | `investment_transactions.net_amount` currency | ✅ **Approved 2026-08-11: the account's currency.** `price` / `gross_amount` / `fees` / `taxes` stay in the instrument's. `deriveBalance()` therefore never mixes currencies, and an account's `currency_code` is immutable once it carries ledger rows. See [FINANCIAL-DOMAIN.md §3](docs/FINANCIAL-DOMAIN.md), [SCHEMA.md §6](docs/SCHEMA.md), [ADR-12](docs/DECISIONS.md) |
@@ -1357,5 +1361,5 @@ Run on 2026-08-10.
 | Where do prices come from, and which provider? | [docs/MARKET-DATA-DESIGN.md](docs/MARKET-DATA-DESIGN.md) — the Phase 6 review: data requirements, ten providers evaluated against verified official sources, the TWR and market-value-net-worth dependencies stated precisely, staleness, missing-data behaviour, caching, persistence, cost, 20 adversarial scenarios, and the M1–M13 defect table. **Non-normative** until OD-10 |
 | How does the AI layer work and what can't it do? | [docs/AI-SYSTEM.md](docs/AI-SYSTEM.md) |
 | What must be tested before a phase is done? | [docs/TESTING.md](docs/TESTING.md) and each phase's "Done when" |
-| What am I building next? | [docs/ROADMAP.md](docs/ROADMAP.md) — **Phase 7, AI Infrastructure**. Design review done; implementation not started. Start at **step 7.0** (the write boundary), which needs no API key and blocks the rest |
+| What am I building next? | [docs/ROADMAP.md](docs/ROADMAP.md) — **Phase 8, Model Evaluation**. Start with the golden task corpora for `src/server/ai/eval/harness.ts`; run `npm run ai:catalogue` first to see the current catalogue (ADR-45) |
 

@@ -64,7 +64,7 @@ This is a **declared valuation basis**, not a temporary approximation ([ADR-23](
 - [x] Testing, deployment, and backup/restore architecture
 - [x] `docs/` written; decisions and rejected alternatives recorded in [DECISIONS.md](DECISIONS.md)
 
-**Blocked from Phase 7 onward** by OD-1 (`NVIDIA_API_KEY`). Phases 2–6 are unblocked.
+**OD-1 closed** once `NVIDIA_API_KEY` was configured (step 7.7). Phase 7 is complete as of 2026-10-26 — see the Phase 7 "Done when" list and [RECOVERY-2026-10.md](RECOVERY-2026-10.md).
 
 ---
 
@@ -360,8 +360,8 @@ product/UI work item scheduled with the Phase 9 UX pass. It does not block Phase
 | **7.3 tool framework** DONE **2026-08-30** | 18 read-only tools over real services, `AiReadCtx` throughout, per-field projection, row caps, 150 KB byte budget, visible truncation, strict Zod schemas (**I-57**) | no |
 | **7.4 orchestrator** DONE **2026-08-30** | requirements -> select -> fallback -> breaker; hard capability gate, no cross-tier downgrade, Tier 3 unreachable by escalation (**I-56**) | no |
 | **7.5 structured outputs** DONE **2026-08-30** | Zod as the single boundary; validate -> one repair carrying field errors -> reject (**I-57**) | no |
-| **7.6 observability + kill switch** DONE **2026-08-30** | closed scalar record + injected sink; `settings.ai_enabled` **now actually read**, failing closed; per-user rate limiter (**I-58**). **Migration `0005` deliberately not created** — nothing writes conversations yet, so tables no code fills would be schema debt | no |
-| **7.7 live smoke test** BLOCKED | `npm run ai:smoke` / `ai:catalogue` exist and degrade honestly (exit 0 with local instructions) when no key is set. **Not run** | **yes - OD-1** |
+| **7.6 observability + kill switch** DONE **2026-08-30** | closed scalar record + injected sink; `settings.ai_enabled` **now actually read**, failing closed; per-user rate limiter (**I-58**). Conversation tables deliberately not created — nothing writes conversations yet. Migration `0005` was later used for `ai_usage_daily`, the daily budget's ledger (B-3a, 2026-10-26), which code does fill | no |
+| **7.7 live smoke test** DONE | `npm run ai:smoke` / `ai:catalogue` exist and degrade honestly (exit 0 with local instructions) when no key is set. **Run once `NVIDIA_API_KEY` was configured**, closing OD-1 (see the Phase 7 status above) | yes — done |
 
 **Two structural constraints the review surfaced:**
 
@@ -377,19 +377,19 @@ product/UI work item scheduled with the Phase 9 UX pass. It does not block Phase
 - [x] AI code cannot obtain a `WriteCtx` — asserted by a `tsc` test **and** an import ban **and** a source scan *(step 7.0; **I-50**, **I-51**)*
 - [x] No `ctx.db` DML is reachable from `src/server/ai/**` — asserted by source scan *(step 7.0; **I-51**. The capability carries no `db` at all, so this is belt to the type system's braces)*
 - [x] The ESLint AI zone catches relative-path imports, not only `@/` ones *(step 7.0; verified empirically, and the scan additionally catches the dynamic `import()` ESLint never checks)*
-- [ ] Every candidate model in `CLAUDE.md` is confirmed, corrected, or removed against the authenticated catalogue
-- [ ] Every tool schema asserts `additionalProperties: false` and a complete `required` array
-- [ ] No tool input schema contains a user-identifier field (asserted by test)
-- [ ] Every tool result is explicitly projected; no `bigint` reaches JSON *(the projection primitives exist — step 7.0, **I-53**; the per-tool field selection is 7.3)*
+- [x] Every candidate model in `CLAUDE.md` is confirmed, corrected, or removed against the authenticated catalogue *(confirmed 2026-08-31; the Tier 1 primary's 2026-09-03 drift is deferred to Phase 8 by recorded decision — [ADR-45](DECISIONS.md#adr-45--the-tier-1-catalogue-drift-is-deferred-to-phase-8), B-3e)*
+- [x] Every tool schema asserts `additionalProperties: false` and a complete `required` array *(B-3d, #6: swept across the registry in `ai-tools.test.ts`)*
+- [x] No tool input schema contains a user-identifier field (asserted by test) *(`ai-tools.test.ts`, `ai-infrastructure.test.ts`)*
+- [x] Every tool result is explicitly projected; no `bigint` reaches JSON *(the projection primitives exist — step 7.0, **I-53**; the per-tool field selection is 7.3; asserted in `ai-infrastructure.test.ts`)*
 - [x] Every summary tool that partitions carries its own total, and `Σ rows === total` at every depth *(step 7.0 for the engine contract — `breakdown()` carries `total` and `additivity`, **I-54**. The per-tool projections are 7.3)*
-- [ ] Row caps, `truncated` flags, and the byte budget are enforced and tested
-- [ ] Fallback: each failure class routes correctly; the circuit breaker opens and half-opens
-- [ ] **Cross-tier and cross-capability downgrade is impossible** — asserted by test
-- [ ] A model with no `capabilities.json` entry cannot be routed to; startup fails loudly
-- [ ] Daily budget is checked **before** the request
-- [ ] `ai_enabled = false` produces **zero egress** and leaves every other feature working — asserted by test
-- [ ] `NVIDIA_API_KEY` appears in no client bundle, no log, no test fixture
-- [ ] The full deterministic suite passes with **no key configured**
+- [x] Row caps, `truncated` flags, and the byte budget are enforced and tested *(B-3c, #5: the budget counts UTF-8 bytes, holdings are capped, and the dispatcher refuses any result over the ceiling)*
+- [x] Fallback: each failure class routes correctly; the circuit breaker opens and half-opens *(`ai-routing.test.ts`, `ai-provider.test.ts`)*
+- [x] **Cross-tier and cross-capability downgrade is impossible** — asserted by test *(`ai-routing.test.ts`)*
+- [x] A model with no `capabilities.ts` entry cannot be routed to; startup fails loudly *(B-3b, #11; the matrix stays a `.ts` file — [ADR-44](DECISIONS.md#adr-44--the-capability-matrix-stays-capabilitiests-checked-at-startup))*
+- [x] Daily budget is checked **before** the request *(B-3a, #10: `ai_usage_daily` — [ADR-43](DECISIONS.md#adr-43--the-daily-ai-budget-is-kept-in-a-table))*
+- [x] `ai_enabled = false` produces **zero egress** and leaves every other feature working — asserted by test *(`ai-infrastructure.test.ts`)*
+- [x] `NVIDIA_API_KEY` appears in no client bundle, no log, no test fixture *(`check:no-client-secrets` in CI; `ai-provider.test.ts`)*
+- [x] The full deterministic suite passes with **no key configured** *(every CI run: CI sets no key)*
 
 ---
 
@@ -397,7 +397,7 @@ product/UI work item scheduled with the Phase 9 UX pass. It does not block Phase
 
 - Golden task suites: `parse`, `classify`, `tool-select`, `grounding`, `analysis`, `scenario`, `document`, `injection`, `robustness`
 - Runner, deterministic scoring, report generation
-- Populate `capabilities.json` and `ai_model_evaluations`
+- Record measured entries: results in `ai_model_evaluations`, loaded over the declared defaults in `capabilities.ts` ([ADR-44](DECISIONS.md#adr-44--the-capability-matrix-stays-capabilitiests-checked-at-startup))
 - Select production routing order per tier
 
 **Done when**

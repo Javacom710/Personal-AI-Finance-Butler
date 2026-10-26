@@ -927,11 +927,58 @@ On 2026-09-18 GHSA-vfj7-8cjw-p6xm (stack-exhaustion denial of service, **high**)
 
 ---
 
+## ADR-43 — The daily AI budget is kept in a table
+
+**Decision.** Approved by the user 2026-10-26, resolving entry-gate finding **B-3a**. Implemented in PR #10.
+
+> **The daily AI budget is read from `ai_usage_daily` before a request is built, and every request that reached the provider is added to it. The limits are `AI_DAILY_REQUEST_LIMIT` and `AI_DAILY_TOKEN_LIMIT`, per user per calendar day in `settings.timezone`; the first one reached refuses the rest of the day with `daily_budget`.**
+
+| | |
+|---|---|
+| **A table, not memory** | The per-minute rate limiter is in memory, and that is right for it: a restart that clears a one-minute window loses nothing. A budget that a restart clears is not a budget |
+| **The table was already designed** | `ai_usage_daily` is in SCHEMA.md as the source for Settings → AI's usage view, so the budget adds no new storage concept |
+| **Fail closed** | A budget that cannot be read is not known to have room, so the request is refused |
+
+**Rejected.** *An in-memory counter*, for the reason above. *Counting refused requests*: they never reached the provider and cost nothing.
+
+**Consequences to accept:** the check and the write are separate statements, so two requests racing at the limit can both pass — at most one request over, for one user. Tokens are taken from the final response, so tokens spent on fallback attempts that failed are not counted.
+
+---
+
+## ADR-44 — The capability matrix stays `capabilities.ts`, checked at startup
+
+**Decision.** Approved by the user 2026-10-26, resolving entry-gate finding **B-3b**. Implemented in PR #11. **Amends** the ROADMAP's references to `capabilities.json`.
+
+> **The declared capability matrix stays a TypeScript module. Measured results from Phase 8 are stored in `ai_model_evaluations` and layered over it through `createCapabilityMatrix(measured)`. When the server starts, every model named in a tier list must have an entry, or the server refuses to start and names each one that does not.**
+
+A JSON file would add a parse-and-validate step to obtain what the type checker already guarantees for the `.ts` file. The startup check is local: it compares the configured tier lists with the matrix, needs no key and reads no catalogue, so it does not conflict with [ADR-41](#adr-41--a-catalogue-drift-is-reported-never-silently-re-routed), which rejects a *network* check at boot. The per-request refusal (`no_capability_entry`) remains as a second line.
+
+---
+
+## ADR-45 — The Tier 1 catalogue drift is deferred to Phase 8
+
+**Decision.** Approved by the user 2026-10-26, resolving entry-gate finding **B-3e**. **Applies [ADR-41](#adr-41--a-catalogue-drift-is-reported-never-silently-re-routed).**
+
+> **The ROADMAP box "every candidate model is confirmed, corrected, or removed against the authenticated catalogue" is ticked on the 2026-08-31 confirmation. The Tier 1 primary's disappearance from the 2026-09-03 catalogue (`nvidia/nemotron-3-nano-30b-a3b`, apparently renamed `nvidia/nemotron-nano-3-30b-a3b`) is Phase 8 input, not a Phase 7 blocker.**
+
+Tier 1 keeps serving through its fallback, `openai/gpt-oss-20b`, and the circuit breaker limits the cost of the dead identifier to one failed attempt per breaker window. Phase 8 begins by running `npm run ai:catalogue` and evaluates both identifiers before any routing change.
+
+---
+
+## ADR-46 — Database errors are not translated; the unwired translator is deleted
+
+**Decision.** Approved by the user 2026-10-26, resolving **R-4** (docs/RECOVERY-2026-10.md). Implemented in PR #12.
+
+> **Services pre-check every case a user can trip and return a typed error for it. A database constraint that still fires is a defect and surfaces as a fault with a correlation id. `src/server/services/_errors.ts`, a translator that was never wired in, is deleted.**
+
+Wiring the translator in would have changed the error contract of every write, to turn into user messages cases that a single user cannot trigger and that, when they occur, are bugs to fix rather than messages to show. It also kept PostgreSQL 18's `23001` (R-3) out of application code entirely.
+
+---
+
 ## Open decisions requiring the user
 
 | # | Decision | Why it cannot be defaulted | Blocks |
 |---|---|---|---|
-| **OD-1** | **`NVIDIA_API_KEY`** | The candidate list in `CLAUDE.md` does not fully match the live catalogue (5 of 13 identifiers differ or are absent — see [AI-SYSTEM.md §2.3](AI-SYSTEM.md#23-model-catalogue-reality-check)). The unauthenticated catalogue may be partial. Tier membership cannot be finalised without an authenticated read, and the evaluation harness cannot run at all. | Phase 7 (AI infrastructure) onward. Phases 1–6 are unblocked. |
 | **OD-2** | **`AGENTS.md` duplication** | `AGENTS.md` is byte-identical to `Claude.md` (46,058 bytes each). Two copies of a 2,181-line specification will drift, and drift in the spec is worse than drift in code. Recommendation: reduce `AGENTS.md` to a one-line pointer. Not done unilaterally — the file may exist because another tool requires full content at that path. | Nothing technically; it is a correctness-of-instructions risk |
 | **OD-3** | **Equity/ETF market-data provider terms** | Free sources cover Indian mutual funds (AMFI) and FX; listed equities need a paid API whose terms are a commercial choice, not an engineering one. **Direction set 2026-08-18: Twelve Data**, integrated at a later Phase 6 step behind the provider credential/configuration step. Kite Connect is explicitly **not** to be integrated. No commercial SDK is installed in advance. | The equity adapter only. The abstraction, the registry, AMFI, FX and Manual are all built without it |
 | **OD-11** | **Crypto market data** | **Deferred 2026-08-18.** No crypto provider is implemented. The domain stays extensible — `cadence: 'continuous'` and the wall-clock branch of [ADR-28](#adr-28--staleness-is-measured-in-trading-sessions-not-wall-clock-hours) exist and are tested — but no adapter ships. | Nothing |
@@ -944,6 +991,7 @@ On 2026-09-18 GHSA-vfj7-8cjw-p6xm (stack-exhaustion denial of service, **high**)
 
 | # | Decision | Outcome |
 |---|---|---|
+| **OD-1** | `NVIDIA_API_KEY` | ✅ **Resolved: the key was configured, the authenticated catalogue was read (2026-08-31) and the 7.7 live smoke test ran.** The 2026-09-03 Tier 1 drift is deferred to Phase 8 by [ADR-45](#adr-45--the-tier-1-catalogue-drift-is-deferred-to-phase-8) |
 | **OD-17** | How to close the AI write boundary (Phase 7 review, **F-1**/**F-2**) | ✅ **Resolved 2026-08-30 by the recommended option: narrow the context the AI layer receives.** The AI layer holds an `AiReadCtx` — no `db`, no `fx`, no transaction capability, and not a `ReadCtx` — so both the escalation and the raw write are compile errors. `withWriteCtx` now requires a `RequestCtx` carrying `beginTransaction`, granted only by `createReadCtx`. Normative record: [ADR-33](#adr-33--the-transaction-opener-is-a-capability-carried-on-the-context-not-an-ambient-import), [ADR-34](#adr-34--the-ai-import-boundary-is-enforced-three-ways-and-covers-relative-paths), [ADR-35](#adr-35--ai-infrastructure-is-strictly-read-only-a-mutation-needs-a-separate-approved-proposal-workflow). Invariants **I-50 … I-52**. No AI infrastructure was implemented |
 | **OD-4** | Amend the approved baseline with the Phase 4 review's D1–D15 | ✅ Approved and applied 2026-08-11 |
 | **OD-5** | `investment_transactions.net_amount` currency | ✅ Approved 2026-08-11: the **account's** currency ([ADR-12](#adr-12--base-currency-with-dated-fx-stored-alongside-native-amounts)) |

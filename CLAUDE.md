@@ -1676,6 +1676,8 @@ Only request user input when a decision genuinely cannot be made safely without 
 
 <development_method>
 
+Note: the phase numbering below is superseded by `Workflow Setup.txt` (ADR-20), which is authoritative for phase order. There, Phase 7 is AI Infrastructure, Phase 8 is Model Evaluation and Phase 9 is AI Features. `docs/ROADMAP.md` follows that numbering.
+
 Do not blindly build the entire application in one pass.
 
 Work incrementally.
