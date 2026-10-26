@@ -58,7 +58,7 @@ describe('migration', () => {
       ]),
     );
 
-    // Phase 6+ tables must not exist yet — building ahead of the phase is how a
+    // Later-phase tables must not exist yet — building ahead of the phase is how a
     // reviewed schema turns into an unreviewed one.
     //
     // `net_worth_snapshots` is on this list DELIBERATELY: net worth is derived on
