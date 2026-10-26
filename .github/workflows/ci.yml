@@ -91,6 +91,13 @@ jobs:
           npm run db:migrate
           npm run db:seed
 
+      - name: Check the financial invariants
+        # R-2 (docs/RECOVERY-2026-10.md). SCHEMA.md §12's invariants, run as the
+        # application role: it can read every table and change no schema, so this
+        # also proves the grants the running app depends on. Exits non-zero on any
+        # failed invariant. The Phase 8 entry contract expects 33 passed, 0 failed.
+        run: npm run verify:integrity
+
       - run: npm run test:unit
 
       - run: npm run test:property
