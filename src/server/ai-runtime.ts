@@ -37,7 +37,7 @@ import type { ReadCtx } from './services/_ctx';
 import { refused, type AiFailure } from './ai/errors';
 import { createNvidiaProvider, NVIDIA_BUILD_KEY } from './ai/provider/nvidia-build';
 import type { AiProvider } from './ai/provider/types';
-import { createCapabilityMatrix } from './ai/config/capabilities';
+import { assertEveryConfiguredModelKnown, createCapabilityMatrix } from './ai/config/capabilities';
 import { resolveModelConfig } from './ai/config/models';
 import { createHealthRegistry } from './ai/orchestrator/breaker';
 import { createOrchestrator, type Orchestrator, type RunInput, type RunOutput } from './ai/orchestrator';
@@ -143,17 +143,12 @@ export function aiRuntime(): AiRuntime {
     defaultTimeoutMs: e.AI_REQUEST_TIMEOUT_MS,
   });
 
+  const { config, matrix } = checkedAiConfiguration();
+
   const orchestrator = createOrchestrator({
     provider,
-    // Tier lists are read here and passed in; `config/` cannot read the
-    // environment itself (AI-SYSTEM.md §12's structural constraint on ADR-17).
-    config: resolveModelConfig({
-      tier1: e.AI_TIER1_MODELS,
-      tier2: e.AI_TIER2_MODELS,
-      tier3: e.AI_TIER3_MODELS,
-      tier4: e.AI_TIER4_MODELS,
-    }),
-    matrix: createCapabilityMatrix(),
+    config,
+    matrix,
     health: createHealthRegistry(),
     now: () => new Date(),
     defaultTimeoutMs: e.AI_REQUEST_TIMEOUT_MS,
@@ -161,6 +156,34 @@ export function aiRuntime(): AiRuntime {
 
   cached = { provider, orchestrator, isConfigured: () => provider.isConfigured() };
   return cached;
+}
+
+/**
+ * Resolve the tier lists and the capability matrix, and refuse a tier list that
+ * names a model with no capability entry (B-3b). Tier lists are read here and
+ * passed in; `config/` cannot read the environment itself (AI-SYSTEM.md §12's
+ * structural constraint on ADR-17).
+ */
+function checkedAiConfiguration() {
+  const e = env();
+  const config = resolveModelConfig({
+    tier1: e.AI_TIER1_MODELS,
+    tier2: e.AI_TIER2_MODELS,
+    tier3: e.AI_TIER3_MODELS,
+    tier4: e.AI_TIER4_MODELS,
+  });
+  const matrix = createCapabilityMatrix();
+  assertEveryConfiguredModelKnown(config.allConfigured(), matrix);
+  return { config, matrix };
+}
+
+/**
+ * The startup half of B-3b, called from `instrumentation.ts` when the server
+ * starts. It needs no key and makes no request: it only checks that every
+ * configured model could be routed to. Throws, naming each model that could not.
+ */
+export function assertAiConfiguration(): void {
+  checkedAiConfiguration();
 }
 
 /** Test support: drop the cached runtime so a new environment takes effect. */

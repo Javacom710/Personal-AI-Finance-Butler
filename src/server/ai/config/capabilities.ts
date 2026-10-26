@@ -206,3 +206,28 @@ export function createCapabilityMatrix(
     unknownModels: (configured) => configured.filter((id) => !(id in entries)),
   };
 }
+
+/**
+ * The startup check (B-3b, ROADMAP Phase 7: *"A model with no capability entry
+ * cannot be routed to; startup fails loudly"*).
+ *
+ * The router already refuses an unknown model per request
+ * (`no_capability_entry`). That is correct and too late: a typo in an
+ * `AI_TIER<n>_MODELS` list would surface as a silently shorter fallback chain,
+ * one request at a time. This throws instead, naming every unknown model, so the
+ * server refuses to start with a tier list it could not route.
+ *
+ * Decided 2026-10-26: the matrix stays `capabilities.ts`, not a JSON file.
+ */
+export function assertEveryConfiguredModelKnown(
+  configured: readonly string[],
+  matrix: CapabilityMatrix,
+): void {
+  const unknown = matrix.unknownModels(configured);
+  if (unknown.length === 0) return;
+  throw new Error(
+    `AI configuration error: ${unknown.map((m) => `'${m}'`).join(', ')} ` +
+      `${unknown.length === 1 ? 'has' : 'have'} no entry in src/server/ai/config/capabilities.ts, ` +
+      'so the router could never use it. Add an entry, or remove it from the AI_TIER<n>_MODELS setting (ADR-18).',
+  );
+}
