@@ -53,6 +53,8 @@ describe('migration', () => {
         'liability_balances',
         // Phase 6 — market-data observations that are deliberately NOT the ledger
         'corporate_action_detections',
+        // Phase 7 — the daily AI budget's ledger (B-3a)
+        'ai_usage_daily',
       ]),
     );
 

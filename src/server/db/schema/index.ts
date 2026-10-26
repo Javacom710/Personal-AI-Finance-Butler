@@ -14,6 +14,8 @@
  * Phase 6 adds `corporate_action_detections` — market-data observations that are
  * deliberately **not** part of the ledger ([ADR-29](../../../../docs/DECISIONS.md)).
  * It still adds no `net_worth_snapshots`: nothing yet measures slow.
+ *
+ * Phase 7 adds `ai_usage_daily`, the daily AI budget's ledger (B-3a).
  */
 
 export * from './enums';
@@ -25,3 +27,4 @@ export * from './money';
 export * from './investments';
 export * from './networth';
 export * from './marketdata';
+export * from './ai';

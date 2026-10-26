@@ -23,12 +23,13 @@ import 'server-only';
 
 import { randomUUID } from 'node:crypto';
 
-import { eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 
 import { env } from '../lib/env';
 import { err, ok, type Result } from '../lib/result';
 import { db } from './db/client';
-import { settings } from './db/schema';
+import { aiUsageDaily, settings } from './db/schema';
+import { todayIn } from '../lib/date';
 import { log } from './log';
 import { createAiReadCtx } from './ai-read/internal';
 import type { AiReadCtx } from './ai-read';
@@ -113,6 +114,98 @@ export function checkAiRateLimit(userId: string, now: Date, limitPerMinute: numb
 /** Test support. Never called by the server. */
 export function resetAiRateLimits(): void {
   windows.clear();
+}
+
+// ------------------------------------------------------------ daily budget
+
+/**
+ * The daily budget (B-3a, decided 2026-10-26: a table, not memory).
+ *
+ * Read from `ai_usage_daily` **before** a request is built, and written after
+ * every request that reached the provider. A table, because an in-memory count
+ * resets on every restart, and a budget that a restart clears is not a budget.
+ *
+ * The day is the user's calendar day in `settings.timezone`. The check and the
+ * write are not one transaction, so two requests racing at the limit can both
+ * pass — for one user that overshoot is at most one request, and the limit
+ * exists to stop a runaway loop, not to meter to the token.
+ */
+export interface DailyUsage {
+  readonly requests: number;
+  readonly tokens: number;
+}
+
+export interface DailyLimits {
+  readonly requests: number;
+  readonly tokens: number;
+}
+
+/** The decision itself, pure. The first limit reached closes the day. */
+export function isWithinDailyBudget(used: DailyUsage, limits: DailyLimits): boolean {
+  return used.requests < limits.requests && used.tokens < limits.tokens;
+}
+
+/** The user's calendar day, or `null` when they have no settings row. */
+export async function aiUsageDayFor(userId: string, now: Date): Promise<string | null> {
+  const [row] = await db()
+    .select({ timezone: settings.timezone })
+    .from(settings)
+    .where(eq(settings.userId, userId))
+    .limit(1);
+  return row ? todayIn(row.timezone, now) : null;
+}
+
+export async function dailyAiUsage(userId: string, day: string): Promise<DailyUsage> {
+  const [row] = await db()
+    .select({
+      requests: sql<string>`coalesce(sum(${aiUsageDaily.requests}), 0)`,
+      tokens: sql<string>`coalesce(sum(${aiUsageDaily.promptTokens} + ${aiUsageDaily.completionTokens}), 0)`,
+    })
+    .from(aiUsageDaily)
+    .where(and(eq(aiUsageDaily.userId, userId), eq(aiUsageDaily.day, day)));
+  return { requests: Number(row?.requests ?? 0), tokens: Number(row?.tokens ?? 0) };
+}
+
+export interface DailyUsageEntry {
+  readonly userId: string;
+  readonly day: string;
+  /** `0` when the request failed before any model served it. */
+  readonly tier: number;
+  /** The serving model, or `'none'`. */
+  readonly model: string;
+  readonly failed: boolean;
+  readonly fallback: boolean;
+  readonly promptTokens: number;
+  readonly completionTokens: number;
+}
+
+/** Add one request to the day's ledger row, creating it on first use. */
+export async function recordDailyAiUsage(entry: DailyUsageEntry): Promise<void> {
+  const failures = entry.failed ? 1 : 0;
+  const fallbacks = entry.fallback ? 1 : 0;
+  await db()
+    .insert(aiUsageDaily)
+    .values({
+      userId: entry.userId,
+      day: entry.day,
+      tier: entry.tier,
+      model: entry.model,
+      requests: 1,
+      failures,
+      fallbackRequests: fallbacks,
+      promptTokens: entry.promptTokens,
+      completionTokens: entry.completionTokens,
+    })
+    .onConflictDoUpdate({
+      target: [aiUsageDaily.userId, aiUsageDaily.day, aiUsageDaily.tier, aiUsageDaily.model],
+      set: {
+        requests: sql`${aiUsageDaily.requests} + 1`,
+        failures: sql`${aiUsageDaily.failures} + ${failures}`,
+        fallbackRequests: sql`${aiUsageDaily.fallbackRequests} + ${fallbacks}`,
+        promptTokens: sql`${aiUsageDaily.promptTokens} + ${entry.promptTokens}`,
+        completionTokens: sql`${aiUsageDaily.completionTokens} + ${entry.completionTokens}`,
+      },
+    });
 }
 
 // ----------------------------------------------------------------- runtime
@@ -241,9 +334,30 @@ export async function runAiCapability(options: RunOptions): Promise<Result<RunOu
     return err(failure);
   }
 
+  // 3. Daily budget. Read from the ledger before any request exists, and fail
+  //    closed: a budget that cannot be read is not known to have room.
+  let day: string | null = null;
+  try {
+    day = await aiUsageDayFor(options.read.userId, now());
+    const used = day === null ? null : await dailyAiUsage(options.read.userId, day);
+    const limits = { requests: e.AI_DAILY_REQUEST_LIMIT, tokens: e.AI_DAILY_TOKEN_LIMIT };
+    if (used === null || !isWithinDailyBudget(used, limits)) {
+      const failure = refused(
+        'daily_budget',
+        `Today's AI budget (${limits.requests} requests or ${limits.tokens} tokens) is used up. No request was sent.`,
+      );
+      finish('refused', { failureKind: failure.kind });
+      return err(failure);
+    }
+  } catch {
+    const failure = refused('daily_budget', 'The daily AI budget could not be checked. No request was sent.');
+    finish('refused', { failureKind: failure.kind });
+    return err(failure);
+  }
+
   const runtime = aiRuntime();
 
-  // 3. Configuration. A typed failure, never a fabricated result.
+  // 4. Configuration. A typed failure, never a fabricated result.
   if (!runtime.isConfigured()) {
     const failure = refused(
       'unsupported_capability',
@@ -258,10 +372,27 @@ export async function runAiCapability(options: RunOptions): Promise<Result<RunOu
     ...(options.input.withTools ? { tools: toolDefinitions() } : {}),
   });
 
+  // The request reached the provider: it counts against today's budget whatever
+  // its outcome. A failed write is logged, not surfaced — the answer exists.
+  const ledger = (entry: Omit<DailyUsageEntry, 'userId' | 'day'>) =>
+    recordDailyAiUsage({ userId: options.read.userId, day: day as string, ...entry }).catch(() => {
+      log.error('ai.usage_daily.write_failed', { requestId });
+    });
+
   if (!result.ok) {
+    await ledger({ tier: 0, model: 'none', failed: true, fallback: false, promptTokens: 0, completionTokens: 0 });
     finish('failure', { failureKind: result.error.kind });
     return err(result.error);
   }
+
+  await ledger({
+    tier: result.value.tier,
+    model: result.value.modelId,
+    failed: false,
+    fallback: result.value.fallbackDepth > 0,
+    promptTokens: result.value.response.usage.promptTokens,
+    completionTokens: result.value.response.usage.completionTokens,
+  });
 
   finish('success', {
     modelId: result.value.modelId,

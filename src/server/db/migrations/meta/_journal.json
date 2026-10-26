@@ -36,6 +36,13 @@
       "when": 1787013356549,
       "tag": "0004_phase6_market_data",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793021585062,
+      "tag": "0005_phase7_ai_usage_daily",
+      "breakpoints": true
     }
   ]
 }
