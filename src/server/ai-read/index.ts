@@ -83,4 +83,6 @@ export interface AiReadCtx {
  */
 export * from './queries';
 export type { ToolResult, ToolMeta, ToolError, MetricJson } from './projections';
+// The budget itself, so the dispatcher can hold every tool to it (B-3c).
+export { MAX_TOOL_RESULT_BYTES, jsonBytes } from './projections';
 

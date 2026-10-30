@@ -138,13 +138,26 @@ export function projectDomainError(error: { code: string; message: string }): To
 export const DEFAULT_ROW_CAP = 50;
 export const MAX_ROW_CAP = 200;
 
-/** Byte budget for one tool result, after projection. */
+/** Byte budget for one tool result's rows, after projection. */
 export const MAX_RESULT_BYTES = 150 * 1024;
+
+/**
+ * The ceiling on a whole tool result, envelope included: the row budget plus
+ * room for `meta`, totals and coverage fields. The dispatcher refuses anything
+ * above it, so a correctly clipped list always fits and an uncapped one never
+ * reaches the model.
+ */
+export const MAX_TOOL_RESULT_BYTES = MAX_RESULT_BYTES + 8 * 1024;
 
 export function clampRows(requested: number | undefined): number {
   if (requested === undefined) return DEFAULT_ROW_CAP;
   if (!Number.isFinite(requested) || requested < 1) return DEFAULT_ROW_CAP;
   return Math.min(Math.trunc(requested), MAX_ROW_CAP);
+}
+
+/** UTF-8 bytes of a value as JSON — what actually crosses the wire. */
+export function jsonBytes(value: unknown): number {
+  return Buffer.byteLength(JSON.stringify(value) ?? '', 'utf8');
 }
 
 /**
@@ -153,15 +166,31 @@ export function clampRows(requested: number | undefined): number {
  * Clipping is visible: the returned `meta.truncated` is set and rows are
  * dropped from the end. Silent truncation would let a model report a subset as
  * a total, which is the failure this whole envelope exists to prevent.
+ *
+ * The budget is in **UTF-8 bytes**, not string length. `String.length` counts
+ * UTF-16 code units, so a description full of `₹` or Devanagari weighed a third
+ * of what it costs on the wire (B-3c). The separating comma between rows is
+ * counted too.
  */
 export function withinByteBudget<T>(rows: readonly T[]): { rows: readonly T[]; truncated: boolean } {
   let bytes = 0;
   const kept: T[] = [];
   for (const row of rows) {
-    bytes += JSON.stringify(row).length;
+    bytes += jsonBytes(row) + (kept.length > 0 ? 1 : 0);
     if (bytes > MAX_RESULT_BYTES) return { rows: kept, truncated: true };
     kept.push(row);
   }
   return { rows: kept, truncated: false };
+}
+
+/**
+ * Apply the row cap to a list that has no `limit` argument, such as holdings.
+ * The cap is `MAX_ROW_CAP`: such a list is normally far shorter, and when it is
+ * not, `truncated` says so instead of the model seeing an unbounded list.
+ */
+export function withinRowCap<T>(rows: readonly T[]): { rows: readonly T[]; truncated: boolean } {
+  return rows.length > MAX_ROW_CAP
+    ? { rows: rows.slice(0, MAX_ROW_CAP), truncated: true }
+    : { rows, truncated: false };
 }
 

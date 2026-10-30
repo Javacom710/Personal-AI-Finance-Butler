@@ -257,3 +257,76 @@ describe('I-58 — tool results are projected, never raw', () => {
     expect(JSON.stringify(outcome.result)).not.toContain(alice.userId);
   });
 });
+
+describe('B-3c — row caps, truncation and the byte budget, through the tool', () => {
+  // A user of their own, so the volume here moves nobody else's figures.
+  let carol: MoneyFixture;
+  const COUNT = 205;
+  // 400 rupee signs is the longest description the schema allows, and 1,200
+  // bytes on the wire: enough that a full page of 200 rows crosses the budget.
+  const HEAVY = '₹'.repeat(400);
+
+  beforeAll(async () => {
+    carol = await setupMoneyFixture({ now: new Date('2026-08-30T12:00:00Z') });
+    const account = await makeAccount(carol.ctx, {
+      name: 'Carol SBI',
+      openingBalance: '1000000',
+      openingDate: '2026-01-01',
+    });
+    const groceries = await categoryId(carol.ctx, 'Groceries');
+    for (let i = 0; i < COUNT; i += 1) {
+      await record(carol.ctx, {
+        kind: 'expense',
+        accountId: account,
+        categoryId: groceries,
+        amount: '10',
+        bookedOn: '2026-08-01',
+        description: HEAVY,
+      });
+    }
+  }, 300_000);
+
+  type Page = {
+    ok: boolean;
+    data: { transactions: unknown[] };
+    meta: { rowCount: number; truncated: boolean; totalMatching?: number };
+  };
+  const page = async (args: string) => {
+    const outcome = await dispatchToolCall(aiCapabilityFor(carol.ctx), {
+      id: 'c',
+      name: 'get_transactions',
+      argumentsJson: args,
+    });
+    return { outcome, result: outcome.result as Page };
+  };
+
+  it('returns the default page and says there is more', async () => {
+    const { outcome, result } = await page('{}');
+    expect(outcome.failed).toBe(false);
+    expect(result.meta.rowCount).toBe(50);
+    expect(result.data.transactions).toHaveLength(50);
+    expect(result.meta.truncated).toBe(true);
+    expect(result.meta.totalMatching).toBe(COUNT);
+  });
+
+  it('honours a small limit', async () => {
+    const { result } = await page('{"limit":5}');
+    expect(result.data.transactions).toHaveLength(5);
+    expect(result.meta.truncated).toBe(true);
+  });
+
+  it('refuses a limit above the maximum before any query runs', async () => {
+    const { outcome } = await page('{"limit":999}');
+    expect(outcome.failed).toBe(true);
+  });
+
+  it('clips a full page at the byte budget, flags it, and still fits the wire', async () => {
+    const { outcome, result } = await page('{"limit":200}');
+    expect(outcome.failed).toBe(false);
+    expect(result.meta.truncated).toBe(true);
+    expect(result.meta.rowCount).toBeGreaterThan(0);
+    expect(result.meta.rowCount).toBeLessThan(200);
+    expect(result.meta.rowCount).toBe(result.data.transactions.length);
+    expect(Buffer.byteLength(JSON.stringify(result.data.transactions), 'utf8')).toBeLessThanOrEqual(150 * 1024 + 2);
+  });
+}, 300_000);

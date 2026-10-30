@@ -409,7 +409,8 @@ export async function getHoldings(ai: AiReadCtx) {
       // says so, and is never swapped for cost.
       priceStatus: h.price.status,
     }));
-    const budget = p.withinByteBudget(rows);
+    const capped = p.withinRowCap(rows);
+    const budget = p.withinByteBudget(capped.rows);
     return p.toolOk(
       {
         holdings: budget.rows,
@@ -417,7 +418,11 @@ export async function getHoldings(ai: AiReadCtx) {
         coverage: p.rate(valuation.coverage),
         unpricedCount: valuation.unpriced.length,
       },
-      { ...meta(ai, budget.rows.length), truncated: budget.truncated },
+      {
+        ...meta(ai, budget.rows.length),
+        truncated: capped.truncated || budget.truncated,
+        totalMatching: rows.length,
+      },
     );
   });
 }
