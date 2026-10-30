@@ -13,14 +13,24 @@ concurrency:
 
 jobs:
   verify:
+    name: verify (PostgreSQL ${{ matrix.postgres }})
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
+    # R-3 (docs/RECOVERY-2026-10.md): production targets PostgreSQL 17 and the
+    # development PC runs 18 (D-23), and the two already differed once in what
+    # they report (23001 vs 23503). Every change is tested on both, in parallel;
+    # a test that passes on only one of them is a defect, not a flake.
+    strategy:
+      fail-fast: false
+      matrix:
+        postgres: ['17', '18']
+
     services:
       postgres:
-        # Pinned to the major version the schema targets. Integration tests need
-        # a real Postgres because half the invariants are database constraints.
-        image: postgres:17
+        # Integration tests need a real Postgres because half the invariants are
+        # database constraints.
+        image: postgres:${{ matrix.postgres }}
         env:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: postgres
