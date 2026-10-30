@@ -977,6 +977,18 @@ Wiring the translator in would have changed the error contract of every write, t
 
 ---
 
+## ADR-47 — CI runs PostgreSQL 17 and 18
+
+**Decision.** Approved by the user 2026-10-30, closing the last question of **R-3**. Implemented in PR #14.
+
+> **Every pull request runs the full CI pipeline twice, in parallel: on PostgreSQL 17, which production targets, and on PostgreSQL 18, which the development PC runs (D-23). A test that passes on only one of them is a defect.**
+
+The two versions have already differed once: a RESTRICT foreign-key refusal is `23001` on 18 and `23503` on 17, found only because the suite happened to run on the PC. Testing 17 alone lets an 18-only failure reach the development machine; testing 18 alone stops checking what production runs. The parallel matrix costs no extra wall-clock time.
+
+**Rejected.** *Moving the PC to 17*: a reinstall of a working service, to remove a check rather than add one. *Running 18 on a schedule only*: a failure would surface days after the change that caused it.
+
+---
+
 ## Open decisions requiring the user
 
 | # | Decision | Why it cannot be defaulted | Blocks |

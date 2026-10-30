@@ -4,7 +4,7 @@ Durable status record. Conversation history is temporary; this file is not. Read
 
 > **Read first — status as of 2026-10-26.** **Phase 7 (AI Infrastructure) is complete**: every ROADMAP Phase 7 "Done when" box is ticked, with the evidence named on each. **Phase 8 (Model Evaluation) has not started and is now unblocked**; its first dependency is the golden task corpora for `src/server/ai/eval/harness.ts`. Both hard drives that held working copies have failed; the repository lives on GitHub, and Claude, Codex and ChatGPT work from it through pull requests. The dated sections further down are historical records. For the recovery, the blocker register and the working rules, see [docs/RECOVERY-2026-10.md](docs/RECOVERY-2026-10.md).
 
-**Last updated:** 2026-10-26 · **Current phase:** **7 — AI Infrastructure COMPLETE** (steps 7.0–7.7; blockers B-1 … B-4, H-1, R-1, R-2 and R-4 closed; R-3's one remaining question, whether CI should also run PostgreSQL 18, is open and blocks nothing). **Next: Phase 8 — Model Evaluation.** Phase 6 remains complete (steps 6.0–6.9 and 6.11 implemented and verified; 6.10 closed unbuilt).
+**Last updated:** 2026-10-26 · **Current phase:** **7 — AI Infrastructure COMPLETE** (steps 7.0–7.7; blockers B-1 … B-4, H-1 and R-1 … R-4 closed). **Next: Phase 8 — Model Evaluation.** Phase 6 remains complete (steps 6.0–6.9 and 6.11 implemented and verified; 6.10 closed unbuilt).
 
 *The paragraphs from here to "Working protocol" are the 2026-08-30 record, kept as written.*
 
@@ -93,7 +93,7 @@ Corollaries that follow from the above:
 | 5 — Net Worth at Cost | ✅ **complete, verified** |
 | 6 — Market Data | ✅ **complete, verified.** 6.0–6.9 and **6.11** implemented; **6.10 closed — not built** (OD-15). No open decision remains |
 | 6.5 — Recovery (Oct 2026) | ✅ repository rebuilt from the failed drives and published to GitHub — [docs/RECOVERY-2026-10.md](docs/RECOVERY-2026-10.md) |
-| 7 — AI Infrastructure | ✅ **complete, 2026-10-26.** 7.0–7.7 built; the Phase 8 entry-gate blockers closed (PRs #5–#12) |
+| 7 — AI Infrastructure | ✅ **complete, 2026-10-26.** 7.0–7.7 built; the Phase 8 entry-gate blockers closed (PRs #5–#12, #14) |
 | 8 — Model Evaluation | not started; **unblocked** |
 | 9–14 | not started |
 

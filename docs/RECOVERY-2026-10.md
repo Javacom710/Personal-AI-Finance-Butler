@@ -68,7 +68,7 @@ On `0abc48d`, on the Windows PC (Node 26, npm 11.19), and again on Linux under N
 | **H-1** | Global capability surface (B-2 audit §7): `globalThis.__financeOsDb`, `globalThis.process.env`, ambient `fetch`, indirect / aliased `eval`; aliased `db` handles | ✅ **Resolved**, PR #8: both boundary mechanisms refuse ambient globals in the AI zone; with no route to a handle, there is nothing to alias |
 | **R-1** | Rotate secrets that were on the failed drives | ✅ **Closed 2026-10-26 without rotation.** Both drives came back from the lab unread: recovery was out of budget and never started. Rotation is not needed. Keep the drives secure and destroy them physically before disposal |
 | **R-2** | Add `verify:integrity` to CI, using the read-only database role | ✅ **Resolved**, PR #7 |
-| **R-3** | **PostgreSQL 17 / 18 divergence.** PostgreSQL 18 reports a RESTRICT foreign-key refusal as SQLSTATE `23001` with its own wording; 17 reports `23503` for RESTRICT and NO ACTION alike. Two integration tests depended on 18's wording; since PR #1 they assert the code and the catalogue's delete rule, which holds on both. Application code is not affected, because it translates no database error (R-4): a constraint that fires is a fault with a correlation id, on both versions | 🟨 **One question open, blocking nothing:** should CI also run PostgreSQL 18, the version on the PC? |
+| **R-3** | **PostgreSQL 17 / 18 divergence.** PostgreSQL 18 reports a RESTRICT foreign-key refusal as SQLSTATE `23001` with its own wording; 17 reports `23503` for RESTRICT and NO ACTION alike. Two integration tests depended on 18's wording; since PR #1 they assert the code and the catalogue's delete rule, which holds on both. Application code is not affected, because it translates no database error (R-4): a constraint that fires is a fault with a correlation id, on both versions | ✅ **Resolved 2026-10-30**: CI runs both versions in parallel, PR #14 ([ADR-47](DECISIONS.md#adr-47--ci-runs-postgresql-17-and-18)) |
 | **R-4** | `src/server/services/_errors.ts` was never wired in (found by the Codex review of PR #2, since closed) | ✅ **Resolved**, PR #12: deleted ([ADR-46](DECISIONS.md#adr-46--database-errors-are-not-translated-the-unwired-translator-is-deleted)) |
 | — | New advisory GHSA-mrhx-c7xc-m3w5 (`zod` below 4.6.6, high), published after 2026-10-17 | ✅ **Resolved**, PR #9: `zod` 4.6.7 |
 
@@ -77,7 +77,7 @@ On `0abc48d`, on the Windows PC (Node 26, npm 11.19), and again on Linux under N
 ## Order of work
 
 1. ~~Publish to GitHub; CI runs the integration suite.~~ Done 2026-10-17.
-2. ~~B-3a to B-3e, H-1, R-3 and R-4.~~ Done 2026-10-26 (R-3's CI question aside).
+2. ~~B-3a to B-3e, H-1, R-3 and R-4.~~ Done 2026-10-26; R-3's CI question closed 2026-10-30.
 3. ~~R-2.~~ Done 2026-10-26.
 4. ~~B-4.~~ Done 2026-10-26.
 5. Full Phase 7 gate on `main` once these pull requests are merged, with and without `NVIDIA_API_KEY`: every test passing with 0 skips, plus every check in the entry contract (entry-gate audit §9). CI covers the run without a key.
@@ -92,6 +92,6 @@ The repository lives on GitHub. Claude, Codex and ChatGPT all work from it, and 
 - **Instructions are already in the repo.** Codex reads `AGENTS.md`, Claude reads `CLAUDE.md`, and both start from `PROJECT-STATE.md`. A pull request that changes project status updates `PROJECT-STATE.md` in the same PR. The PR description says what changed, how it was verified, and what comes next.
 - **The package manager is npm 11.** `package.json` declares `packageManager: npm@11.19.1` and CI pins it. Node 22 bundles npm 10, which rejects this lockfile (`Missing: esbuild@0.28.2`), so on such a machine run `npx -y npm@11.19.1 ci`. Never commit a lockfile written by npm 10: it drops the `libc` fields and adds optional-peer entries that npm 11 removes again.
 - **Cloud sessions are set up.** `.claude/settings.json` runs `scripts/cloud-session-setup.sh`, so a Claude Code cloud session starts with dependencies, PostgreSQL, both roles and both databases (see `docs/DEPLOYMENT.md` §1).
-- **CI is the authority for integration tests.** It runs PostgreSQL 17, the version the schema and production target. The PC runs PostgreSQL 18.4 (D-23), so a test that passes on only one of them is a defect, not a flake (R-3). A hosted database for running the app is a decision for the deployment phase.
+- **CI is the authority for integration tests.** It runs every check on PostgreSQL 17, the version production targets, and on 18.4, the version the PC runs (D-23, ADR-47). A test that passes on only one of them is a defect, not a flake (R-3). A hosted database for running the app is a decision for the deployment phase.
 - **Secrets never enter git.** When a cloud agent needs `NVIDIA_API_KEY` (Phase 8 evaluation), it goes into that agent's environment settings or a GitHub Actions secret, never into a file.
 - **Backups:** every branch on GitHub; the `C:\Dev` mirror; and a periodic `git bundle --all` copied off the machine. `.env` is backed up only offline or in a password manager.
