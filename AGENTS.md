@@ -1676,6 +1676,8 @@ Only request user input when a decision genuinely cannot be made safely without 
 
 <development_method>
 
+Note: the phase numbering below is superseded by `Workflow Setup.txt` (ADR-20), which is authoritative for phase order. There, Phase 7 is AI Infrastructure, Phase 8 is Model Evaluation and Phase 9 is AI Features. `docs/ROADMAP.md` follows that numbering.
+
 Do not blindly build the entire application in one pass.
 
 Work incrementally.
@@ -2180,3 +2182,30 @@ The application validates.
 The user remains in control.
 
 </final_principle>
+
+<context_management>
+
+Conversation history is temporary.
+
+Important project knowledge must exist in project files.
+
+Before context compaction:
+
+1. Preserve important decisions in documentation.
+2. Update PROJECT-STATE.md.
+3. Record completed work.
+4. Record pending work.
+5. Record unresolved issues.
+6. Record architectural decisions and rationale.
+
+Never rely exclusively on previous conversation memory.
+
+After context restoration:
+
+Always verify the current implementation against:
+- CLAUDE.md
+- docs/
+- source code
+- tests
+
+</context_management>

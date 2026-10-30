@@ -2,7 +2,7 @@
 
 **Status:** design review complete 2026-08-29. Step 7.0 (pre-implementation corrections) applied
 2026-08-30 — see [§21](#21-disposition-of-f-1-f-2-and-f-3--2026-08-30). **Phase 7 infrastructure
-implemented 2026-08-30: steps 7.1-7.6 built and verified, 7.7 blocked on OD-1.** Two design points
+implemented 2026-08-30: steps 7.1-7.6 built and verified; 7.7 ran once `NVIDIA_API_KEY` was configured, closing OD-1. Phase 7 complete 2026-10-26 (see ROADMAP).** Two design points
 here were amended by what was built — the adapter is written over injected `fetch` rather than the
 `openai` client ([ADR-40](DECISIONS.md#adr-40--the-nvidia-adapter-is-written-over-fetch-the-openai-client-is-deferred-to-the-phase-that-needs-streaming)),
 and the capability matrix carries an explicit declared/measured split because no model has been
@@ -142,6 +142,8 @@ cost of leaving a dead identifier in place is bounded and visible: `transport` c
 the circuit breaker then stops trying the dead one. Phase 8 resolves these with the eval harness.
 
 ### 3.2 The evaluation cannot be run yet, and that is the honest answer
+
+> **Historical (written 2026-08-29).** OD-1 has since closed and a key exists, so `ai:catalogue` can run. The evaluation itself is still unrun: it is Phase 8's work. The reasoning below is kept as the record of why nothing was scored.
 
 The brief asks for an evaluation against actual workloads before selecting models. **That evaluation
 cannot be executed**: `NVIDIA_API_KEY` is unset (**OD-1**), so neither `ai:catalogue` (authenticated
