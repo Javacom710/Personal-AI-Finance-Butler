@@ -351,7 +351,8 @@ export async function revalueAsset(
   }
 
   // Checked before the insert rather than caught after it: a constraint
-  // violation aborts the whole Postgres transaction (see _errors.ts).
+  // violation aborts the whole Postgres transaction, and nothing translates
+  // database errors (R-4).
   const [clash] = await ctx.tx
     .select({ id: assetValuations.id })
     .from(assetValuations)
