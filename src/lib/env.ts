@@ -120,6 +120,15 @@ const envSchema = z.object({
   AI_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(10),
   /** Hard ceiling on a single provider call, in milliseconds. */
   AI_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(60_000),
+
+  /**
+   * The daily budget (B-3a), per user per calendar day in `settings.timezone`,
+   * checked **before** a request is built. Requests counts every request that
+   * reached the provider; tokens counts prompt plus completion tokens. The
+   * first limit reached refuses the rest of the day with `daily_budget`.
+   */
+  AI_DAILY_REQUEST_LIMIT: z.coerce.number().int().positive().default(200),
+  AI_DAILY_TOKEN_LIMIT: z.coerce.number().int().positive().default(1_000_000),
 });
 
 export type Env = z.infer<typeof envSchema>;

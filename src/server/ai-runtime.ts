@@ -21,14 +21,16 @@ import 'server-only';
  * before constructing a request, let alone sending one.
  */
 
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'node:crypto';
 
-import { eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 
 import { env } from '../lib/env';
 import { err, ok, type Result } from '../lib/result';
 import { db } from './db/client';
-import { settings } from './db/schema';
+import { aiUsageDaily, settings } from './db/schema';
+import { todayIn } from '../lib/date';
 import { log } from './log';
 import { createAiReadCtx } from './ai-read/internal';
 import type { AiReadCtx } from './ai-read';
@@ -41,6 +43,7 @@ import { createCapabilityMatrix } from './ai/config/capabilities';
 import { resolveModelConfig } from './ai/config/models';
 import { createHealthRegistry } from './ai/orchestrator/breaker';
 import { createOrchestrator, type Orchestrator, type RunInput, type RunOutput } from './ai/orchestrator';
+import { requirementFor } from './ai/orchestrator/requirements';
 import { toolDefinitions } from './ai/tools/registry';
 import { toLogFields, type AiRequestRecord, type UsageSink } from './ai/observability/usage';
 import { nullSink } from './ai/observability/usage';
@@ -115,6 +118,165 @@ export function resetAiRateLimits(): void {
   windows.clear();
 }
 
+// ------------------------------------------------------------ daily budget
+
+/**
+ * The daily budget (B-3a, decided 2026-10-26: a table, not memory).
+ *
+ * Read from `ai_usage_daily` **before** a request is built, and written after
+ * every request that reached the provider. A table, because an in-memory count
+ * resets on every restart, and a budget that a restart clears is not a budget.
+ *
+ * **What counts is a call to the provider**, not a call to `runAiCapability`:
+ * the provider handed to the orchestrator is wrapped by {@link meterProvider},
+ * so each fallback attempt is one request on the ledger, with its own model and
+ * tokens, and a request refused before any call costs nothing.
+ *
+ * The day is the user's calendar day in `settings.timezone`. The gate runs once
+ * per `runAiCapability`, before the request is built; the fallback chain behind
+ * it is bounded at `MAX_ATTEMPTS` (3). So the most a day can exceed its request
+ * limit by is the rest of one chain — two calls — and two requests racing at
+ * the limit can both pass. The limit exists to stop a runaway loop, not to meter
+ * to the token.
+ */
+export interface DailyUsage {
+  readonly requests: number;
+  readonly tokens: number;
+}
+
+export interface DailyLimits {
+  readonly requests: number;
+  readonly tokens: number;
+}
+
+/** The decision itself, pure. The first limit reached closes the day. */
+export function isWithinDailyBudget(used: DailyUsage, limits: DailyLimits): boolean {
+  return used.requests < limits.requests && used.tokens < limits.tokens;
+}
+
+/** The user's calendar day, or `null` when they have no settings row. */
+export async function aiUsageDayFor(userId: string, now: Date): Promise<string | null> {
+  const [row] = await db()
+    .select({ timezone: settings.timezone })
+    .from(settings)
+    .where(eq(settings.userId, userId))
+    .limit(1);
+  return row ? todayIn(row.timezone, now) : null;
+}
+
+export async function dailyAiUsage(userId: string, day: string): Promise<DailyUsage> {
+  const [row] = await db()
+    .select({
+      requests: sql<string>`coalesce(sum(${aiUsageDaily.requests}), 0)`,
+      tokens: sql<string>`coalesce(sum(${aiUsageDaily.promptTokens} + ${aiUsageDaily.completionTokens}), 0)`,
+    })
+    .from(aiUsageDaily)
+    .where(and(eq(aiUsageDaily.userId, userId), eq(aiUsageDaily.day, day)));
+  return { requests: Number(row?.requests ?? 0), tokens: Number(row?.tokens ?? 0) };
+}
+
+export interface DailyUsageEntry {
+  readonly userId: string;
+  readonly day: string;
+  readonly tier: number;
+  /** The model the call was sent to. */
+  readonly model: string;
+  readonly failed: boolean;
+  readonly fallback: boolean;
+  readonly promptTokens: number;
+  readonly completionTokens: number;
+}
+
+/**
+ * Mark the serving model's row as having served after a fallback. The calls
+ * themselves were already counted, one by one, by {@link meterProvider}.
+ */
+export async function markDailyFallback(userId: string, day: string, tier: number, model: string): Promise<void> {
+  await db()
+    .update(aiUsageDaily)
+    .set({ fallbackRequests: sql`${aiUsageDaily.fallbackRequests} + 1` })
+    .where(
+      and(
+        eq(aiUsageDaily.userId, userId),
+        eq(aiUsageDaily.day, day),
+        eq(aiUsageDaily.tier, tier),
+        eq(aiUsageDaily.model, model),
+      ),
+    );
+}
+
+/** Who a provider call is charged to. Set for the duration of one run. */
+interface Metering {
+  readonly userId: string;
+  readonly day: string;
+  readonly tier: number;
+}
+
+const metering = new AsyncLocalStorage<Metering>();
+
+/** Run `fn` with every provider call inside it charged to `meter`. */
+export function withMetering<T>(meter: Metering, fn: () => Promise<T>): Promise<T> {
+  return metering.run(meter, fn);
+}
+
+/**
+ * Wrap a provider so that every `chat` call made while a {@link withMetering}
+ * scope is active is added to `ai_usage_daily`: one request, its model, and the
+ * tokens it reports. A call outside any scope (the smoke test) is not charged.
+ * A failed ledger write is logged and never changes the provider's result.
+ */
+export function meterProvider(inner: AiProvider): AiProvider {
+  return {
+    key: inner.key,
+    isConfigured: () => inner.isConfigured(),
+    listModels: () => inner.listModels(),
+    async chat(request) {
+      const result = await inner.chat(request);
+      const meter = metering.getStore();
+      if (meter) {
+        await recordDailyAiUsage({
+          ...meter,
+          model: request.model,
+          failed: !result.ok,
+          fallback: false,
+          promptTokens: result.ok ? result.value.usage.promptTokens : 0,
+          completionTokens: result.ok ? result.value.usage.completionTokens : 0,
+        }).catch(() => log.error('ai.usage_daily.write_failed', { model: request.model }));
+      }
+      return result;
+    },
+  };
+}
+
+/** Add one request to the day's ledger row, creating it on first use. */
+export async function recordDailyAiUsage(entry: DailyUsageEntry): Promise<void> {
+  const failures = entry.failed ? 1 : 0;
+  const fallbacks = entry.fallback ? 1 : 0;
+  await db()
+    .insert(aiUsageDaily)
+    .values({
+      userId: entry.userId,
+      day: entry.day,
+      tier: entry.tier,
+      model: entry.model,
+      requests: 1,
+      failures,
+      fallbackRequests: fallbacks,
+      promptTokens: entry.promptTokens,
+      completionTokens: entry.completionTokens,
+    })
+    .onConflictDoUpdate({
+      target: [aiUsageDaily.userId, aiUsageDaily.day, aiUsageDaily.tier, aiUsageDaily.model],
+      set: {
+        requests: sql`${aiUsageDaily.requests} + 1`,
+        failures: sql`${aiUsageDaily.failures} + ${failures}`,
+        fallbackRequests: sql`${aiUsageDaily.fallbackRequests} + ${fallbacks}`,
+        promptTokens: sql`${aiUsageDaily.promptTokens} + ${entry.promptTokens}`,
+        completionTokens: sql`${aiUsageDaily.completionTokens} + ${entry.completionTokens}`,
+      },
+    });
+}
+
 // ----------------------------------------------------------------- runtime
 
 export interface AiRuntime {
@@ -136,12 +298,12 @@ export function aiRuntime(): AiRuntime {
   if (cached) return cached;
 
   const e = env();
-  const provider = createNvidiaProvider({
+  const provider = meterProvider(createNvidiaProvider({
     apiKey: e.NVIDIA_API_KEY,
     baseUrl: e.NVIDIA_BASE_URL,
     fetch: globalThis.fetch as never,
     defaultTimeoutMs: e.AI_REQUEST_TIMEOUT_MS,
-  });
+  }));
 
   const orchestrator = createOrchestrator({
     provider,
@@ -241,9 +403,30 @@ export async function runAiCapability(options: RunOptions): Promise<Result<RunOu
     return err(failure);
   }
 
+  // 3. Daily budget. Read from the ledger before any request exists, and fail
+  //    closed: a budget that cannot be read is not known to have room.
+  let day: string | null = null;
+  try {
+    day = await aiUsageDayFor(options.read.userId, now());
+    const used = day === null ? null : await dailyAiUsage(options.read.userId, day);
+    const limits = { requests: e.AI_DAILY_REQUEST_LIMIT, tokens: e.AI_DAILY_TOKEN_LIMIT };
+    if (used === null || !isWithinDailyBudget(used, limits)) {
+      const failure = refused(
+        'daily_budget',
+        `Today's AI budget (${limits.requests} requests or ${limits.tokens} tokens) is used up. No request was sent.`,
+      );
+      finish('refused', { failureKind: failure.kind });
+      return err(failure);
+    }
+  } catch {
+    const failure = refused('daily_budget', 'The daily AI budget could not be checked. No request was sent.');
+    finish('refused', { failureKind: failure.kind });
+    return err(failure);
+  }
+
   const runtime = aiRuntime();
 
-  // 3. Configuration. A typed failure, never a fabricated result.
+  // 4. Configuration. A typed failure, never a fabricated result.
   if (!runtime.isConfigured()) {
     const failure = refused(
       'unsupported_capability',
@@ -253,14 +436,23 @@ export async function runAiCapability(options: RunOptions): Promise<Result<RunOu
     return err(failure);
   }
 
-  const result = await runtime.orchestrator.run({
-    ...options.input,
-    ...(options.input.withTools ? { tools: toolDefinitions() } : {}),
-  });
+  const tier = requirementFor(options.input.capability).tier;
+  const result = await withMetering({ userId: options.read.userId, day: day as string, tier }, () =>
+    runtime.orchestrator.run({
+      ...options.input,
+      ...(options.input.withTools ? { tools: toolDefinitions() } : {}),
+    }),
+  );
 
   if (!result.ok) {
     finish('failure', { failureKind: result.error.kind });
     return err(result.error);
+  }
+
+  if (result.value.fallbackDepth > 0) {
+    await markDailyFallback(options.read.userId, day as string, tier, result.value.modelId).catch(() => {
+      log.error('ai.usage_daily.write_failed', { requestId });
+    });
   }
 
   finish('success', {
