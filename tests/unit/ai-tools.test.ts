@@ -70,6 +70,35 @@ describe('I-57 — the registry is closed and well-formed', () => {
     }
   });
 
+  it('declares a complete required array on every tool — B-3d', () => {
+    // Complete means exact: every field the input schema needs is listed, and
+    // no optional one is. Swept across the registry rather than one sample, so
+    // a tool added later is held to it the day it is added.
+    const byName = new Map(allTools().map((t) => [t.name, t]));
+    for (const definition of toolDefinitions()) {
+      const shape = (byName.get(definition.name)?.input as unknown as z.ZodObject<z.ZodRawShape>).shape;
+      const needed = Object.keys(shape)
+        .filter((field) => !(shape[field] as z.ZodType).safeParse(undefined).success)
+        .sort();
+      const required = definition.parameters['required'];
+      expect(Array.isArray(required), definition.name).toBe(true);
+      expect([...(required as string[])].sort(), definition.name).toEqual(needed);
+    }
+  });
+
+  it('gives every nested object schema a required array too', () => {
+    const missing: string[] = [];
+    const walk = (node: unknown, path: string): void => {
+      if (node === null || typeof node !== 'object') return;
+      if (Array.isArray(node)) return node.forEach((n, i) => walk(n, `${path}[${i}]`));
+      const o = node as Record<string, unknown>;
+      if (o['type'] === 'object' && o['properties'] !== undefined && !Array.isArray(o['required'])) missing.push(path);
+      for (const [k, v] of Object.entries(o)) walk(v, `${path}.${k}`);
+    };
+    for (const definition of toolDefinitions()) walk(definition.parameters, definition.name);
+    expect(missing).toEqual([]);
+  });
+
   it('describes every tool for the model', () => {
     for (const tool of allTools()) {
       expect(tool.description.length, tool.name).toBeGreaterThan(20);

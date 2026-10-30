@@ -157,5 +157,30 @@ export function toJsonSchema(schema: z.ZodType, name: string): Record<string, un
     target: 'draft-2020-12',
     io: 'input',
   }) as Record<string, unknown>;
-  return { ...generated, title: name };
+  return { ...withRequiredArrays(generated), title: name };
+}
+
+/**
+ * Give every object node an explicit `required` array (B-3d).
+ *
+ * Zod omits `required` when no field is required, which a strict JSON Schema
+ * consumer reads as "unspecified" rather than "none". Seventeen of the eighteen
+ * tools had no `required` key at all. The array Zod does emit is kept as is —
+ * it is already exactly the non-optional fields — so this adds `[]` where the
+ * key was missing and changes nothing else.
+ */
+function withRequiredArrays(node: unknown): Record<string, unknown> {
+  if (node === null || typeof node !== 'object' || Array.isArray(node)) return node as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
+    out[key] = Array.isArray(value)
+      ? value.map((v) => withRequiredArrays(v))
+      : typeof value === 'object' && value !== null
+        ? withRequiredArrays(value)
+        : value;
+  }
+  if (out['type'] === 'object' && out['properties'] !== undefined && !Array.isArray(out['required'])) {
+    out['required'] = [];
+  }
+  return out;
 }
