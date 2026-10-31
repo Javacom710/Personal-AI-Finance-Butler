@@ -147,6 +147,21 @@ describe('classifyEscalation', () => {
     expect(classifyEscalation("What's my HDFC balance?", { tier: 2 }).tier).toBe(1);
   });
 
+  it('counts a month or quarter with its year as one period', () => {
+    expect(classifyEscalation('Compare food and transport spending in August 2026.').tier).toBe(1);
+    expect(classifyEscalation('Compare SBI and HDFC balances in Q1 2026.').tier).toBe(1);
+    expect(classifyEscalation('Compare Q1 2026 and Q2 2026.').tier).toBe(2);
+  });
+
+  it('keeps the task that follows "for" in a model-choice instruction', () => {
+    expect(classifyEscalation('Use deepseek for a detailed review of my finances.')).toEqual({
+      tier: 2,
+      reason: 'review_or_analysis',
+      modelChoiceIgnored: true,
+    });
+    expect(classifyEscalation('Use the model built for analysis to show my balance.').tier).toBe(1);
+  });
+
   it('counts a wrong model-choice flag as a failure', () => {
     const neverFlags = scoreRouting((message, previous) => {
       const { modelChoiceIgnored: _ignored, ...rest } = classifyEscalation(message, previous);

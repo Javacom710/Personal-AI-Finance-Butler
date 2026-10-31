@@ -76,9 +76,9 @@ function domainsIn(m: string): number {
   return DOMAINS.filter((domain) => domain.test(m)).length;
 }
 
-/** One reference to a period: "this month", "last year", "today", "August", "2026-08", "Q2", "2025", "two months ago". */
+/** One reference to a period ("August 2026" and "Q1 2026" are one, not two): "this month", "last year", "today", "August", "2026-08", "Q2", "2025", "two months ago". */
 const PERIOD_REF =
-  /\b(this|last|previous|prior|next|same) (week|month|quarter|year|period)\b|\b(today|yesterday|ytd)\b|\b(january|february|march|april|may|june|july|august|september|october|november|december)\b|\b20\d\d-(0[1-9]|1[0-2])\b|\b20\d\d\b|\bq[1-4]\b|\b\w+ (weeks?|months?|quarters?|years?) ago\b/g;
+  /\b(this|last|previous|prior|next|same) (week|month|quarter|year|period)\b|\b(today|yesterday|ytd)\b|\b(january|february|march|april|may|june|july|august|september|october|november|december)(,? 20\d\d)?\b|\bq[1-4],? 20\d\d\b|\b20\d\d q[1-4]\b|\b20\d\d-(0[1-9]|1[0-2])\b|\b20\d\d\b|\bq[1-4]\b|\b\w+ (weeks?|months?|quarters?|years?) ago\b/g;
 
 /** A comparison whose other side is a period: "with last month", "vs the previous year". */
 const AGAINST_PERIOD =
@@ -197,8 +197,9 @@ const MODEL_NOUN =
  */
 const MODEL_CHOICE = new RegExp(
   `\\b(?:please )?(?:use|using|switch to|switch|run (?:it |this )?(?:on|with)|via|pick|choose|select|try|answer with)\\b[^,.;!?]*?\\b${MODEL_NOUN}\\b(?: you have)?` +
-    // and what describes it: "…the model with advanced analysis", up to the question
-    `(?: (?:with|that has|that is|that's|which is|which has|for|built for|best at|good at) [^,.;!?]*?(?= to | and |[,.;!?]|$))?(?: and)?`,
+    // and what describes it: "…the model with advanced analysis", up to the question.
+    // A bare "for" introduces the task ("use deepseek for a review of my month"), so it stays.
+    `(?: (?:with|that has|that is|that's|which is|which has|built for|best at|good at) [^,.;!?]*?(?= to | and |[,.;!?]|$))?(?: and)?`,
   'g',
 );
 

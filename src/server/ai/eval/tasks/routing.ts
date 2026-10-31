@@ -170,6 +170,12 @@ export const ROUTING_CASES: readonly RoutingGoldenCase[] = [
   // — A back-reference without a conjunction; a model described after its name —
   c(71, 'What does that mean for my portfolio?', 2, REVIEW),
   { ...c(72, 'Use the model with advanced analysis to show my balance.', 1), flagsModelChoice: true },
+
+  // — A month or quarter with its year is one period; the task after "for" is kept —
+  c(73, 'Compare food and transport spending in August 2026.', 1),
+  c(74, 'Compare SBI and HDFC balances in Q1 2026.', 1),
+  c(75, 'Compare August 2026 with September 2026.', 2),
+  { ...c(76, 'Use deepseek for a detailed review of my finances.', 2), flagsModelChoice: true },
 ];
 
 export interface RoutingFailure {
