@@ -637,7 +637,7 @@ These metrics feed routing changes — which is the point of measuring them.
 | Suite | Cases | Scoring |
 |---|---|---|
 | `parse` | 40 NL transaction strings incl. ambiguous, multi-currency, relative dates, adversarial — **built**: `tasks/parse.ts` | **Deterministic**: schema valid (→ `schemaAdherence`, scored apart from accuracy); field-exact on kind, date, amount, currency; hints against accepted spellings; an ambiguous case passes only if the model flags it |
-| `classify` | 60 descriptions → category | Deterministic: exact match |
+| `classify` | 60 descriptions → category, incl. bank-statement text, no-purpose descriptions and adversarial text — **built**: `tasks/classify.ts` | **Deterministic**: the answer space is an enum of the user's category paths for the transaction's kind, so an invented or wrong-kind category is a schema failure; exact match against the accepted path(s); `null` is the only right answer when the description gives no purpose |
 | `tool-select` | 30 questions → expected tool + arguments | Deterministic: correct tool, correct arguments |
 | `routing` | 40 messages → expected tier, incl. the sticky-escalation trap (deep question followed by a trivial one) | **Deterministic**: the classifier is application code, so its tier assignment is exactly checkable. Asserts no message escalates without a trigger, and that a self-contained question returns to Tier 1 |
 | `grounding` | 25 questions over a fixed fixture database, including **"how much did I spend on food last month"** over a `Food → {Groceries, Dining}` tree | **Deterministic**: does the stated figure equal the engine's figure? Asserts the model reported `total` rather than summing rows, and never mixed a parent row with its children |
