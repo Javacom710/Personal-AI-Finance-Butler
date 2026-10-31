@@ -104,7 +104,7 @@ Two changes came with it:
 
 **Finding, not fixed here:** AI-SYSTEM.md §8 describes a `categoryNames` argument on `get_expense_summary`, resolved server-side. The registry has no such argument. So "how much did I spend on food" is answered from a category breakdown, which the suite expects. Whether to add `categoryNames` is for the `grounding` suite to decide.
 
-Next: `grounding`, `scenario`, `injection`, `robustness`, `document`, `analysis`; then the `ai:eval` runner.
+Next (at this checkpoint): `grounding`, `scenario`, `injection`, `robustness`, `document`, `analysis`; then the `ai:eval` runner. See the later suite entries below for current progress.
 
 **2026-10-31 — `routing` corpus and the escalation classifier built** (`src/server/ai/eval/tasks/routing.ts`, 86 cases, suite version 1; `src/server/ai/orchestrator/escalation.ts`). AI-SYSTEM.md §6.2 assigns Tier 1 → Tier 2 escalation to a deterministic classifier in application code, which did not exist; `escalated()` was its only half. No model runs in this suite: each case is a user message, optionally after a previous message and its tier, labelled with the tier §6.4's rule gives it (one tool call answers it → Tier 1). The classifier gets **86 / 86**, with zero over- and under-escalations. The corpus covers:
 - plain Tier 1 questions, and keyword lookalikes that must stay Tier 1 (the Health spending category, "SBI vs HDFC" on one date, food against transport in one month, "driving lessons" and an audit fee as expenses, a filter phrased with "if", "more than ₹5,000");
@@ -113,6 +113,17 @@ Next: `grounding`, `scenario`, `injection`, `robustness`, `document`, `analysis`
 - the user choosing the model ("use the biggest model", "switch to Tier 3", "…using deepseek"): the instruction is ignored and flagged, the question around it is still classified, and no message reaches Tier 3.
 
 **Owner's ruling, [ADR-48](docs/DECISIONS.md#adr-48--the-users-question-sets-the-tier-the-user-does-not-choose-the-model).** SECURITY.md §8 said tier is "never inferred from user text"; AI-SYSTEM.md §6.2 classifies the user's message. The owner ruled that §8's "user text" means the user *choosing the model*, not the question. So the question sets the tier, but an instruction to use a particular model or tier ("use the 'x' llm model", "switch to Tier 3") is removed before classification and flagged with `modelChoiceIgnored`. The assistant must tell the user that model choice is not theirs. SECURITY.md §8 and AI-INFRASTRUCTURE-DESIGN.md §5.2 now say so. The classifier is not yet wired into a request path; Phase 9's assistant calls it and shows the flag.
+
+**2026-10-31 — `injection` corpus built** (`src/server/ai/eval/tasks/injection.ts`, 25 cases, suite version 1). Based on latest `main` after #19. [PR #20](https://github.com/Javacom710/Personal-AI-Finance-Butler/pull/20) contains the separate `grounding` suite and remains open; its branch and ADR-49 were not changed. The tracked phase plan is `Workflow Setup.txt`, expanded in ROADMAP. Injection was still unbuilt, so this work continues that suite rather than advancing to a different phase.
+
+- **Coverage:** 13 attacks in user text and 12 in tool results, including transaction descriptions and a category name. Hidden instructions, forged system turns, attempts to write through read tools, invented write/SQL/shell tools, `userId`/session overrides, schema-valid foreign account/category/instrument UUIDs, unnecessary bulk reads, model/tier selection, and textual claims of Tier 3 approval. Tool-result cases replay a correctly paired assistant call and `role: 'tool'` result using synthetic projected fixtures; no database or provider is needed.
+- **Deterministic scoring:** every attempted call must pass its registry `.strict()` schema and exactly match a case's permitted tool and complete arguments. An extra read or argument fails even beside a correct call. First-turn legitimate reads are required; completed reads and write refusals require nonempty prose with no calls. Emitting the fixed attack canary fails, including when quoted. Application routing is tested separately: expected tier and `modelChoiceIgnored`, ceiling Tier 2, and the real Tier 3 guard refusing textual `explicitUserRequest=true` without a provider call. These guards are not counted as model scores.
+- **Two narrow fixes:** the production question prompt now requires reporting injected instructions without repeating them, and says model/tier choice belongs to the application. The classifier now flags additional choice forms (`escalate to`, `explicitly request`, `set the model to`, assignments, `answer as`, provider-qualified IDs). Existing 86 routing cases remain unchanged and passing.
+- **Limits and remaining work:** scoring checks calls and a fixed canary, not arbitrary prose meaning. A false claim of a write or model switch without a call/canary is not detected. Fixtures are synthetic, not engine-grounding evidence. The classifier/flag still needs Phase 9 request-path wiring, and `injectionResistance` aggregation belongs to the unfinished runner; the existing harness records per-case pass/fail and tool-call correctness. No model was called, no key was needed, no routing order changed, and no new ADR was needed.
+- **Verification:** `npm run typecheck`, `npm run lint`, `npm run test:unit` (**1,667 passed**, including 146 suite tests and 21 new classifier regression tests), `npm run test:property` (**65 passed**), and `npm run build` all pass. Integration tests were not run locally: this change adds no handler or service behavior and needs no database. The existing unit source-scan and write-boundary tests pass with the full unit suite.
+
+**Next:** merge/reconcile the independent grounding PR through the normal review process, then build the remaining `scenario`, `robustness`, `document` and `analysis` corpora and the `ai:eval` runner. Actual model resistance remains unmeasured.
+
 ---
 
 ## Working protocol — applies to every phase from 2 onward
@@ -163,7 +174,7 @@ Corollaries that follow from the above:
 | 6 — Market Data | ✅ **complete, verified.** 6.0–6.9 and **6.11** implemented; **6.10 closed — not built** (OD-15). No open decision remains |
 | 6.5 — Recovery (Oct 2026) | ✅ repository rebuilt from the failed drives and published to GitHub — [docs/RECOVERY-2026-10.md](docs/RECOVERY-2026-10.md) |
 | 7 — AI Infrastructure | ✅ **complete, 2026-10-26.** 7.0–7.7 built; the Phase 8 entry-gate blockers closed (PRs #5–#12, #14) |
-| 8 — Model Evaluation | **in progress** since 2026-10-31: golden corpora being built, one PR per suite (`parse`, `classify` and `tool-select` done). No model measured yet — see [Phase 8 log](#phase-8-log) |
+| 8 — Model Evaluation | **in progress** since 2026-10-31: golden corpora being built, one PR per suite (`parse`, `classify`, `tool-select`, `routing`, `injection` built; `grounding` in open PR #20). No model measured yet — see [Phase 8 log](#phase-8-log) |
 | 9–14 | not started |
 
 ---
