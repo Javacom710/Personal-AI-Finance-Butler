@@ -145,6 +145,13 @@ describe('tool-select corpus — the scorer', () => {
     expect(scoreToolSelectCalls([call('get_accounts', { asOf: '2026-09-30' })], cash)).toBe(false);
   });
 
+  it('loans: liabilities and today\'s account balances both pass, a past balance does not', () => {
+    const loans = byId(19);
+    expect(scoreToolSelectCalls([call('get_liabilities'), call('get_accounts')], loans)).toBe(true);
+    expect(scoreToolSelectCalls([call('get_accounts', { asOf: TOOL_SELECT_TODAY })], loans)).toBe(true);
+    expect(scoreToolSelectCalls([call('get_liabilities'), call('get_accounts', { asOf: '2026-09-30' })], loans)).toBe(false);
+  });
+
   it('rejects what dispatch would reject: an unknown tool, an invented argument, bad JSON, a bad date', () => {
     const netWorth = byId(30);
     expect(scoreToolSelectCalls([call('get_net_worth')], netWorth)).toBe(true);

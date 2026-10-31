@@ -146,7 +146,13 @@ export const TOOL_SELECT_CASES: readonly ToolSelectGoldenCase[] = [
     tool: 'get_net_worth_history',
     args: { dates: { sameSet: ['2026-06-30', '2026-07-31', '2026-08-31', '2026-09-30'] } },
   }),
-  c(19, 'How much do I still owe on my loans?', { tool: 'get_liabilities' }),
+  // A loan tracked as an account reports `outstanding: null` here; its balance is on the account.
+  c(
+    19,
+    'How much do I still owe on my loans?',
+    { tool: 'get_liabilities' },
+    { tool: 'get_accounts', args: { asOf: { absentOr: TODAY } } },
+  ),
   c(20, 'What are my house and gold currently valued at?', { tool: 'get_assets' }),
 
   // — Investments —
