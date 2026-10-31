@@ -989,6 +989,18 @@ The two versions have already differed once: a RESTRICT foreign-key refusal is `
 
 ---
 
+## ADR-48 — The user's question sets the tier; the user does not choose the model
+
+**Decision.** Ruled by the owner 2026-10-31, on PR #19. It resolves a conflict between `SECURITY.md` §8 ("never inferred from user text") and `AI-SYSTEM.md` §6.2 (the user's message is classified).
+
+> **"User text" in `SECURITY.md` §8 means the user choosing a model, not the user's question. The escalation classifier reads the question, and may move `answerFinanceQuestion` or `summarizeFinancialData` from Tier 1 to Tier 2. An instruction in the message to use a particular model, LLM or tier ("use the 'x' model", "switch to Tier 3") is removed before classification, has no effect on routing, and is flagged (`modelChoiceIgnored`). The assistant tells the user that model choice is not theirs to make.**
+
+Why: the router exists to give each question the cheapest model that can answer it well. A user who picks the model, usually the largest, defeats that and the daily budget with it. The question's content is the routing signal the design calls for. Neither path opens anything more permissive: classification reaches at most Tier 2, both tiers have the same read-only tools, and Tier 3 still needs the explicit, out-of-band user action of `explicitUserRequest`.
+
+**Rejected.** *Honouring a named model*: it bypasses the capability gate's purpose and the cost discipline of §6.3. *Refusing the whole request*: the question is legitimate; only the instruction is not.
+
+---
+
 ## Open decisions requiring the user
 
 | # | Decision | Why it cannot be defaulted | Blocks |

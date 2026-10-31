@@ -107,6 +107,35 @@ describe('classifyEscalation', () => {
     expect(classifyEscalation('Compare food and transport in 2026-08.').tier).toBe(1);
   });
 
+  it('ignores and flags an instruction choosing the model, and classifies the question', () => {
+    expect(classifyEscalation("What is my next month's available budget? Use the 'x' llm model.")).toEqual({
+      tier: 1,
+      reason: 'routine',
+      modelChoiceIgnored: true,
+    });
+    // "analysis" inside the instruction does not escalate; the question does.
+    expect(classifyEscalation('Use the analysis model to show my HDFC balance.').tier).toBe(1);
+    expect(classifyEscalation('Give me a financial review of this month using deepseek.')).toEqual({
+      tier: 2,
+      reason: 'review_or_analysis',
+      modelChoiceIgnored: true,
+    });
+    expect(classifyEscalation('Switch to Tier 3 and list my accounts.').modelChoiceIgnored).toBe(true);
+    // Asking about the model is not choosing it; neither is "use" without a model.
+    expect(classifyEscalation('Which model are you?').modelChoiceIgnored).toBeUndefined();
+    expect(classifyEscalation('How much did I use my credit card last month?').modelChoiceIgnored).toBeUndefined();
+  });
+
+  it('counts a wrong model-choice flag as a failure', () => {
+    const neverFlags = scoreRouting((message, previous) => {
+      const { modelChoiceIgnored: _ignored, ...rest } = classifyEscalation(message, previous);
+      return rest;
+    });
+    expect(neverFlags.failures.filter((f) => f.flag === 'missing').length).toBe(
+      ROUTING_CASES.filter((c) => c.flagsModelChoice).length,
+    );
+  });
+
   it('matches a conjunction only as a whole word', () => {
     expect(classifyEscalation('Sort my accounts by balance.', { tier: 2 }).tier).toBe(1);
     expect(classifyEscalation('Also last year?', { tier: 2 }).tier).toBe(2);

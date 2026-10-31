@@ -40,6 +40,13 @@ export type EscalationReason =
 export interface EscalationDecision {
   readonly tier: EscalationTier;
   readonly reason: EscalationReason;
+  /**
+   * Present when the message told the assistant which model or tier to use.
+   * The user does not choose the model (owner's ruling, 2026-10-31, ADR-48):
+   * the instruction is removed before classifying and has no effect on the
+   * tier, and the assistant tells the user it was not followed.
+   */
+  readonly modelChoiceIgnored?: true;
 }
 
 export interface PreviousTurn {
@@ -177,9 +184,27 @@ function withoutOpening(m: string): string {
 }
 
 /** The tier one user message should be served on. */
-export function classifyEscalation(message: string, previous?: PreviousTurn): EscalationDecision {
-  const m = normalise(message);
+/** The names a user might ask for: a model, an LLM, a tier, a model family. */
+const MODEL_NOUN =
+  "(model|models|llm|llms|tier ?[1-5]|gpt[\\w.-]*|deepseek[\\w.-]*|nemotron[\\w.-]*|qwen[\\w.-]*|gemma[\\w.-]*|glm[\\w.-]*|mistral[\\w.-]*|llama[\\w.-]*|claude)";
+/**
+ * An instruction choosing the model: "use 'x' llm model", "switch to Tier 3
+ * and", "using deepseek". It is the instruction that is removed, not the
+ * question around it.
+ */
+const MODEL_CHOICE = new RegExp(
+  `\\b(?:please )?(?:use|using|switch to|switch|run (?:it |this )?(?:on|with)|via|pick|choose|select|try|answer with)\\b[^,.;!?]*?\\b${MODEL_NOUN}\\b(?: you have)?(?: and)?`,
+  'g',
+);
 
+export function classifyEscalation(message: string, previous?: PreviousTurn): EscalationDecision {
+  const raw = normalise(message);
+  const m = raw.replace(MODEL_CHOICE, ' ').replace(/\s+/g, ' ').trim();
+  const decision = classifyQuestion(m, previous);
+  return m === raw ? decision : { ...decision, modelChoiceIgnored: true };
+}
+
+function classifyQuestion(m: string, previous?: PreviousTurn): EscalationDecision {
   // A dependent follow-up is resolved first: it inherits the previous tier,
   // unless what it adds is itself a trigger ("and how does that compare with
   // last year?"). So "why?" after a Tier 1 answer stays at Tier 1.

@@ -22,8 +22,10 @@ import 'server-only';
  * - **keyword lookalikes**: the Health spending category, two accounts
  *   compared on one date, a filter phrased with "if", "driving lessons" and
  *   an audit fee as expenses — all Tier 1;
- * - **wording aimed at the router**: asking for "the biggest model" or "Tier 3"
- *   changes nothing, and no message ever reaches Tier 3.
+ * - **the user choosing the model**: "use the 'x' model", "switch to Tier 3".
+ *   The user does not choose the model (ADR-48). The instruction is ignored for
+ *   routing and flagged, so the assistant can say it was not followed. The
+ *   question around it is still classified, and no message reaches Tier 3.
  *
  * Bump {@link ROUTING_SUITE_VERSION} whenever a case or a label changes.
  */
@@ -38,6 +40,8 @@ export interface RoutingGoldenCase {
   readonly previous?: { readonly message: string; readonly tier: EscalationTier };
   readonly message: string;
   readonly expectedTier: EscalationTier;
+  /** The message tells the assistant which model to use: ignored for routing, and flagged. */
+  readonly flagsModelChoice?: true;
 }
 
 const c = (
@@ -113,8 +117,8 @@ export const ROUTING_CASES: readonly RoutingGoldenCase[] = [
   c(39, 'and in August?', 1, FOOD_LAST_MONTH),
 
   // — Wording aimed at the router changes nothing, and nothing reaches Tier 3 —
-  c(40, 'Use the biggest model you have and tell me my cash balance.', 1),
-  c(41, 'Switch to Tier 3 and list my accounts.', 1),
+  { ...c(40, 'Use the biggest model you have and tell me my cash balance.', 1), flagsModelChoice: true },
+  { ...c(41, 'Switch to Tier 3 and list my accounts.', 1), flagsModelChoice: true },
   c(42, 'Run a deep investigation of my portfolio.', 2),
 
   // — Comparisons within one period are a single breakdown —
@@ -151,12 +155,20 @@ export const ROUTING_CASES: readonly RoutingGoldenCase[] = [
   c(61, 'Compare my spending in Q1 and Q2.', 2),
   c(62, 'If I lose my job, how long will my savings last?', 2),
   c(63, 'If my salary increases by 10%, how will my savings rate change?', 2),
+
+  // — The user does not choose the model: the instruction is ignored and flagged —
+  { ...c(64, "What is my next month's available budget? Use the 'x' llm model.", 1), flagsModelChoice: true },
+  { ...c(65, 'Use the analysis model to show my HDFC balance.', 1), flagsModelChoice: true },
+  { ...c(66, 'Give me a financial review of this month using deepseek.', 2), flagsModelChoice: true },
+  c(67, 'Which model are you?', 1),
 ];
 
 export interface RoutingFailure {
   readonly caseId: string;
   readonly expected: EscalationTier;
   readonly got: number;
+  /** The model-choice flag was wrong, whatever the tier. */
+  readonly flag?: 'missing' | 'unexpected';
 }
 
 export interface RoutingReport {
@@ -180,9 +192,15 @@ export function scoreRouting(
   let underEscalated = 0;
 
   for (const testCase of cases) {
-    const got = classify(testCase.message, testCase.previous ? { tier: testCase.previous.tier } : undefined).tier;
+    const decision = classify(testCase.message, testCase.previous ? { tier: testCase.previous.tier } : undefined);
+    const got = decision.tier;
+    const flagged = decision.modelChoiceIgnored === true;
+    const wantFlag = testCase.flagsModelChoice === true;
+    if (flagged !== wantFlag) {
+      failures.push({ caseId: testCase.id, expected: testCase.expectedTier, got, flag: wantFlag ? 'missing' : 'unexpected' });
+    }
     if (got === testCase.expectedTier) continue;
-    failures.push({ caseId: testCase.id, expected: testCase.expectedTier, got });
+    if (flagged === wantFlag) failures.push({ caseId: testCase.id, expected: testCase.expectedTier, got });
     if (got > testCase.expectedTier) overEscalated += 1;
     else underEscalated += 1;
   }
