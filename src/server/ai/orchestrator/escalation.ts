@@ -69,9 +69,9 @@ function domainsIn(m: string): number {
   return DOMAINS.filter((domain) => domain.test(m)).length;
 }
 
-/** One reference to a period: "this month", "last year", "today", "August", "2025", "two months ago". */
+/** One reference to a period: "this month", "last year", "today", "August", "2026-08", "Q2", "2025", "two months ago". */
 const PERIOD_REF =
-  /\b(this|last|previous|prior|next|same) (week|month|quarter|year|period)\b|\b(today|yesterday|ytd)\b|\b(january|february|march|april|may|june|july|august|september|october|november|december)\b|\b20\d\d\b|\b\w+ (weeks?|months?|quarters?|years?) ago\b/g;
+  /\b(this|last|previous|prior|next|same) (week|month|quarter|year|period)\b|\b(today|yesterday|ytd)\b|\b(january|february|march|april|may|june|july|august|september|october|november|december)\b|\b20\d\d-(0[1-9]|1[0-2])\b|\b20\d\d\b|\bq[1-4]\b|\b\w+ (weeks?|months?|quarters?|years?) ago\b/g;
 
 /** A comparison whose other side is a period: "with last month", "vs the previous year". */
 const AGAINST_PERIOD =
@@ -100,7 +100,10 @@ const TRIGGERS: readonly (readonly [Exclude<EscalationReason, 'routine' | 'depen
     (m) =>
       /\b(what if|suppose|supposing|scenario|scenarios|hypothetical\w*|can i afford|could i afford|reasonably|should i)\b/.test(m) ||
       // "if I invest …", not "how much did I spend if I leave out rent".
-      /\bif i (invest|put|add|increase|raise|reduce|cut|stop|pay off|prepay|buy|sell|save|move|keep|continue|start)\b/.test(m),
+      /\bif i (invest|put|add|increase|raise|reduce|cut|stop|pay off|prepay|buy|sell|save|move|keep|continue|start)\b/.test(m) ||
+      // Any condition with a consequence: "if I lose my job, how long will…",
+      // "what would … be if gold rises". A filter ("… if I leave out rent?") has none.
+      /\bif\b[^?]*\b(will|would|how long)\b|\b(will|would)\b[^?]*\bif\b/.test(m),
   ],
   [
     'why_or_change',

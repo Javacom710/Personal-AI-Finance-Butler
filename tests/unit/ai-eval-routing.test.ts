@@ -95,6 +95,18 @@ describe('classifyEscalation', () => {
     expect(classifyEscalation('Do I have enough for rent?').tier).toBe(2);
   });
 
+  it('treats a condition with a consequence as a scenario, and a filter as not', () => {
+    expect(classifyEscalation('What would my net worth be if gold rises 10%?').reason).toBe('scenario');
+    expect(classifyEscalation('If I lose my job, how long will my savings last?').reason).toBe('scenario');
+    expect(classifyEscalation('How much did I spend in September if I leave out rent?').tier).toBe(1);
+  });
+
+  it('counts numeric months and quarters as periods', () => {
+    expect(classifyEscalation('Compare spending in 2026-08 and 2026-09.').tier).toBe(2);
+    expect(classifyEscalation('Compare my spending in Q1 and Q2.').tier).toBe(2);
+    expect(classifyEscalation('Compare food and transport in 2026-08.').tier).toBe(1);
+  });
+
   it('matches a conjunction only as a whole word', () => {
     expect(classifyEscalation('Sort my accounts by balance.', { tier: 2 }).tier).toBe(1);
     expect(classifyEscalation('Also last year?', { tier: 2 }).tier).toBe(2);

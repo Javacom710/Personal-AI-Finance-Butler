@@ -145,6 +145,12 @@ export const ROUTING_CASES: readonly RoutingGoldenCase[] = [
   // — A relation inside one domain is one result; a word starting "so" is not "so" —
   c(58, 'How much is food spending relative to total expenses this month?', 1),
   c(59, 'Sort my accounts by balance.', 1, REVIEW),
+
+  // — Numeric periods, and conditions beyond "if I invest" —
+  c(60, 'Compare spending in 2026-08 and 2026-09.', 2),
+  c(61, 'Compare my spending in Q1 and Q2.', 2),
+  c(62, 'If I lose my job, how long will my savings last?', 2),
+  c(63, 'If my salary increases by 10%, how will my savings rate change?', 2),
 ];
 
 export interface RoutingFailure {
