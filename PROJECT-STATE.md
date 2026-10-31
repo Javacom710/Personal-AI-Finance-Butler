@@ -104,7 +104,15 @@ Two changes came with it:
 
 **Finding, not fixed here:** AI-SYSTEM.md §8 describes a `categoryNames` argument on `get_expense_summary`, resolved server-side. The registry has no such argument. So "how much did I spend on food" is answered from a category breakdown, which the suite expects. Whether to add `categoryNames` is for the `grounding` suite to decide.
 
-Next: `routing`, `grounding`, `scenario`, `injection`, `robustness`, `document`, `analysis`; then the `ai:eval` runner.
+Next: `grounding`, `scenario`, `injection`, `robustness`, `document`, `analysis`; then the `ai:eval` runner.
+
+**2026-10-31 — `routing` corpus and the escalation classifier built** (`src/server/ai/eval/tasks/routing.ts`, 86 cases, suite version 1; `src/server/ai/orchestrator/escalation.ts`). AI-SYSTEM.md §6.2 assigns Tier 1 → Tier 2 escalation to a deterministic classifier in application code, which did not exist; `escalated()` was its only half. No model runs in this suite: each case is a user message, optionally after a previous message and its tier, labelled with the tier §6.4's rule gives it (one tool call answers it → Tier 1). The classifier gets **86 / 86**, with zero over- and under-escalations. The corpus covers:
+- plain Tier 1 questions, and keyword lookalikes that must stay Tier 1 (the Health spending category, "SBI vs HDFC" on one date, food against transport in one month, "driving lessons" and an audit fee as expenses, a filter phrased with "if", "more than ₹5,000");
+- the five Tier 2 triggers: review or analysis, multi-period comparison, scenario, "why" or "how has X changed", and cross-domain, which needs two domains (cash against upcoming obligations escalates, food against total expenses does not; "how much of my net worth is invested?" stays Tier 1, because one result carries both figures);
+- the sticky-escalation trap (a Tier 2 review, then "what's my HDFC balance?" → Tier 1) and dependent follow-ups ("and last year?", "break that down") that inherit the previous tier, Tier 1 included ("why?" after a simple answer stays Tier 1), while a complete question after "and" or "but" does not;
+- the user choosing the model ("use the biggest model", "switch to Tier 3", "…using deepseek"): the instruction is ignored and flagged, the question around it is still classified, and no message reaches Tier 3.
+
+**Owner's ruling, [ADR-48](docs/DECISIONS.md#adr-48--the-users-question-sets-the-tier-the-user-does-not-choose-the-model).** SECURITY.md §8 said tier is "never inferred from user text"; AI-SYSTEM.md §6.2 classifies the user's message. The owner ruled that §8's "user text" means the user *choosing the model*, not the question. So the question sets the tier, but an instruction to use a particular model or tier ("use the 'x' llm model", "switch to Tier 3") is removed before classification and flagged with `modelChoiceIgnored`. The assistant must tell the user that model choice is not theirs. SECURITY.md §8 and AI-INFRASTRUCTURE-DESIGN.md §5.2 now say so. The classifier is not yet wired into a request path; Phase 9's assistant calls it and shows the flag.
 ---
 
 ## Working protocol — applies to every phase from 2 onward

@@ -249,9 +249,12 @@ Evaluated **per message, never sticky** (`AI-SYSTEM.md` §6.2). A deep question 
 is exactly checkable — the `tool-select` eval suite carries a labelled routing corpus including the
 sticky-escalation trap.
 
-**Model selection cannot be influenced by content** (`SECURITY.md` §8). Tier and requirements are
-computed from the *capability*, never inferred from user text or tool output. This is what stops
-injection escalating a request to a more permissive path.
+**Model selection cannot be influenced by content** (`SECURITY.md` §8). Requirements are computed
+from the *capability*, never from tool output, and the user does not choose the model: an
+instruction to use one is ignored for routing and flagged
+([ADR-48](DECISIONS.md#adr-48--the-users-question-sets-the-tier-the-user-does-not-choose-the-model)).
+The question itself may move a request from Tier 1 to Tier 2, never further and never to a more
+permissive tool set. This is what stops injection escalating a request to a more permissive path.
 
 ### 5.3 Fallback
 
