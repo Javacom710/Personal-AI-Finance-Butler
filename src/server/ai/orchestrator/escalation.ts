@@ -161,7 +161,7 @@ const POINTS_BACK =
 const CONJUNCTION = /^(and|but|then|so|also)\b,? ?/;
 const QUESTION_FRAME = /^(what is|what's|what are|what was|what were|how much|how many|which|show|list|tell me|give me)\b/;
 /** A word that needs the previous answer. "This month" is a period, not a reference back. */
-const REFERS_BACK = /\b(that|it|those|these|them)\b|\bthis\b(?! (week|month|quarter|year))/;
+const REFERS_BACK = /\b(that|it|those|these|them)\b|\bthis\b(?! (week|weekend|month|quarter|year|morning|afternoon|evening|fortnight|financial year|fy|january|february|march|april|may|june|july|august|september|october|november|december|time|period|season)\b)/;
 const DEPENDENT_MAX_WORDS = 7;
 /**
  * A bare "why?" asks about the previous answer and has no subject of its own.

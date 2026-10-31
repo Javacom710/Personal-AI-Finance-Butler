@@ -145,6 +145,10 @@ describe('classifyEscalation', () => {
     expect(classifyEscalation('What does that mean for my portfolio?', { tier: 2 }).tier).toBe(2);
     expect(classifyEscalation('What does that mean for my portfolio?', { tier: 1 }).tier).toBe(1);
     expect(classifyEscalation("What's my HDFC balance?", { tier: 2 }).tier).toBe(1);
+    // "this" before a period names the period; it does not point back.
+    expect(classifyEscalation('How much did I spend this September?', { tier: 2 }).tier).toBe(1);
+    expect(classifyEscalation('What did I spend this weekend?', { tier: 2 }).tier).toBe(1);
+    expect(classifyEscalation('Is this right?', { tier: 2 }).tier).toBe(2);
   });
 
   it('counts a month or quarter with its year as one period', () => {
