@@ -166,7 +166,8 @@ export const PARSE_CASES: readonly ParseGoldenCase[] = [
   {
     id: 'parse-015',
     probe: 'an ATM withdrawal is a transfer to cash',
-    input: 'Withdrew 5000 cash from the SBI ATM',
+    // The account is named outright: an ATM's operator is not the account debited.
+    input: 'Withdrew 5000 cash at an ATM from my SBI savings account',
     expected: { kind: 'transfer', bookedOn: '2026-08-09', amount: '5000', currency: 'INR', account: SBI_SAVINGS, toAccount: ['cash', 'cash wallet', 'wallet'], category: 'unscored' },
   },
   {
