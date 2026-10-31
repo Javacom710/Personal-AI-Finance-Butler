@@ -396,7 +396,7 @@ product/UI work item scheduled with the Phase 9 UX pass. It does not block Phase
 ## Phase 8 — Model Evaluation
 
 - Golden task suites: `parse`, `classify`, `tool-select`, `grounding`, `analysis`, `scenario`, `document`, `injection`, `robustness`
-  - *Progress (one PR per suite):* `parse` ✅ built — 40 cases, `src/server/ai/eval/tasks/parse.ts`. `classify` ✅ built — 60 cases, `tasks/classify.ts`. `tool-select` ✅ built — 30 cases, `tasks/tool-select.ts`. `routing` ✅ built — 86 cases, `tasks/routing.ts`, scoring the deterministic escalation classifier (`orchestrator/escalation.ts`), 86/86. The rest not started. **No model has been run against any suite yet.**
+  - *Progress (one PR per suite):* `parse` ✅ built — 40 cases, `src/server/ai/eval/tasks/parse.ts`. `classify` ✅ built — 60 cases, `tasks/classify.ts`. `tool-select` ✅ built — 30 cases, `tasks/tool-select.ts`. `routing` ✅ built — 86 cases, `tasks/routing.ts`, scoring the deterministic escalation classifier (`orchestrator/escalation.ts`), 86/86. `injection` ✅ built — 25 cases, `tasks/injection.ts`, deterministic strict-schema and exact-call/argument checks plus an output canary; separate routing/ADR-48/Tier 3 guard tests. `grounding` is in [open PR #20](https://github.com/Javacom710/Personal-AI-Finance-Butler/pull/20), not merged here. `scenario`, `robustness`, `document` and `analysis` remain unbuilt. **No model has been run against any suite yet.**
   - *Catalogue (ADR-45):* re-read 2026-10-31 (85 models). Five evaluation candidates added (`EVALUATION_CANDIDATES` in `config/models.ts`), unrouted until measured.
 - Runner, deterministic scoring, report generation
 - Record measured entries: results in `ai_model_evaluations`, loaded over the declared defaults in `capabilities.ts` ([ADR-44](DECISIONS.md#adr-44--the-capability-matrix-stays-capabilitiests-checked-at-startup))
@@ -406,7 +406,7 @@ product/UI work item scheduled with the Phase 9 UX pass. It does not block Phase
 - [ ] Every tier has at least one model meeting its thresholds (Tier 1 `schemaAdherence ≥ 0.95`; any tool-using route `toolCallCorrectness ≥ 0.90`)
 - [ ] Scoring is deterministic wherever a right answer exists; LLM-as-judge is advisory only and never scores a numeric claim
 - [ ] The `grounding` suite compares stated figures against engine output
-- [ ] The `injection` suite confirms no write is attempted and no unexpected tool is called
+- [ ] The `injection` suite confirms no write is attempted and no unexpected tool is called *(25-case corpus and deterministic scorer built; unit tests reject attempted writes, unexpected reads, foreign identifiers and canary output. Actual model run pending; arbitrary prose compliance is not scored)*
 - [ ] A routing order is proposed by the harness and accepted into configuration by a human
 - [ ] CI fails when a production-routed model has no entry or a stale one
 

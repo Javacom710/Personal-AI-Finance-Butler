@@ -644,7 +644,7 @@ These metrics feed routing changes — which is the point of measuring them.
 | `analysis` | 15 open analyses (portfolio, health, period, cross-domain) | Rubric; LLM-as-judge **advisory only** |
 | `scenario` | 10 scenarios | Deterministic on the arithmetic; rubric on the explanation |
 | `document` | 20 receipt/statement images | Deterministic: field-exact extraction |
-| `injection` | 25 payloads embedded in tool results | **Deterministic**: any write attempted? any unexpected tool call? |
+| `injection` | 25 attacks in user text and tool results — **built**: `tasks/injection.ts`; synthetic projected fixtures, no database | **Deterministic**: strict registry schema plus exact permitted tool and complete arguments; legitimate first-turn reads required, completed reads require nonempty prose without further calls, output canary forbidden. Separate application-code tests check ADR-48 flags and the Tier 3 guard. Arbitrary prose semantics are unscored; no model resistance measured yet |
 | `robustness` | Malformed inputs, missing data, empty results | Deterministic: does it say "unavailable" rather than invent? |
 
 **Scoring is deterministic wherever a right answer exists.** LLM-as-judge is used only for prose quality, is never the gate for production routing, and never scores a numeric claim — the `grounding` suite does that by comparing against the engine.

@@ -206,16 +206,18 @@ function withoutOpening(m: string): string {
 
 /** The tier one user message should be served on. */
 /** The names a user might ask for: a model, an LLM, a tier, a model family. */
-const MODEL_NOUN =
-  "(model|models|llm|llms|tier ?[1-5]|gpt[\\w.-]*|deepseek[\\w.-]*|nemotron[\\w.-]*|qwen[\\w.-]*|gemma[\\w.-]*|glm[\\w.-]*|mistral[\\w.-]*|llama[\\w.-]*|claude)";
+const MODEL_FAMILY =
+  '(?:gpt[\\w.-]*|deepseek[\\w.-]*|nemotron[\\w.-]*|qwen[\\w.-]*|gemma[\\w.-]*|glm[\\w.-]*|mistral[\\w.-]*|llama[\\w.-]*|claude)';
+/** Provider-qualified identifiers, such as `nvidia/nemotron-3-ultra-550b-a55b`. */
+const MODEL_IDENTIFIER = `(?:[\\w.-]+/)?${MODEL_FAMILY}`;
+const MODEL_NOUN = `(model|models|llm|llms|tier ?[1-5]|${MODEL_IDENTIFIER})`;
 /**
  * An instruction choosing the model: "use 'x' llm model", "switch to Tier 3
  * and", "using deepseek". It is the instruction that is removed, not the
  * question around it.
  */
 /** A name that is only ever an AI model: an LLM, a tier, a model family. */
-const SPECIFIC_MODEL =
-  "(?:llm|llms|tier ?[1-5]|gpt[\\w.-]*|deepseek[\\w.-]*|nemotron[\\w.-]*|qwen[\\w.-]*|gemma[\\w.-]*|glm[\\w.-]*|mistral[\\w.-]*|llama[\\w.-]*|claude)";
+const SPECIFIC_MODEL = `(?:llm|llms|tier ?[1-5]|${MODEL_IDENTIFIER})`;
 /**
  * The model being chosen. A specific name within three words ("use the 'x'
  * llm"), or "model" after a determiner ("the best model", "a reasoning
@@ -227,7 +229,7 @@ const CHOSEN_MODEL =
 const MODEL_CHOICE = new RegExp(
   // the verb form: "use / switch to / run it on … <model>"; the gap is bounded,
   // so "use my transaction history to analyze …" is not consumed
-  `\\b(?:(?:please )?(?:use|using|switch to|switch|run (?:it |this )?(?:on|with)|via|pick|choose|select|try|answer with)` +
+  `\\b(?:(?:please )?(?:use|using|switch to|switch|escalate to|(?:i )?(?:explicitly )?request|set (?:the |your )?(?:model|llm) to|run (?:it |this )?(?:on|with)|via|pick|choose|select|try|answer (?:with|as))` +
     // or the preposition form at the end: "… with the best model", "… on deepseek"
     `|(?:with|on|via|through))${CHOSEN_MODEL}\\b(?: ${MODEL_NOUN}\\b)*(?: you have)?` +
     // and what describes it: "…the model with advanced analysis", up to the question.
@@ -236,9 +238,15 @@ const MODEL_CHOICE = new RegExp(
   'g',
 );
 
+/** Text that imitates routing configuration is still untrusted user content. */
+const MODEL_ASSIGNMENT = new RegExp(
+  `\\b(?:(?:model|llm)\\s*=\\s*["']?${MODEL_IDENTIFIER}\\b["']?|tier\\s*=\\s*["']?[1-5]\\b["']?)`,
+  'g',
+);
+
 export function classifyEscalation(message: string, previous?: PreviousTurn): EscalationDecision {
   const raw = normalise(message);
-  const m = raw.replace(MODEL_CHOICE, ' ').replace(/\s+/g, ' ').trim();
+  const m = raw.replace(MODEL_ASSIGNMENT, ' ').replace(MODEL_CHOICE, ' ').replace(/\s+/g, ' ').trim();
   const decision = classifyQuestion(m, previous);
   return m === raw ? decision : { ...decision, modelChoiceIgnored: true };
 }
