@@ -176,6 +176,10 @@ export const ROUTING_CASES: readonly RoutingGoldenCase[] = [
   c(74, 'Compare SBI and HDFC balances in Q1 2026.', 1),
   c(75, 'Compare August 2026 with September 2026.', 2),
   { ...c(76, 'Use deepseek for a detailed review of my finances.', 2), flagsModelChoice: true },
+
+  // — A long question that points back; a model named after the task —
+  c(77, 'What does that mean for my portfolio and savings?', 2, REVIEW),
+  { ...c(78, 'Use my transaction history to analyze spending patterns with the best model.', 2), flagsModelChoice: true },
 ];
 
 export interface RoutingFailure {

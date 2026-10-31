@@ -167,7 +167,15 @@ function normalise(message: string): string {
   return message.toLowerCase().replace(/[’']/g, "'").replace(/\s+/g, ' ').trim();
 }
 
+/**
+ * An explicit construction pointing back, at any length: "what does that mean
+ * for my portfolio and savings?", "how does it compare …", "is that …".
+ */
+const OPENS_WITH_REFERENCE =
+  /^(?:(?:and|but|so) )?(?:(?:what|how|why) (?:does|do|did|is|was|would|will)|is|was|does|did|can|could|would|will) (?:that|it|those|these)\b/;
+
 function isDependentFollowUp(m: string): boolean {
+  if (OPENS_WITH_REFERENCE.test(m)) return true;
   if (m.split(' ').filter(Boolean).length > DEPENDENT_MAX_WORDS) return false;
   if (BARE_WHY.test(m) || POINTS_BACK.test(m)) return true;
   const conjunction = CONJUNCTION.exec(m);
@@ -195,8 +203,14 @@ const MODEL_NOUN =
  * and", "using deepseek". It is the instruction that is removed, not the
  * question around it.
  */
+/** At most three words between the verb and the model: "use the 'x' llm model". */
+const NEAR = "(?: [^\\s,.;!?]+){0,3}?";
 const MODEL_CHOICE = new RegExp(
-  `\\b(?:please )?(?:use|using|switch to|switch|run (?:it |this )?(?:on|with)|via|pick|choose|select|try|answer with)\\b[^,.;!?]*?\\b${MODEL_NOUN}\\b(?: you have)?` +
+  // the verb form: "use / switch to / run it on … <model>"; the gap is bounded,
+  // so "use my transaction history to analyze …" is not consumed
+  `\\b(?:(?:please )?(?:use|using|switch to|switch|run (?:it |this )?(?:on|with)|via|pick|choose|select|try|answer with)` +
+    // or the preposition form at the end: "… with the best model", "… on deepseek"
+    `|(?:with|on|via|through))${NEAR} ${MODEL_NOUN}\\b(?: ${MODEL_NOUN}\\b)*(?: you have)?` +
     // and what describes it: "…the model with advanced analysis", up to the question.
     // A bare "for" introduces the task ("use deepseek for a review of my month"), so it stays.
     `(?: (?:with|that has|that is|that's|which is|which has|built for|best at|good at) [^,.;!?]*?(?= to | and |[,.;!?]|$))?(?: and)?`,

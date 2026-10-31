@@ -162,6 +162,30 @@ describe('classifyEscalation', () => {
     expect(classifyEscalation('Use the model built for analysis to show my balance.').tier).toBe(1);
   });
 
+  it('treats an explicit back-reference as dependent at any length', () => {
+    expect(classifyEscalation('What does that mean for my portfolio and savings?', { tier: 2 }).tier).toBe(2);
+    expect(classifyEscalation('How does it compare with what I spent on travel and food?', { tier: 2 }).tier).toBe(2);
+    // A long, self-contained question after Tier 2 still returns to Tier 1.
+    expect(
+      classifyEscalation('What is the total balance across all of my savings accounts right now?', { tier: 2 }).tier,
+    ).toBe(1);
+  });
+
+  it('removes only the model-choice phrase, never the task before it', () => {
+    expect(classifyEscalation('Use my transaction history to analyze spending patterns with the best model.')).toEqual({
+      tier: 2,
+      reason: 'review_or_analysis',
+      modelChoiceIgnored: true,
+    });
+    expect(classifyEscalation('Show my HDFC balance on deepseek.')).toEqual({
+      tier: 1,
+      reason: 'routine',
+      modelChoiceIgnored: true,
+    });
+    // "use" without a model nearby is not a model choice.
+    expect(classifyEscalation('Use my salary account balance.').modelChoiceIgnored).toBeUndefined();
+  });
+
   it('counts a wrong model-choice flag as a failure', () => {
     const neverFlags = scoreRouting((message, previous) => {
       const { modelChoiceIgnored: _ignored, ...rest } = classifyEscalation(message, previous);
