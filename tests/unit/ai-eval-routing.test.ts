@@ -191,6 +191,8 @@ describe('classifyEscalation', () => {
     expect(classifyEscalation('Explain what a risk is.').tier).toBe(1);
     expect(classifyEscalation('Review my spending this month.').reason).toBe('review_or_analysis');
     expect(classifyEscalation('I want an analysis of my cash flow.').reason).toBe('review_or_analysis');
+    expect(classifyEscalation('Give me a detailed monthly financial analysis.').reason).toBe('review_or_analysis');
+    expect(classifyEscalation('Can I get a quick portfolio review?').reason).toBe('review_or_analysis');
     expect(classifyEscalation('What are the risks in my portfolio?').reason).toBe('review_or_analysis');
   });
 

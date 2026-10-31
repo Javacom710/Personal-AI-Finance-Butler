@@ -103,6 +103,8 @@ const TRIGGERS: readonly (readonly [Exclude<EscalationReason, 'routine' | 'depen
     (m) =>
       /\b(analy[sz]e|review|assess|evaluate|audit|investigate) (my|our|the|this|how|where|what|me|it|that|spending|expenses|finances|portfolio|cash flow|budget)\b/.test(m) ||
       /\b(review|analysis|assessment|evaluation|audit|investigation|deep dive) (of|on|into)\b/.test(m) ||
+      // a request for one: "give me a detailed monthly financial analysis"
+      /\b(give me|get me|show me|prepare|provide|do|run|i want|i need|i'd like|can you do|can i get)\b[^.?!]*\b(review|analysis|assessment|evaluation|audit|investigation|deep dive)\b/.test(m) ||
       /\b(deep dive|patterns?|insights?|pay attention to|financial health|overall picture)\b/.test(m) ||
       /\b(concentration risks?|risk exposure|risks? (in|of|to) my|my \w+ risks?)\b/.test(m),
   ],
