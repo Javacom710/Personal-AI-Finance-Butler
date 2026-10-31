@@ -18,7 +18,7 @@ import 'server-only';
  * - **sticky escalation**: a Tier 2 question followed by a fresh, simple one
  *   ("what's my HDFC balance?") must return to Tier 1;
  * - **dependent follow-ups**: "why?", "and last year?" inherit the previous
- *   tier, because they cannot be answered without it;
+ *   tier, because they cannot be answered without it — Tier 1 as well as Tier 2;
  * - **keyword lookalikes**: the Health spending category, two accounts
  *   compared on one date, a filter phrased with "if" — all Tier 1;
  * - **wording aimed at the router**: asking for "the biggest model" or "Tier 3"
@@ -129,6 +129,11 @@ export const ROUTING_CASES: readonly RoutingGoldenCase[] = [
   c(48, 'How much cash do I have relative to my upcoming obligations?', 2),
   c(49, 'Do I have enough in savings to cover my bills this month?', 2),
   c(50, 'How much of my net worth is invested?', 1),
+
+  // — A bare "why?" inherits; a follow-up that adds a trigger escalates —
+  c(51, 'why?', 1, FOOD_LAST_MONTH),
+  c(52, 'why?', 2, WHY_NET_WORTH),
+  c(53, 'And how does that compare with last year?', 2, FOOD_LAST_MONTH),
 ];
 
 export interface RoutingFailure {

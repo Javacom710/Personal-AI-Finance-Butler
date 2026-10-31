@@ -115,12 +115,17 @@ const TRIGGERS: readonly (readonly [Exclude<EscalationReason, 'routine' | 'depen
  * own subject and is classified on its own words.
  */
 const POINTS_BACK =
-  /^(what about|how about|same for|same thing for|now for|why|break (that|it|this) down|tell me more|more details?|go deeper|elaborate|explain (that|this|it))\b/;
+  /^(what about|how about|same for|same thing for|now for|break (that|it|this) down|tell me more|more details?|go deeper|elaborate|explain (that|this|it))\b/;
 const CONJUNCTION = /^(and|but|then|so|also),? ?/;
 const QUESTION_FRAME = /^(what is|what's|what are|what was|what were|how much|how many|which|show|list|tell me|give me)\b/;
 /** A word that needs the previous answer. "This month" is a period, not a reference back. */
 const REFERS_BACK = /\b(that|it|those|these|them)\b|\bthis\b(?! (week|month|quarter|year))/;
 const DEPENDENT_MAX_WORDS = 7;
+/**
+ * A bare "why?" asks about the previous answer and has no subject of its own.
+ * "Why did my spending go up?" has one, and is classified on its own words.
+ */
+const BARE_WHY = /^(?:(?:and|but|so),? )?why(?: (?:is|was|did|does) (?:that|it|this)(?: happen)?| so| not)?[?.!]*$/;
 
 function normalise(message: string): string {
   return message.toLowerCase().replace(/[’']/g, "'").replace(/\s+/g, ' ').trim();
@@ -128,7 +133,7 @@ function normalise(message: string): string {
 
 function isDependentFollowUp(m: string): boolean {
   if (m.split(' ').filter(Boolean).length > DEPENDENT_MAX_WORDS) return false;
-  if (POINTS_BACK.test(m)) return true;
+  if (BARE_WHY.test(m) || POINTS_BACK.test(m)) return true;
   const conjunction = CONJUNCTION.exec(m);
   if (!conjunction) return false;
   const rest = m.slice(conjunction[0].length);
@@ -137,16 +142,28 @@ function isDependentFollowUp(m: string): boolean {
   return !(QUESTION_FRAME.test(rest) && !REFERS_BACK.test(rest));
 }
 
+/** What a follow-up adds beyond the words that point back at the previous answer. */
+function withoutOpening(m: string): string {
+  if (BARE_WHY.test(m)) return '';
+  const rest = m.slice(CONJUNCTION.exec(m)?.[0].length ?? 0);
+  return rest.replace(POINTS_BACK, '').trim();
+}
+
 /** The tier one user message should be served on. */
 export function classifyEscalation(message: string, previous?: PreviousTurn): EscalationDecision {
   const m = normalise(message);
 
-  const triggered = TRIGGERS.find(([, test]) => test(m));
-  if (triggered) return { tier: 2, reason: triggered[0] };
-
+  // A dependent follow-up is resolved first: it inherits the previous tier,
+  // unless what it adds is itself a trigger ("and how does that compare with
+  // last year?"). So "why?" after a Tier 1 answer stays at Tier 1.
   if (previous && isDependentFollowUp(m)) {
+    const own = TRIGGERS.find(([, test]) => test(withoutOpening(m)));
+    if (own) return { tier: 2, reason: own[0] };
     return { tier: previous.tier, reason: previous.tier === 2 ? 'dependent_follow_up' : 'routine' };
   }
+
+  const triggered = TRIGGERS.find(([, test]) => test(m));
+  if (triggered) return { tier: 2, reason: triggered[0] };
 
   return { tier: 1, reason: 'routine' };
 }

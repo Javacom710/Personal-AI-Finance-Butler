@@ -97,6 +97,16 @@ describe('classifyEscalation', () => {
     expect(classifyEscalation('and why?', { tier: 2 }).tier).toBe(2);
   });
 
+  it('resolves a dependent follow-up before the standalone triggers', () => {
+    expect(classifyEscalation('why?', { tier: 1 })).toEqual({ tier: 1, reason: 'routine' });
+    expect(classifyEscalation('Why is that?', { tier: 1 }).tier).toBe(1);
+    expect(classifyEscalation('why?', { tier: 2 })).toEqual({ tier: 2, reason: 'dependent_follow_up' });
+    expect(classifyEscalation('Why did my spending go up?', { tier: 1 }).tier).toBe(2);
+    expect(classifyEscalation('And how does that compare with last year?', { tier: 1 }).reason).toBe(
+      'multi_period_comparison',
+    );
+  });
+
   it('ignores case, curly apostrophes and extra spaces', () => {
     expect(classifyEscalation('  WHY   did my savings drop?').tier).toBe(2);
     expect(classifyEscalation('What’s my  HDFC balance?', { tier: 2 }).tier).toBe(1);
