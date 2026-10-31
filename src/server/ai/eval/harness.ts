@@ -23,7 +23,7 @@ import 'server-only';
 import type { AiProvider, ChatMessage, ToolDefinition } from '../provider/types';
 import type { AiFailure } from '../errors';
 
-/** The suites `AI-SYSTEM.md` §14 names. Corpora arrive in Phase 8. */
+/** The suites `AI-SYSTEM.md` §14 names. Corpora live in `./tasks/`, one file per suite. */
 export type EvalSuite =
   | 'parse'
   | 'classify'
@@ -48,6 +48,13 @@ export interface EvalCase {
    * never used to gate routing.
    */
   readonly score?: (output: string | null, toolCalls: readonly { name: string; argumentsJson: string }[]) => boolean;
+  /**
+   * Does the output satisfy the requested schema, whatever its field values?
+   * Kept apart from {@link score} because `schemaAdherence` gates a Tier 1 route
+   * and must not be dragged down by a well-formed answer with a wrong date.
+   * Absent: a schema case falls back to `score`, which then answers both.
+   */
+  readonly checkSchema?: (output: string | null) => boolean;
 }
 
 export interface CaseResult {
@@ -138,7 +145,9 @@ export async function evaluateModel(
       modelId,
       passed,
       latencyMs: response.value.latencyMs,
-      schemaValid: testCase.schema ? passed : null,
+      schemaValid: testCase.schema
+        ? (testCase.checkSchema ? testCase.checkSchema(response.value.content) : passed)
+        : null,
       toolCallValid: testCase.tools ? response.value.toolCalls.length > 0 && passed !== false : null,
       errorClass: null,
     });
