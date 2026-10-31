@@ -396,6 +396,7 @@ product/UI work item scheduled with the Phase 9 UX pass. It does not block Phase
 ## Phase 8 — Model Evaluation
 
 - Golden task suites: `parse`, `classify`, `tool-select`, `grounding`, `analysis`, `scenario`, `document`, `injection`, `robustness`
+  - *Progress (one PR per suite):* `parse` ✅ built — 40 cases, `src/server/ai/eval/tasks/parse.ts`. The rest not started. **No model has been run against any suite yet.**
 - Runner, deterministic scoring, report generation
 - Record measured entries: results in `ai_model_evaluations`, loaded over the declared defaults in `capabilities.ts` ([ADR-44](DECISIONS.md#adr-44--the-capability-matrix-stays-capabilitiests-checked-at-startup))
 - Select production routing order per tier

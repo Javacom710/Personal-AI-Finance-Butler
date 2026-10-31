@@ -485,7 +485,7 @@ const TransactionProposal = z.object({
   kind: z.enum(['income','expense','transfer']),
   bookedOn: z.string().date(),
   description: z.string().min(1).max(200),
-  amount: z.string().regex(/^\d+(\.\d{1,4})?$/),   // STRING, never a JSON number
+  amount: z.string().regex(/^\d+(\.\d{1,4})?$/).nullable(),   // STRING, never a JSON number; null = not stated
   currency: z.string().length(3),
   accountHint: z.string().nullable(),
   toAccountHint: z.string().nullable(),
@@ -496,6 +496,10 @@ const TransactionProposal = z.object({
   ambiguities: z.array(z.string()).max(5),
 });
 ```
+
+The code is `src/server/ai/proposals/schemas.ts` (`.strict()`, so an extra key is rejected), and the task prompt is `src/server/ai/prompts/parse-transaction.ts`.
+
+**`amount` is nullable** (corrected 2026-10-31, Phase 8). As first written the field was required, so for *"Paid the plumber"* the only schema-valid answer was an invented figure, and the schema rewarded the fabrication `<ai_structured_outputs>` forbids. A `null` amount is never applied: it is a highlighted field in edit mode (step 6 below), and the `parse` suite's missing-amount cases fail any model that fills it in.
 
 **The amount crosses as a decimal string.** A JSON number is parsed into an IEEE-754 double before our code sees it, reintroducing the exact defect [ADR-04](DECISIONS.md#adr-04--money-is-an-exact-scaled-integer-never-a-float) exists to prevent.
 
@@ -517,7 +521,7 @@ const TransactionProposal = z.object({
 4. Resolve accountHint/categoryHint → IDs (exact → unique fuzzy ≥0.8 → unresolved)
 5. Business validation: date ≥ account opening; transfer accounts differ;
    category kind matches transaction kind; FX rate exists for the date
-6. If confidence==='low' OR any hint unresolved OR ambiguities non-empty
+6. If confidence==='low' OR amount is null OR any hint unresolved OR ambiguities non-empty
      → proposal opens in EDIT mode with those fields highlighted
 7. Hand the validated proposal to services/aiProposals.ts, which persists it
    (raw + normalized, status='pending', expires_at = now + 24h). AI code does
@@ -632,7 +636,7 @@ These metrics feed routing changes — which is the point of measuring them.
 
 | Suite | Cases | Scoring |
 |---|---|---|
-| `parse` | 40 NL transaction strings incl. ambiguous, multi-currency, relative dates, adversarial | **Deterministic**: schema valid; field-exact match against expected |
+| `parse` | 40 NL transaction strings incl. ambiguous, multi-currency, relative dates, adversarial — **built**: `tasks/parse.ts` | **Deterministic**: schema valid (→ `schemaAdherence`, scored apart from accuracy); field-exact on kind, date, amount, currency; hints against accepted spellings; an ambiguous case passes only if the model flags it |
 | `classify` | 60 descriptions → category | Deterministic: exact match |
 | `tool-select` | 30 questions → expected tool + arguments | Deterministic: correct tool, correct arguments |
 | `routing` | 40 messages → expected tier, incl. the sticky-escalation trap (deep question followed by a trivial one) | **Deterministic**: the classifier is application code, so its tier assignment is exactly checkable. Asserts no message escalates without a trigger, and that a self-contained question returns to Tier 1 |
