@@ -59,8 +59,10 @@ export interface EvalCase {
    * Were the tool calls right? Feeds `toolCallCorrectness`. Absent: a tool case
    * counts as correct when it made a call and passed. A case whose right answer
    * is *no* call needs this, or the correct answer would count as a failure.
+   * `null`: the question does not apply to this output — a `grounding` answer
+   * is prose, not a tool call, and must not count for or against the rate.
    */
-  readonly checkToolCalls?: (toolCalls: readonly { name: string; argumentsJson: string }[]) => boolean;
+  readonly checkToolCalls?: (toolCalls: readonly { name: string; argumentsJson: string }[]) => boolean | null;
 }
 
 export interface CaseResult {
@@ -81,6 +83,8 @@ export interface ModelReport {
   readonly cases: readonly CaseResult[];
   readonly schemaAdherence: number | null;
   readonly toolCallCorrectness: number | null;
+  /** The `grounding` suite's pass rate: answers that state the engine's figures and no others. */
+  readonly retrievalGrounding: number | null;
   readonly p50LatencyMs: number | null;
   readonly p95LatencyMs: number | null;
 }
@@ -168,6 +172,7 @@ export async function evaluateModel(
     cases: results,
     schemaAdherence: ratio(results.map((r) => r.schemaValid)),
     toolCallCorrectness: ratio(results.map((r) => r.toolCallValid)),
+    retrievalGrounding: ratio(results.filter((r) => r.suite === 'grounding').map((r) => r.passed)),
     p50LatencyMs: percentile(results.map((r) => r.latencyMs), 50),
     p95LatencyMs: percentile(results.map((r) => r.latencyMs), 95),
   };
@@ -185,11 +190,12 @@ export function renderReport(reports: readonly ModelReport[]): string {
     value === null ? 'not measured' : value.toFixed(digits);
 
   const lines = [
-    '| Model | Cases | Schema adherence | Tool-call correctness | p50 ms | p95 ms |',
-    '|---|---|---|---|---|---|',
+    '| Model | Cases | Schema adherence | Tool-call correctness | Retrieval grounding | p50 ms | p95 ms |',
+    '|---|---|---|---|---|---|---|',
     ...reports.map(
       (r) =>
         `| ${r.modelId} | ${r.cases.length} | ${cell(r.schemaAdherence)} | ${cell(r.toolCallCorrectness)} | ` +
+        `${cell(r.retrievalGrounding)} | ` +
         `${cell(r.p50LatencyMs, 0)} | ${cell(r.p95LatencyMs, 0)} |`,
     ),
   ];

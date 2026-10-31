@@ -2,7 +2,7 @@
 
 Durable status record. Conversation history is temporary; this file is not. Read this first after any context reset, then verify it against `docs/`, the source tree, and the tests before trusting it.
 
-> **Read first — status as of 2026-10-31.** **Phase 7 (AI Infrastructure) is complete**: every ROADMAP Phase 7 "Done when" box is ticked, with the evidence named on each. **Phase 8 (Model Evaluation) started 2026-10-31**: the golden corpora are being built one suite per PR, starting with `parse`; the ADR-45 catalogue check is done and five evaluation candidates were added (see the [Phase 8 log](#phase-8-log)). Both hard drives that held working copies have failed; the repository lives on GitHub, and Claude, Codex and ChatGPT work from it through pull requests. The dated sections further down are historical records. For the recovery, the blocker register and the working rules, see [docs/RECOVERY-2026-10.md](docs/RECOVERY-2026-10.md).
+> **Read first — status as of 2026-10-31.** **Phase 7 (AI Infrastructure) is complete**: every ROADMAP Phase 7 "Done when" box is ticked, with the evidence named on each. **Phase 8 (Model Evaluation) started 2026-10-31**: the golden corpora are being built one suite per PR (`parse`, `classify`, `tool-select`, `routing` and `grounding` built); the ADR-45 catalogue check is done and five evaluation candidates were added (see the [Phase 8 log](#phase-8-log)). Both hard drives that held working copies have failed; the repository lives on GitHub, and Claude, Codex and ChatGPT work from it through pull requests. The dated sections further down are historical records. For the recovery, the blocker register and the working rules, see [docs/RECOVERY-2026-10.md](docs/RECOVERY-2026-10.md).
 
 **Last updated:** 2026-10-31 · **Current phase:** **8 — Model Evaluation, in progress** ([log](#phase-8-log)). Phase 7 — AI Infrastructure COMPLETE (steps 7.0–7.7; blockers B-1 … B-4, H-1 and R-1 … R-4 closed). Phase 6 remains complete (steps 6.0–6.9 and 6.11 implemented and verified; 6.10 closed unbuilt).
 
@@ -102,9 +102,9 @@ Two changes came with it:
 - **The harness counted a correct "no call" as a tool-call failure.** `toolCallValid` was `toolCalls.length > 0 && passed`, so a model that rightly answered a concept question without a tool lowered `toolCallCorrectness`. A case can now supply `checkToolCalls`, and the tool-select suite does.
 - **The `answerFinanceQuestion` prompt now exists** (`ai/prompts/answer-finance-question.ts`). It sends the date, the weekday, the base currency and the rules, but no account or category list. Phase 9 reuses it.
 
-**Finding, not fixed here:** AI-SYSTEM.md §8 describes a `categoryNames` argument on `get_expense_summary`, resolved server-side. The registry has no such argument. So "how much did I spend on food" is answered from a category breakdown, which the suite expects. Whether to add `categoryNames` is for the `grounding` suite to decide.
+**Finding, not fixed here:** AI-SYSTEM.md §8 describes a `categoryNames` argument on `get_expense_summary`, resolved server-side. The registry has no such argument. So "how much did I spend on food" is answered from a category breakdown, which the suite expects. Whether to add `categoryNames` is for the `grounding` suite to decide. *(Settled by the `grounding` suite below: not added, [ADR-49](docs/DECISIONS.md#adr-49--get_expense_summary-takes-no-category-filter-the-breakdown-row-is-the-answer).)*
 
-Next: `grounding`, `scenario`, `injection`, `robustness`, `document`, `analysis`; then the `ai:eval` runner.
+Next (as of the `tool-select` PR): `grounding`, `scenario`, `injection`, `robustness`, `document`, `analysis`; then the `ai:eval` runner.
 
 **2026-10-31 — `routing` corpus and the escalation classifier built** (`src/server/ai/eval/tasks/routing.ts`, 86 cases, suite version 1; `src/server/ai/orchestrator/escalation.ts`). AI-SYSTEM.md §6.2 assigns Tier 1 → Tier 2 escalation to a deterministic classifier in application code, which did not exist; `escalated()` was its only half. No model runs in this suite: each case is a user message, optionally after a previous message and its tier, labelled with the tier §6.4's rule gives it (one tool call answers it → Tier 1). The classifier gets **86 / 86**, with zero over- and under-escalations. The corpus covers:
 - plain Tier 1 questions, and keyword lookalikes that must stay Tier 1 (the Health spending category, "SBI vs HDFC" on one date, food against transport in one month, "driving lessons" and an audit fee as expenses, a filter phrased with "if", "more than ₹5,000");
@@ -113,6 +113,23 @@ Next: `grounding`, `scenario`, `injection`, `robustness`, `document`, `analysis`
 - the user choosing the model ("use the biggest model", "switch to Tier 3", "…using deepseek"): the instruction is ignored and flagged, the question around it is still classified, and no message reaches Tier 3.
 
 **Owner's ruling, [ADR-48](docs/DECISIONS.md#adr-48--the-users-question-sets-the-tier-the-user-does-not-choose-the-model).** SECURITY.md §8 said tier is "never inferred from user text"; AI-SYSTEM.md §6.2 classifies the user's message. The owner ruled that §8's "user text" means the user *choosing the model*, not the question. So the question sets the tier, but an instruction to use a particular model or tier ("use the 'x' llm model", "switch to Tier 3") is removed before classification and flagged with `modelChoiceIgnored`. The assistant must tell the user that model choice is not theirs. SECURITY.md §8 and AI-INFRASTRUCTURE-DESIGN.md §5.2 now say so. The classifier is not yet wired into a request path; Phase 9's assistant calls it and shows the flag.
+
+**2026-10-31 — `grounding` corpus built** (`src/server/ai/eval/tasks/grounding.ts`, 25 cases, suite version 1). Each case replays one finished tool turn on 2026-10-15 — the question, the call, and its result — and the model writes the answer. The 17 results are frozen in `tasks/grounding-results.json`, and `tests/integration/ai-eval-grounding.test.ts` builds the fixture through the services, runs every call through the production dispatcher and requires the frozen result exactly (database ids become fixed placeholders). So every expected figure is the engine's, and the eval runs without a database. Regenerate with `UPDATE_GROUNDING_RESULTS=1` on that test, then review the diff and bump the version. The fixture: four accounts, three months of activity with transfers, a `Food → {Groceries, Dining}` tree where Food also has spending of its own, two overlapping tags, two budgets (one over), a property, gold, a home loan, and a portfolio with one priced, one stale and one unpriced holding.
+
+Scoring is deterministic:
+- **Every figure the answer states must trace** to a value in its results, at its stated precision (₹8,641 and ₹86.4 lakh trace to 8640.5000; a sum or difference the model computed traces to nothing). Dates, years and whole numbers up to 31 are not figures.
+- **Required figures** must be stated to the rupee; a percentage may be rounded but must round from the engine's rate.
+- **Forbidden figures** are the known wrong answers: Food's own ₹800 or its children's ₹7,840.50 as "food", summed overlapping tags, summed net-worth levels, a two-category sum, TWR as 0%.
+- **Required mentions:** the cost or market basis of a net-worth figure, the holding a market valuation excludes, and why TWR is unavailable.
+- **Two cases cannot be answered from what they were given**: a `detail` result for the Food total, and a `rollup` for Groceries. They pass only by the right further call. Prose can't pass, because the only answering figure would be a computed one.
+
+Changes that came with it:
+- **`retrievalGrounding` is reported.** `ModelReport` gains it (the grounding pass rate, the score `CapabilityScores` already names), and `checkToolCalls` may return `null` so a prose answer doesn't count for or against `toolCallCorrectness`.
+- **The `answerFinanceQuestion` prompt now forbids computing figures**, not only inventing them: no adding, subtracting or averaging. When no result holds the figure, the model calls the tool that does, or reports the separate figures.
+- **`categoryNames` is not added** ([ADR-49](docs/DECISIONS.md#adr-49--get_expense_summary-takes-no-category-filter-the-breakdown-row-is-the-answer)). Every single-category question is one row: the `rollup` row for a parent, the `detail` row for a leaf. A fuzzy name resolver would add a silent way to pick the wrong category. AI-SYSTEM.md §8 now describes the tool as built. Revisit if the measured run shows models summing rows in cases 7 and 10.
+- **Defect fixed: budget order was nondeterministic.** `listBudgetStatuses` sorted by `period` only, so monthly budgets came back in whatever order Postgres chose, on screen and to the model. The fixture test caught it: it failed intermittently. Sorted by period, then creation, then id.
+
+Next: `scenario`, `injection`, `robustness`, `document`, `analysis`; then the `ai:eval` runner. No model has been run against any suite yet.
 ---
 
 ## Working protocol — applies to every phase from 2 onward
@@ -163,7 +180,7 @@ Corollaries that follow from the above:
 | 6 — Market Data | ✅ **complete, verified.** 6.0–6.9 and **6.11** implemented; **6.10 closed — not built** (OD-15). No open decision remains |
 | 6.5 — Recovery (Oct 2026) | ✅ repository rebuilt from the failed drives and published to GitHub — [docs/RECOVERY-2026-10.md](docs/RECOVERY-2026-10.md) |
 | 7 — AI Infrastructure | ✅ **complete, 2026-10-26.** 7.0–7.7 built; the Phase 8 entry-gate blockers closed (PRs #5–#12, #14) |
-| 8 — Model Evaluation | **in progress** since 2026-10-31: golden corpora being built, one PR per suite (`parse`, `classify` and `tool-select` done). No model measured yet — see [Phase 8 log](#phase-8-log) |
+| 8 — Model Evaluation | **in progress** since 2026-10-31: golden corpora being built, one PR per suite (`parse`, `classify`, `tool-select`, `routing` and `grounding` done). No model measured yet — see [Phase 8 log](#phase-8-log) |
 | 9–14 | not started |
 
 ---
