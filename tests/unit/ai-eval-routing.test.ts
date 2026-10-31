@@ -76,6 +76,7 @@ describe('classifyEscalation', () => {
     expect(classifyEscalation('Compare my spending this month with last month.').reason).toBe('multi_period_comparison');
     expect(classifyEscalation('What if I stop my SIP?').reason).toBe('scenario');
     expect(classifyEscalation('Why did my net worth fall?').reason).toBe('why_or_change');
+    expect(classifyEscalation('How much cash do I have relative to my upcoming obligations?').reason).toBe('cross_domain');
   });
 
   it('escalates a comparison only when it compares periods', () => {

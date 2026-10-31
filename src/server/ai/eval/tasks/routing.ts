@@ -11,7 +11,8 @@ import 'server-only';
  * The labels follow §6.4's rule, not the classifier's wording: **if a single
  * tool call answers the question, it is Tier 1.** Tier 2 is for answers that
  * weigh several results against each other — a review, a multi-period
- * comparison, a scenario, a "why did X change".
+ * comparison, a scenario, a "why did X change", or one domain against another
+ * (cash against upcoming obligations).
  *
  * The cases that matter most are the traps:
  * - **sticky escalation**: a Tier 2 question followed by a fresh, simple one
@@ -123,6 +124,11 @@ export const ROUTING_CASES: readonly RoutingGoldenCase[] = [
   c(45, 'And what is my HDFC balance?', 1, REVIEW),
   c(46, 'But how much cash do I have?', 1, WHY_NET_WORTH),
   c(47, 'And what was that last year?', 2, REVIEW),
+
+  // — Cross-domain: one domain weighed against another —
+  c(48, 'How much cash do I have relative to my upcoming obligations?', 2),
+  c(49, 'Do I have enough in savings to cover my bills this month?', 2),
+  c(50, 'How much of my net worth is invested?', 1),
 ];
 
 export interface RoutingFailure {

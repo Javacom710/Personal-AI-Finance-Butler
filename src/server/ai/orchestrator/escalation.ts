@@ -34,6 +34,7 @@ export type EscalationReason =
   | 'multi_period_comparison'
   | 'scenario'
   | 'why_or_change'
+  | 'cross_domain'
   | 'dependent_follow_up';
 
 export interface EscalationDecision {
@@ -85,6 +86,14 @@ const TRIGGERS: readonly (readonly [Exclude<EscalationReason, 'routine' | 'depen
       /\bwhy\b/.test(m) ||
       /\b(what caused|what drove|driving|drove|underperform\w*|outperform\w*)\b/.test(m) ||
       /\bhow (has|have|did)\b.*\b(change|changed|grow|grown|evolve|evolved|shift|shifted|move|moved)\b/.test(m),
+  ],
+  [
+    // One domain weighed against another: cash against obligations, savings
+    // against bills. "How much of my net worth is invested?" is not this: one
+    // net-worth result carries both figures.
+    'cross_domain',
+    (m) =>
+      /\b(relative to|in relation to|enough to cover|enough for|cover my|before (considering|investing|i invest)|based on my|given my)\b/.test(m),
   ],
   [
     'multi_period_comparison',
