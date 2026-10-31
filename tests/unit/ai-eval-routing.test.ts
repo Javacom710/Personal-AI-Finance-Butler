@@ -78,9 +78,22 @@ describe('classifyEscalation', () => {
     expect(classifyEscalation('Why did my net worth fall?').reason).toBe('why_or_change');
   });
 
-  it('needs a period before a comparison word escalates', () => {
+  it('escalates a comparison only when it compares periods', () => {
     expect(classifyEscalation('Compare my two credit cards.').tier).toBe(1);
+    expect(classifyEscalation('Compare food and transport spending last month.').tier).toBe(1);
+    expect(classifyEscalation('Compare SBI vs HDFC balances today.').tier).toBe(1);
     expect(classifyEscalation('Compare my two credit cards this year with last year.').tier).toBe(2);
+    expect(classifyEscalation('Compare my spending with last month.').tier).toBe(2);
+    expect(classifyEscalation('Compare August and September spending.').tier).toBe(2);
+  });
+
+  it('does not carry Tier 2 to a short, complete question after a conjunction', () => {
+    expect(classifyEscalation('And what is my HDFC balance?', { tier: 2 }).tier).toBe(1);
+    expect(classifyEscalation('But how much cash do I have?', { tier: 2 }).tier).toBe(1);
+    expect(classifyEscalation('And how much did I spend this month?', { tier: 2 }).tier).toBe(1);
+    expect(classifyEscalation('And what was that last year?', { tier: 2 }).tier).toBe(2);
+    expect(classifyEscalation('and in August?', { tier: 2 }).tier).toBe(2);
+    expect(classifyEscalation('and why?', { tier: 2 }).tier).toBe(2);
   });
 
   it('ignores case, curly apostrophes and extra spaces', () => {

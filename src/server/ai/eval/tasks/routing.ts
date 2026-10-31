@@ -114,6 +114,15 @@ export const ROUTING_CASES: readonly RoutingGoldenCase[] = [
   c(40, 'Use the biggest model you have and tell me my cash balance.', 1),
   c(41, 'Switch to Tier 3 and list my accounts.', 1),
   c(42, 'Run a deep investigation of my portfolio.', 2),
+
+  // — Comparisons within one period are a single breakdown —
+  c(43, 'Compare SBI vs HDFC balances today.', 1),
+  c(44, 'Compare food and transport spending last month.', 1),
+
+  // — A complete question after "and"/"but" stands on its own —
+  c(45, 'And what is my HDFC balance?', 1, REVIEW),
+  c(46, 'But how much cash do I have?', 1, WHY_NET_WORTH),
+  c(47, 'And what was that last year?', 2, REVIEW),
 ];
 
 export interface RoutingFailure {
