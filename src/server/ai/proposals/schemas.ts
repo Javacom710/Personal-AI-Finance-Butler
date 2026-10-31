@@ -39,3 +39,27 @@ export const TransactionProposal = z
   .strict();
 
 export type TransactionProposal = z.infer<typeof TransactionProposal>;
+
+/**
+ * A category suggestion for one transaction (`classifyTransaction`).
+ *
+ * Built per request from the user's own categories **of the transaction's
+ * kind**, as `"Parent"` or `"Parent > Child"` paths, so the answer space is an
+ * enum: a model cannot invent a category, and an income category for an
+ * expense is a schema failure rather than a near miss. `null` means the model
+ * cannot tell, which is a valid answer — `Other` is a claim that the
+ * transaction fits nothing, and is not the same thing.
+ */
+export function categorySuggestionSchema(paths: readonly [string, ...string[]]) {
+  return z
+    .object({
+      category: z.enum(paths).nullable(),
+      confidence: z.enum(['high', 'medium', 'low']),
+    })
+    .strict();
+}
+
+export type CategorySuggestion = z.infer<ReturnType<typeof categorySuggestionSchema>>;
+
+/** The separator between a parent and a child category in a path. */
+export const CATEGORY_PATH_SEPARATOR = ' > ';

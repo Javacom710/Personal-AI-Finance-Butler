@@ -89,7 +89,11 @@ A candidate enters routing only after it has a measured capability entry and a h
 
 `TransactionProposal` and the parse prompt now exist in code (`ai/proposals/schemas.ts`, `ai/prompts/parse-transaction.ts`), because the suite has to measure what production will send. Phase 9 reuses both; the proposal flow itself is still Phase 9.
 
-Next: `classify`, then `tool-select`, `routing`, `grounding`, `scenario`, `injection`, `robustness`, `document`, `analysis`; then the `ai:eval` runner.
+**2026-10-31 — #15 merged; `classify` corpus built** (`src/server/ai/eval/tasks/classify.ts`, 60 cases, suite version 1). The cases cover every leaf of the default category tree, Indian merchants and Hinglish, raw bank-statement text (UPI, POS, NEFT, BIL, INT.PD), descriptions that state no purpose, adversarial text and income. The answer is a category **path** (`"Food > Dining"`). The response schema makes it an enum of the user's paths for the transaction's kind, plus `null` for "cannot tell", so an invented or wrong-kind category fails validation rather than scoring as a near miss. Scoring is exact: the most specific right path. A second path is accepted only where either is defensible, and `null` only where the description gives no purpose.
+
+The schema (`categorySuggestionSchema` in `ai/proposals/schemas.ts`) and the prompt (`ai/prompts/classify-transaction.ts`) are the ones Phase 9 will use. The fixture tree is restated in the suite, because the AI layer may not import `db/`; a test asserts it equals `DEFAULT_CATEGORIES`.
+
+Next: `tool-select`, `routing`, `grounding`, `scenario`, `injection`, `robustness`, `document`, `analysis`; then the `ai:eval` runner.
 ---
 
 ## Working protocol — applies to every phase from 2 onward
@@ -140,7 +144,7 @@ Corollaries that follow from the above:
 | 6 — Market Data | ✅ **complete, verified.** 6.0–6.9 and **6.11** implemented; **6.10 closed — not built** (OD-15). No open decision remains |
 | 6.5 — Recovery (Oct 2026) | ✅ repository rebuilt from the failed drives and published to GitHub — [docs/RECOVERY-2026-10.md](docs/RECOVERY-2026-10.md) |
 | 7 — AI Infrastructure | ✅ **complete, 2026-10-26.** 7.0–7.7 built; the Phase 8 entry-gate blockers closed (PRs #5–#12, #14) |
-| 8 — Model Evaluation | **in progress** since 2026-10-31: golden corpora being built, one PR per suite (`parse` done). No model measured yet — see [Phase 8 log](#phase-8-log) |
+| 8 — Model Evaluation | **in progress** since 2026-10-31: golden corpora being built, one PR per suite (`parse` and `classify` done). No model measured yet — see [Phase 8 log](#phase-8-log) |
 | 9–14 | not started |
 
 ---
