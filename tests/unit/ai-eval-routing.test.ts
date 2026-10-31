@@ -76,7 +76,17 @@ describe('classifyEscalation', () => {
     expect(classifyEscalation('Compare my spending this month with last month.').reason).toBe('multi_period_comparison');
     expect(classifyEscalation('What if I stop my SIP?').reason).toBe('scenario');
     expect(classifyEscalation('Why did my net worth fall?').reason).toBe('why_or_change');
+    expect(classifyEscalation("What's driving my higher spending?").reason).toBe('why_or_change');
+    expect(classifyEscalation('Audit my finances.').reason).toBe('review_or_analysis');
     expect(classifyEscalation('How much cash do I have relative to my upcoming obligations?').reason).toBe('cross_domain');
+  });
+
+  it('treats causal and audit words as triggers only in their constructions', () => {
+    expect(classifyEscalation('How much did I spend on driving lessons last month?').tier).toBe(1);
+    expect(classifyEscalation('Show my driving expenses.').tier).toBe(1);
+    expect(classifyEscalation('How much did I pay the audit firm this year?').tier).toBe(1);
+    expect(classifyEscalation('What caused the drop in my savings?').tier).toBe(2);
+    expect(classifyEscalation('What drove the increase in my spending last month?').tier).toBe(2);
   });
 
   it('escalates a comparison only when it compares periods', () => {

@@ -20,7 +20,8 @@ import 'server-only';
  * - **dependent follow-ups**: "why?", "and last year?" inherit the previous
  *   tier, because they cannot be answered without it — Tier 1 as well as Tier 2;
  * - **keyword lookalikes**: the Health spending category, two accounts
- *   compared on one date, a filter phrased with "if" — all Tier 1;
+ *   compared on one date, a filter phrased with "if", "driving lessons" and
+ *   an audit fee as expenses — all Tier 1;
  * - **wording aimed at the router**: asking for "the biggest model" or "Tier 3"
  *   changes nothing, and no message ever reaches Tier 3.
  *
@@ -134,6 +135,12 @@ export const ROUTING_CASES: readonly RoutingGoldenCase[] = [
   c(51, 'why?', 1, FOOD_LAST_MONTH),
   c(52, 'why?', 2, WHY_NET_WORTH),
   c(53, 'And how does that compare with last year?', 2, FOOD_LAST_MONTH),
+
+  // — Expense descriptions that look like analysis words —
+  c(54, 'How much did I spend on driving lessons last month?', 1),
+  c(55, 'Show my driving expenses.', 1),
+  c(56, 'How much did I pay the audit firm this year?', 1),
+  c(57, 'What drove the increase in my spending last month?', 2),
 ];
 
 export interface RoutingFailure {

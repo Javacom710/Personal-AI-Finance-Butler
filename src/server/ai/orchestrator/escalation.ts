@@ -69,7 +69,7 @@ const TRIGGERS: readonly (readonly [Exclude<EscalationReason, 'routine' | 'depen
   [
     'review_or_analysis',
     (m) =>
-      /\b(review|analy[sz]e|analysis|assess|assessment|evaluate|evaluation|audit|deep dive|investigat\w*|patterns?|insights?|pay attention to|financial health|overall picture|risks?)\b/.test(
+      /\b(review|analy[sz]e|analysis|assess|assessment|evaluate|evaluation|audit (my|of my)|deep dive|investigat\w*|patterns?|insights?|pay attention to|financial health|overall picture|risks?)\b/.test(
         m,
       ),
   ],
@@ -84,7 +84,8 @@ const TRIGGERS: readonly (readonly [Exclude<EscalationReason, 'routine' | 'depen
     'why_or_change',
     (m) =>
       /\bwhy\b/.test(m) ||
-      /\b(what caused|what drove|driving|drove|underperform\w*|outperform\w*)\b/.test(m) ||
+      // Causal wording only in a causal construction: "driving lessons" is an expense.
+      /\b(what('s| is| was)? (caused|causing|drove|driving)|what led to|(caused|drove|driving) (the|my|this|that) (increase|decrease|rise|fall|drop|jump|change|growth|decline|spike)|underperform\w*|outperform\w*)\b/.test(m) ||
       /\bhow (has|have|did)\b.*\b(change|changed|grow|grown|evolve|evolved|shift|shifted|move|moved)\b/.test(m),
   ],
   [
