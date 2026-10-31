@@ -161,6 +161,11 @@ export const ROUTING_CASES: readonly RoutingGoldenCase[] = [
   { ...c(65, 'Use the analysis model to show my HDFC balance.', 1), flagsModelChoice: true },
   { ...c(66, 'Give me a financial review of this month using deepseek.', 2), flagsModelChoice: true },
   c(67, 'Which model are you?', 1),
+
+  // — "Why" as a concept question, not about the user's figures —
+  c(68, 'Why is diversification important?', 1),
+  c(69, 'Explain why transfers are not expenses.', 1),
+  c(70, 'Why is my food spending so high this month?', 2),
 ];
 
 export interface RoutingFailure {

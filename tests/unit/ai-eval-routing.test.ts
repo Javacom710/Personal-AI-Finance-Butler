@@ -101,6 +101,12 @@ describe('classifyEscalation', () => {
     expect(classifyEscalation('How much did I spend in September if I leave out rent?').tier).toBe(1);
   });
 
+  it('escalates "why" only about the user\'s own figures', () => {
+    expect(classifyEscalation('Why is diversification important?').tier).toBe(1);
+    expect(classifyEscalation('Explain why transfers are not expenses.').tier).toBe(1);
+    expect(classifyEscalation('Why did I spend so much in August?').reason).toBe('why_or_change');
+  });
+
   it('counts numeric months and quarters as periods', () => {
     expect(classifyEscalation('Compare spending in 2026-08 and 2026-09.').tier).toBe(2);
     expect(classifyEscalation('Compare my spending in Q1 and Q2.').tier).toBe(2);

@@ -115,7 +115,9 @@ const TRIGGERS: readonly (readonly [Exclude<EscalationReason, 'routine' | 'depen
   [
     'why_or_change',
     (m) =>
-      /\bwhy\b/.test(m) ||
+      // "Why" about the user's own figures; "why is diversification important?"
+      // is a concept question and stays Tier 1.
+      /\bwhy\b.*\b(my|i|i'm|i've|me|our|we)\b/.test(m) ||
       // Causal wording only in a causal construction: "driving lessons" is an expense.
       /\b(what('s| is| was)? (caused|causing|drove|driving)|what led to|(caused|drove|driving) (the|my|this|that) (increase|decrease|rise|fall|drop|jump|change|growth|decline|spike)|underperform\w*|outperform\w*)\b/.test(m) ||
       /\bhow (has|have|did)\b.*\b(change|changed|grow|grown|evolve|evolved|shift|shifted|move|moved)\b/.test(m),
