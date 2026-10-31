@@ -369,34 +369,21 @@ Non-negotiable rule 7 says the model never states a figure it did not receive. T
 
 ```ts
 get_expense_summary({
-  from, to,
-  groupBy: 'month' | 'category' | 'account' | 'tag',
-  categoryIds?:   string[],  // filter by id. Listing a PARENT includes its children.
-  categoryNames?: string[],  // filter by name — resolved SERVER-SIDE (see below)
-  depth?: 'rollup' | 'detail',  // category grouping only; both partition the total
+  asOf?: IsoDate,                          // any date in the month; omitted = this month
+  groupBy?: 'category' | 'account' | 'tag', // default 'category'
+  depth?: 'rollup' | 'detail',             // category grouping only; both partition the total
 })
 → { ok: true,
     data: {
       total: Money,                                    // ← the answer, computed by the engine
-      rows: [{ key, label, amount, parentKey, isRollup, childCount }],
       additivity: 'partition',                         // 'overlapping' for tags — rows do NOT sum
-      resolvedCategories: [{ input: 'food', id, label: 'Food', matchedBy: 'exact' }]
+      depth, groupBy,
+      rows: [{ key, label, amount, entryCount, parentKey, isRollup, childCount }],
     },
-    meta: { rowCount, truncated, totalMatching, currency, from, to } }
+    meta: { rowCount, truncated, currency, from, to } }
 ```
 
-**Why `categoryNames` exists.** The user says "food"; the tool needs a category. Three ways to bridge that, and only one is right here:
-
-- *List the categories in the system prompt* — rejected. With no prompt caching (§12), a category list is a cost paid on **every** request, including the ones that never mention a category.
-- *Make the model call `get_categories` first* — works, but spends a round trip and leaves the model matching strings.
-- **Resolve server-side** — chosen. The tool accepts the user's word and runs the *same* resolver the proposal flow uses (exact → case-insensitive → unique fuzzy ≥ 0.8), then echoes what it matched in `resolvedCategories` so the answer can say "Food (Groceries + Dining)".
-
-Unresolvable input is an error the model can act on, never a guess:
-
-```
-{ ok: false, error: { code: 'not_found',
-    message: 'No category matching "food". Closest: Groceries, Dining. Ask the user which they mean.' } }
-```
+**There is no category filter, and no `categoryNames` argument** ([ADR-49](DECISIONS.md#adr-49--get_expense_summary-takes-no-category-filter-the-breakdown-row-is-the-answer)). An earlier draft of this section specified one, resolved server-side by fuzzy name matching. It was never built, and building the `grounding` suite showed it is not needed: every single-category question already has its answer as **one row** of one response. The `rollup` row for a parent ("food") carries its children folded in, and the `detail` row for a leaf ("dining") is that leaf's own spending. The model reads a row; it never adds rows. A question about **two** categories together has no one field that answers it, so the answer gives both figures, and the prompt says so. The suite measures whether models keep to that, and its result is the trigger for revisiting the decision.
 
 Two properties, both asserted by test, both load-bearing:
 
@@ -404,7 +391,7 @@ Two properties, both asserted by test, both load-bearing:
 2. **Parent and child rows are never mixed in one response.** `depth: 'rollup'` (default) returns top-level categories with children folded in, each carrying `isRollup` and `childCount`; `depth: 'detail'` returns one row per category with spending **of its own**, carrying only that. Both partition the total, so there is no response shape in which summing every row double-counts. The `breakdown()` service now carries this contract directly — an authoritative `total` plus an `additivity` tag — rather than the tool layer having to impose it ([ADR-37](DECISIONS.md#adr-37--a-breakdown-declares-whether-its-rows-partition-its-total), **I-54**).
 3. **A row set that cannot partition its total says so.** A **tag** breakdown is `additivity: 'overlapping'`: one transaction can carry several tags and an untagged one carries none, so the rows never sum to the total and must not be rendered as if they did. This was true before and undeclared, which is worse than either alternative.
 
-Without both, "how much on food" over a `Food → {Groceries, Dining}` tree becomes: model receives three rows, adds two of them, and hopes it picked the right two. That is the model doing financial arithmetic — forbidden by `CLAUDE.md <investment_management>` ("do not rely on an AI model for calculations that deterministic application code can perform correctly") and unverifiable when it goes wrong.
+Without both, "how much on food" over a `Food → {Groceries, Dining}` tree becomes: model receives three rows, adds two of them, and hopes it picked the right two. With them, the `rollup` row *is* the answer, and a model handed `detail` rows for that question must ask for the rollup rather than add — the `grounding` suite has a case for each. That is the model doing financial arithmetic — forbidden by `CLAUDE.md <investment_management>` ("do not rely on an AI model for calculations that deterministic application code can perform correctly") and unverifiable when it goes wrong.
 
 The same `total` contract applies to `get_income_summary` and `get_asset_allocation`. It does **not** apply to `get_net_worth_history`: a series of month-end *levels* has no meaningful sum, and requiring one would invite a consumer to add them. Any future tool returning rows that a user might want summed **must** carry the sum.
 
@@ -640,7 +627,7 @@ These metrics feed routing changes — which is the point of measuring them.
 | `classify` | 60 descriptions → category, incl. bank-statement text, no-purpose descriptions and adversarial text — **built**: `tasks/classify.ts` | **Deterministic**: the answer space is an enum of the user's category paths for the transaction's kind, so an invented or wrong-kind category is a schema failure; exact match against the accepted path(s); `null` is the only right answer when the description gives no purpose |
 | `tool-select` | 30 questions → expected tool + arguments, on a fixed date, incl. multi-tool, no-tool (concept, write request) and an injected `userId` — **built**: `tasks/tool-select.ts` | **Deterministic**, first turn only: every call names a registry tool with arguments its `.strict()` schema accepts, and matches an expected call (a month argument is any date in that month; dates exact); a no-tool case passes only with no call |
 | `routing` | 40 messages → expected tier, incl. the sticky-escalation trap (deep question followed by a trivial one) | **Deterministic**: the classifier is application code, so its tier assignment is exactly checkable. Asserts no message escalates without a trigger, and that a self-contained question returns to Tier 1 |
-| `grounding` | 25 questions over a fixed fixture database, including **"how much did I spend on food last month"** over a `Food → {Groceries, Dining}` tree | **Deterministic**: does the stated figure equal the engine's figure? Asserts the model reported `total` rather than summing rows, and never mixed a parent row with its children |
+| `grounding` | 25 questions over a fixed fixture database, including **"how much did I spend on food last month"** over a `Food → {Groceries, Dining}` tree — **built**: `tasks/grounding.ts`. Each replays one tool turn whose result is frozen in `tasks/grounding-results.json`; an integration test proves each frozen result equals the production handler's output over the fixture | **Deterministic**: every figure the answer states must trace to a value in the results it was given, at its stated precision (a sum or difference it computed traces to nothing); required figures stated to the rupee; known wrong answers (a parent's own row, summed tag rows, summed net-worth levels, an unavailable metric as 0%) forbidden; the net-worth basis named. A `detail` result for a parent total, or a `rollup` for a child, passes only by the right further call. Pass rate → `retrievalGrounding` |
 | `analysis` | 15 open analyses (portfolio, health, period, cross-domain) | Rubric; LLM-as-judge **advisory only** |
 | `scenario` | 10 scenarios | Deterministic on the arithmetic; rubric on the explanation |
 | `document` | 20 receipt/statement images | Deterministic: field-exact extraction |

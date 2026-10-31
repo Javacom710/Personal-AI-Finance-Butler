@@ -396,7 +396,7 @@ product/UI work item scheduled with the Phase 9 UX pass. It does not block Phase
 ## Phase 8 — Model Evaluation
 
 - Golden task suites: `parse`, `classify`, `tool-select`, `grounding`, `analysis`, `scenario`, `document`, `injection`, `robustness`
-  - *Progress (one PR per suite):* `parse` ✅ built — 40 cases, `src/server/ai/eval/tasks/parse.ts`. `classify` ✅ built — 60 cases, `tasks/classify.ts`. `tool-select` ✅ built — 30 cases, `tasks/tool-select.ts`. `routing` ✅ built — 86 cases, `tasks/routing.ts`, scoring the deterministic escalation classifier (`orchestrator/escalation.ts`), 86/86. The rest not started. **No model has been run against any suite yet.**
+  - *Progress (one PR per suite):* `parse` ✅ built — 40 cases, `src/server/ai/eval/tasks/parse.ts`. `classify` ✅ built — 60 cases, `tasks/classify.ts`. `tool-select` ✅ built — 30 cases, `tasks/tool-select.ts`. `routing` ✅ built — 86 cases, `tasks/routing.ts`, scoring the deterministic escalation classifier (`orchestrator/escalation.ts`), 86/86. `grounding` ✅ built — 25 cases, `tasks/grounding.ts`, over tool results frozen from the production handlers (`tasks/grounding-results.json`, proved by `tests/integration/ai-eval-grounding.test.ts`); its pass rate is `retrievalGrounding`. The rest not started. **No model has been run against any suite yet.**
   - *Catalogue (ADR-45):* re-read 2026-10-31 (85 models). Five evaluation candidates added (`EVALUATION_CANDIDATES` in `config/models.ts`), unrouted until measured.
 - Runner, deterministic scoring, report generation
 - Record measured entries: results in `ai_model_evaluations`, loaded over the declared defaults in `capabilities.ts` ([ADR-44](DECISIONS.md#adr-44--the-capability-matrix-stays-capabilitiests-checked-at-startup))
@@ -405,7 +405,7 @@ product/UI work item scheduled with the Phase 9 UX pass. It does not block Phase
 **Done when**
 - [ ] Every tier has at least one model meeting its thresholds (Tier 1 `schemaAdherence ≥ 0.95`; any tool-using route `toolCallCorrectness ≥ 0.90`)
 - [ ] Scoring is deterministic wherever a right answer exists; LLM-as-judge is advisory only and never scores a numeric claim
-- [ ] The `grounding` suite compares stated figures against engine output
+- [x] The `grounding` suite compares stated figures against engine output — `tasks/grounding.ts`: every stated figure must trace to the frozen handler output, which an integration test proves equal to the engine's
 - [ ] The `injection` suite confirms no write is attempted and no unexpected tool is called
 - [ ] A routing order is proposed by the harness and accepted into configuration by a human
 - [ ] CI fails when a production-routed model has no entry or a stale one
