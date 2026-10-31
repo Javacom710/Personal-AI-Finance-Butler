@@ -186,6 +186,14 @@ describe('classifyEscalation', () => {
     expect(classifyEscalation('Use my salary account balance.').modelChoiceIgnored).toBeUndefined();
   });
 
+  it('escalates on a requested analysis, not on an analysis noun', () => {
+    expect(classifyEscalation('How much did I pay for a portfolio review?').tier).toBe(1);
+    expect(classifyEscalation('Explain what a risk is.').tier).toBe(1);
+    expect(classifyEscalation('Review my spending this month.').reason).toBe('review_or_analysis');
+    expect(classifyEscalation('I want an analysis of my cash flow.').reason).toBe('review_or_analysis');
+    expect(classifyEscalation('What are the risks in my portfolio?').reason).toBe('review_or_analysis');
+  });
+
   it('counts a wrong model-choice flag as a failure', () => {
     const neverFlags = scoreRouting((message, previous) => {
       const { modelChoiceIgnored: _ignored, ...rest } = classifyEscalation(message, previous);

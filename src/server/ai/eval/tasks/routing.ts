@@ -180,6 +180,11 @@ export const ROUTING_CASES: readonly RoutingGoldenCase[] = [
   // — A long question that points back; a model named after the task —
   c(77, 'What does that mean for my portfolio and savings?', 2, REVIEW),
   { ...c(78, 'Use my transaction history to analyze spending patterns with the best model.', 2), flagsModelChoice: true },
+
+  // — Analysis nouns as an expense or a concept —
+  c(79, 'How much did I pay for a portfolio review?', 1),
+  c(80, 'Explain what a risk is.', 1),
+  c(81, 'Review my spending this month.', 2),
 ];
 
 export interface RoutingFailure {

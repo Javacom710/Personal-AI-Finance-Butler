@@ -97,10 +97,14 @@ function comparesPeriods(m: string): boolean {
 const TRIGGERS: readonly (readonly [Exclude<EscalationReason, 'routine' | 'dependent_follow_up'>, (m: string) => boolean])[] = [
   [
     'review_or_analysis',
+    // The requested operation, not the noun: "review my month", "a review of
+    // this month", "analyze my portfolio". "How much did I pay for a portfolio
+    // review?" is an expense, and "explain what a risk is" is a concept.
     (m) =>
-      /\b(review|analy[sz]e|analysis|assess|assessment|evaluate|evaluation|audit (my|of my)|deep dive|investigat\w*|patterns?|insights?|pay attention to|financial health|overall picture|risks?)\b/.test(
-        m,
-      ),
+      /\b(analy[sz]e|review|assess|evaluate|audit|investigate) (my|our|the|this|how|where|what|me|it|that|spending|expenses|finances|portfolio|cash flow|budget)\b/.test(m) ||
+      /\b(review|analysis|assessment|evaluation|audit|investigation|deep dive) (of|on|into)\b/.test(m) ||
+      /\b(deep dive|patterns?|insights?|pay attention to|financial health|overall picture)\b/.test(m) ||
+      /\b(concentration risks?|risk exposure|risks? (in|of|to) my|my \w+ risks?)\b/.test(m),
   ],
   [
     'scenario',
