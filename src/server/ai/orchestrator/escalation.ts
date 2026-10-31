@@ -47,6 +47,28 @@ export interface PreviousTurn {
   readonly tier: EscalationTier;
 }
 
+/**
+ * The financial domains a message names. A relational phrase escalates only
+ * across two of them: "cash relative to upcoming obligations" weighs two tool
+ * results, "food relative to total expenses" is one expense summary.
+ */
+const DOMAINS: readonly RegExp[] = [
+  // cash and balances ("enough" asks whether the cash is there)
+  /\b(cash|balances?|savings|bank|accounts?|liquid|wallets?|enough)\b/,
+  // obligations
+  /\b(obligations?|bills?|emis?|loans?|rent|recurring|subscriptions?|commitments?|dues|liabilit(y|ies)|debts?|credit cards?)\b/,
+  // spending and income
+  /\b(spend|spending|spent|expenses?|income|salary|cash flow|savings rate)\b/,
+  // investments
+  /\b(invest|investing|investments?|portfolio|holdings?|sips?|stocks?|mutual funds?|allocation)\b/,
+  // net worth and other assets
+  /\b(net worth|assets?|property|gold)\b/,
+];
+
+function domainsIn(m: string): number {
+  return DOMAINS.filter((domain) => domain.test(m)).length;
+}
+
 /** One reference to a period: "this month", "last year", "today", "August", "2025", "two months ago". */
 const PERIOD_REF =
   /\b(this|last|previous|prior|next|same) (week|month|quarter|year|period)\b|\b(today|yesterday|ytd)\b|\b(january|february|march|april|may|june|july|august|september|october|november|december)\b|\b20\d\d\b|\b\w+ (weeks?|months?|quarters?|years?) ago\b/g;
@@ -94,7 +116,8 @@ const TRIGGERS: readonly (readonly [Exclude<EscalationReason, 'routine' | 'depen
     // net-worth result carries both figures.
     'cross_domain',
     (m) =>
-      /\b(relative to|in relation to|enough to cover|enough for|cover my|before (considering|investing|i invest)|based on my|given my)\b/.test(m),
+      /\b(relative to|in relation to|enough to cover|enough for|cover my|before (considering|investing|i invest)|based on my|given my)\b/.test(m) &&
+      domainsIn(m) >= 2,
   ],
   [
     'multi_period_comparison',
@@ -117,7 +140,7 @@ const TRIGGERS: readonly (readonly [Exclude<EscalationReason, 'routine' | 'depen
  */
 const POINTS_BACK =
   /^(what about|how about|same for|same thing for|now for|break (that|it|this) down|tell me more|more details?|go deeper|elaborate|explain (that|this|it))\b/;
-const CONJUNCTION = /^(and|but|then|so|also),? ?/;
+const CONJUNCTION = /^(and|but|then|so|also)\b,? ?/;
 const QUESTION_FRAME = /^(what is|what's|what are|what was|what were|how much|how many|which|show|list|tell me|give me)\b/;
 /** A word that needs the previous answer. "This month" is a period, not a reference back. */
 const REFERS_BACK = /\b(that|it|those|these|them)\b|\bthis\b(?! (week|month|quarter|year))/;

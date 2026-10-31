@@ -89,6 +89,17 @@ describe('classifyEscalation', () => {
     expect(classifyEscalation('What drove the increase in my spending last month?').tier).toBe(2);
   });
 
+  it('escalates a relational question only across two domains', () => {
+    expect(classifyEscalation('How much is food spending relative to total expenses this month?').tier).toBe(1);
+    expect(classifyEscalation('How much cash do I have relative to my upcoming obligations?').tier).toBe(2);
+    expect(classifyEscalation('Do I have enough for rent?').tier).toBe(2);
+  });
+
+  it('matches a conjunction only as a whole word', () => {
+    expect(classifyEscalation('Sort my accounts by balance.', { tier: 2 }).tier).toBe(1);
+    expect(classifyEscalation('Also last year?', { tier: 2 }).tier).toBe(2);
+  });
+
   it('escalates a comparison only when it compares periods', () => {
     expect(classifyEscalation('Compare my two credit cards.').tier).toBe(1);
     expect(classifyEscalation('Compare food and transport spending last month.').tier).toBe(1);
