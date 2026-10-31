@@ -55,6 +55,12 @@ export interface EvalCase {
    * Absent: a schema case falls back to `score`, which then answers both.
    */
   readonly checkSchema?: (output: string | null) => boolean;
+  /**
+   * Were the tool calls right? Feeds `toolCallCorrectness`. Absent: a tool case
+   * counts as correct when it made a call and passed. A case whose right answer
+   * is *no* call needs this, or the correct answer would count as a failure.
+   */
+  readonly checkToolCalls?: (toolCalls: readonly { name: string; argumentsJson: string }[]) => boolean;
 }
 
 export interface CaseResult {
@@ -148,7 +154,11 @@ export async function evaluateModel(
       schemaValid: testCase.schema
         ? (testCase.checkSchema ? testCase.checkSchema(response.value.content) : passed)
         : null,
-      toolCallValid: testCase.tools ? response.value.toolCalls.length > 0 && passed !== false : null,
+      toolCallValid: testCase.tools
+        ? (testCase.checkToolCalls
+          ? testCase.checkToolCalls(response.value.toolCalls)
+          : response.value.toolCalls.length > 0 && passed !== false)
+        : null,
       errorClass: null,
     });
   }
