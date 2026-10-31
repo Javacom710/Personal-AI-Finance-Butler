@@ -18,7 +18,12 @@ import { z } from 'zod';
 
 import { loadDotEnv, env } from '../src/lib/env';
 import { createNvidiaProvider } from '../src/server/ai/provider/nvidia-build';
-import { resolveModelConfig, unavailableCandidates, CANDIDATE_POOL } from '../src/server/ai/config/models';
+import {
+  resolveModelConfig,
+  unavailableCandidates,
+  CANDIDATE_POOL,
+  EVALUATION_CANDIDATES,
+} from '../src/server/ai/config/models';
 import { validateAgainst, toJsonSchema } from '../src/server/ai/structured/validate';
 
 const CATALOGUE_ONLY = process.argv.includes('--catalogue');
@@ -83,6 +88,10 @@ async function main(): Promise<void> {
   const unroutable = unavailableCandidates();
   if (unroutable.length > 0) {
     console.log(`\n${unroutable.length} candidate(s) have no catalogue identifier and cannot be routed to.`);
+  }
+  console.log('\nEvaluation candidates (measured only, never routed until accepted):');
+  for (const candidate of EVALUATION_CANDIDATES) {
+    console.log(`  ${ids.has(candidate.id) ? 'PRESENT ' : 'MISSING '} ${candidate.id}  (Tier ${candidate.tier})`);
   }
   if (CATALOGUE_ONLY) return;
 

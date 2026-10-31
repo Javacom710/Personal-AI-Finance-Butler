@@ -49,7 +49,13 @@ export const CANDIDATE_POOL: readonly CandidateId[] = [
   // Confirmed present in the Phase 0 catalogue read.
   { declared: 'nvidia/nemotron-3-super-120b-a12b', catalogue: 'nvidia/nemotron-3-super-120b-a12b' },
   { declared: 'nvidia/nemotron-3-ultra-550b-a55b', catalogue: 'nvidia/nemotron-3-ultra-550b-a55b' },
-  { declared: 'nvidia/nemotron-3-nano-30b-a3b', catalogue: 'nvidia/nemotron-3-nano-30b-a3b' },
+  {
+    declared: 'nvidia/nemotron-3-nano-30b-a3b',
+    catalogue: 'nvidia/nemotron-3-nano-30b-a3b',
+    note:
+      'Absent from the 2026-09-03 and 2026-10-31 reads; `nvidia/nemotron-nano-3-30b-a3b` is present. ' +
+      'Kept as-is until the eval decides (ADR-41, ADR-45).',
+  },
   { declared: 'google/gemma-4-31b-it', catalogue: 'google/gemma-4-31b-it' },
   { declared: 'openai/gpt-oss-20b', catalogue: 'openai/gpt-oss-20b' },
   {
@@ -62,7 +68,10 @@ export const CANDIDATE_POOL: readonly CandidateId[] = [
   {
     declared: 'deepseek-ai/deepseek-v4-flash',
     catalogue: 'deepseek-ai/deepseek-v4-flash-0731',
-    note: 'CLAUDE.md omits the -0731 suffix the catalogue carries. Confirmed by the authenticated read.',
+    note:
+      'CLAUDE.md omits the -0731 suffix the catalogue carries. Confirmed by the authenticated read; ' +
+      '**absent again from the 2026-10-31 read**, which carries `deepseek-ai/deepseek-v4.1-flash` ' +
+      'instead (an evaluation candidate, not a substitution).',
   },
 
   // Absent from the AUTHENTICATED catalogue (`npm run ai:catalogue`, 83 models).
@@ -101,6 +110,66 @@ export const CANDIDATE_POOL: readonly CandidateId[] = [
   },
 ];
 
+/**
+ * Models to **measure**, not to route to.
+ *
+ * The 2026-10-31 catalogue read (PROJECT-STATE.md, Phase 8 log) found the
+ * Tier 1 primary still missing and the Tier 2 DeepSeek identifier newly
+ * missing, and named the catalogue entries that look like their successors or
+ * fill an empty slot. ADR-41 forbids routing to a lookalike on the strength of
+ * its name, so they live here: the eval harness runs them beside the routed
+ * models, and none of them is in {@link DEFAULT_ORDER} or reachable through
+ * {@link normaliseModelId}. One goes into a tier's order only after it has a
+ * measured capability entry and a human accepts the proposed order.
+ */
+export interface EvaluationCandidate {
+  /** The catalogue identifier, confirmed present by the read named below. */
+  readonly id: string;
+  /** The tier it would be measured for, and could later serve. */
+  readonly tier: Tier;
+  readonly confirmedOn: string;
+  readonly reason: string;
+}
+
+export const EVALUATION_CANDIDATES: readonly EvaluationCandidate[] = [
+  {
+    id: 'nvidia/nemotron-nano-3-30b-a3b',
+    tier: 1,
+    confirmedOn: '2026-10-31',
+    reason:
+      'Apparent rename of the Tier 1 primary `nvidia/nemotron-3-nano-30b-a3b`, which has been absent ' +
+      'since 2026-09-03. Same name, unproven weights.',
+  },
+  {
+    id: 'nvidia/nemotron-3.5-lightning-30b-a3b',
+    tier: 1,
+    confirmedOn: '2026-10-31',
+    reason: 'New since 2026-09-03; same size class as the missing Tier 1 primary.',
+  },
+  {
+    id: 'deepseek-ai/deepseek-v4.1-flash',
+    tier: 2,
+    confirmedOn: '2026-10-31',
+    reason:
+      'The Tier 2 fallback `deepseek-ai/deepseek-v4-flash-0731` is absent from the 2026-10-31 read; ' +
+      'this looks like its successor.',
+  },
+  {
+    id: 'z-ai/glm-5.3-flash',
+    tier: 2,
+    confirmedOn: '2026-10-31',
+    reason: 'The first GLM model in the catalogue since `zai-org/glm-5.2` was found absent.',
+  },
+  {
+    id: 'nvidia/nemotron-3.5-super-vl-120b-a12b',
+    tier: 4,
+    confirmedOn: '2026-10-31',
+    reason:
+      'The only new vision-language model. Tier 4 has a single model and so no fallback, because ' +
+      '`nvidia/nemotron-nano-12b-v2-vl` does not exist.',
+  },
+];
+
 /** `CLAUDE.md`'s name → the catalogue's name. Returns the input when unknown. */
 export function normaliseModelId(declared: string): string {
   const found = CANDIDATE_POOL.find((c) => c.declared === declared);
@@ -134,7 +203,9 @@ const DEFAULT_ORDER: Readonly<Record<Tier, readonly string[]>> = {
   // without having seen the document. The catalogue does carry other vision
   // models (`meta/llama-3.2-*-vision-instruct`, `microsoft/phi-3-vision-*`), but
   // they are outside `CLAUDE.md`'s approved candidate pool, so adding one is a
-  // scope decision rather than a routing fix.
+  // scope decision rather than a routing fix. That decision was taken for one
+  // model on 2026-10-31: `nemotron-3.5-super-vl-120b-a12b` is an evaluation
+  // candidate (EVALUATION_CANDIDATES), and stays out of this order until measured.
   4: ['nvidia/nemotron-3-nano-omni-30b-a3b-reasoning'],
   5: [],
 };

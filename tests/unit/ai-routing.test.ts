@@ -4,7 +4,13 @@ import {
   createCapabilityMatrix,
   type ModelCapabilities,
 } from '@/server/ai/config/capabilities';
-import { CANDIDATE_POOL, normaliseModelId, resolveModelConfig, unavailableCandidates } from '@/server/ai/config/models';
+import {
+  CANDIDATE_POOL,
+  EVALUATION_CANDIDATES,
+  normaliseModelId,
+  resolveModelConfig,
+  unavailableCandidates,
+} from '@/server/ai/config/models';
 import { createHealthRegistry, CONSECUTIVE_FAILURES_TO_OPEN, OPEN_MS } from '@/server/ai/orchestrator/breaker';
 import { selectCandidates } from '@/server/ai/orchestrator/select';
 import { requirementFor, escalated, allCapabilities } from '@/server/ai/orchestrator/requirements';
@@ -386,5 +392,22 @@ describe('I-56 — the attempt chain', () => {
     const result = await runChain([], async () => ({ ok: true, value: response }), health(), () => NOW, exhausted);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.failure.kind).toBe('no_capable_model');
+  });
+});
+
+describe('ADR-41 — an evaluation candidate is measured, never routed', () => {
+  it('lists each candidate once, for a tier that has models', () => {
+    const ids = EVALUATION_CANDIDATES.map((c) => c.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const c of EVALUATION_CANDIDATES) expect([1, 2, 3, 4]).toContain(c.tier);
+  });
+
+  it('is in no default tier order and is not reachable by name normalisation', () => {
+    const routed = new Set(resolveModelConfig().allConfigured());
+    const normalisedTargets = new Set(CANDIDATE_POOL.map((c) => normaliseModelId(c.declared)));
+    for (const c of EVALUATION_CANDIDATES) {
+      expect(routed.has(c.id), c.id).toBe(false);
+      expect(normalisedTargets.has(c.id), c.id).toBe(false);
+    }
   });
 });

@@ -2,7 +2,7 @@
 
 Durable status record. Conversation history is temporary; this file is not. Read this first after any context reset, then verify it against `docs/`, the source tree, and the tests before trusting it.
 
-> **Read first — status as of 2026-10-26.** **Phase 7 (AI Infrastructure) is complete**: every ROADMAP Phase 7 "Done when" box is ticked, with the evidence named on each. **Phase 8 (Model Evaluation) started 2026-10-31**: the golden corpora are being built one suite per PR, starting with `parse`; the ADR-45 catalogue check is still owed (see the [Phase 8 log](#phase-8-log)). Both hard drives that held working copies have failed; the repository lives on GitHub, and Claude, Codex and ChatGPT work from it through pull requests. The dated sections further down are historical records. For the recovery, the blocker register and the working rules, see [docs/RECOVERY-2026-10.md](docs/RECOVERY-2026-10.md).
+> **Read first — status as of 2026-10-31.** **Phase 7 (AI Infrastructure) is complete**: every ROADMAP Phase 7 "Done when" box is ticked, with the evidence named on each. **Phase 8 (Model Evaluation) started 2026-10-31**: the golden corpora are being built one suite per PR, starting with `parse`; the ADR-45 catalogue check is done and five evaluation candidates were added (see the [Phase 8 log](#phase-8-log)). Both hard drives that held working copies have failed; the repository lives on GitHub, and Claude, Codex and ChatGPT work from it through pull requests. The dated sections further down are historical records. For the recovery, the blocker register and the working rules, see [docs/RECOVERY-2026-10.md](docs/RECOVERY-2026-10.md).
 
 **Last updated:** 2026-10-31 · **Current phase:** **8 — Model Evaluation, in progress** ([log](#phase-8-log)). Phase 7 — AI Infrastructure COMPLETE (steps 7.0–7.7; blockers B-1 … B-4, H-1 and R-1 … R-4 closed). Phase 6 remains complete (steps 6.0–6.9 and 6.11 implemented and verified; 6.10 closed unbuilt).
 
@@ -49,7 +49,38 @@ Sequence approved 2026-08-11: **Phase 3 — Money Management → Phase 4 — Inv
 
 ## Phase 8 log
 
-**2026-10-31 — catalogue check (ADR-45) not yet done.** `npm run ai:catalogue` was run from a cloud session and exited 0 with *"NVIDIA_API_KEY : NOT CONFIGURED"*: that environment has no key, and its network policy also refuses `integrate.api.nvidia.com`. **So what changed in the catalogue since 2026-09-03 is still unknown.** The last authenticated read is still the 2026-09-03 one (82 models, the Tier 1 primary `nvidia/nemotron-3-nano-30b-a3b` missing, `nvidia/nemotron-nano-3-30b-a3b` present). Routing is unchanged. The check has to be run where the key is set (the development PC, or a cloud environment given the key and that host), and its result recorded here before any model is evaluated.
+**2026-10-31 — catalogue check (ADR-45) done.** Two independent reads agree. One on the development PC (posted on PR #15: `npm run ai:catalogue` plus a direct read of `/v1/models`), and `npm run ai:catalogue` from a cloud session once its key and network access were set up. An earlier cloud attempt the same morning had no key and could not reach the host.
+
+**85 models** (82 on 2026-09-03).
+
+| Configured candidate | 2026-10-31 | In the catalogue instead |
+|---|---|---|
+| `nvidia/nemotron-3-super-120b-a12b` | present | — |
+| `nvidia/nemotron-3-ultra-550b-a55b` | present | — |
+| `nvidia/nemotron-3-nano-30b-a3b` (**Tier 1 primary**) | **still missing** | `nvidia/nemotron-nano-3-30b-a3b`, unchanged since 2026-09-03 |
+| `google/gemma-4-31b-it` | present | — |
+| `openai/gpt-oss-20b` | present | — |
+| `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning` | present | — |
+| `nvidia/nemotron-3-embed-1b` | present | — |
+| `deepseek-ai/deepseek-v4-flash` → `-0731` (Tier 2 fallback) | **now missing — new drift** | `deepseek-ai/deepseek-v4.1-flash` |
+| `zai-org/glm-5.2` | absent, as before | `z-ai/glm-5.3-flash` |
+| `nvidia/nemotron-nano-12b-v2-vl` | absent | `nvidia/nemotron-3.5-super-vl-120b-a12b`, the only new VL model |
+| `deepseek-ai/deepseek-v4-pro`, `mistralai/mistral-medium-3.5-128b`, `qwen/qwen3-next-80b-a3b-instruct` | absent | — |
+
+New since 2026-09-03: a `nvidia/nemotron-3.5-*` family. Its models are `lightning-30b-a3b`, `super-vl-120b-a12b`, `bolt-e4b`, `embed-1b`, `embed-8b` and `content-safety`.
+
+**What this means for routing today, which is unchanged (ADR-41):**
+- **Tier 1** serves through `openai/gpt-oss-20b`. Its primary costs one failed attempt per breaker window.
+- **Tier 2** is now down to one live model, `nemotron-3-super-120b-a12b`, because its DeepSeek fallback is gone.
+
+**Five evaluation candidates added**, approved by the owner. They are in `EVALUATION_CANDIDATES` in `src/server/ai/config/models.ts`. None is in a tier order or reachable by name normalisation (asserted in `ai-routing.test.ts`), and `ai:catalogue` now reports each one.
+- Tier 1: `nvidia/nemotron-nano-3-30b-a3b` and `nvidia/nemotron-3.5-lightning-30b-a3b`.
+- Tier 2: `deepseek-ai/deepseek-v4.1-flash` and `z-ai/glm-5.3-flash`.
+- Tier 4: `nvidia/nemotron-3.5-super-vl-120b-a12b`.
+
+A candidate enters routing only after it has a measured capability entry and a human accepts the proposed order.
+
+**Environment note.** Node 22's built-in `fetch` ignores `HTTPS_PROXY`, so behind the cloud egress proxy every AI script fails with `transport — fetch failed` (DNS `ENOTFOUND`). The fix is to run with `NODE_USE_ENV_PROXY=1`. No code change was made: the PC has no proxy, and production should not depend on one.
 
 **2026-10-31 — `parse` corpus built** (`src/server/ai/eval/tasks/parse.ts`, 40 cases, suite version 1). Cases: plain expenses, income, four transfer shapes (between own accounts, credit-card bill, ATM to cash, wallet top-up), shorthand amounts (k, lakh), Indian digit grouping, six non-INR cases, relative and boundary dates (month end, 29 February, the year before), missing and ambiguous input, adversarial text inside the input, and Hinglish. Scoring is deterministic. Two changes came with it:
 
