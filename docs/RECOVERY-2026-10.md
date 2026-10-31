@@ -95,3 +95,30 @@ The repository lives on GitHub. Claude, Codex and ChatGPT all work from it, and 
 - **CI is the authority for integration tests.** It runs every check on PostgreSQL 17, the version production targets, and on 18.4, the version the PC runs (D-23, ADR-47). A test that passes on only one of them is a defect, not a flake (R-3). A hosted database for running the app is a decision for the deployment phase.
 - **Secrets never enter git.** When a cloud agent needs `NVIDIA_API_KEY` (Phase 8 evaluation), it goes into that agent's environment settings or a GitHub Actions secret, never into a file.
 - **Backups:** every branch on GitHub; the `C:\Dev` mirror; and a periodic `git bundle --all` copied off the machine. `.env` is backed up only offline or in a password manager.
+
+## Switching agents
+
+Work moves between Claude and Codex through the repository, not through chat history. The incoming agent knows only what is in `AGENTS.md`/`CLAUDE.md`, `PROJECT-STATE.md` and `docs/`, so anything decided in a conversation is written into those files in the PR that acts on it.
+
+**Before switching.** The outgoing agent's open branches are finished as a PR or left alone; the incoming agent never pushes to them. Start the new agent with: *"Read AGENTS.md and PROJECT-STATE.md, then continue <task> on a `codex/<topic>` branch through a PR."*
+
+**Claude Code cloud** (claude.ai/code, environment "Default") is already configured: `.claude/settings.json` runs the setup script; network access is Limited with `integrate.api.nvidia.com` allowed; `NVIDIA_API_KEY` is a *network secret* the proxy injects, so the session sees only `NVIDIA_API_KEY=proxy-injected`; and `NODE_USE_ENV_PROXY=1` makes Node 22's `fetch` use that proxy.
+
+**Codex cloud** (chatgpt.com/codex) has its own environment, configured in Codex settings rather than in this repository. Its install script runs on Debian 13 with Node 24, puts npm 11.19.1 under `/workspace/.financeos-tools`, unpacks PostgreSQL **17** under `/workspace/.financeos-system/root` with its cluster at `/workspace/.financeos-postgres/data`, writes its own git-ignored `.env` with random development credentials, then migrates and seeds. It writes `/workspace/.financeos-onboarding/start-db.sh` and `install.sh`; each task starts the database with the first, and a dependency refresh reruns the second. `scripts/cloud-session-setup.sh` is not used there. CI on Node 22 stays the authority when the two Node versions disagree.
+
+Two Codex rules differ from Claude's, and both matter for Phase 8 evaluation runs:
+
+- **Secrets are removed before the agent phase.** A key stored as a Codex *secret* reaches the evaluation scripts only if the install script copies it into `.env`, so the install script ends with:
+  ```bash
+  for k in NVIDIA_API_KEY TWELVE_DATA_API_KEY; do
+    if [ -n "${!k:-}" ]; then
+      grep -v "^$k=" .env > .env.tmp || true; printf '%s=%s\n' "$k" "${!k}" >> .env.tmp; mv .env.tmp .env
+    fi
+  done
+  ```
+  The key then exists in plain text in that container's `.env`, as it does on the PC. Codex has no equivalent of Claude's proxy-injected network secret: `NVIDIA_API_KEY=proxy-injected` is a Claude-only placeholder and must never be a Codex value.
+- **Agent internet access is off by default.** Turn it on, limited to `integrate.api.nvidia.com` (plus `api.twelvedata.com`, `www.amfiindia.com` and `api.frankfurter.dev` for market-data checks).
+
+**Codex CLI on the PC** needs nothing extra: it uses `C:\Dev\AIEPF\.env` and the local PostgreSQL 18. Work on a branch and push; the `C:\Dev` clone stays a mirror of GitHub.
+
+**Not in the repository, by design.** The PC's nightly backup (`C:\HQ\_tools\daily-backup.ps1`, Task Scheduler task "Daily project backup", 20:00) mirrors both repositories, copies `.env` and takes a `pg_dump --format=custom` of the local database to `B:\Backups`, keeping the newest 30 of each; it logs to `B:\Backups\backup.log`. Restoring a dump: `pg_restore --clean --if-exists -d "<DATABASE_MIGRATION_URL>" <file>.dump`.
