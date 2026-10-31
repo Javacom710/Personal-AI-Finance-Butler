@@ -166,6 +166,10 @@ export const ROUTING_CASES: readonly RoutingGoldenCase[] = [
   c(68, 'Why is diversification important?', 1),
   c(69, 'Explain why transfers are not expenses.', 1),
   c(70, 'Why is my food spending so high this month?', 2),
+
+  // — A back-reference without a conjunction; a model described after its name —
+  c(71, 'What does that mean for my portfolio?', 2, REVIEW),
+  { ...c(72, 'Use the model with advanced analysis to show my balance.', 1), flagsModelChoice: true },
 ];
 
 export interface RoutingFailure {

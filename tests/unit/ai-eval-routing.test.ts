@@ -132,6 +132,21 @@ describe('classifyEscalation', () => {
     expect(classifyEscalation('How much did I use my credit card last month?').modelChoiceIgnored).toBeUndefined();
   });
 
+  it('removes the description of a chosen model, not the question', () => {
+    expect(classifyEscalation('Use the model with advanced analysis to show my balance.')).toEqual({
+      tier: 1,
+      reason: 'routine',
+      modelChoiceIgnored: true,
+    });
+    expect(classifyEscalation('Use the model best at analysis and review my month.').tier).toBe(2);
+  });
+
+  it('treats a short question that points back as dependent', () => {
+    expect(classifyEscalation('What does that mean for my portfolio?', { tier: 2 }).tier).toBe(2);
+    expect(classifyEscalation('What does that mean for my portfolio?', { tier: 1 }).tier).toBe(1);
+    expect(classifyEscalation("What's my HDFC balance?", { tier: 2 }).tier).toBe(1);
+  });
+
   it('counts a wrong model-choice flag as a failure', () => {
     const neverFlags = scoreRouting((message, previous) => {
       const { modelChoiceIgnored: _ignored, ...rest } = classifyEscalation(message, previous);

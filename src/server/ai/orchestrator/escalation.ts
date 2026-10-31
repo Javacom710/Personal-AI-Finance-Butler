@@ -171,7 +171,8 @@ function isDependentFollowUp(m: string): boolean {
   if (m.split(' ').filter(Boolean).length > DEPENDENT_MAX_WORDS) return false;
   if (BARE_WHY.test(m) || POINTS_BACK.test(m)) return true;
   const conjunction = CONJUNCTION.exec(m);
-  if (!conjunction) return false;
+  // "What does that mean for my portfolio?" points back without a conjunction.
+  if (!conjunction) return REFERS_BACK.test(m);
   const rest = m.slice(conjunction[0].length);
   if (POINTS_BACK.test(rest)) return true;
   // A complete question after "and"/"but" stands on its own.
@@ -195,7 +196,9 @@ const MODEL_NOUN =
  * question around it.
  */
 const MODEL_CHOICE = new RegExp(
-  `\\b(?:please )?(?:use|using|switch to|switch|run (?:it |this )?(?:on|with)|via|pick|choose|select|try|answer with)\\b[^,.;!?]*?\\b${MODEL_NOUN}\\b(?: you have)?(?: and)?`,
+  `\\b(?:please )?(?:use|using|switch to|switch|run (?:it |this )?(?:on|with)|via|pick|choose|select|try|answer with)\\b[^,.;!?]*?\\b${MODEL_NOUN}\\b(?: you have)?` +
+    // and what describes it: "…the model with advanced analysis", up to the question
+    `(?: (?:with|that has|that is|that's|which is|which has|for|built for|best at|good at) [^,.;!?]*?(?= to | and |[,.;!?]|$))?(?: and)?`,
   'g',
 );
 
