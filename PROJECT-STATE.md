@@ -93,7 +93,18 @@ A candidate enters routing only after it has a measured capability entry and a h
 
 The schema (`categorySuggestionSchema` in `ai/proposals/schemas.ts`) and the prompt (`ai/prompts/classify-transaction.ts`) are the ones Phase 9 will use. The fixture tree is restated in the suite, because the AI layer may not import `db/`; a test asserts it equals `DEFAULT_CATEGORIES`.
 
-Next: `tool-select`, `routing`, `grounding`, `scenario`, `injection`, `robustness`, `document`, `analysis`; then the `ai:eval` runner.
+**2026-10-31 — #16 merged; `tool-select` corpus built** (`src/server/ai/eval/tasks/tool-select.ts`, 30 cases, suite version 1). Each case is a finance question asked on a fixed date (2026-10-15, a Thursday). The model gets the production tool registry. Every registry tool is expected by at least one case. The cases cover spending and cash flow, budgets and recurring bills, balances, net worth (cost and market basis, one date or a series), investments, one question that needs two tools, two questions that need no tool (a concept, and a write request the read-only tools cannot do), and an attempt to pass a `userId`. Only the first turn is scored, and scoring is deterministic:
+- Every call must name a registry tool, and its arguments must pass that tool's own `.strict()` schema, the same check dispatch makes.
+- Every call must match an expected call, arguments included. "Last month" is any `asOf` in September; the current month may also be omitted. Dates and date sets are exact.
+- A question that needs several tools passes when the first turn calls any of them correctly.
+
+Two changes came with it:
+- **The harness counted a correct "no call" as a tool-call failure.** `toolCallValid` was `toolCalls.length > 0 && passed`, so a model that rightly answered a concept question without a tool lowered `toolCallCorrectness`. A case can now supply `checkToolCalls`, and the tool-select suite does.
+- **The `answerFinanceQuestion` prompt now exists** (`ai/prompts/answer-finance-question.ts`). It sends the date, the weekday, the base currency and the rules, but no account or category list. Phase 9 reuses it.
+
+**Finding, not fixed here:** AI-SYSTEM.md §8 describes a `categoryNames` argument on `get_expense_summary`, resolved server-side. The registry has no such argument. So "how much did I spend on food" is answered from a category breakdown, which the suite expects. Whether to add `categoryNames` is for the `grounding` suite to decide.
+
+Next: `routing`, `grounding`, `scenario`, `injection`, `robustness`, `document`, `analysis`; then the `ai:eval` runner.
 ---
 
 ## Working protocol — applies to every phase from 2 onward
@@ -144,7 +155,7 @@ Corollaries that follow from the above:
 | 6 — Market Data | ✅ **complete, verified.** 6.0–6.9 and **6.11** implemented; **6.10 closed — not built** (OD-15). No open decision remains |
 | 6.5 — Recovery (Oct 2026) | ✅ repository rebuilt from the failed drives and published to GitHub — [docs/RECOVERY-2026-10.md](docs/RECOVERY-2026-10.md) |
 | 7 — AI Infrastructure | ✅ **complete, 2026-10-26.** 7.0–7.7 built; the Phase 8 entry-gate blockers closed (PRs #5–#12, #14) |
-| 8 — Model Evaluation | **in progress** since 2026-10-31: golden corpora being built, one PR per suite (`parse` and `classify` done). No model measured yet — see [Phase 8 log](#phase-8-log) |
+| 8 — Model Evaluation | **in progress** since 2026-10-31: golden corpora being built, one PR per suite (`parse`, `classify` and `tool-select` done). No model measured yet — see [Phase 8 log](#phase-8-log) |
 | 9–14 | not started |
 
 ---
