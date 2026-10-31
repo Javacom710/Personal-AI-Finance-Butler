@@ -189,6 +189,7 @@ export const ROUTING_CASES: readonly RoutingGoldenCase[] = [
   c(83, 'How much did I spend this September?', 1, REVIEW),
   c(84, 'Compare my spending over the last three months.', 2),
   c(85, 'Compare my spending over the past six months.', 2),
+  c(86, 'How much did I spend on model trains?', 1),
 ];
 
 export interface RoutingFailure {

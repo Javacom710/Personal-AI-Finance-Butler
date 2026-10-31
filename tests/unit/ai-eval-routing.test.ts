@@ -190,6 +190,10 @@ describe('classifyEscalation', () => {
       reason: 'routine',
       modelChoiceIgnored: true,
     });
+    // "model" as an ordinary word is not a model choice.
+    expect(classifyEscalation('How much did I spend on model trains?').modelChoiceIgnored).toBeUndefined();
+    expect(classifyEscalation('How much did I use on model kits this year?').modelChoiceIgnored).toBeUndefined();
+    expect(classifyEscalation('Answer with a reasoning model: what is my net worth?').modelChoiceIgnored).toBe(true);
     // "use" without a model nearby is not a model choice.
     expect(classifyEscalation('Use my salary account balance.').modelChoiceIgnored).toBeUndefined();
   });

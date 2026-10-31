@@ -213,14 +213,23 @@ const MODEL_NOUN =
  * and", "using deepseek". It is the instruction that is removed, not the
  * question around it.
  */
-/** At most three words between the verb and the model: "use the 'x' llm model". */
-const NEAR = "(?: [^\\s,.;!?]+){0,3}?";
+/** A name that is only ever an AI model: an LLM, a tier, a model family. */
+const SPECIFIC_MODEL =
+  "(?:llm|llms|tier ?[1-5]|gpt[\\w.-]*|deepseek[\\w.-]*|nemotron[\\w.-]*|qwen[\\w.-]*|gemma[\\w.-]*|glm[\\w.-]*|mistral[\\w.-]*|llama[\\w.-]*|claude)";
+/**
+ * The model being chosen. A specific name within three words ("use the 'x'
+ * llm"), or "model" after a determiner ("the best model", "a reasoning
+ * model"). A bare "model" is an ordinary word: "spend on model trains".
+ */
+const CHOSEN_MODEL =
+  `(?:(?: [^\\s,.;!?]+){0,3}? ${SPECIFIC_MODEL}` +
+  `| (?:the|a|an|your|another|which|best|biggest|largest|smartest|strongest|fastest|cheapest)(?: [^\\s,.;!?]+){0,2}? (?:model|models))`;
 const MODEL_CHOICE = new RegExp(
   // the verb form: "use / switch to / run it on … <model>"; the gap is bounded,
   // so "use my transaction history to analyze …" is not consumed
   `\\b(?:(?:please )?(?:use|using|switch to|switch|run (?:it |this )?(?:on|with)|via|pick|choose|select|try|answer with)` +
     // or the preposition form at the end: "… with the best model", "… on deepseek"
-    `|(?:with|on|via|through))${NEAR} ${MODEL_NOUN}\\b(?: ${MODEL_NOUN}\\b)*(?: you have)?` +
+    `|(?:with|on|via|through))${CHOSEN_MODEL}\\b(?: ${MODEL_NOUN}\\b)*(?: you have)?` +
     // and what describes it: "…the model with advanced analysis", up to the question.
     // A bare "for" introduces the task ("use deepseek for a review of my month"), so it stays.
     `(?: (?:with|that has|that is|that's|which is|which has|built for|best at|good at) [^,.;!?]*?(?= to | and |[,.;!?]|$))?(?: and)?`,
