@@ -89,8 +89,12 @@ const AGAINST_PERIOD =
  * within one period? "Compare food and transport last month" names one period
  * and is a single breakdown; "compare this month with last month" names two.
  */
+/** A range spanning several periods: "over the last three months", "month by month". */
+const MULTI_PERIOD_RANGE =
+  /\b(last|past|previous) (\d+|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|several|few) (weeks|months|quarters|years)\b|\b(month by month|year by year|quarter by quarter|week by week|each month|every month|each year|each quarter)\b/;
+
 function comparesPeriods(m: string): boolean {
-  if (AGAINST_PERIOD.test(m)) return true;
+  if (AGAINST_PERIOD.test(m) || MULTI_PERIOD_RANGE.test(m)) return true;
   return new Set(m.match(PERIOD_REF) ?? []).size >= 2;
 }
 

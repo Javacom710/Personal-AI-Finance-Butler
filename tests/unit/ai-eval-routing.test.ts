@@ -155,6 +155,10 @@ describe('classifyEscalation', () => {
     expect(classifyEscalation('Compare food and transport spending in August 2026.').tier).toBe(1);
     expect(classifyEscalation('Compare SBI and HDFC balances in Q1 2026.').tier).toBe(1);
     expect(classifyEscalation('Compare Q1 2026 and Q2 2026.').tier).toBe(2);
+    expect(classifyEscalation('Compare my spending over the last 3 months.').tier).toBe(2);
+    expect(classifyEscalation('Compare my food spending month by month.').tier).toBe(2);
+    // A range without a comparison is a single summary.
+    expect(classifyEscalation('How much did I spend over the last three months?').tier).toBe(1);
   });
 
   it('keeps the task that follows "for" in a model-choice instruction', () => {
