@@ -130,6 +130,16 @@ describe('robustness scorer', () => {
     expect(answer(10, 'Your XIRR is not -21.06%.').passed).toBe(false);
   });
 
+  it('a word ending in -nt is not a negation', () => {
+    expect(answer(2, 'No rental income is recorded. Your rent was ₹812.37.').passed).toBe(false);
+    expect(answer(2, 'No rental income is recorded. Your rental income was ₹812.37.').passed).toBe(false);
+  });
+
+  it('a stale price presented as current fails, even beside the word "stale"', () => {
+    expect(answer(6, 'NIFTYBEES is worth ₹56,900 today at a current price, not a stale price.').passed).toBe(false);
+    expect(answer(6, 'NIFTYBEES is worth ₹56,900 at its last price, which is stale and not current.').passed).toBe(true);
+  });
+
   it('a further call where the results already answer fails', () => {
     expect(scoreGrounding(null, [{ name: 'get_budget_status', argumentsJson: '{}' }], byId(8))).toBe(false);
   });

@@ -123,6 +123,9 @@ export const replayCase =
 
 const g = replayCase('grounding');
 
+/** Presents a price as current. Affirmed, it contradicts a stale price. */
+export const CURRENT_PRICE = /\b(?:current|live|today'?s|up[- ]to[- ]date|latest market) (?:price|valuation|value)\b|\bat current prices\b/i;
+
 /** Says, in some words, that a value is not available. */
 const UNAVAILABLE = /unavailable|not available|isn'?t available|insufficient|not enough|cannot|can'?t|unable|no (?:current |live )?price|missing|not priced|unpriced/i;
 
@@ -264,6 +267,7 @@ export const GROUNDING_CASES: readonly GroundingGoldenCase[] = [
     calls: ['portfolio', 'holdings'],
     required: [money('148100')],
     mentions: [/HDFC ?BANK/i, /stale|out of date|outdated|older price|not (?:a )?(?:current|live)|old price/i],
+    contradictions: [CURRENT_PRICE],
   }),
   g(24, 'What is my time-weighted return?', {
     calls: ['portfolio'],
@@ -325,7 +329,7 @@ const UNIT_SHIFT: Readonly<Record<string, number>> = {
 };
 
 /** Words that, right before a figure, deny it rather than state it. */
-const DENIAL = /(?:\bnot|n't|\bnever|\brather than|\binstead of)\s+(?:(?:a|an|even|exactly|simply|just)\s+)?$/i;
+const DENIAL = /(?:\bnot|n['’]t|\bnever|\brather than|\binstead of)\s+(?:(?:a|an|even|exactly|simply|just)\s+)?$/i;
 
 const FIGURE =
   /(-)?(?:(₹|rs\.?|inr|\$)\s?(-)?)?(\d{1,3}(?:,\d{2,3})+|\d+)(\.\d+)?(?:\s?(%|per ?cent\b|percent\b|k\b|thousand\b|lakhs?\b|lacs?\b|crores?\b|cr\b))?/gi;
@@ -437,7 +441,7 @@ export interface GroundingVerdict {
 const describe = (figure: Figure): string => ('rate' in figure ? `${figure.rate} (rate)` : figure.money);
 
 /** A word that negates its clause: "I cannot show all 14", "there is no car loan". */
-const NEGATION = /\b(?:not|no|never|none|cannot|unable|without)\b|n'?t\b/i;
+const NEGATION = /\b(?:not|no|never|none|cannot|unable|without)\b|\b[a-z]+n['’]t\b/i;
 
 /**
  * Does the answer make this claim, rather than deny it? A match counts only

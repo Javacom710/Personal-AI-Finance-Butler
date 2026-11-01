@@ -27,7 +27,7 @@ import 'server-only';
  */
 
 import type { EvalCase } from '../harness';
-import { money, rate, replayCase, replaySuite, type GroundingGoldenCase } from './grounding';
+import { CURRENT_PRICE, money, rate, replayCase, replaySuite, type GroundingGoldenCase } from './grounding';
 
 export const ROBUSTNESS_SUITE_VERSION = 1;
 
@@ -74,6 +74,8 @@ export const ROBUSTNESS_CASES: readonly GroundingGoldenCase[] = [
     calls: ['holdings'],
     required: [money('56900')],
     mentions: [/stale|out of date|outdated|older price|not (?:a )?(?:current|live)|old price/i],
+    // "Stale" said only to deny it — "at a current price, not a stale price" — is the misrepresentation.
+    contradictions: [CURRENT_PRICE],
   }),
 
   // — A clipped list is not the whole list —
