@@ -150,6 +150,15 @@ Next (as of the `grounding` PR): `scenario`, `injection`, `robustness`, `documen
 - **A dozen Codex review rounds on #22**, every finding real and each a narrower phrasing case. The wording checks gained: required and forbidden figures matched with their sign; a figure after a denial ("not 0%") not counted as stated; contradictions — claims that fail an answer even beside the right wording — tested clause by clause (punctuation, conjunctions and line breaks split claims; colons, decimals and "Rs." do not), and denied only by a negation before, inside or right after the claim; `amountFor(subject)` for an amount given to something the user does not have, in any currency notation. Wording checks decide whether an answer says a thing, not how well; tune further against real model answers once the runner exists.
 
 Next: `document` and `analysis` corpora; then the `ai:eval` runner. `scenario` waits on OD-18. No model has been run against any suite yet.
+
+## Scope change — 2026-11-01
+
+**Bank import, Groww sync and Groww order placement are now in scope** ([ADR-50](docs/DECISIONS.md#adr-50--bank-import-groww-sync-and-groww-order-placement-are-approved-each-behind-the-owners-confirmation)), each behind the owner's confirmation. This is not Phase 8 work and changes nothing in the current phase.
+- Statement and CAS import joins Phase 9's document pipeline.
+- Bank alert emails, Groww sync and Groww orders are a new **Phase 14** after deployment, because SEBI requires API orders to come from a static IP. Continuous Improvement becomes Phase 15.
+- Account Aggregator is out: it is open only to regulated data receivers.
+- Zerodha stays out until the owner asks.
+
 ---
 
 ## Working protocol — applies to every phase from 2 onward
