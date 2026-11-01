@@ -145,6 +145,13 @@ describe('analysis scorer — deterministic factual rubric', () => {
     expect(scoreAnalysisOutput(ANSWERS[golden.id]!, [{ name: 'get_accounts', argumentsJson: '{}' }], golden)).toBe(false);
   });
 
+  it('never counts toward tool-call correctness, with or without a call', () => {
+    for (const testCase of analysisSuite()) {
+      expect(testCase.checkToolCalls?.([])).toBeNull();
+      expect(testCase.checkToolCalls?.([{ name: 'get_accounts', argumentsJson: '{}' }])).toBeNull();
+    }
+  });
+
   it('runs through the existing harness without a judge or live provider', async () => {
     const testCase = analysisSuite().find((c) => c.id === 'analysis-001')!;
     const provider: AiProvider = {
@@ -162,6 +169,6 @@ describe('analysis scorer — deterministic factual rubric', () => {
       }),
     };
     const report = await evaluateModel(provider, 'fake/analysis', [testCase]);
-    expect(report.cases[0]).toMatchObject({ passed: true, schemaValid: null, toolCallValid: true, errorClass: null });
+    expect(report.cases[0]).toMatchObject({ passed: true, schemaValid: null, toolCallValid: null, errorClass: null });
   });
 });

@@ -228,6 +228,10 @@ export function analysisSuite(): readonly EvalCase[] {
     messages: groundingMessages(golden),
     tools,
     score: (output, toolCalls) => scoreAnalysisOutput(output, toolCalls, golden),
-    checkToolCalls: (toolCalls) => toolCalls.length === 0,
+    // Not a tool-selection measurement: the calls are replayed, not chosen. An
+    // unneeded call already fails the case (`score`); counting "made no call"
+    // as a tool-call success would pad toolCallCorrectness — 15 free passes
+    // that could lift a model over the 0.90 routing gate.
+    checkToolCalls: () => null,
   }));
 }
