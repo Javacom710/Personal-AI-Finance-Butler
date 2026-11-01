@@ -27,6 +27,7 @@ function run(startedAt: string, passed: number, limit: number | null = null): Ev
   };
   const suites = TIER_SUITES[2].map((suite: ModelSuite) => ({
     suite,
+    maxTokens: 4096,
     version: MODEL_SUITES[suite].version,
     report,
     passed,
@@ -37,6 +38,7 @@ function run(startedAt: string, passed: number, limit: number | null = null): Ev
   }));
   return {
     tier: 2,
+    requestTimeoutMs: 45000,
     startedAt,
     limit,
     suiteVersions: {},
@@ -84,6 +86,7 @@ describe('ai_model_evaluations', () => {
     const latest = await latestEvaluations();
     expect(latest).toHaveLength(TIER_SUITES[2].length);
     expect(latest.every((r) => r.casesPassed === 9)).toBe(true);
+    expect(latest.every((r) => r.detail.maxTokens === 4096 && r.detail.requestTimeoutMs === 45000)).toBe(true);
   });
 
   it('becomes a measured entry the runtime routes on', async () => {

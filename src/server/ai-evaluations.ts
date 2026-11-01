@@ -31,6 +31,8 @@ import { MODEL_SUITES, TIER_SUITES, type EvalRun, type ModelSuite, type SuiteCou
 
 /** What a stored row keeps beyond its columns: counts and case ids, never output. */
 export interface EvaluationDetail extends SuiteCounts {
+  readonly maxTokens?: number;
+  readonly requestTimeoutMs?: number;
   readonly failedCases: readonly string[];
   readonly errors: Readonly<Record<string, number>>;
 }
@@ -43,7 +45,13 @@ export async function recordEvaluationRun(run: EvalRun): Promise<number> {
   if (run.limit !== null) throw new Error('A partial run (--limit) is a wire check and is never stored.');
   const rows = run.models.flatMap((m) =>
     m.suites.map((s) => {
-      const detail: EvaluationDetail = { ...s.counts, failedCases: s.failedCases, errors: s.errors };
+      const detail: EvaluationDetail = {
+        ...s.counts,
+        failedCases: s.failedCases,
+        errors: s.errors,
+        ...(s.maxTokens === undefined ? {} : { maxTokens: s.maxTokens }),
+        ...(run.requestTimeoutMs === undefined ? {} : { requestTimeoutMs: run.requestTimeoutMs }),
+      };
       const score = s.counts.answered === 0 ? 0 : s.passed / s.counts.answered;
       return {
         model: m.modelId,

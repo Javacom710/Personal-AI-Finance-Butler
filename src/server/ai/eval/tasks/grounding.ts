@@ -51,7 +51,7 @@ import { GROUNDING_BASE_CURRENCY, GROUNDING_CALLS, GROUNDING_TODAY, type Groundi
 import groundingResults from './grounding-results.json';
 import { scoreToolSelectCalls, type ExpectedCall } from './tool-select';
 
-export const GROUNDING_SUITE_VERSION = 1;
+export const GROUNDING_SUITE_VERSION = 2;
 
 /**
  * A figure: an exact amount, or a rate stated as a fraction (`0.62` is 62%).

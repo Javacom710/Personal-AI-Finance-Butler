@@ -30,7 +30,7 @@ import { toJsonSchema, validateAgainst } from '../../structured/validate';
 import type { EvalCase } from '../harness';
 import { hintMatches, sameDecimal, type HintExpectation } from '../score';
 
-export const PARSE_SUITE_VERSION = 1;
+export const PARSE_SUITE_VERSION = 2;
 
 type Kind = TransactionProposal['kind'];
 

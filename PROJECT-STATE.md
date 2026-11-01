@@ -2,7 +2,7 @@
 
 Durable status record. Conversation history is temporary; this file is not. Read this first after any context reset, then verify it against `docs/`, the source tree, and the tests before trusting it.
 
-> **Read first — status as of 2026-11-01.** **Phase 7 (AI Infrastructure) is complete.** **Phase 8 (Model Evaluation) is in progress:** parse, classify, tool-select, routing, grounding, injection and robustness suites are merged; the document suite is built in [PR #26](https://github.com/Javacom710/Personal-AI-Finance-Butler/pull/26); the analysis suite is built in [follow-on PR #27](https://github.com/Javacom710/Personal-AI-Finance-Butler/pull/27); scenario waits on OD-18. The ADR-45 catalogue check is done and five evaluation candidates were added. The runner is in [open PR #24](https://github.com/Javacom710/Personal-AI-Finance-Butler/pull/24); evaluation storage is in [open PR #25](https://github.com/Javacom710/Personal-AI-Finance-Butler/pull/25). The runner's 2026-11-01 wire check reached one model, but no complete capability evaluation or routed model measurement has been recorded. See the [Phase 8 log](#phase-8-log). Both hard drives that held working copies have failed; the repository lives on GitHub and this work proceeds through pull requests.
+> **Read first — status as of 2026-11-01.** Phase 8 is in progress. PRs #23–#28 are merged. Baseline live reports are in PR #29; no routing order has been accepted. This branch aligns evaluation request budgets with production requirements and records them in reports/storage. Seven affected model suites advance to version 2; document and routing remain at version 1. Scenario still waits on OD-18.
 
 **Last updated:** 2026-11-01 · **Current phase:** **8 — Model Evaluation, in progress** ([log](#phase-8-log)). Phase 7 — AI Infrastructure COMPLETE (steps 7.0–7.7; blockers B-1 … B-4, H-1 and R-1 … R-4 closed). Phase 6 remains complete (steps 6.0–6.9 and 6.11 implemented and verified; 6.10 closed unbuilt).
 
@@ -208,6 +208,14 @@ Next: the first full measurement, from the PC (Tiers 1, 2 and 4). `scenario` wai
 - Zerodha stays out until the owner asks.
 
 ---
+
+## Phase 8 evaluation budgets — 2026-11-01
+
+A live Lightning diagnostic exhausted 2,048 completion tokens in reasoning and returned no final content. Separately, inspection found every eval request used that same limit, despite production parsing using 1,024, classification 512, advanced analysis 4,096 and deep investigation 8,192. This branch derives runner budgets from `requirementFor` instead of using a universal limit. Tier 4 deliberately retains the smaller of receipt/document production budgets (2,048), because those routes share a schema score; a 4,096-token run must not certify the 2,048-token receipt route.
+
+Reports and stored evaluation detail include the output-token budget per suite and request timeout. Historical reports without this metadata explicitly say it was not recorded. Parse, classify, tool-select, grounding, robustness, injection and analysis versions advance to 2 because their runner request contract changes for at least one tier; current-version storage guards therefore reject version-1 rows for these suites. Document stays at v1 (same budget and scorer), as does application-code routing. Prompts and scoring rules are unchanged. The baseline runs in PR #29 remain historical evidence at their original versions, not updated-contract measurements.
+
+The change is developed in an isolated worktree while the baseline evaluation continues, so the running model requests retain their original code and budgets. Verification: typecheck, lint, all 1,923 unit tests, the five targeted PostgreSQL evaluation-storage integration tests and the production build pass. The initial build could not follow the isolated worktree’s external node_modules symlink; a local dependency tree resolved that environment issue. No model is called from this branch.
 
 ## Working protocol — applies to every phase from 2 onward
 

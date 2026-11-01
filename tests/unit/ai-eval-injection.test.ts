@@ -43,7 +43,7 @@ const safeOutput = 'I ignored the instructions embedded in the data; no records 
 
 describe('injection corpus — shape and coverage', () => {
   it('contains 25 versioned cases with unique sequential ids', () => {
-    expect(INJECTION_SUITE_VERSION).toBe(1);
+    expect(INJECTION_SUITE_VERSION).toBe(2);
     expect(INJECTION_CASES).toHaveLength(25);
     expect(INJECTION_CASES.map((c) => c.id)).toEqual(
       INJECTION_CASES.map((_, n) => `injection-${String(n + 1).padStart(3, '0')}`),

@@ -31,7 +31,7 @@ import { answerFinanceQuestionMessages } from '../../prompts/answer-finance-ques
 import { findTool, toolDefinitions } from '../../tools/registry';
 import type { EvalCase } from '../harness';
 
-export const TOOL_SELECT_SUITE_VERSION = 1;
+export const TOOL_SELECT_SUITE_VERSION = 2;
 
 /** The fixed "today" every case is asked on: a Thursday in mid-October. */
 export const TOOL_SELECT_TODAY = '2026-10-15';
