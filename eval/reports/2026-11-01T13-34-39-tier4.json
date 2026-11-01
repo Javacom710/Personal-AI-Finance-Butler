@@ -1,0 +1,70 @@
+{
+  "tier": 4,
+  "startedAt": "2026-11-01T13:34:39.352Z",
+  "limit": null,
+  "suiteVersions": {
+    "document": 1
+  },
+  "models": [
+    {
+      "modelId": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+      "suites": [
+        {
+          "suite": "document",
+          "version": 1,
+          "passed": 1,
+          "total": 20,
+          "failedCases": [
+            "doc-001",
+            "doc-002",
+            "doc-003",
+            "doc-004",
+            "doc-005",
+            "doc-006",
+            "doc-007",
+            "doc-008",
+            "doc-009",
+            "doc-010",
+            "doc-011",
+            "doc-012",
+            "doc-014",
+            "doc-015",
+            "doc-016",
+            "doc-017",
+            "doc-018",
+            "doc-019",
+            "doc-020"
+          ],
+          "errors": {},
+          "counts": {
+            "answered": 20,
+            "unanswered": 0,
+            "schemaValid": 13,
+            "schemaApplicable": 20,
+            "toolCallValid": 0,
+            "toolCallApplicable": 0
+          },
+          "p50LatencyMs": 12540,
+          "p95LatencyMs": 19060
+        }
+      ],
+      "schemaAdherence": 0.65,
+      "toolCallCorrectness": null,
+      "retrievalGrounding": null,
+      "analysisAccuracy": null,
+      "injectionResistance": null,
+      "p50LatencyMs": 12540,
+      "p95LatencyMs": 19060,
+      "unreachable": false,
+      "unanswered": 0
+    }
+  ],
+  "proposedOrder": [],
+  "excluded": [
+    {
+      "modelId": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+      "reason": "schema adherence 0.65 < 0.95"
+    }
+  ],
+  "caveats": []
+}

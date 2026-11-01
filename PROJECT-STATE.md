@@ -2,7 +2,7 @@
 
 Durable status record. Conversation history is temporary; this file is not. Read this first after any context reset, then verify it against `docs/`, the source tree, and the tests before trusting it.
 
-> **Read first — status as of 2026-11-01.** Phase 8 is in progress. PRs #23–#28 are merged. Baseline live reports are in PR #29; no routing order has been accepted. This branch aligns evaluation request budgets with production requirements and records them in reports/storage. Seven affected model suites advance to version 2; document and routing remain at version 1. Scenario still waits on OD-18.
+> **Read first — status as of 2026-11-01.** **Phase 7 is complete; Phase 8 (Model Evaluation) is in progress.** PRs #23–#28 are merged into `main`: ADR-50, the evaluator and storage, document/analysis suites, and their integration are now available. All planned golden suites are built except `scenario`, which remains blocked by OD-18. The first complete Tier 4 document runs are recorded: Nano Omni passed 1/20 (schema 0.65), and Super VL passed 9/20 (schema 0.95). Both answered every case. Reports are checked in; no database measurements or routing changes were applied. Remaining work includes Tiers 1–3 measurement and human acceptance of any proposed routing order. The authenticated catalogue still lists 85 models. This follow-on branch aligns evaluation budgets and versions the affected text suites at v2; document/routing remain v1. No new production routing order has been accepted. See the [Phase 8 log](#phase-8-log).
 
 **Last updated:** 2026-11-01 · **Current phase:** **8 — Model Evaluation, in progress** ([log](#phase-8-log)). Phase 7 — AI Infrastructure COMPLETE (steps 7.0–7.7; blockers B-1 … B-4, H-1 and R-1 … R-4 closed). Phase 6 remains complete (steps 6.0–6.9 and 6.11 implemented and verified; 6.10 closed unbuilt).
 
@@ -197,7 +197,7 @@ Next (as of #24): the first full measurement (PC); `ai_model_evaluations` storag
 - **Proposals:** a model with no `DECLARED_CAPABILITIES` entry is reported but never proposed. A measurement cannot supply its context window or modalities, and startup rejects a configured model without an entry. This covers the five `EVALUATION_CANDIDATES`: one that measures well needs a declared entry before it can be proposed.
 - **Proposals match selection:** a model whose declared tool-calling, output mode or vision serves none of its tier's capabilities is not proposed (`unsupportedBy` in `orchestrator/select.ts`, the same gate production uses minus scores). One that serves some is proposed with a caveat listing the rest. **Consequence: Tier 4 cannot be proposed today.** `nemotron-3-nano-omni` declares `json_object`, and both document capabilities need `json_schema`, so document extraction is unroutable whatever it measures. Before Tier 4 can serve, verify whether the model accepts `json_schema` on NVIDIA Build and update `config/capabilities.ts`, or choose another vision model. Tier 1's `gpt-oss-20b` likewise serves the tool capabilities but not parse or classify (`json_object`).
 
-Next: the first full measurement, from the PC (Tiers 1, 2 and 4). `scenario` waits on OD-18.
+Next (as of the storage PR): the first full measurement, from the PC (Tiers 1, 2 and 4). `scenario` waits on OD-18.
 
 ## Scope change — 2026-11-01
 
@@ -208,6 +208,32 @@ Next: the first full measurement, from the PC (Tiers 1, 2 and 4). `scenario` wai
 - Zerodha stays out until the owner asks.
 
 ---
+
+## Phase 8 live measurements — 2026-11-01
+
+PRs #23–#28 are merged. Work resumed from `main` at `015fdd0`; the authenticated catalogue still has 85 models. Synthetic fixtures only were sent to NVIDIA. The runner used its existing 2,048 output-token budget and a 45,000 ms request timeout, with `--no-record` so no database capability entries were changed.
+
+| Tier 4 model | Document v1 exact passes | Schema valid | Unanswered | p50 / p95 ms |
+|---|---:|---:|---:|---:|
+| `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning` | 1/20 | 13/20 | 0 | 12540 / 19060 |
+| `nvidia/nemotron-3.5-super-vl-120b-a12b` | 9/20 | 19/20 | 0 | 7406 / 23695 |
+
+Reports: [Nano Omni](eval/reports/2026-11-01T13-34-39-tier4.md), [Super VL](eval/reports/2026-11-01T13-36-26-tier4.md), and adjacent JSON files containing exact counts and failed case ids, never model output. Commands: `npm run ai:eval -- --tier 4 --model <model-id> --no-record`, with `AI_REQUEST_TIMEOUT_MS=45000` and `NODE_USE_ENV_PROXY=1` in this environment.
+
+Neither run proposes an order. Nano Omni fails the 0.95 schema gate; Super VL has no declared capability entry. Its 9/20 extraction accuracy also needs investigation before any production recommendation. Schema adherence alone does not establish extraction correctness. No model order, declared capability, prompt, fixture or scorer was changed to obtain these scores.
+
+Bounded one-case access probes: Lightning answered parse but failed schema/accuracy; DeepSeek v4.1 Flash and GPT-OSS-20B timed out at 45 seconds and remain unmeasured. Both vision models answered their document probes. Two further Nano Omni diagnostics at 2,048 and 4,096 output tokens returned schema-valid, nontruncated outputs, so the initial schema failure was not shown to be a token-budget defect. A superseded Nano Omni full run was interrupted before report generation; only the completed runs above are reported as measurements. Limited runs were not stored or committed as full measurements.
+
+Verification on the merged code: `npm run typecheck`, `npm run lint`, and all 1,915 unit tests pass. This PR adds reports and status corrections only. Scenario remains blocked by OD-18; Tiers 1–3 still need complete measurements. Reports are durable evidence, not database rows or accepted production capabilities.
+
+## Phase 8 Tier 3 evaluation — 2026-11-01
+
+A full 105-case attempt for `nvidia/nemotron-3-ultra-550b-a55b` completed on the same `015fdd0` evaluator baseline, with 2,048 output tokens, a 45-second timeout, synthetic fixtures only and `--no-record`. [Report](eval/reports/2026-11-01T13-57-50-tier3.md) and adjacent JSON retain suite counts, latencies, failure ids and provider error counts, never model output.
+
+- Passes by suite: tool-select 20/30, grounding 16/25, robustness 6/10, injection 11/25, analysis 1/15.
+- 27/105 requests went unanswered (24 transport errors, 3 timeouts). Ratios exclude those unanswered cases: tool correctness 0.83, grounding 0.73, injection resistance 0.58, analysis accuracy 0.11. These are incomplete-coverage diagnostics, not a qualified Tier 3 capability measurement.
+- No order is proposed because of unanswered cases; the applicable tool-call score also falls below 0.90. No database measurement, model configuration or routing policy was changed.
+- Fresh Tier 2 probes: Nemotron Super failed with a transport error; GLM Flash timed out at 45 seconds. GLM's report write also encountered the intentional same-second filename overwrite guard after the timeout; the existing report was preserved and no API retry was made just to recreate that limited report. These probes do not establish model scores.
 
 ## Phase 8 evaluation budgets — 2026-11-01
 
@@ -265,7 +291,7 @@ Corollaries that follow from the above:
 | 6 — Market Data | ✅ **complete, verified.** 6.0–6.9 and **6.11** implemented; **6.10 closed — not built** (OD-15). No open decision remains |
 | 6.5 — Recovery (Oct 2026) | ✅ repository rebuilt from the failed drives and published to GitHub — [docs/RECOVERY-2026-10.md](docs/RECOVERY-2026-10.md) |
 | 7 — AI Infrastructure | ✅ **complete, 2026-10-26.** 7.0–7.7 built; the Phase 8 entry-gate blockers closed (PRs #5–#12, #14) |
-| 8 — Model Evaluation | **in progress** since 2026-10-31: `parse`, `classify`, `tool-select`, `routing`, `grounding`, `injection` and `robustness` merged; `document` built in PR #26 and `analysis` built in PR #27. `scenario` is blocked by OD-18. Runner PR #24 and storage PR #25 are open; no complete capability measurement yet — see [Phase 8 log](#phase-8-log) |
+| 8 — Model Evaluation | **in progress** since 2026-10-31: `parse`, `classify`, `tool-select`, `routing`, `grounding`, `injection` and `robustness` merged; `document` built in PR #26 and `analysis` built in PR #27. `scenario` is blocked by OD-18. Runner/storage and suite integration PRs #24–#28 are merged; two complete Tier 4 runs are recorded in reports, with no accepted routing change — see [Phase 8 log](#phase-8-log) |
 | 9–14 | not started |
 
 ---
