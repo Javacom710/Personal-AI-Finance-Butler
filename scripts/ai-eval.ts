@@ -9,7 +9,7 @@
  * ```
  *
  * Online, manual and **never in CI**: it calls the provider, costs credits, and
- * model output is not deterministic. Writes `eval/reports/<date>-tier<n>.md`
+ * model output is not deterministic. Writes `eval/reports/<timestamp>-tier<n>.md`
  * and a `.json` beside it. It proposes a routing order and changes nothing.
  *
  * **No real financial data is sent.** Every prompt is from the golden suites:
@@ -70,9 +70,13 @@ async function main(): Promise<void> {
 
   const dir = path.resolve('eval/reports');
   await mkdir(dir, { recursive: true });
-  const stem = `${run.startedAt.slice(0, 10)}-tier${run.tier}${args.limit ? '-partial' : ''}`;
+  // The run's own timestamp, to the second, so a later run on the same day —
+  // a targeted re-run above all — never replaces an earlier report.
+  const stamp = run.startedAt.slice(0, 19).replace(/:/g, '-');
+  const stem = `${stamp}-tier${run.tier}${args.limit ? '-partial' : ''}`;
   const markdown = renderEvalReport(run);
-  await writeFile(path.join(dir, `${stem}.md`), markdown, 'utf8');
+  // 'wx' refuses to overwrite: two runs in the same second fail loudly instead.
+  await writeFile(path.join(dir, `${stem}.md`), markdown, { encoding: 'utf8', flag: 'wx' });
   // The JSON keeps scores and failing case ids, never the model's output text.
   const json = {
     ...run,
@@ -81,7 +85,7 @@ async function main(): Promise<void> {
       suites: m.suites.map(({ report, ...rest }) => ({ ...rest, p50LatencyMs: report.p50LatencyMs, p95LatencyMs: report.p95LatencyMs })),
     })),
   };
-  await writeFile(path.join(dir, `${stem}.json`), `${JSON.stringify(json, null, 2)}\n`, 'utf8');
+  await writeFile(path.join(dir, `${stem}.json`), `${JSON.stringify(json, null, 2)}\n`, { encoding: 'utf8', flag: 'wx' });
 
   console.log(`\n${markdown}`);
   console.log(`Written: eval/reports/${stem}.md and .json. No configuration was changed.`);

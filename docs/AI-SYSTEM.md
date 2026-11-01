@@ -643,7 +643,7 @@ npm run ai:eval -- --tier 1 --suite parse,classify,tool-select
 ```
 
 Runs every model in the tier's configured order, plus the tier's `EVALUATION_CANDIDATES`, over the tier's suites (`src/server/ai/eval/runner.ts`, `scripts/ai-eval.ts`), one case at a time, and produces:
-- `eval/reports/<date>-tier<n>.md` and `.json` — per-model scores (schema adherence, tool-call correctness, retrieval grounding, injection resistance), latency percentiles, pass counts per suite, failing case ids. No model output text is stored.
+- `eval/reports/<timestamp>-tier<n>.md` and `.json` — per-model scores (schema adherence, tool-call correctness, retrieval grounding, injection resistance), latency percentiles, pass counts per suite, failing case ids. No model output text is stored.
 - A **proposed** order, `AI_TIER<n>_MODELS=…`: only models clearing the §5 thresholds, ranked by the selection criteria below. A human accepts it into the environment; the run changes no configuration.
 - *Not yet:* `ai_model_evaluations` rows, which `createCapabilityMatrix(measured)` layers over the declared matrix ([ADR-44](DECISIONS.md#adr-44--the-capability-matrix-stays-capabilitiests-checked-at-startup) replaced `capabilities.json`).
 
@@ -703,7 +703,7 @@ The test that matters: NVIDIA ships a better reasoning model tomorrow. What has 
 npm run ai:catalogue                              # 1. confirm the id exists, authenticated
 npm run ai:eval -- --tier 2 --model <new-id>      # 2. measure it; writes capabilities.json
                                                   #    + ai_model_evaluations rows
-#    3. read eval/reports/<date>-tier2.md — does it clear the tier thresholds?
+#    3. read eval/reports/<timestamp>-tier2.md — does it clear the tier thresholds?
 #    4. edit ONE line in the environment:
 AI_TIER2_MODELS=<new-id>,nvidia/nemotron-3-super-120b-a12b,deepseek-ai/deepseek-v4-flash-0731
 #    5. restart

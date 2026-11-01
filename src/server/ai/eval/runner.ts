@@ -244,6 +244,14 @@ export function proposeOrder(results: readonly ModelResult[], tier: Tier): {
   return { order: qualifying.map((r) => r.modelId), excluded };
 }
 
+/** Why a run cannot propose an order, or `null` when it can. */
+export function partialRunReason(args: EvalArgs): string | null {
+  if (args.limit !== null) return `partial run (--limit ${args.limit}): a wire check, not a measurement`;
+  const missing = TIER_SUITES[args.tier].filter((s) => !args.suites.includes(s));
+  if (missing.length > 0) return `not measured on every Tier ${args.tier} suite (missing: ${missing.join(', ')})`;
+  return null;
+}
+
 export interface RunOptions {
   readonly provider: AiProvider;
   readonly args: EvalArgs;
@@ -289,7 +297,12 @@ export async function runEvaluation(options: RunOptions): Promise<EvalRun> {
     models.push(summarise(modelId, suites));
   }
 
-  const { order, excluded } = proposeOrder(models, args.tier);
+  // A wire check or a subset of the tier's suites is not a measurement of the
+  // tier: its scores are reported, and nothing is proposed from them.
+  const partial = partialRunReason(args);
+  const { order, excluded } = partial
+    ? { order: [], excluded: models.map((m) => ({ modelId: m.modelId, reason: partial })) }
+    : proposeOrder(models, args.tier);
   return {
     tier: args.tier,
     startedAt,
@@ -352,7 +365,7 @@ export function renderEvalReport(run: EvalRun): string {
     '',
     run.proposedOrder.length > 0
       ? `\`AI_TIER${run.tier}_MODELS=${run.proposedOrder.join(',')}\``
-      : '**No model qualifies.** The tier keeps its current configuration; nothing is proposed.',
+      : '**Nothing is proposed.** The tier keeps its current configuration; see "Not proposed" for why.',
     '',
     'Proposed only. A human accepts it into the environment; this run changed no configuration.',
   );
