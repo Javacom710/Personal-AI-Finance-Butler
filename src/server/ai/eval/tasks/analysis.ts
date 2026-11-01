@@ -35,6 +35,17 @@ export interface AnalysisGoldenCase extends GroundingGoldenCase {
 
 const makeCase = replayCase('analysis');
 
+/*
+ * Metrics the frozen results cannot supply. An answer may say they are
+ * unavailable; a figure given to one is fabricated, whatever disclaimer sits
+ * beside it, and the figure may well trace to another result (XIRR's -21.06%
+ * given as the TWR), so traceability alone does not catch it.
+ */
+/** Time-weighted return: the portfolio result has insufficient price history for it. */
+const TWR_FIGURE = amountFor(String.raw`time[- ]weighted (?:rate of )?return|TWR`);
+/** HDFC Bank has no price, so it has no market value. */
+const HDFC_VALUE = amountFor(String.raw`(?:HDFC ?BANK).{0,35}(?:worth|market value|current value)`);
+
 const COUNT = String.raw`(?:\d+(?:\.\d+)?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|eighteen|twenty|twenty-four|thirty-six)`;
 const SPAN = String.raw`(?:days?|weeks?|months?|mos?|years?|yrs?)`;
 
@@ -73,29 +84,32 @@ export const ANALYSIS_CASES: readonly AnalysisGoldenCase[] = [
     calls: ['portfolio', 'holdings'],
     required: [money('148100'), money('-24220'), [rate('-0.1169935272')]],
     mentions: [/HDFC ?BANK.{0,60}(?:no price|unpriced|missing price)/i, /NIFTYBEES.{0,60}(?:stale|old price|out of date)/i, /partial|incomplete|coverage/i],
-    contradictions: [CURRENT_PRICE],
+    contradictions: [CURRENT_PRICE, HDFC_VALUE, TWR_FIGURE],
   }),
   analysisCase(2, 'portfolio', 'Explain the portfolio return using the reported realised and unrealised results.', {
     calls: ['portfolio'],
     required: [money('4992'), money('-30912'), money('-24220')],
     mentions: [/(?:unrealised|unrealized) loss/i, /realised|realized gain/i],
+    contradictions: [TWR_FIGURE],
   }),
   analysisCase(3, 'portfolio', 'Review my allocation by asset class and say what it leaves out.', {
     calls: ['allocationByClass', 'holdings'],
     required: [money('91200'), money('56900'), [rate('0.6158001350')], [rate('0.3841998650')]],
     mentions: [/equit(?:y|ies)/i, /ETF/i, /HDFC ?BANK.{0,60}(?:no price|unpriced|missing price)/i],
+    contradictions: [HDFC_VALUE],
   }),
   analysisCase(4, 'portfolio', 'What can you conclude about my HDFC Bank and NIFTYBEES positions?', {
     calls: ['holdings'],
     required: [money('40000'), money('56900')],
     mentions: [/HDFC ?BANK.{0,70}(?:invested|cost).{0,30}(?:no price|unpriced|missing price)|HDFC ?BANK.{0,70}(?:no price|unpriced|missing price)/i, /NIFTYBEES.{0,50}stale/i],
-    contradictions: [amountFor(String.raw`(?:HDFC ?BANK).{0,35}(?:worth|market value|current value)`)],
+    contradictions: [HDFC_VALUE],
   }),
   analysisCase(5, 'portfolio', 'Summarise my investment returns and explain whether time-weighted return is available.', {
     calls: ['portfolio'],
     required: [money('-24220'), [rate('-0.2105550000')]],
     forbidden: [rate('0')],
     mentions: [/time[- ]weighted return/i, /unavailable|not available|insufficient price history/i],
+    contradictions: [TWR_FIGURE],
   }),
 
   // Financial health
@@ -145,7 +159,7 @@ export const ANALYSIS_CASES: readonly AnalysisGoldenCase[] = [
     calls: ['netWorthCost', 'portfolio', 'holdings'],
     required: [money('8107349.20'), money('148100'), money('-24220')],
     mentions: [/cost/i, /partial|incomplete|coverage/i, /HDFC ?BANK/i, /stale/i],
-    contradictions: [CURRENT_PRICE],
+    contradictions: [CURRENT_PRICE, HDFC_VALUE, TWR_FIGURE],
   }),
   analysisCase(14, 'cross-domain', 'Connect my savings, current budget pressure and debt obligations.', {
     calls: ['cashflowSep', 'budgetsOct', 'liabilities'],
@@ -156,7 +170,7 @@ export const ANALYSIS_CASES: readonly AnalysisGoldenCase[] = [
     calls: ['accounts', 'liabilities', 'cashflowSep', 'portfolio', 'holdings'],
     required: [money('412022.37'), money('24500'), money('75492.87'), money('148100')],
     mentions: [/HDFC ?BANK.{0,60}(?:no price|unpriced|missing price)/i, /NIFTYBEES.{0,60}(?:stale|old price|out of date)/i, /(?:risk tolerance|time horizon|goals|emergency fund)/i],
-    contradictions: [CURRENT_PRICE, /\b(?:you should|I recommend|I would recommend)\s+(?:to\s+)?(?:invest|buy)\b/i],
+    contradictions: [CURRENT_PRICE, HDFC_VALUE, TWR_FIGURE, /\b(?:you should|I recommend|I would recommend)\s+(?:to\s+)?(?:invest|buy)\b/i],
   }),
 ];
 
