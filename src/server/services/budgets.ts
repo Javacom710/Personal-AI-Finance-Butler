@@ -84,7 +84,10 @@ export async function listBudgetStatuses(
         ? eq(budgets.userId, ctx.userId)
         : and(eq(budgets.userId, ctx.userId), eq(budgets.isActive, true)),
     )
-    .orderBy(asc(budgets.period));
+    // Period alone ties for every monthly budget, and Postgres then returns them
+    // in whatever order it likes — on screen and to the AI alike. Creation order,
+    // then id, makes the list the same on every read.
+    .orderBy(asc(budgets.period), asc(budgets.createdAt), asc(budgets.id));
 
   if (rows.length === 0) return ok([]);
 
