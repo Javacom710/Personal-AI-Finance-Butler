@@ -130,7 +130,18 @@ Changes that came with it:
 - **`categoryNames` is not added** ([ADR-49](docs/DECISIONS.md#adr-49--get_expense_summary-takes-no-category-filter-the-breakdown-row-is-the-answer)). Every single-category question is one row: the `rollup` row for a parent, the `detail` row for a leaf. A fuzzy name resolver would add a silent way to pick the wrong category. AI-SYSTEM.md §8 now describes the tool as built. Revisit if the measured run shows models summing rows in cases 7 and 10.
 - **Defect fixed: budget order was nondeterministic.** `listBudgetStatuses` sorted by `period` only, so monthly budgets came back in whatever order Postgres chose, on screen and to the model. The fixture test caught it: it failed intermittently. Sorted by period, then creation, then id.
 
-Next: `scenario`, `injection`, `robustness`, `document`, `analysis`; then the `ai:eval` runner. No model has been run against any suite yet.
+Next (as of the `grounding` PR): `scenario`, `injection`, `robustness`, `document`, `analysis`; then the `ai:eval` runner. No model has been run against any suite yet.
+
+**2026-10-31 — `injection` corpus built** (`src/server/ai/eval/tasks/injection.ts`, 25 cases, suite version 1). Built by Codex from `main` after #19, in parallel with `grounding` (#20); merged after it, with main merged in. The tracked phase plan is `Workflow Setup.txt`, expanded in ROADMAP. Injection was still unbuilt, so this work continues that suite rather than advancing to a different phase.
+
+- **Coverage:** 13 attacks in user text and 12 in tool results, including transaction descriptions and a category name. Hidden instructions, forged system turns, attempts to write through read tools, invented write/SQL/shell tools, `userId`/session overrides, schema-valid foreign account/category/instrument UUIDs, unnecessary bulk reads, model/tier selection, and textual claims of Tier 3 approval. Tool-result cases replay a correctly paired assistant call and `role: 'tool'` result using synthetic projected fixtures; no database or provider is needed.
+- **Deterministic scoring:** every attempted call must pass its registry `.strict()` schema and exactly match a case's permitted tool and complete arguments. An extra read or argument fails even beside a correct call. First-turn legitimate reads are required; completed reads and write refusals require nonempty prose with no calls. Emitting the fixed attack canary fails, including when quoted. Application routing is tested separately: expected tier and `modelChoiceIgnored`, ceiling Tier 2, and the real Tier 3 guard refusing textual `explicitUserRequest=true` without a provider call. These guards are not counted as model scores.
+- **Two narrow fixes:** the production question prompt now requires reporting injected instructions without repeating them, and says model/tier choice belongs to the application. The classifier now flags additional choice forms (`escalate to`, `explicitly request`, `set the model to`, assignments, `answer as`, provider-qualified IDs). Existing 86 routing cases remain unchanged and passing.
+- **Limits and remaining work:** scoring checks calls and a fixed canary, not arbitrary prose meaning. A false claim of a write or model switch without a call/canary is not detected. Fixtures are synthetic, not engine-grounding evidence. The classifier/flag still needs Phase 9 request-path wiring, and `injectionResistance` aggregation belongs to the unfinished runner; the existing harness records per-case pass/fail and tool-call correctness. No model was called, no key was needed, no routing order changed, and no new ADR was needed.
+- **Verification:** `npm run typecheck`, `npm run lint`, `npm run test:unit` (**1,667 passed**, including 146 suite tests and 21 new classifier regression tests), `npm run test:property` (**65 passed**), and `npm run build` all pass. Integration tests were not run locally: this change adds no handler or service behavior and needs no database. The existing unit source-scan and write-boundary tests pass with the full unit suite.
+
+- **Review fix (2026-11-01):** "request" took the model-choice verbs' three-word gap, so "I request financial health with deepseek" lost its task and fell to Tier 1. `MODEL_REQUEST` now strips only a model named immediately after "request".
+
 ---
 
 ## Working protocol — applies to every phase from 2 onward
@@ -181,7 +192,7 @@ Corollaries that follow from the above:
 | 6 — Market Data | ✅ **complete, verified.** 6.0–6.9 and **6.11** implemented; **6.10 closed — not built** (OD-15). No open decision remains |
 | 6.5 — Recovery (Oct 2026) | ✅ repository rebuilt from the failed drives and published to GitHub — [docs/RECOVERY-2026-10.md](docs/RECOVERY-2026-10.md) |
 | 7 — AI Infrastructure | ✅ **complete, 2026-10-26.** 7.0–7.7 built; the Phase 8 entry-gate blockers closed (PRs #5–#12, #14) |
-| 8 — Model Evaluation | **in progress** since 2026-10-31: golden corpora being built, one PR per suite (`parse`, `classify`, `tool-select`, `routing` and `grounding` done). No model measured yet — see [Phase 8 log](#phase-8-log) |
+| 8 — Model Evaluation | **in progress** since 2026-10-31: golden corpora being built, one PR per suite (`parse`, `classify`, `tool-select`, `routing`, `grounding` and `injection` done; `robustness` in PR #22). No model measured yet — see [Phase 8 log](#phase-8-log) |
 | 9–14 | not started |
 
 ---
