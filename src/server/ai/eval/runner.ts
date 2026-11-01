@@ -22,14 +22,18 @@ import 'server-only';
  *   reported as unreachable, not as a model that scored zero.
  *
  * The `routing` suite is not here: it measures the application's classifier,
- * not a model, and runs in the unit tests. `document`, `scenario` and
- * `analysis` are not built.
+ * not a model, and runs in the unit tests. `scenario` remains blocked by OD-18.
  */
 
+import { DECLARED_CAPABILITIES, type ModelCapabilities } from '../config/capabilities';
 import type { Tier } from '../config/models';
 import { EVALUATION_CANDIDATES, type ModelConfig } from '../config/models';
+import { allCapabilities, requirementFor, type AiCapability } from '../orchestrator/requirements';
+import { unsupportedBy } from '../orchestrator/select';
 import type { AiProvider } from '../provider/types';
 import { evaluateModel, type EvalCase, type EvalSuite, type ModelReport } from './harness';
+import { ANALYSIS_SUITE_VERSION, analysisSuite } from './tasks/analysis';
+import { DOCUMENT_SUITE_VERSION, documentSuite } from './tasks/document';
 import { CLASSIFY_SUITE_VERSION, classifySuite } from './tasks/classify';
 import { GROUNDING_SUITE_VERSION, groundingSuite } from './tasks/grounding';
 import { INJECTION_SUITE_VERSION, injectionSuite } from './tasks/injection';
@@ -38,9 +42,11 @@ import { ROBUSTNESS_SUITE_VERSION, robustnessSuite } from './tasks/robustness';
 import { TOOL_SELECT_SUITE_VERSION, toolSelectSuite } from './tasks/tool-select';
 
 /** The suites a model can be measured on. */
-export type ModelSuite = Extract<EvalSuite, 'parse' | 'classify' | 'tool-select' | 'grounding' | 'robustness' | 'injection'>;
+export type ModelSuite = Extract<EvalSuite, 'parse' | 'classify' | 'tool-select' | 'grounding' | 'robustness' | 'injection' | 'analysis' | 'document'>;
 
 export const MODEL_SUITES: Readonly<Record<ModelSuite, { readonly version: number; readonly build: () => readonly EvalCase[] }>> = {
+  analysis: { version: ANALYSIS_SUITE_VERSION, build: analysisSuite },
+  document: { version: DOCUMENT_SUITE_VERSION, build: documentSuite },
   parse: { version: PARSE_SUITE_VERSION, build: parseSuite },
   classify: { version: CLASSIFY_SUITE_VERSION, build: classifySuite },
   'tool-select': { version: TOOL_SELECT_SUITE_VERSION, build: toolSelectSuite },
@@ -51,14 +57,14 @@ export const MODEL_SUITES: Readonly<Record<ModelSuite, { readonly version: numbe
 
 /**
  * What each tier is measured on. Tier 1 parses and classifies; every text tier
- * answers questions with tools. Tier 4's `document` suite is not built, so
- * Tier 4 cannot be measured yet, and saying so beats measuring it on text.
+ * answers questions with tools. Tiers 2 and 3 also analyse replayed results;
+ * Tier 4 measures structured image extraction without tools.
  */
 export const TIER_SUITES: Readonly<Record<Tier, readonly ModelSuite[]>> = {
   1: ['parse', 'classify', 'tool-select', 'grounding', 'robustness', 'injection'],
-  2: ['tool-select', 'grounding', 'robustness', 'injection'],
-  3: ['tool-select', 'grounding', 'robustness', 'injection'],
-  4: [],
+  2: ['tool-select', 'grounding', 'robustness', 'injection', 'analysis'],
+  3: ['tool-select', 'grounding', 'robustness', 'injection', 'analysis'],
+  4: ['document'],
   5: [],
 };
 
@@ -105,7 +111,7 @@ export function parseEvalArgs(argv: readonly string[]): ParsedArgs {
   }
   const tierSuites = TIER_SUITES[tier as Tier];
   if (tierSuites.length === 0) {
-    return { ok: false, error: `Tier ${tier} has no built suite to measure it on (the document suite is not built).` };
+    return { ok: false, error: `Tier ${tier} has no built suite to measure it on.` };
   }
   // A suite outside the tier measures the wrong task: tool-select says nothing
   // about reading a receipt, so it may not stand in for a Tier 4 measurement.
@@ -162,6 +168,8 @@ export interface ModelResult {
   readonly schemaAdherence: number | null;
   readonly toolCallCorrectness: number | null;
   readonly retrievalGrounding: number | null;
+  /** Pass rate on `analysis`: every figure traced, every required finding stated. */
+  readonly analysisAccuracy: number | null;
   readonly injectionResistance: number | null;
   readonly p50LatencyMs: number | null;
   readonly p95LatencyMs: number | null;
@@ -179,6 +187,14 @@ export interface EvalRun {
   readonly models: readonly ModelResult[];
   readonly proposedOrder: readonly string[];
   readonly excluded: readonly { readonly modelId: string; readonly reason: string }[];
+  /** Proposed models that selection will still refuse for some of the tier's capabilities. */
+  readonly caveats?: readonly Caveat[];
+}
+
+export interface Caveat {
+  readonly modelId: string;
+  /** Each capability the model's declared entry cannot serve, and why. */
+  readonly unserved: readonly { readonly capability: AiCapability; readonly reason: string }[];
 }
 
 function percentile(values: readonly number[], p: number): number | null {
@@ -224,6 +240,7 @@ function summarise(modelId: string, suites: readonly SuiteResult[]): ModelResult
     schemaAdherence: ratio(scored.map((c) => c.schemaValid)),
     toolCallCorrectness: ratio(scored.map((c) => c.toolCallValid)),
     retrievalGrounding: ratio(ofSuite('grounding').map((c) => c.passed)),
+    analysisAccuracy: ratio(ofSuite('analysis').map((c) => c.passed)),
     injectionResistance: ratio(ofSuite('injection').map((c) => c.passed)),
     p50LatencyMs: percentile(answered.map((c) => c.latencyMs), 50),
     p95LatencyMs: percentile(answered.map((c) => c.latencyMs), 95),
@@ -238,12 +255,13 @@ export function disqualification(result: ModelResult, tier: Tier): string | null
   // A partial measurement is not a measurement: the cases that went unanswered
   // might be exactly the ones it fails.
   if (result.unanswered > 0) return `${result.unanswered} case(s) unanswered by the provider: re-run before proposing`;
-  if (tier === 1) {
-    if (result.schemaAdherence === null) return 'schema adherence not measured (needs parse or classify)';
+  if (tier === 1 || tier === 4) {
+    if (result.schemaAdherence === null) return 'schema adherence not measured (needs a structured-output suite)';
     if (result.schemaAdherence < THRESHOLDS.tier1SchemaAdherence) {
       return `schema adherence ${result.schemaAdherence.toFixed(2)} < ${THRESHOLDS.tier1SchemaAdherence}`;
     }
   }
+  if (tier === 4) return null;
   if (result.toolCallCorrectness === null) return 'tool-call correctness not measured (needs a tool suite)';
   if (result.toolCallCorrectness < THRESHOLDS.toolCallCorrectness) {
     return `tool-call correctness ${result.toolCallCorrectness.toFixed(2)} < ${THRESHOLDS.toolCallCorrectness}`;
@@ -251,21 +269,65 @@ export function disqualification(result: ModelResult, tier: Tier): string | null
   return null;
 }
 
+const declaredEntry = (modelId: string): ModelCapabilities | undefined =>
+  Object.hasOwn(DECLARED_CAPABILITIES, modelId) ? DECLARED_CAPABILITIES[modelId] : undefined;
+
+/** The capabilities of the tier this declared entry can never serve in production, and why. */
+export function unservedCapabilities(entry: ModelCapabilities, tier: Tier): Caveat['unserved'] {
+  return allCapabilities()
+    .map(requirementFor)
+    .filter((r) => r.tier === tier)
+    .flatMap((r) => {
+      const reason = unsupportedBy(entry, r);
+      return reason ? [{ capability: r.capability, reason }] : [];
+    });
+}
+
 /**
  * The proposed order: qualifying models ranked by §14's selection criteria —
- * schema reliability, tool-calling, grounding, injection resistance, then
- * latency. A `null` score ranks below any measured one.
+ * schema reliability, tool-calling, grounding, financial analysis, injection
+ * resistance, then latency. A `null` score ranks below any measured one.
+ *
+ * Only a model production would select is proposed, however it scores:
+ * - with no declared capability entry, startup rejects the configured model —
+ *   a measurement cannot supply its context window or modalities;
+ * - when its declared entry serves none of the tier's capabilities (Tier 4
+ *   needs `json_schema` and vision; a `json_object` model is refused as
+ *   `structured_output_unsupported` whatever it measures), routing never picks it.
+ * A model serving some of them is proposed with a caveat naming the rest:
+ * selection is per capability, so it still serves those it can.
+ * Its scores are reported either way; fixing the entry makes it proposable.
  */
-export function proposeOrder(results: readonly ModelResult[], tier: Tier): {
+export function proposeOrder(
+  results: readonly ModelResult[],
+  tier: Tier,
+  capabilitiesOf: (modelId: string) => ModelCapabilities | undefined = declaredEntry,
+): {
   order: readonly string[];
   excluded: readonly { modelId: string; reason: string }[];
+  caveats: readonly Caveat[];
 } {
   const excluded: { modelId: string; reason: string }[] = [];
+  const caveats: Caveat[] = [];
   const qualifying: ModelResult[] = [];
+  const tierCapabilities = allCapabilities().filter((c) => requirementFor(c).tier === tier).length;
   for (const r of results) {
-    const reason = disqualification(r, tier);
+    const entry = capabilitiesOf(r.modelId);
+    const unserved = entry ? unservedCapabilities(entry, tier) : [];
+    const reason =
+      disqualification(r, tier) ??
+      (!entry
+        ? 'no declared capability entry (config/capabilities.ts): add one before routing it, or startup rejects it'
+        : unserved.length === tierCapabilities
+          ? `its declared capabilities serve no Tier ${tier} capability (${unserved
+              .map((u) => `${u.capability}: ${u.reason}`)
+              .join('; ')}): reconcile config/capabilities.ts with verified support first`
+          : null);
     if (reason) excluded.push({ modelId: r.modelId, reason });
-    else qualifying.push(r);
+    else {
+      qualifying.push(r);
+      if (unserved.length > 0) caveats.push({ modelId: r.modelId, unserved });
+    }
   }
   const score = (v: number | null) => v ?? -1;
   qualifying.sort(
@@ -273,10 +335,11 @@ export function proposeOrder(results: readonly ModelResult[], tier: Tier): {
       score(b.schemaAdherence) - score(a.schemaAdherence) ||
       score(b.toolCallCorrectness) - score(a.toolCallCorrectness) ||
       score(b.retrievalGrounding) - score(a.retrievalGrounding) ||
+      score(b.analysisAccuracy) - score(a.analysisAccuracy) ||
       score(b.injectionResistance) - score(a.injectionResistance) ||
       (a.p50LatencyMs ?? Infinity) - (b.p50LatencyMs ?? Infinity),
   );
-  return { order: qualifying.map((r) => r.modelId), excluded };
+  return { order: qualifying.map((r) => r.modelId), excluded, caveats };
 }
 
 /** Why a run cannot propose an order, or `null` when it can. */
@@ -336,8 +399,8 @@ export async function runEvaluation(options: RunOptions): Promise<EvalRun> {
   // A wire check or a subset of the tier's suites is not a measurement of the
   // tier: its scores are reported, and nothing is proposed from them.
   const partial = partialRunReason(args);
-  const { order, excluded } = partial
-    ? { order: [], excluded: models.map((m) => ({ modelId: m.modelId, reason: partial })) }
+  const { order, excluded, caveats } = partial
+    ? { order: [], excluded: models.map((m) => ({ modelId: m.modelId, reason: partial })), caveats: [] }
     : proposeOrder(models, args.tier);
   return {
     tier: args.tier,
@@ -347,6 +410,7 @@ export async function runEvaluation(options: RunOptions): Promise<EvalRun> {
     models,
     proposedOrder: order,
     excluded,
+    caveats,
   };
 }
 
@@ -375,12 +439,12 @@ export function renderEvalReport(run: EvalRun): string {
     '',
     'Scores count only the cases the provider answered; unanswered cases (transport, timeout …) are listed, not scored.',
     '',
-    '| Model | Schema adherence | Tool-call correctness | Retrieval grounding | Injection resistance | p50 ms | p95 ms | Unanswered |',
-    '|---|---|---|---|---|---|---|---|',
+    '| Model | Schema adherence | Tool-call correctness | Retrieval grounding | Analysis accuracy | Injection resistance | p50 ms | p95 ms | Unanswered |',
+    '|---|---|---|---|---|---|---|---|---|',
     ...run.models.map(
       (m) =>
         `| ${m.modelId}${m.unreachable ? ' (unreachable)' : ''} | ${cell(m.schemaAdherence)} | ${cell(m.toolCallCorrectness)} | ` +
-        `${cell(m.retrievalGrounding)} | ${cell(m.injectionResistance)} | ${cell(m.p50LatencyMs, 0)} | ${cell(m.p95LatencyMs, 0)} | ${m.unanswered} |`,
+        `${cell(m.retrievalGrounding)} | ${cell(m.analysisAccuracy)} | ${cell(m.injectionResistance)} | ${cell(m.p50LatencyMs, 0)} | ${cell(m.p95LatencyMs, 0)} | ${m.unanswered} |`,
     ),
     '',
     '## Pass rate by suite',
@@ -405,6 +469,19 @@ export function renderEvalReport(run: EvalRun): string {
     '',
     'Proposed only. A human accepts it into the environment; this run changed no configuration.',
   );
+
+  if (run.caveats && run.caveats.length > 0) {
+    lines.push(
+      '',
+      '### Capabilities a proposed model will not serve',
+      '',
+      'Selection is per capability: these models serve the rest of the tier, and routing refuses them here.',
+      '',
+      ...run.caveats.map(
+        (c) => `- \`${c.modelId}\`: ${c.unserved.map((u) => `${u.capability} (${u.reason})`).join(', ')}`,
+      ),
+    );
+  }
 
   if (run.excluded.length > 0) {
     lines.push('', '### Not proposed', '', ...run.excluded.map((e) => `- \`${e.modelId}\`: ${e.reason}`));

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { ok, err } from '@/lib/result';
+import { DECLARED_CAPABILITIES, type ModelCapabilities } from '@/server/ai/config/capabilities';
 import { resolveModelConfig } from '@/server/ai/config/models';
 import { transport } from '@/server/ai/errors';
 import {
@@ -24,11 +25,25 @@ import type { AiProvider, ChatRequest } from '@/server/ai/provider/types';
  * propose — not how any real model performs.
  */
 
+/** A capability entry that serves every requirement, for ranking tests over fake ids. */
+const FULL: ModelCapabilities = {
+  tier: 1,
+  toolCalling: 'native',
+  structuredOutput: 'json_schema',
+  vision: true,
+  embedding: false,
+  contextTokens: 131_072,
+  maxOutputTokens: 8_192,
+  streaming: true,
+  source: 'declared',
+};
+
 const result = (over: Partial<ModelResult> & { modelId: string }): ModelResult => ({
   suites: [],
   schemaAdherence: 1,
   toolCallCorrectness: 1,
   retrievalGrounding: 1,
+  analysisAccuracy: 1,
   injectionResistance: 1,
   p50LatencyMs: 100,
   p95LatencyMs: 200,
@@ -69,9 +84,11 @@ describe('ai:eval arguments', () => {
     expect(parseEvalArgs(['--tier', '5']).ok).toBe(false);
     expect(parseEvalArgs(['--tier', '1', '--suite', 'routing']).ok).toBe(false);
     expect(parseEvalArgs(['--tier', '1', '--limit', '0']).ok).toBe(false);
-    // Tier 4's document suite is not built: no suite, no run — named or not.
-    expect(parseEvalArgs(['--tier', '4'])).toMatchObject({ ok: false });
-    expect(parseEvalArgs(['--tier', '4', '--suite', 'tool-select'])).toMatchObject({ ok: false });
+    expect(parseEvalArgs(['--tier', '4'])).toMatchObject({ ok: true, value: { suites: ['document'] } });
+    expect(TIER_SUITES[2]).toContain('analysis');
+    expect(TIER_SUITES[3]).toContain('analysis');
+    expect(parseEvalArgs(['--tier', '4', '--suite', 'tool-select'])).toMatchObject({ ok: false, error: expect.stringMatching(/Not a Tier 4 suite/) });
+    expect(parseEvalArgs(['--tier', '2', '--suite', 'document'])).toMatchObject({ ok: false, error: expect.stringMatching(/Not a Tier 2 suite: document/) });
     // A suite from another tier cannot stand in for this tier's measurement.
     expect(parseEvalArgs(['--tier', '2', '--suite', 'parse'])).toMatchObject({ ok: false, error: expect.stringMatching(/Not a Tier 2 suite: parse/) });
   });
@@ -95,6 +112,11 @@ describe('ai:eval arguments', () => {
 });
 
 describe('ai:eval proposals', () => {
+  it('gates vision proposals by schema rather than tool calling', () => {
+    expect(disqualification(result({ modelId: 'vision', toolCallCorrectness: null }), 4)).toBeNull();
+    expect(disqualification(result({ modelId: 'vision', schemaAdherence: 0.94, toolCallCorrectness: null }), 4)).toMatch(/schema adherence/);
+    expect(disqualification(result({ modelId: 'vision', schemaAdherence: null }), 4)).toMatch(/not measured/);
+  });
   it('Tier 1 needs schema adherence ≥ 0.95; every tool tier needs tool-call correctness ≥ 0.90', () => {
     expect(disqualification(result({ modelId: 'a', schemaAdherence: 0.94 }), 1)).toMatch(/schema adherence 0.94/);
     expect(disqualification(result({ modelId: 'a', schemaAdherence: 0.94 }), 2)).toBeNull();
@@ -107,7 +129,7 @@ describe('ai:eval proposals', () => {
     expect(disqualification(result({ modelId: 'a', unanswered: 1 }), 2)).toMatch(/unanswered/);
   });
 
-  it('ranks qualifying models by schema, tool calls, grounding, injection, then latency', () => {
+  it('ranks qualifying models by schema, tool calls, grounding, analysis, injection, then latency', () => {
     const { order, excluded } = proposeOrder(
       [
         result({ modelId: 'slow', p50LatencyMs: 900 }),
@@ -116,13 +138,91 @@ describe('ai:eval proposals', () => {
         result({ modelId: 'failing', toolCallCorrectness: 0.5 }),
       ],
       2,
+      () => FULL,
     );
     expect(order).toEqual(['fast', 'slow', 'ungrounded']);
     expect(excluded.map((e) => e.modelId)).toEqual(['failing']);
   });
+
+  it('a model that gets the analysis figures wrong ranks below one that gets them right, before latency', () => {
+    const { order } = proposeOrder(
+      [
+        result({ modelId: 'fast-wrong', analysisAccuracy: 0, p50LatencyMs: 100 }),
+        result({ modelId: 'slow-right', analysisAccuracy: 1, p50LatencyMs: 900 }),
+        result({ modelId: 'injectable-right', analysisAccuracy: 1, injectionResistance: 0.5, p50LatencyMs: 100 }),
+      ],
+      2,
+      () => FULL,
+    );
+    expect(order).toEqual(['slow-right', 'injectable-right', 'fast-wrong']);
+  });
+
+  it('never proposes a Tier 4 model whose declared output mode selection would refuse for every document capability', () => {
+    // The configured Tier 4 model declares json_object; extractReceiptData and analyzeDocument need json_schema.
+    const omni = 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning';
+    const vision = result({ modelId: omni, toolCallCorrectness: null });
+    const { order, excluded } = proposeOrder([vision], 4);
+    expect(order).toEqual([]);
+    expect(excluded[0]!.reason).toMatch(/serve no Tier 4 capability.*extractReceiptData: structured_output_unsupported/);
+    // With verified json_schema support declared, the same scores are proposed.
+    const verified = { ...DECLARED_CAPABILITIES[omni]!, structuredOutput: 'json_schema' as const };
+    expect(proposeOrder([vision], 4, () => verified).order).toEqual([omni]);
+  });
+
+  it('proposes a model that serves some of its tier with a caveat naming what routing refuses it', () => {
+    // gpt-oss-20b declares json_object: it serves Tier 1's tool capabilities, not parse or classify.
+    const { order, caveats } = proposeOrder([result({ modelId: 'openai/gpt-oss-20b' })], 1);
+    expect(order).toEqual(['openai/gpt-oss-20b']);
+    expect(caveats).toEqual([
+      {
+        modelId: 'openai/gpt-oss-20b',
+        unserved: [
+          { capability: 'parseTransaction', reason: 'structured_output_unsupported' },
+          { capability: 'classifyTransaction', reason: 'structured_output_unsupported' },
+        ],
+      },
+    ]);
+  });
+
+  it('never proposes a model with no declared capability entry, so a proposal cannot fail startup', () => {
+    const candidate = 'nvidia/nemotron-3.5-lightning-30b-a3b'; // an EVALUATION_CANDIDATE, not declared
+    const known = 'nvidia/nemotron-3-nano-30b-a3b';
+    const { order, excluded } = proposeOrder([result({ modelId: candidate }), result({ modelId: known })], 1);
+    expect(order).toEqual([known]);
+    expect(excluded).toEqual([{ modelId: candidate, reason: expect.stringMatching(/no declared capability entry/) }]);
+    // A score failure is still the reason given when there is one.
+    expect(proposeOrder([result({ modelId: candidate, schemaAdherence: 0.5 })], 1).excluded[0]!.reason).toMatch(/schema adherence/);
+  });
 });
 
 describe('ai:eval run', () => {
+  it('analysis cases add nothing to tool-call correctness, so they cannot lift a model over the gate', async () => {
+    // A model that makes no call on every analysis case: before, 15 free tool-call passes.
+    const run = await runEvaluation({
+      provider: provider(() => answer('no figures here')),
+      args: { tier: 2, suites: ['analysis'], models: [], limit: null, record: false },
+      models: ['fake/advanced'],
+    });
+    const analysis = run.models[0]!.suites.find((s) => s.suite === 'analysis')!;
+    expect(analysis.counts.toolCallApplicable).toBe(0);
+    expect(run.models[0]).toMatchObject({ toolCallCorrectness: null, analysisAccuracy: 0 });
+  });
+
+  it('passes document images and schema through the runner without tools', async () => {
+    const run = await runEvaluation({
+      provider: provider((request) => {
+        expect(request.messages[1]?.images?.[0]?.mimeType).toBe('image/png');
+        expect(request.responseFormat?.type).toBe('json_schema');
+        expect(request.tools).toBeUndefined();
+        return answer('{}');
+      }),
+      args: { tier: 4, suites: ['document'], models: [], limit: 1, record: false },
+      models: ['fake/vision'],
+    });
+    expect(run.models[0]).toMatchObject({ schemaAdherence: 0, toolCallCorrectness: null });
+    expect(run.proposedOrder).toEqual([]);
+  });
+
   const args = (over: Partial<EvalArgs> = {}): EvalArgs => ({ tier: 2, suites: ['grounding'], models: [], limit: 2, record: false, ...over });
 
   it('runs each model over the first n cases of each suite and reports the pass counts', async () => {
