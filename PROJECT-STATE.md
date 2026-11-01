@@ -165,7 +165,15 @@ Next (as of #22): `document` and `analysis` corpora; then the `ai:eval` runner. 
 
   So **Tier 2 has no reachable model for this account today**, and Tier 1's serving model is unverified. Before the first real measurement: run `npm run ai:eval` from the development PC (no proxy), and check on build.nvidia.com whether the 404 models need enabling for the account.
 
-Next: the first full measurement (PC); `ai_model_evaluations` storage and its load into `createCapabilityMatrix`; the `document` and `analysis` corpora. `scenario` waits on OD-18.
+Next (as of #24): the first full measurement (PC); `ai_model_evaluations` storage and its load into `createCapabilityMatrix`; the `document` and `analysis` corpora. `scenario` waits on OD-18.
+
+**2026-11-01 — measured results stored and loaded (ADR-44)** (migration `0006_phase8_ai_model_evaluations`, `src/server/ai-evaluations.ts`; stacked on #24).
+- `npm run ai:eval` stores a full run: one `ai_model_evaluations` row per model and suite, with exact counts and failing case ids in `detail`, never output. `--no-record` skips it; a `--limit` run is refused.
+- At server start (`instrumentation.ts`), the latest rows become `source: 'measured'` capability entries, layered over the declared matrix by `createCapabilityMatrix(measured)`. A new measurement takes effect at the next start.
+- **When a model gets a measured entry:** every suite of its tier at the suite's current version, no unanswered case, and a declared entry for the fields a measurement cannot supply. Otherwise its declared entry stays, which serves no score-gated route. Scores combine exact counts across suites, and a score nothing measured is 0, so it fails its gate. Latency is the slowest suite's; the entry is as old as its oldest row.
+- A failed read at startup is logged and leaves the declared matrix: it fails closed.
+
+Next: the first full measurement, from the PC; the `document` and `analysis` corpora. `scenario` waits on OD-18.
 
 ## Scope change — 2026-11-01
 

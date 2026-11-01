@@ -74,13 +74,15 @@ export interface EvalArgs {
   readonly models: readonly string[];
   /** First n cases of each suite: a cheap wire check, never a measurement to route on. */
   readonly limit: number | null;
+  /** Store the run in `ai_model_evaluations`. Never for a `--limit` run. */
+  readonly record: boolean;
 }
 
 export type ParsedArgs = { ok: true; value: EvalArgs } | { ok: false; error: string };
 
 const isSuite = (s: string): s is ModelSuite => Object.hasOwn(MODEL_SUITES, s);
 
-/** `--tier 1 --suite parse,classify --model a,b --limit 3`. */
+/** `--tier 1 --suite parse,classify --model a,b --limit 3 --no-record`. */
 export function parseEvalArgs(argv: readonly string[]): ParsedArgs {
   const value = (flag: string): string | undefined => {
     const at = argv.indexOf(flag);
@@ -117,7 +119,10 @@ export function parseEvalArgs(argv: readonly string[]): ParsedArgs {
   const limit = limitText === undefined ? null : Number(limitText);
   if (limit !== null && (!Number.isInteger(limit) || limit < 1)) return { ok: false, error: '--limit must be a positive integer.' };
 
-  return { ok: true, value: { tier: tier as Tier, suites, models: list('--model'), limit } };
+  return {
+    ok: true,
+    value: { tier: tier as Tier, suites, models: list('--model'), limit, record: limit === null && !argv.includes('--no-record') },
+  };
 }
 
 /** The tier's configured order, then its evaluation candidates, without repeats. */
@@ -138,6 +143,17 @@ export interface SuiteResult {
   readonly failedCases: readonly string[];
   /** Cases that never got an answer, by failure class: a transport error is not a wrong answer. */
   readonly errors: Readonly<Record<string, number>>;
+  /** Exact counts over answered cases, so stored results can be combined without rounding. */
+  readonly counts: SuiteCounts;
+}
+
+export interface SuiteCounts {
+  readonly answered: number;
+  readonly unanswered: number;
+  readonly schemaValid: number;
+  readonly schemaApplicable: number;
+  readonly toolCallValid: number;
+  readonly toolCallApplicable: number;
 }
 
 export interface ModelResult {
@@ -184,6 +200,18 @@ function ratio(values: readonly (boolean | null)[]): number | null {
  * stay in, because those are answers.
  */
 const UNANSWERED = new Set(['transport', 'timeout', 'rate_limited', 'unauthorized', 'not_configured']);
+
+function countsOf(report: ModelReport): SuiteCounts {
+  const scored = report.cases.filter((c) => c.errorClass === null || !UNANSWERED.has(c.errorClass));
+  return {
+    answered: scored.length,
+    unanswered: report.cases.length - scored.length,
+    schemaValid: scored.filter((c) => c.schemaValid === true).length,
+    schemaApplicable: scored.filter((c) => c.schemaValid !== null).length,
+    toolCallValid: scored.filter((c) => c.toolCallValid === true).length,
+    toolCallApplicable: scored.filter((c) => c.toolCallValid !== null).length,
+  };
+}
 
 function summarise(modelId: string, suites: readonly SuiteResult[]): ModelResult {
   const cases = suites.flatMap((s) => s.report.cases);
@@ -297,6 +325,7 @@ export async function runEvaluation(options: RunOptions): Promise<EvalRun> {
         total: report.cases.length,
         failedCases: report.cases.filter((c) => c.passed !== true).map((c) => c.caseId),
         errors,
+        counts: countsOf(report),
       });
       const errorText = Object.keys(errors).length > 0 ? ` (errors: ${JSON.stringify(errors)})` : '';
       log(`${modelId}  ${suite}: ${passed}/${report.cases.length}${errorText}`);

@@ -43,6 +43,13 @@
       "when": 1793021585062,
       "tag": "0005_phase7_ai_usage_daily",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793519000824,
+      "tag": "0006_phase8_ai_model_evaluations",
+      "breakpoints": true
     }
   ]
 }

@@ -58,12 +58,13 @@ describe('ai:eval arguments', () => {
   it('defaults the suites to the tier, and rejects what it cannot measure', () => {
     expect(parseEvalArgs(['--tier', '1'])).toEqual({
       ok: true,
-      value: { tier: 1, suites: TIER_SUITES[1], models: [], limit: null },
+      value: { tier: 1, suites: TIER_SUITES[1], models: [], limit: null, record: true },
     });
     expect(parseEvalArgs(['--tier', '2', '--suite', 'grounding,injection', '--model', 'a/b, c/d', '--limit', '3'])).toEqual({
       ok: true,
-      value: { tier: 2, suites: ['grounding', 'injection'], models: ['a/b', 'c/d'], limit: 3 },
+      value: { tier: 2, suites: ['grounding', 'injection'], models: ['a/b', 'c/d'], limit: 3, record: false },
     });
+    expect(parseEvalArgs(['--tier', '1', '--no-record'])).toMatchObject({ ok: true, value: { record: false } });
     expect(parseEvalArgs([]).ok).toBe(false);
     expect(parseEvalArgs(['--tier', '5']).ok).toBe(false);
     expect(parseEvalArgs(['--tier', '1', '--suite', 'routing']).ok).toBe(false);
@@ -122,7 +123,7 @@ describe('ai:eval proposals', () => {
 });
 
 describe('ai:eval run', () => {
-  const args = (over: Partial<EvalArgs> = {}): EvalArgs => ({ tier: 2, suites: ['grounding'], models: [], limit: 2, ...over });
+  const args = (over: Partial<EvalArgs> = {}): EvalArgs => ({ tier: 2, suites: ['grounding'], models: [], limit: 2, record: false, ...over });
 
   it('runs each model over the first n cases of each suite and reports the pass counts', async () => {
     const run = await runEvaluation({
