@@ -24,6 +24,7 @@
     "db:seed": "tsx scripts/db-seed.ts",
     "db:studio": "drizzle-kit studio",
     "ai:smoke": "node --conditions=react-server --import tsx scripts/ai-smoke.ts",
+    "ai:eval:fixtures:document": "node scripts/generate-ai-eval-document-fixtures.mjs",
     "ai:catalogue": "node --conditions=react-server --import tsx scripts/ai-smoke.ts --catalogue",
     "smoke:market-data": "node --conditions=react-server --import tsx scripts/smoke-market-data.ts",
     "verify:integrity": "tsx scripts/verify-integrity.ts",

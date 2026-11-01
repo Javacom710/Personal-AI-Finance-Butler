@@ -29,9 +29,18 @@ import type { AiFailure } from '../errors';
 /** A conversation turn. `tool` carries a result back to the model. */
 export type ChatRole = 'system' | 'user' | 'assistant' | 'tool';
 
+/** An already validated raster image passed to a vision-capable model. */
+export interface ChatImage {
+  readonly mimeType: 'image/png' | 'image/jpeg' | 'image/webp';
+  /** Base64 bytes, without a data-URL prefix. */
+  readonly data: string;
+}
+
 export interface ChatMessage {
   readonly role: ChatRole;
   readonly content: string;
+  /** Images are supported on user messages; text-only turns keep the old wire shape. */
+  readonly images?: readonly ChatImage[];
   /** Present on `assistant` turns that asked for tools. */
   readonly toolCalls?: readonly ToolCall[];
   /** Present on `tool` turns: which call this answers. */
