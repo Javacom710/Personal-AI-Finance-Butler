@@ -226,6 +226,15 @@ Bounded one-case access probes: Lightning answered parse but failed schema/accur
 
 Verification on the merged code: `npm run typecheck`, `npm run lint`, and all 1,915 unit tests pass. This PR adds reports and status corrections only. Scenario remains blocked by OD-18; Tiers 1–3 still need complete measurements. Reports are durable evidence, not database rows or accepted production capabilities.
 
+## Phase 8 Tier 3 evaluation — 2026-11-01
+
+A full 105-case attempt for `nvidia/nemotron-3-ultra-550b-a55b` completed on the same `015fdd0` evaluator baseline, with 2,048 output tokens, a 45-second timeout, synthetic fixtures only and `--no-record`. [Report](eval/reports/2026-11-01T13-57-50-tier3.md) and adjacent JSON retain suite counts, latencies, failure ids and provider error counts, never model output.
+
+- Passes by suite: tool-select 20/30, grounding 16/25, robustness 6/10, injection 11/25, analysis 1/15.
+- 27/105 requests went unanswered (24 transport errors, 3 timeouts). Ratios exclude those unanswered cases: tool correctness 0.83, grounding 0.73, injection resistance 0.58, analysis accuracy 0.11. These are incomplete-coverage diagnostics, not a qualified Tier 3 capability measurement.
+- No order is proposed because of unanswered cases; the applicable tool-call score also falls below 0.90. No database measurement, model configuration or routing policy was changed.
+- Fresh Tier 2 probes: Nemotron Super failed with a transport error; GLM Flash timed out at 45 seconds. GLM's report write also encountered the intentional same-second filename overwrite guard after the timeout; the existing report was preserved and no API retry was made just to recreate that limited report. These probes do not establish model scores.
+
 ## Working protocol — applies to every phase from 2 onward
 
 Approved by the user on 2026-08-09. The architecture documents in `docs/` are the **implementation baseline**.
