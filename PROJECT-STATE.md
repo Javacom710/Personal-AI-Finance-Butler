@@ -149,7 +149,29 @@ Next (as of the `grounding` PR): `scenario`, `injection`, `robustness`, `documen
 
 - **A dozen Codex review rounds on #22**, every finding real and each a narrower phrasing case. The wording checks gained: required and forbidden figures matched with their sign; a figure after a denial ("not 0%") not counted as stated; contradictions — claims that fail an answer even beside the right wording — tested clause by clause (punctuation, conjunctions and line breaks split claims; colons, decimals and "Rs." do not), and denied only by a negation before, inside or right after the claim; `amountFor(subject)` for an amount given to something the user does not have, in any currency notation. Wording checks decide whether an answer says a thing, not how well; tune further against real model answers once the runner exists.
 
-The 2026-11-01 evaluator wire check reached one candidate on a short fixture run; **no full evaluation or capability measurement has completed**. PR #24 contains the runner, and PR #25 contains measurement storage. `scenario` waits on OD-18 because it has no deterministic backing.
+Next (as of #22): `document` and `analysis` corpora; then the `ai:eval` runner. `scenario` waits on OD-18. No model has been run against any suite yet.
+
+**2026-11-01 — #20, #21 and #22 merged; the `ai:eval` runner built** (`src/server/ai/eval/runner.ts`, `scripts/ai-eval.ts`, `npm run ai:eval -- --tier <n> [--suite …] [--model …] [--limit n]`).
+- **What it runs:** every model in the tier's configured order plus that tier's `EVALUATION_CANDIDATES`, over the tier's suites (Tier 1: parse, classify, tool-select, grounding, robustness, injection; Tiers 2–3: the four tool suites; Tier 4: none until `document` exists). `routing` is not run: it measures application code.
+- **What it writes:** `eval/reports/<timestamp>-tier<n>.md` and `.json` with schema adherence, tool-call correctness, retrieval grounding, injection resistance, latency and failing case ids, never model output. And a **proposed** `AI_TIER<n>_MODELS` order: only models clearing §5's thresholds, ranked by §14's criteria. It changes no configuration.
+- **Unanswered is not wrong:** a case the provider never answered (transport, timeout, rate limit) is listed and kept out of every score, and a model with one is not proposed until re-run. The first live check found this: a 502 had been scored as a schema failure.
+- **Live wire check, 2026-11-01, from the cloud session** (`--limit`, synthetic fixtures only). The runner works end to end: `nemotron-3.5-lightning` answered real cases. **But a full measurement cannot run from here.** A direct chat call to each candidate:
+
+| Model | Result |
+|---|---|
+| `nvidia/nemotron-3.5-lightning-30b-a3b`, `nvidia/nemotron-3-ultra-550b-a55b`, `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning` | **200** — answer |
+| `nvidia/nemotron-3-super-120b-a12b` (**Tier 2 primary**), `nvidia/nemotron-nano-3-30b-a3b` | **404** "Function … not found for account" — listed in the catalogue, not enabled for this key's account |
+| `openai/gpt-oss-20b` (**Tier 1 serving**), `google/gemma-4-31b-it`, `deepseek-ai/deepseek-v4.1-flash`, `z-ai/glm-5.3-flash` | **502** "upstream request failed" at exactly 30 s — consistent with the session's egress proxy cutting long requests, not with the model |
+
+  So **Tier 2 has no reachable model for this account today**, and Tier 1's serving model is unverified. Before the first real measurement: run `npm run ai:eval` from the development PC (no proxy), and check on build.nvidia.com whether the 404 models need enabling for the account.
+
+Next (as of #24): the first full measurement (PC); `ai_model_evaluations` storage and its load into `createCapabilityMatrix`; the `document` and `analysis` corpora. `scenario` waits on OD-18.
+
+**2026-11-01 — measured results stored and loaded (ADR-44)** (migration `0006_phase8_ai_model_evaluations`, `src/server/ai-evaluations.ts`; stacked on #24).
+- `npm run ai:eval` stores a full run: one `ai_model_evaluations` row per model and suite, with exact counts and failing case ids in `detail`, never output. `--no-record` skips it; a `--limit` run is refused.
+- At server start (`instrumentation.ts`), the latest rows become `source: 'measured'` capability entries, layered over the declared matrix by `createCapabilityMatrix(measured)`. A new measurement takes effect at the next start.
+- **When a model gets a measured entry:** every suite of its tier at the suite's current version, no unanswered case, and a declared entry for the fields a measurement cannot supply. Otherwise its declared entry stays, which serves no score-gated route. Scores combine exact counts across suites, and a score nothing measured is 0, so it fails its gate. Latency is the slowest suite's; the entry is as old as its oldest row.
+- A failed read at startup is logged and leaves the declared matrix: it fails closed.
 
 **2026-11-01 — `document` suite built** (`src/server/ai/eval/tasks/document.ts`, 20 image cases, suite version 1).
 
@@ -157,7 +179,18 @@ The 2026-11-01 evaluator wire check reached one candidate on a short fixture run
 - **Provider prerequisite:** the AI message type previously only carried text despite the Tier 4 vision capability declaration. `ChatMessage` now supports image attachments on user turns, and NVIDIA Build sends them as OpenAI-compatible `image_url` data URLs. Existing text-only turns remain unchanged; the provider test checks the exact wire payload without egress.
 - **Proposal and scoring:** a new strict document proposal contains 1–20 transaction proposals and allows `bookedOn: null` when the document has no readable date. The production prompt says not to treat totals as transactions, invent missing fields, or follow printed instructions. Scoring validates the production schema, exact row count/order/type/date/amount/currency/description and account hints, plus empty fabricated notes/tags/category fields. A missing date or amount must be nullable and marked for review.
 - **Verification:** `npm run typecheck`, `npm run lint`, `npm run test:unit` (**1,824 passed**) and `npm run build` all pass. The focused provider/document tests also pass. No model was called and no key is needed.
-- **Remaining:** `analysis` is unbuilt. `scenario` remains blocked under OD-18. PR #24 (runner) and PR #25 (storage) are open. The runner wire check reached one candidate on a short run but produced no complete evaluation or measured capability entry.
+- **Remaining:** `analysis` is unbuilt. `scenario` remains blocked under OD-18. Tier 4 now has a suite for the runner to measure once it is wired in.
+
+Next: the first full measurement, from the PC; the `analysis` corpus. `scenario` waits on OD-18.
+
+## Scope change — 2026-11-01
+
+**Bank import, Groww sync and Groww order placement are now in scope** ([ADR-50](docs/DECISIONS.md#adr-50--bank-import-groww-sync-and-groww-order-placement-are-approved-each-behind-the-owners-confirmation)), each behind the owner's confirmation. This is not Phase 8 work and changes nothing in the current phase.
+- Statement and CAS import joins Phase 9's document pipeline.
+- Bank alert emails, Groww sync and Groww orders are a new **Phase 14** after deployment, because SEBI requires API orders to come from a static IP. Continuous Improvement becomes Phase 15.
+- Account Aggregator is out: it is open only to regulated data receivers.
+- Zerodha stays out until the owner asks.
+
 ---
 
 ## Working protocol — applies to every phase from 2 onward
