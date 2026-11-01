@@ -116,6 +116,18 @@ describe('analysis scorer — deterministic factual rubric', () => {
     expect(scoreAnalysisOutput(reversed, [], golden)).toBe(false);
   });
 
+  // A figure that belongs to another metric beside the disclaimer is not given to the missing one.
+  it.each([
+    ['analysis-005', 'Total return is -₹24,220; time-weighted return is unavailable (XIRR is -21.06%).'],
+    ['analysis-005', 'Total return is -₹24,220. The time-weighted return is not available, but XIRR is -21.06%.'],
+    ['analysis-005', 'Total return is -₹24,220, and the time-weighted return is unavailable: XIRR -21.06% is the money-weighted figure.'],
+    ['analysis-004', 'HDFC Bank has no price, so its market value is unavailable (₹40,000 invested). NIFTYBEES is valued at ₹56,900 using a stale price.'],
+    ['analysis-009', 'The runway is not available (no spend history of 3 months). HDFC Savings is ₹412,022.37.'],
+  ])('%s: accepts a disclaimer with another metric\'s figure beside it — %s', (id, answer) => {
+    const golden = ANALYSIS_CASES.find((c) => c.id === id)!;
+    expect(scoreAnalysisOutput(answer, [], golden)).toBe(true);
+  });
+
   it('analysis-007: food within budget beside dining over budget is the right finding, not a reversal', () => {
     const golden = ANALYSIS_CASES.find((c) => c.id === 'analysis-007')!;
     expect(scoreAnalysisOutput(`${ANSWERS['analysis-007']} Food is within its budget; dining is over budget, unlike food.`, [], golden)).toBe(true);
