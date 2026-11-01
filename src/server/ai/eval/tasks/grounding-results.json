@@ -1,0 +1,1414 @@
+{
+  "expenseSepRollup": {
+    "ok": true,
+    "data": {
+      "total": {
+        "kind": "money",
+        "amount": "45319.5000",
+        "currency": "INR",
+        "scale": 4
+      },
+      "additivity": "partition",
+      "depth": "rollup",
+      "groupBy": "category",
+      "rows": [
+        {
+          "key": "00000000-0000-4000-8000-000000000020",
+          "label": "Housing",
+          "amount": {
+            "kind": "money",
+            "amount": "25000.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "entryCount": 1,
+          "parentKey": null,
+          "isRollup": true,
+          "childCount": 1
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000015",
+          "label": "Food",
+          "amount": {
+            "kind": "money",
+            "amount": "8640.5000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "entryCount": 5,
+          "parentKey": null,
+          "isRollup": true,
+          "childCount": 2
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000030",
+          "label": "Shopping",
+          "amount": {
+            "kind": "money",
+            "amount": "6499.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "entryCount": 1,
+          "parentKey": null,
+          "isRollup": false,
+          "childCount": 0
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000032",
+          "label": "Transport",
+          "amount": {
+            "kind": "money",
+            "amount": "3240.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "entryCount": 2,
+          "parentKey": null,
+          "isRollup": true,
+          "childCount": 2
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000037",
+          "label": "Utilities",
+          "amount": {
+            "kind": "money",
+            "amount": "1940.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "entryCount": 1,
+          "parentKey": null,
+          "isRollup": false,
+          "childCount": 0
+        }
+      ]
+    },
+    "meta": {
+      "rowCount": 5,
+      "truncated": false,
+      "currency": "INR",
+      "from": "2026-09-01",
+      "to": "2026-09-30"
+    }
+  },
+  "expenseSepDetail": {
+    "ok": true,
+    "data": {
+      "total": {
+        "kind": "money",
+        "amount": "45319.5000",
+        "currency": "INR",
+        "scale": 4
+      },
+      "additivity": "partition",
+      "depth": "detail",
+      "groupBy": "category",
+      "rows": [
+        {
+          "key": "00000000-0000-4000-8000-000000000022",
+          "label": "Housing › Rent",
+          "amount": {
+            "kind": "money",
+            "amount": "25000.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "entryCount": 1,
+          "parentKey": "00000000-0000-4000-8000-000000000020",
+          "isRollup": false,
+          "childCount": 0
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000030",
+          "label": "Shopping",
+          "amount": {
+            "kind": "money",
+            "amount": "6499.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "entryCount": 1,
+          "parentKey": null,
+          "isRollup": false,
+          "childCount": 0
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000017",
+          "label": "Food › Groceries",
+          "amount": {
+            "kind": "money",
+            "amount": "4230.5000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "entryCount": 2,
+          "parentKey": "00000000-0000-4000-8000-000000000015",
+          "isRollup": false,
+          "childCount": 0
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000016",
+          "label": "Food › Dining",
+          "amount": {
+            "kind": "money",
+            "amount": "3610.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "entryCount": 2,
+          "parentKey": "00000000-0000-4000-8000-000000000015",
+          "isRollup": false,
+          "childCount": 0
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000034",
+          "label": "Transport › Fuel",
+          "amount": {
+            "kind": "money",
+            "amount": "2500.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "entryCount": 1,
+          "parentKey": "00000000-0000-4000-8000-000000000032",
+          "isRollup": false,
+          "childCount": 0
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000037",
+          "label": "Utilities",
+          "amount": {
+            "kind": "money",
+            "amount": "1940.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "entryCount": 1,
+          "parentKey": null,
+          "isRollup": false,
+          "childCount": 0
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000015",
+          "label": "Food",
+          "amount": {
+            "kind": "money",
+            "amount": "800.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "entryCount": 1,
+          "parentKey": null,
+          "isRollup": false,
+          "childCount": 0
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000033",
+          "label": "Transport › Cabs",
+          "amount": {
+            "kind": "money",
+            "amount": "740.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "entryCount": 1,
+          "parentKey": "00000000-0000-4000-8000-000000000032",
+          "isRollup": false,
+          "childCount": 0
+        }
+      ]
+    },
+    "meta": {
+      "rowCount": 8,
+      "truncated": false,
+      "currency": "INR",
+      "from": "2026-09-01",
+      "to": "2026-09-30"
+    }
+  },
+  "expenseSepByTag": {
+    "ok": true,
+    "data": {
+      "total": {
+        "kind": "money",
+        "amount": "45319.5000",
+        "currency": "INR",
+        "scale": 4
+      },
+      "additivity": "overlapping",
+      "depth": "rollup",
+      "groupBy": "tag",
+      "rows": [
+        {
+          "key": "00000000-0000-4000-8000-000000000043",
+          "label": "reimbursable",
+          "amount": {
+            "kind": "money",
+            "amount": "8859.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "entryCount": 2,
+          "parentKey": null,
+          "isRollup": false,
+          "childCount": 0
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000042",
+          "label": "goa-trip",
+          "amount": {
+            "kind": "money",
+            "amount": "5600.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "entryCount": 3,
+          "parentKey": null,
+          "isRollup": false,
+          "childCount": 0
+        }
+      ]
+    },
+    "meta": {
+      "rowCount": 2,
+      "truncated": false,
+      "currency": "INR",
+      "from": "2026-09-01",
+      "to": "2026-09-30"
+    }
+  },
+  "expenseSepByAccount": {
+    "ok": true,
+    "data": {
+      "total": {
+        "kind": "money",
+        "amount": "45319.5000",
+        "currency": "INR",
+        "scale": 4
+      },
+      "additivity": "partition",
+      "depth": "rollup",
+      "groupBy": "account",
+      "rows": [
+        {
+          "key": "00000000-0000-4000-8000-000000000003",
+          "label": "HDFC Savings",
+          "amount": {
+            "kind": "money",
+            "amount": "26940.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "entryCount": 2,
+          "parentKey": null,
+          "isRollup": false,
+          "childCount": 0
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000002",
+          "label": "HDFC Credit Card",
+          "amount": {
+            "kind": "money",
+            "amount": "16329.5000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "entryCount": 6,
+          "parentKey": null,
+          "isRollup": false,
+          "childCount": 0
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "label": "Cash",
+          "amount": {
+            "kind": "money",
+            "amount": "2050.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "entryCount": 2,
+          "parentKey": null,
+          "isRollup": false,
+          "childCount": 0
+        }
+      ]
+    },
+    "meta": {
+      "rowCount": 3,
+      "truncated": false,
+      "currency": "INR",
+      "from": "2026-09-01",
+      "to": "2026-09-30"
+    }
+  },
+  "incomeSep": {
+    "ok": true,
+    "data": {
+      "total": {
+        "kind": "money",
+        "amount": "120812.3700",
+        "currency": "INR",
+        "scale": 4
+      },
+      "additivity": "partition",
+      "depth": "rollup",
+      "groupBy": "category",
+      "rows": [
+        {
+          "key": "00000000-0000-4000-8000-000000000029",
+          "label": "Salary",
+          "amount": {
+            "kind": "money",
+            "amount": "120000.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "entryCount": 1,
+          "parentKey": null,
+          "isRollup": false,
+          "childCount": 0
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000024",
+          "label": "Interest",
+          "amount": {
+            "kind": "money",
+            "amount": "812.3700",
+            "currency": "INR",
+            "scale": 4
+          },
+          "entryCount": 1,
+          "parentKey": null,
+          "isRollup": false,
+          "childCount": 0
+        }
+      ]
+    },
+    "meta": {
+      "rowCount": 2,
+      "truncated": false,
+      "currency": "INR",
+      "from": "2026-09-01",
+      "to": "2026-09-30"
+    }
+  },
+  "cashflowSep": {
+    "ok": true,
+    "data": {
+      "income": {
+        "kind": "money",
+        "amount": "120812.3700",
+        "currency": "INR",
+        "scale": 4
+      },
+      "expenses": {
+        "kind": "money",
+        "amount": "45319.5000",
+        "currency": "INR",
+        "scale": 4
+      },
+      "savings": {
+        "kind": "money",
+        "amount": "75492.8700",
+        "currency": "INR",
+        "scale": 4
+      },
+      "netCashFlow": {
+        "kind": "money",
+        "amount": "75492.8700",
+        "currency": "INR",
+        "scale": 4
+      },
+      "savingsRate": {
+        "value": {
+          "kind": "rate",
+          "value": "0.6248769890",
+          "scale": 10
+        },
+        "unavailableReason": null
+      },
+      "fxEffect": {
+        "kind": "money",
+        "amount": "0.0000",
+        "currency": "INR",
+        "scale": 4
+      }
+    },
+    "meta": {
+      "rowCount": 1,
+      "truncated": false,
+      "currency": "INR",
+      "from": "2026-09-01",
+      "to": "2026-09-30"
+    }
+  },
+  "compareOct": {
+    "ok": true,
+    "data": {
+      "current": {
+        "income": {
+          "kind": "money",
+          "amount": "120000.0000",
+          "currency": "INR",
+          "scale": 4
+        },
+        "expenses": {
+          "kind": "money",
+          "amount": "30040.0000",
+          "currency": "INR",
+          "scale": 4
+        },
+        "savings": {
+          "kind": "money",
+          "amount": "89960.0000",
+          "currency": "INR",
+          "scale": 4
+        }
+      },
+      "previous": {
+        "income": {
+          "kind": "money",
+          "amount": "120812.3700",
+          "currency": "INR",
+          "scale": 4
+        },
+        "expenses": {
+          "kind": "money",
+          "amount": "45319.5000",
+          "currency": "INR",
+          "scale": 4
+        },
+        "savings": {
+          "kind": "money",
+          "amount": "75492.8700",
+          "currency": "INR",
+          "scale": 4
+        }
+      },
+      "incomeDelta": {
+        "kind": "money",
+        "amount": "-812.3700",
+        "currency": "INR",
+        "scale": 4
+      },
+      "expenseDelta": {
+        "kind": "money",
+        "amount": "-15279.5000",
+        "currency": "INR",
+        "scale": 4
+      },
+      "savingsDelta": {
+        "kind": "money",
+        "amount": "14467.1300",
+        "currency": "INR",
+        "scale": 4
+      }
+    },
+    "meta": {
+      "rowCount": 2,
+      "truncated": false,
+      "currency": "INR",
+      "from": "2026-10-01",
+      "to": "2026-10-31"
+    }
+  },
+  "budgetsOct": {
+    "ok": true,
+    "data": {
+      "budgets": [
+        {
+          "id": "00000000-0000-4000-8000-000000000008",
+          "category": "Food",
+          "period": "monthly",
+          "budgeted": {
+            "kind": "money",
+            "amount": "10000.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "actual": {
+            "kind": "money",
+            "amount": "5040.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "remaining": {
+            "kind": "money",
+            "amount": "4960.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "utilization": {
+            "value": {
+              "kind": "rate",
+              "value": "0.5040000000",
+              "scale": 10
+            },
+            "unavailableReason": null
+          },
+          "overBudget": false
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000007",
+          "category": "Food › Dining",
+          "period": "monthly",
+          "budgeted": {
+            "kind": "money",
+            "amount": "2500.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "actual": {
+            "kind": "money",
+            "amount": "3150.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "remaining": {
+            "kind": "money",
+            "amount": "-650.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "utilization": {
+            "value": {
+              "kind": "rate",
+              "value": "1.2600000000",
+              "scale": 10
+            },
+            "unavailableReason": null
+          },
+          "overBudget": true
+        }
+      ]
+    },
+    "meta": {
+      "rowCount": 2,
+      "truncated": false,
+      "currency": "INR"
+    }
+  },
+  "accounts": {
+    "ok": true,
+    "data": {
+      "accounts": [
+        {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "name": "Cash",
+          "kind": "cash",
+          "currency": "INR",
+          "balance": {
+            "kind": "money",
+            "amount": "5950.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "baseBalance": {
+            "value": {
+              "kind": "money",
+              "amount": "5950.0000",
+              "currency": "INR",
+              "scale": 4
+            },
+            "unavailableReason": null
+          },
+          "creditLimit": null,
+          "isActive": true
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000002",
+          "name": "HDFC Credit Card",
+          "kind": "credit_card",
+          "currency": "INR",
+          "balance": {
+            "kind": "money",
+            "amount": "-14969.5000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "baseBalance": {
+            "value": {
+              "kind": "money",
+              "amount": "-14969.5000",
+              "currency": "INR",
+              "scale": 4
+            },
+            "unavailableReason": null
+          },
+          "creditLimit": {
+            "kind": "money",
+            "amount": "200000.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "isActive": true
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000003",
+          "name": "HDFC Savings",
+          "kind": "bank",
+          "currency": "INR",
+          "balance": {
+            "kind": "money",
+            "amount": "412022.3700",
+            "currency": "INR",
+            "scale": 4
+          },
+          "baseBalance": {
+            "value": {
+              "kind": "money",
+              "amount": "412022.3700",
+              "currency": "INR",
+              "scale": 4
+            },
+            "unavailableReason": null
+          },
+          "creditLimit": null,
+          "isActive": true
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000004",
+          "name": "Zerodha",
+          "kind": "brokerage",
+          "currency": "INR",
+          "balance": {
+            "kind": "money",
+            "amount": "27680.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "baseBalance": {
+            "value": {
+              "kind": "money",
+              "amount": "27680.0000",
+              "currency": "INR",
+              "scale": 4
+            },
+            "unavailableReason": null
+          },
+          "creditLimit": null,
+          "isActive": true
+        }
+      ]
+    },
+    "meta": {
+      "rowCount": 4,
+      "truncated": false,
+      "currency": "INR"
+    }
+  },
+  "netWorthCost": {
+    "ok": true,
+    "data": {
+      "basis": "cost",
+      "asOf": "2026-10-15",
+      "assets": {
+        "kind": "money",
+        "amount": "10534664.3700",
+        "currency": "INR",
+        "scale": 4
+      },
+      "liabilities": {
+        "kind": "money",
+        "amount": "2427315.1700",
+        "currency": "INR",
+        "scale": 4
+      },
+      "netWorth": {
+        "kind": "money",
+        "amount": "8107349.2000",
+        "currency": "INR",
+        "scale": 4
+      },
+      "assetCoverage": {
+        "kind": "rate",
+        "value": "1.0000000000",
+        "scale": 10
+      },
+      "liabilityCoverage": {
+        "kind": "rate",
+        "value": "1.0000000000",
+        "scale": 10
+      },
+      "groups": [
+        {
+          "group": "cash",
+          "side": "asset",
+          "total": {
+            "kind": "money",
+            "amount": "417972.3700",
+            "currency": "INR",
+            "scale": 4
+          },
+          "count": 2
+        },
+        {
+          "group": "brokerage_cash",
+          "side": "asset",
+          "total": {
+            "kind": "money",
+            "amount": "27680.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "count": 1
+        },
+        {
+          "group": "investments",
+          "side": "asset",
+          "total": {
+            "kind": "money",
+            "amount": "179012.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "count": 3
+        },
+        {
+          "group": "property",
+          "side": "asset",
+          "total": {
+            "kind": "money",
+            "amount": "9500000.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "count": 1
+        },
+        {
+          "group": "gold_physical",
+          "side": "asset",
+          "total": {
+            "kind": "money",
+            "amount": "410000.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "count": 1
+        },
+        {
+          "group": "credit_card",
+          "side": "liability",
+          "total": {
+            "kind": "money",
+            "amount": "14969.5000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "count": 1
+        },
+        {
+          "group": "loans",
+          "side": "liability",
+          "total": {
+            "kind": "money",
+            "amount": "2412345.6700",
+            "currency": "INR",
+            "scale": 4
+          },
+          "count": 1
+        }
+      ],
+      "excluded": []
+    },
+    "meta": {
+      "rowCount": 1,
+      "truncated": false,
+      "currency": "INR",
+      "asOf": "2026-10-15"
+    }
+  },
+  "netWorthMarket": {
+    "ok": true,
+    "data": {
+      "basis": "market",
+      "asOf": "2026-10-15",
+      "assets": {
+        "kind": "money",
+        "amount": "10503752.3700",
+        "currency": "INR",
+        "scale": 4
+      },
+      "liabilities": {
+        "kind": "money",
+        "amount": "2427315.1700",
+        "currency": "INR",
+        "scale": 4
+      },
+      "netWorth": {
+        "kind": "money",
+        "amount": "8076437.2000",
+        "currency": "INR",
+        "scale": 4
+      },
+      "assetCoverage": {
+        "kind": "rate",
+        "value": "0.8750000000",
+        "scale": 10
+      },
+      "liabilityCoverage": {
+        "kind": "rate",
+        "value": "1.0000000000",
+        "scale": 10
+      },
+      "groups": [
+        {
+          "group": "cash",
+          "side": "asset",
+          "total": {
+            "kind": "money",
+            "amount": "417972.3700",
+            "currency": "INR",
+            "scale": 4
+          },
+          "count": 2
+        },
+        {
+          "group": "brokerage_cash",
+          "side": "asset",
+          "total": {
+            "kind": "money",
+            "amount": "27680.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "count": 1
+        },
+        {
+          "group": "investments",
+          "side": "asset",
+          "total": {
+            "kind": "money",
+            "amount": "148100.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "count": 2
+        },
+        {
+          "group": "property",
+          "side": "asset",
+          "total": {
+            "kind": "money",
+            "amount": "9500000.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "count": 1
+        },
+        {
+          "group": "gold_physical",
+          "side": "asset",
+          "total": {
+            "kind": "money",
+            "amount": "410000.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "count": 1
+        },
+        {
+          "group": "credit_card",
+          "side": "liability",
+          "total": {
+            "kind": "money",
+            "amount": "14969.5000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "count": 1
+        },
+        {
+          "group": "loans",
+          "side": "liability",
+          "total": {
+            "kind": "money",
+            "amount": "2412345.6700",
+            "currency": "INR",
+            "scale": 4
+          },
+          "count": 1
+        }
+      ],
+      "excluded": [
+        {
+          "label": "HDFCBANK · Zerodha",
+          "reason": "no_provider"
+        }
+      ]
+    },
+    "meta": {
+      "rowCount": 1,
+      "truncated": false,
+      "currency": "INR",
+      "asOf": "2026-10-15"
+    }
+  },
+  "netWorthHistory": {
+    "ok": true,
+    "data": {
+      "points": [
+        {
+          "asOf": "2026-06-30",
+          "netWorth": {
+            "kind": "money",
+            "amount": "7404700.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "assets": {
+            "kind": "money",
+            "amount": "9860020.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "liabilities": {
+            "kind": "money",
+            "amount": "2455320.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "basis": "cost"
+        },
+        {
+          "asOf": "2026-07-31",
+          "netWorth": {
+            "kind": "money",
+            "amount": "7409692.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "assets": {
+            "kind": "money",
+            "amount": "9859692.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "liabilities": {
+            "kind": "money",
+            "amount": "2450000.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "basis": "cost"
+        },
+        {
+          "asOf": "2026-08-31",
+          "netWorth": {
+            "kind": "money",
+            "amount": "7494242.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "assets": {
+            "kind": "money",
+            "amount": "9952842.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "liabilities": {
+            "kind": "money",
+            "amount": "2458600.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "basis": "cost"
+        },
+        {
+          "asOf": "2026-09-30",
+          "netWorth": {
+            "kind": "money",
+            "amount": "8017389.2000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "assets": {
+            "kind": "money",
+            "amount": "10439664.3700",
+            "currency": "INR",
+            "scale": 4
+          },
+          "liabilities": {
+            "kind": "money",
+            "amount": "2422275.1700",
+            "currency": "INR",
+            "scale": 4
+          },
+          "basis": "cost"
+        }
+      ]
+    },
+    "meta": {
+      "rowCount": 4,
+      "truncated": false,
+      "currency": "INR"
+    }
+  },
+  "liabilities": {
+    "ok": true,
+    "data": {
+      "liabilities": [
+        {
+          "id": "00000000-0000-4000-8000-000000000041",
+          "name": "Home loan",
+          "kind": "home_loan",
+          "shape": "scheduled",
+          "currency": "INR",
+          "outstanding": {
+            "kind": "money",
+            "amount": "2412345.6700",
+            "currency": "INR",
+            "scale": 4
+          },
+          "emiAmount": {
+            "kind": "money",
+            "amount": "24500.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "interestRate": {
+            "kind": "rate",
+            "value": "0.0850000000",
+            "scale": 10
+          }
+        }
+      ]
+    },
+    "meta": {
+      "rowCount": 1,
+      "truncated": false,
+      "currency": "INR"
+    }
+  },
+  "assets": {
+    "ok": true,
+    "data": {
+      "assets": [
+        {
+          "id": "00000000-0000-4000-8000-000000000005",
+          "name": "Apartment",
+          "kind": "property",
+          "currency": "INR",
+          "currentValue": {
+            "kind": "money",
+            "amount": "9500000.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "currentValueOn": "2026-03-31",
+          "acquisitionCost": {
+            "kind": "money",
+            "amount": "7800000.0000",
+            "currency": "INR",
+            "scale": 4
+          }
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000006",
+          "name": "Gold coins",
+          "kind": "gold_physical",
+          "currency": "INR",
+          "currentValue": {
+            "kind": "money",
+            "amount": "410000.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "currentValueOn": "2026-09-30",
+          "acquisitionCost": {
+            "kind": "money",
+            "amount": "285000.0000",
+            "currency": "INR",
+            "scale": 4
+          }
+        }
+      ]
+    },
+    "meta": {
+      "rowCount": 2,
+      "truncated": false,
+      "currency": "INR"
+    }
+  },
+  "portfolio": {
+    "ok": true,
+    "data": {
+      "asOf": "2026-10-15",
+      "investedCapital": {
+        "kind": "money",
+        "amount": "179012.0000",
+        "currency": "INR",
+        "scale": 4
+      },
+      "marketValue": {
+        "kind": "money",
+        "amount": "148100.0000",
+        "currency": "INR",
+        "scale": 4
+      },
+      "unrealizedPnl": {
+        "kind": "money",
+        "amount": "-30912.0000",
+        "currency": "INR",
+        "scale": 4
+      },
+      "realizedPnl": {
+        "kind": "money",
+        "amount": "4992.0000",
+        "currency": "INR",
+        "scale": 4
+      },
+      "dividends": {
+        "kind": "money",
+        "amount": "1700.0000",
+        "currency": "INR",
+        "scale": 4
+      },
+      "interest": {
+        "kind": "money",
+        "amount": "0.0000",
+        "currency": "INR",
+        "scale": 4
+      },
+      "fees": {
+        "kind": "money",
+        "amount": "0.0000",
+        "currency": "INR",
+        "scale": 4
+      },
+      "taxes": {
+        "kind": "money",
+        "amount": "0.0000",
+        "currency": "INR",
+        "scale": 4
+      },
+      "totalReturn": {
+        "kind": "money",
+        "amount": "-24220.0000",
+        "currency": "INR",
+        "scale": 4
+      },
+      "totalReturnPct": {
+        "value": {
+          "kind": "rate",
+          "value": "-0.1169935272",
+          "scale": 10
+        },
+        "unavailableReason": null
+      },
+      "xirr": {
+        "value": {
+          "kind": "rate",
+          "value": "-0.2105550000",
+          "scale": 10
+        },
+        "unavailableReason": null
+      },
+      "twr": {
+        "value": null,
+        "unavailableReason": "insufficient_price_history"
+      },
+      "coverage": {
+        "kind": "rate",
+        "value": "0.7765512927",
+        "scale": 10
+      }
+    },
+    "meta": {
+      "rowCount": 1,
+      "truncated": false,
+      "currency": "INR",
+      "asOf": "2026-10-15"
+    }
+  },
+  "holdings": {
+    "ok": true,
+    "data": {
+      "holdings": [
+        {
+          "instrumentId": "00000000-0000-4000-8000-000000000038",
+          "symbol": "HDFCBANK",
+          "name": "HDFC Bank",
+          "assetClass": "equity",
+          "accountName": "Zerodha",
+          "quantity": {
+            "kind": "quantity",
+            "units": "25.00000000",
+            "scale": 8
+          },
+          "avgCost": {
+            "kind": "price",
+            "units": "1600.00000000",
+            "scale": 8
+          },
+          "invested": {
+            "kind": "money",
+            "amount": "40000.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "marketValue": null,
+          "unrealizedPnl": null,
+          "priceStatus": "missing"
+        },
+        {
+          "instrumentId": "00000000-0000-4000-8000-000000000039",
+          "symbol": "INFY",
+          "name": "Infosys",
+          "assetClass": "equity",
+          "accountName": "Zerodha",
+          "quantity": {
+            "kind": "quantity",
+            "units": "60.00000000",
+            "scale": 8
+          },
+          "avgCost": {
+            "kind": "price",
+            "units": "1450.20000000",
+            "scale": 8
+          },
+          "invested": {
+            "kind": "money",
+            "amount": "87012.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "marketValue": {
+            "kind": "money",
+            "amount": "91200.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "unrealizedPnl": {
+            "kind": "money",
+            "amount": "4188.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "priceStatus": "cached"
+        },
+        {
+          "instrumentId": "00000000-0000-4000-8000-000000000040",
+          "symbol": "NIFTYBEES",
+          "name": "Nippon India Nifty 50 BeES",
+          "assetClass": "etf",
+          "accountName": "Zerodha",
+          "quantity": {
+            "kind": "quantity",
+            "units": "200.00000000",
+            "scale": 8
+          },
+          "avgCost": {
+            "kind": "price",
+            "units": "260.00000000",
+            "scale": 8
+          },
+          "invested": {
+            "kind": "money",
+            "amount": "52000.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "marketValue": {
+            "kind": "money",
+            "amount": "56900.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "unrealizedPnl": {
+            "kind": "money",
+            "amount": "4900.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "priceStatus": "stale"
+        }
+      ],
+      "pricedValue": {
+        "kind": "money",
+        "amount": "148100.0000",
+        "currency": "INR",
+        "scale": 4
+      },
+      "coverage": {
+        "kind": "rate",
+        "value": "0.7765512927",
+        "scale": 10
+      },
+      "unpricedCount": 1
+    },
+    "meta": {
+      "rowCount": 3,
+      "truncated": false,
+      "currency": "INR",
+      "totalMatching": 3
+    }
+  },
+  "allocationByClass": {
+    "ok": true,
+    "data": {
+      "dimension": "asset_class",
+      "total": {
+        "kind": "money",
+        "amount": "148100.0000",
+        "currency": "INR",
+        "scale": 4
+      },
+      "additivity": "partition",
+      "slices": [
+        {
+          "key": "equity",
+          "label": "Equities",
+          "marketValue": {
+            "kind": "money",
+            "amount": "91200.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "weightPct": {
+            "value": {
+              "kind": "rate",
+              "value": "0.6158001350",
+              "scale": 10
+            },
+            "unavailableReason": null
+          },
+          "holdingCount": 1
+        },
+        {
+          "key": "etf",
+          "label": "ETFs",
+          "marketValue": {
+            "kind": "money",
+            "amount": "56900.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "weightPct": {
+            "value": {
+              "kind": "rate",
+              "value": "0.3841998650",
+              "scale": 10
+            },
+            "unavailableReason": null
+          },
+          "holdingCount": 1
+        }
+      ],
+      "unpricedValue": {
+        "kind": "money",
+        "amount": "40000.0000",
+        "currency": "INR",
+        "scale": 4
+      },
+      "unpricedCount": 1
+    },
+    "meta": {
+      "rowCount": 2,
+      "truncated": false,
+      "currency": "INR"
+    }
+  }
+}

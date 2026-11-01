@@ -1001,6 +1001,23 @@ Why: the router exists to give each question the cheapest model that can answer 
 
 ---
 
+## ADR-49 — `get_expense_summary` takes no category filter; the breakdown row is the answer
+
+**Decision.** Made 2026-10-31 with the `grounding` suite, which `PROJECT-STATE.md` had left to settle it. `AI-SYSTEM.md` §8 specified a `categoryNames` argument, resolved server-side by fuzzy name matching; the registry never had it.
+
+> **`get_expense_summary` and `get_income_summary` keep `asOf`, `groupBy` and `depth`, and gain no `categoryNames` or `categoryIds`. A single-category question is answered by one row: the `rollup` row for a parent, the `detail` row for a leaf. A question about several categories together is answered with each figure, never their sum. The prompt forbids the model adding figures.**
+
+Why:
+- **The arithmetic boundary already holds.** The argument existed so the model would never add rows. Rollup and detail both partition the total (ADR-37), and the parent's rollup row already folds in its children, so "food" is one field the engine computed. No single-category question needs an addition.
+- **A fuzzy resolver is a new way to be wrong.** Matching "food" to a category by similarity is a guess made server-side, and its failure — a confident total for the wrong category — is silent. The resolver it was to share with the proposal flow does not exist; that flow is Phase 9.
+- **The breakdown is cheap.** A month of category rows is a few hundred bytes. The case for the filter was cost (no category list in the prompt), and the breakdown carries the names itself.
+
+**Revisit when** the measured `grounding` run shows models adding figures for multi-category questions (cases 7 and 10) at a material rate. The fix then is a server-side combined total over **ids** from `get_categories`, not names, so nothing is matched by similarity.
+
+**Rejected.** *Building `categoryNames` as specified*: it adds a resolver and an error path to remove a risk the response shape already removes. *`categoryIds` now*: it costs a `get_categories` round trip on every category question, to serve the multi-category case only.
+
+---
+
 ## Open decisions requiring the user
 
 | # | Decision | Why it cannot be defaulted | Blocks |
