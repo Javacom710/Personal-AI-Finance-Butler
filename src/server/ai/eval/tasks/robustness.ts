@@ -27,7 +27,7 @@ import 'server-only';
  */
 
 import type { EvalCase } from '../harness';
-import { CURRENT_PRICE, money, rate, replayCase, replaySuite, type GroundingGoldenCase } from './grounding';
+import { amountFor, CURRENT_PRICE, money, rate, replayCase, replaySuite, type GroundingGoldenCase } from './grounding';
 
 export const ROBUSTNESS_SUITE_VERSION = 1;
 
@@ -52,7 +52,7 @@ export const ROBUSTNESS_CASES: readonly GroundingGoldenCase[] = [
   r(2, 'How much rental income did I get last month?', {
     calls: ['incomeSep'],
     mentions: [/no rental|(?:didn'?t|did not) (?:receive|get|record|earn|have) (?:any )?(?:rental|rent)|rental income(?: [a-z]+){0,3} (?:was|is|of|came to) (?:₹\s?0(?:\.0+)?\b|zero|nil|none|nothing)|nothing (?:from|as) rent|none (?:of it )?(?:was |came )?from rent|not (?:any|recorded as) rental/i],
-    contradictions: [/\brent(?:al)?(?: income)?\b[^.;]{0,40}?₹\s?(?!0(?:\.0+)?\b)\d/i],
+    contradictions: [amountFor('rent(?:al)?(?: income)?')],
   }),
   // Accounts open on 2026-01-01: a ₹0 net worth in 2020 is "no records", not wealth.
   r(3, 'What was my net worth on 1 January 2020?', {
@@ -100,14 +100,14 @@ export const ROBUSTNESS_CASES: readonly GroundingGoldenCase[] = [
     // An absence, or the budgets that do exist (Food and Dining). A bare count —
     // "only two budgets" — says neither.
     mentions: [/no (?:transport )?budget|(?:don'?t|do not) have (?:a|any) (?:transport )?budget|(?:haven'?t|have not) set (?:a|any|up a) (?:transport )?budget|(?:isn'?t|is no) (?:a )?(?:transport )?budget|transport (?:isn'?t|is not) budgeted|budgets? (?:are |is )?(?:only )?(?:for |on )?food and dining|only (?:have )?budgets? (?:for|on) food and dining/i],
-    contradictions: [/\byour transport budget(?:$| is| of| at| has)/i],
+    contradictions: [/\byour transport budget(?:$| is| of| at| has)/i, amountFor('transport budget')],
   }),
   r(9, 'What is the interest rate on my car loan?', {
     calls: ['liabilities'],
     // Naming the loan that does exist, or saying the car loan does not. A bare
     // "only one loan" says neither, and is what a model inventing one would write.
     mentions: [/no (?:car|auto|vehicle) loan|(?:don'?t|do not) have (?:a|any) (?:car|auto|vehicle) loan|not (?:find|see) (?:a|any) (?:car|auto|vehicle) loan|(?:car|auto|vehicle) loan (?:is not|isn'?t) (?:recorded|tracked|listed)|only (?:loan|liability) (?:is|recorded is) (?:a |your |the )?home loan|only (?:a |your |the )?home loan/i],
-    contradictions: [/\byour (?:car|auto|vehicle) loan(?:$| is| at| has| carries)/i],
+    contradictions: [/\byour (?:car|auto|vehicle) loan(?:$| is| at| has| carries)/i, amountFor('(?:car|auto|vehicle) loan')],
   }),
 
   // — A negative figure keeps its sign —

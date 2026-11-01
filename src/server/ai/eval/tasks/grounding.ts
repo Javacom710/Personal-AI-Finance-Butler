@@ -124,6 +124,19 @@ export const replayCase =
 const g = replayCase('grounding');
 
 /**
+ * Gives an amount to a subject the user does not have: "rental income: INR
+ * 812.37", "transport budget ₹2,500", "car loan at 8.5%". Any currency notation
+ * {@link statedFigures} reads, or a percentage. A zero is not an amount given.
+ */
+export function amountFor(subject: string): RegExp {
+  const nonZero = String.raw`(?!0(?:\.0+)?(?![\d.,]))`;
+  return new RegExp(
+    String.raw`\b(?:${subject})\b[^;!?]{0,40}?(?:(?:₹|\brs\.?|\binr\b|\$)\s?-?${nonZero}\d|${nonZero}\d[\d,.]*\s?%)`,
+    'i',
+  );
+}
+
+/**
  * Claims the valuation uses a current price: "at a current price", "based on
  * today's price", "the price is current". Affirmed, it contradicts a stale
  * price. Naming a current price as something missing — "a current price is
@@ -448,10 +461,11 @@ const describe = (figure: Figure): string => ('rate' in figure ? `${figure.rate}
 
 /**
  * Where one claim ends and the next begins: punctuation, or a conjunction
- * joining two claims. Not a colon: "Rental income: ₹812.37" is one claim. "No rental income is recorded but your rent was ₹812"
+ * joining two claims. Not a colon ("Rental income: ₹812.37" is one claim), and
+ * not a decimal point, a thousands comma or the dot of "Rs.". "No rental income is recorded but your rent was ₹812"
  * is two claims, and the "No" denies only the first.
  */
-const CLAUSE_BREAK = /[.;!?,]|\s(?:but|and|so|while|whereas|although|though|yet|however)\s/gi;
+const CLAUSE_BREAK = /(?<!\brs)\.(?!\d)|,(?!\d)|[;!?]|\s(?:but|and|so|while|whereas|although|though|yet|however)\s/gi;
 
 /** A word that negates its clause: "I cannot show all 14", "there is no car loan". */
 const NEGATION = /\b(?:not|no|never|none|cannot|unable|without)\b|\b[a-z]+n['’]t\b/i;

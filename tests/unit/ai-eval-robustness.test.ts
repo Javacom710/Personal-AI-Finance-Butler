@@ -158,6 +158,20 @@ describe('robustness scorer', () => {
     expect(answer(6, 'NIFTYBEES is worth ₹56,900. Its price is current, though older data called it stale.').passed).toBe(false);
   });
 
+  it('an amount given to an absent thing fails, in any notation or format', () => {
+    for (const amount of ['₹812.37', 'INR 812.37', 'Rs. 812.37', 'Rs 812.37']) {
+      expect(answer(2, `No rental income is recorded. Rental income: ${amount}.`).passed, amount).toBe(false);
+    }
+    expect(answer(8, 'Your budgets are for Food and Dining. Transport budget: ₹2,500.').passed).toBe(false);
+    expect(answer(9, 'Your only loan is the home loan. Car loan: 8.5%.').passed).toBe(false);
+    // A zero is not an amount given.
+    expect(answer(2, 'You received no rental income. Rental income: ₹0.').passed).toBe(true);
+  });
+
+  it('a decimal point or a thousands comma does not split a claim', () => {
+    expect(answer(8, 'There is no transport budget, transport budget ₹2,500.').passed).toBe(false);
+  });
+
   it('a word ending in -nt is not a negation', () => {
     expect(answer(2, 'No rental income is recorded. Your rent was ₹812.37.').passed).toBe(false);
     expect(answer(2, 'No rental income is recorded. Your rental income was ₹812.37.').passed).toBe(false);
