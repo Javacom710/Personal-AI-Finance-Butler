@@ -482,7 +482,8 @@ const NEGATION = /\b(?:not|no|never|none|cannot|unable|without)\b|\b[a-z]+n['’
  * Does the answer make this claim, rather than deny it? The answer is split
  * into clauses at {@link CLAUSE_BREAK}. The claim is denied by a negation
  * before it in its clause ("I cannot show all 14") or right after it ("your
- * car loan is not recorded"); a negation elsewhere in the clause belongs to
+ * car loan is not recorded"), or inside it ("rental income is not ₹812.37");
+ * a negation elsewhere in the clause belongs to
  * something else ("at a current price with no stale data"). A pattern sees one clause at a time, so it
  * cannot reach across a conjunction into a negated neighbour. So
  * "showing all 14" and "you have one loan: your car loan, at 8.5%" affirm;
@@ -496,7 +497,8 @@ export function affirms(text: string, pattern: RegExp): boolean {
     if (!match) return false;
     const before = clause.slice(0, match.index);
     const after = clause.slice(match.index + match[0].length);
-    return !NEGATION.test(before) && !DENIED_AFTER.test(after);
+    // A negation inside the match denies it too: "your rental income is not ₹812.37".
+    return !NEGATION.test(before) && !NEGATION.test(match[0]) && !DENIED_AFTER.test(after);
   });
 }
 

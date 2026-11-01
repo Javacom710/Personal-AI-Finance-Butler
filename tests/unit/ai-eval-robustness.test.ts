@@ -184,6 +184,11 @@ describe('robustness scorer', () => {
     ).toBe(true);
   });
 
+  it('a negation inside the claim denies it', () => {
+    expect(answer(2, 'No rental income is recorded. Your rental income is not ₹812.37.').passed).toBe(true);
+    expect(answer(2, 'No rental income is recorded. Your rental income is ₹812.37.').passed).toBe(false);
+  });
+
   it('a negation elsewhere in the clause does not deny the claim', () => {
     expect(answer(6, 'NIFTYBEES is worth ₹56,900 at a current price with no stale data.').passed).toBe(false);
   });
