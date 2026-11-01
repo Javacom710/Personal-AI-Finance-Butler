@@ -35,6 +35,23 @@ export interface AnalysisGoldenCase extends GroundingGoldenCase {
 
 const makeCase = replayCase('analysis');
 
+const COUNT = String.raw`(?:\d+(?:\.\d+)?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|eighteen|twenty|twenty-four|thirty-six)`;
+const SPAN = String.raw`(?:days?|weeks?|months?|mos?|years?|yrs?)`;
+
+/**
+ * Gives a duration to a subject the results cannot supply: "your runway is 12
+ * months", "about six months of runway". {@link amountFor} reads only money and
+ * percentages, and the figure parser ignores small bare numbers, so a duration
+ * needs its own check.
+ */
+export function durationFor(subject: string): RegExp {
+  const gap = String.raw`(?:(?!\d)[^;!?]){0,40}`;
+  return new RegExp(
+    String.raw`\b(?:${subject})\b${gap}\b${COUNT}\s?${SPAN}\b|\b${COUNT}\s?${SPAN}\b(?:(?!\d)[^;!?]){0,20}\b(?:${subject})\b`,
+    'i',
+  );
+}
+
 function analysisCase(
   n: number,
   domain: AnalysisDomain,
@@ -102,7 +119,7 @@ export const ANALYSIS_CASES: readonly AnalysisGoldenCase[] = [
     calls: ['cashflowJan', 'accounts', 'liabilities'],
     required: [money('412022.37')],
     mentions: [/runway.{0,50}(?:not available|not provided|cannot be (?:calculated|determined)|cannot tell|not enough|requires|needs)/i],
-    contradictions: [amountFor('runway')],
+    contradictions: [amountFor('runway'), durationFor('runway')],
   }),
 
   // Period analysis

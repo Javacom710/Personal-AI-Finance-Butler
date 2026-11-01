@@ -22,15 +22,14 @@ import 'server-only';
  *   reported as unreachable, not as a model that scored zero.
  *
  * The `routing` suite is not here: it measures the application's classifier,
- * not a model, and runs in the unit tests. `scenario` remains blocked by OD-18.
+ * not a model, and runs in the unit tests. `document`, `scenario` and
+ * `analysis` are not built.
  */
 
 import type { Tier } from '../config/models';
 import { EVALUATION_CANDIDATES, type ModelConfig } from '../config/models';
 import type { AiProvider } from '../provider/types';
 import { evaluateModel, type EvalCase, type EvalSuite, type ModelReport } from './harness';
-import { ANALYSIS_SUITE_VERSION, analysisSuite } from './tasks/analysis';
-import { DOCUMENT_SUITE_VERSION, documentSuite } from './tasks/document';
 import { CLASSIFY_SUITE_VERSION, classifySuite } from './tasks/classify';
 import { GROUNDING_SUITE_VERSION, groundingSuite } from './tasks/grounding';
 import { INJECTION_SUITE_VERSION, injectionSuite } from './tasks/injection';
@@ -39,11 +38,9 @@ import { ROBUSTNESS_SUITE_VERSION, robustnessSuite } from './tasks/robustness';
 import { TOOL_SELECT_SUITE_VERSION, toolSelectSuite } from './tasks/tool-select';
 
 /** The suites a model can be measured on. */
-export type ModelSuite = Extract<EvalSuite, 'parse' | 'classify' | 'tool-select' | 'grounding' | 'robustness' | 'injection' | 'analysis' | 'document'>;
+export type ModelSuite = Extract<EvalSuite, 'parse' | 'classify' | 'tool-select' | 'grounding' | 'robustness' | 'injection'>;
 
 export const MODEL_SUITES: Readonly<Record<ModelSuite, { readonly version: number; readonly build: () => readonly EvalCase[] }>> = {
-  analysis: { version: ANALYSIS_SUITE_VERSION, build: analysisSuite },
-  document: { version: DOCUMENT_SUITE_VERSION, build: documentSuite },
   parse: { version: PARSE_SUITE_VERSION, build: parseSuite },
   classify: { version: CLASSIFY_SUITE_VERSION, build: classifySuite },
   'tool-select': { version: TOOL_SELECT_SUITE_VERSION, build: toolSelectSuite },
@@ -54,14 +51,14 @@ export const MODEL_SUITES: Readonly<Record<ModelSuite, { readonly version: numbe
 
 /**
  * What each tier is measured on. Tier 1 parses and classifies; every text tier
- * answers questions with tools. Tiers 2 and 3 also analyse replayed results;
- * Tier 4 measures structured image extraction without tools.
+ * answers questions with tools. Tier 4's `document` suite is not built, so
+ * Tier 4 cannot be measured yet, and saying so beats measuring it on text.
  */
 export const TIER_SUITES: Readonly<Record<Tier, readonly ModelSuite[]>> = {
   1: ['parse', 'classify', 'tool-select', 'grounding', 'robustness', 'injection'],
-  2: ['tool-select', 'grounding', 'robustness', 'injection', 'analysis'],
-  3: ['tool-select', 'grounding', 'robustness', 'injection', 'analysis'],
-  4: ['document'],
+  2: ['tool-select', 'grounding', 'robustness', 'injection'],
+  3: ['tool-select', 'grounding', 'robustness', 'injection'],
+  4: [],
   5: [],
 };
 
@@ -106,13 +103,17 @@ export function parseEvalArgs(argv: readonly string[]): ParsedArgs {
   if (unknown.length > 0) {
     return { ok: false, error: `Unknown suite(s): ${unknown.join(', ')}. Model suites: ${Object.keys(MODEL_SUITES).join(', ')}.` };
   }
-  const suites = named.length > 0 ? (named as ModelSuite[]) : TIER_SUITES[tier as Tier];
-  if (suites.some((suite) => !TIER_SUITES[tier as Tier].includes(suite))) {
-    return { ok: false, error: `Selected suites do not belong to Tier ${tier}.` };
+  const tierSuites = TIER_SUITES[tier as Tier];
+  if (tierSuites.length === 0) {
+    return { ok: false, error: `Tier ${tier} has no built suite to measure it on (the document suite is not built).` };
   }
-  if (suites.length === 0) {
-    return { ok: false, error: `Tier ${tier} has no built suite to measure it on.` };
+  // A suite outside the tier measures the wrong task: tool-select says nothing
+  // about reading a receipt, so it may not stand in for a Tier 4 measurement.
+  const foreign = named.filter((s) => !tierSuites.includes(s as ModelSuite));
+  if (foreign.length > 0) {
+    return { ok: false, error: `Not a Tier ${tier} suite: ${foreign.join(', ')}. Tier ${tier} suites: ${tierSuites.join(', ')}.` };
   }
+  const suites = named.length > 0 ? (named as ModelSuite[]) : tierSuites;
 
   const limitText = value('--limit');
   const limit = limitText === undefined ? null : Number(limitText);
@@ -237,13 +238,12 @@ export function disqualification(result: ModelResult, tier: Tier): string | null
   // A partial measurement is not a measurement: the cases that went unanswered
   // might be exactly the ones it fails.
   if (result.unanswered > 0) return `${result.unanswered} case(s) unanswered by the provider: re-run before proposing`;
-  if (tier === 1 || tier === 4) {
-    if (result.schemaAdherence === null) return 'schema adherence not measured (needs a structured-output suite)';
+  if (tier === 1) {
+    if (result.schemaAdherence === null) return 'schema adherence not measured (needs parse or classify)';
     if (result.schemaAdherence < THRESHOLDS.tier1SchemaAdherence) {
       return `schema adherence ${result.schemaAdherence.toFixed(2)} < ${THRESHOLDS.tier1SchemaAdherence}`;
     }
   }
-  if (tier === 4) return null;
   if (result.toolCallCorrectness === null) return 'tool-call correctness not measured (needs a tool suite)';
   if (result.toolCallCorrectness < THRESHOLDS.toolCallCorrectness) {
     return `tool-call correctness ${result.toolCallCorrectness.toFixed(2)} < ${THRESHOLDS.toolCallCorrectness}`;
@@ -277,6 +277,14 @@ export function proposeOrder(results: readonly ModelResult[], tier: Tier): {
       (a.p50LatencyMs ?? Infinity) - (b.p50LatencyMs ?? Infinity),
   );
   return { order: qualifying.map((r) => r.modelId), excluded };
+}
+
+/** Why a run cannot propose an order, or `null` when it can. */
+export function partialRunReason(args: EvalArgs): string | null {
+  if (args.limit !== null) return `partial run (--limit ${args.limit}): a wire check, not a measurement`;
+  const missing = TIER_SUITES[args.tier].filter((s) => !args.suites.includes(s));
+  if (missing.length > 0) return `not measured on every Tier ${args.tier} suite (missing: ${missing.join(', ')})`;
+  return null;
 }
 
 export interface RunOptions {
@@ -325,10 +333,12 @@ export async function runEvaluation(options: RunOptions): Promise<EvalRun> {
     models.push(summarise(modelId, suites));
   }
 
-  const complete = args.limit === null && TIER_SUITES[args.tier].every((suite) => args.suites.includes(suite));
-  const { order, excluded } = complete
-    ? proposeOrder(models, args.tier)
-    : { order: [], excluded: models.map((model) => ({ modelId: model.modelId, reason: 'Incomplete tier evaluation: run all tier suites without --limit before proposing' })) };
+  // A wire check or a subset of the tier's suites is not a measurement of the
+  // tier: its scores are reported, and nothing is proposed from them.
+  const partial = partialRunReason(args);
+  const { order, excluded } = partial
+    ? { order: [], excluded: models.map((m) => ({ modelId: m.modelId, reason: partial })) }
+    : proposeOrder(models, args.tier);
   return {
     tier: args.tier,
     startedAt,
@@ -391,7 +401,7 @@ export function renderEvalReport(run: EvalRun): string {
     '',
     run.proposedOrder.length > 0
       ? `\`AI_TIER${run.tier}_MODELS=${run.proposedOrder.join(',')}\``
-      : '**No model qualifies.** The tier keeps its current configuration; nothing is proposed.',
+      : '**Nothing is proposed.** The tier keeps its current configuration; see "Not proposed" for why.',
     '',
     'Proposed only. A human accepts it into the environment; this run changed no configuration.',
   );

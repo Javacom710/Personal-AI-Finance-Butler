@@ -41,15 +41,6 @@ function row(model: string, suite: ModelSuite, over: Partial<StoredEvaluation> &
 const fullTier2 = (over: Partial<StoredEvaluation> = {}) => TIER_SUITES[2].map((s) => row(TIER2, s, over));
 
 describe('measured capability entries', () => {
-  it('requires analysis for advanced tiers and loads document schema measurements for vision', () => {
-    expect(capabilitiesFromEvaluations(fullTier2().filter((r) => r.suite !== 'analysis'))).toEqual({});
-    const model = 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning';
-    const measured = capabilitiesFromEvaluations([row(model, 'document', {
-      counts: { schemaValid: 19, schemaApplicable: 20, toolCallValid: 0, toolCallApplicable: 0 },
-    })]);
-    expect(measured[model]).toMatchObject({ source: 'measured', vision: true, scores: { schemaAdherence: 0.95 } });
-  });
-
   it('a model measured on every suite of its tier becomes measured, keeping its declared fields', () => {
     const measured = capabilitiesFromEvaluations(fullTier2());
     const entry = measured[TIER2]!;

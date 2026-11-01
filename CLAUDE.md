@@ -602,9 +602,10 @@ handle the condition gracefully
 
 Never expose market-data credentials to the browser.
 
+Brokerage order execution is approved (2026-11-01, docs/DECISIONS.md ADR-50) for Groww equities only. It is human-in-the-loop: every order is placed only after the user reviews that exact order and confirms it with fresh authentication. The AI may suggest orders but never places one.
+
 Do not implement:
 
-brokerage order execution
 automated trading
 autonomous portfolio trading
 
@@ -1559,12 +1560,15 @@ Testing
 Data export
 Backup strategy
 Production deployment
+Integrations (requested 2026-11-01, docs/DECISIONS.md ADR-50; every one human-in-the-loop)
+Bank transaction import from statements, the CAS, and bank alert emails, through a review queue
+Groww Trade API: holdings, positions and orders sync, with differences raised as reconciliation proposals
+Groww order placement, each order confirmed by the user with fresh authentication
 DO NOT BUILD UNLESS EXPLICITLY REQUESTED
-Brokerage order execution
 Automated trading
 Autonomous trading
-Bank synchronization
-Automatic bank transaction imports
+Account Aggregator bank sync (not available to an unregulated app)
+Brokers other than Groww
 Tax filing
 Robo-advisory
 Financial product marketplace

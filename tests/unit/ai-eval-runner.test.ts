@@ -9,6 +9,7 @@ import {
   disqualification,
   modelsFor,
   parseEvalArgs,
+  partialRunReason,
   proposeOrder,
   renderEvalReport,
   runEvaluation,
@@ -68,11 +69,11 @@ describe('ai:eval arguments', () => {
     expect(parseEvalArgs(['--tier', '5']).ok).toBe(false);
     expect(parseEvalArgs(['--tier', '1', '--suite', 'routing']).ok).toBe(false);
     expect(parseEvalArgs(['--tier', '1', '--limit', '0']).ok).toBe(false);
-    expect(parseEvalArgs(['--tier', '4'])).toMatchObject({ ok: true, value: { suites: ['document'] } });
-    expect(parseEvalArgs(['--tier', '4', '--suite', 'parse']).ok).toBe(false);
-    expect(parseEvalArgs(['--tier', '2', '--suite', 'document']).ok).toBe(false);
-    expect(TIER_SUITES[2]).toContain('analysis');
-    expect(TIER_SUITES[3]).toContain('analysis');
+    // Tier 4's document suite is not built: no suite, no run — named or not.
+    expect(parseEvalArgs(['--tier', '4'])).toMatchObject({ ok: false });
+    expect(parseEvalArgs(['--tier', '4', '--suite', 'tool-select'])).toMatchObject({ ok: false });
+    // A suite from another tier cannot stand in for this tier's measurement.
+    expect(parseEvalArgs(['--tier', '2', '--suite', 'parse'])).toMatchObject({ ok: false, error: expect.stringMatching(/Not a Tier 2 suite: parse/) });
   });
 
   it('every model suite builds its cases, and the routing suite is not among them', () => {
@@ -94,11 +95,6 @@ describe('ai:eval arguments', () => {
 });
 
 describe('ai:eval proposals', () => {
-  it('gates vision proposals by schema rather than tool calling', () => {
-    expect(disqualification(result({ modelId: 'vision', toolCallCorrectness: null }), 4)).toBeNull();
-    expect(disqualification(result({ modelId: 'vision', schemaAdherence: 0.94, toolCallCorrectness: null }), 4)).toMatch(/schema adherence/);
-    expect(disqualification(result({ modelId: 'vision', schemaAdherence: null }), 4)).toMatch(/not measured/);
-  });
   it('Tier 1 needs schema adherence ≥ 0.95; every tool tier needs tool-call correctness ≥ 0.90', () => {
     expect(disqualification(result({ modelId: 'a', schemaAdherence: 0.94 }), 1)).toMatch(/schema adherence 0.94/);
     expect(disqualification(result({ modelId: 'a', schemaAdherence: 0.94 }), 2)).toBeNull();
@@ -127,33 +123,6 @@ describe('ai:eval proposals', () => {
 });
 
 describe('ai:eval run', () => {
-  it('never proposes from a wire check or an incomplete tier evaluation', async () => {
-    for (const limit of [1, null]) {
-      const run = await runEvaluation({
-        provider: provider(() => answer(null)),
-        args: { tier: 2, suites: ['tool-select'], models: [], limit, record: false },
-        models: ['fake/diagnostic'],
-      });
-      expect(run.proposedOrder).toEqual([]);
-      expect(run.excluded[0]?.reason).toMatch(/Incomplete tier evaluation/);
-    }
-  });
-
-  it('passes document images and schema through the runner without tools', async () => {
-    const run = await runEvaluation({
-      provider: provider((request) => {
-        expect(request.messages[1]?.images?.[0]?.mimeType).toBe('image/png');
-        expect(request.responseFormat?.type).toBe('json_schema');
-        expect(request.tools).toBeUndefined();
-        return answer('{}');
-      }),
-      args: { tier: 4, suites: ['document'], models: [], limit: 1, record: false },
-      models: ['fake/vision'],
-    });
-    expect(run.models[0]).toMatchObject({ schemaAdherence: 0, toolCallCorrectness: null });
-    expect(run.proposedOrder).toEqual([]);
-  });
-
   const args = (over: Partial<EvalArgs> = {}): EvalArgs => ({ tier: 2, suites: ['grounding'], models: [], limit: 2, record: false, ...over });
 
   it('runs each model over the first n cases of each suite and reports the pass counts', async () => {
@@ -168,20 +137,34 @@ describe('ai:eval run', () => {
     expect(run.suiteVersions).toEqual({ grounding: MODEL_SUITES.grounding.version });
     const report = renderEvalReport(run);
     expect(report).toContain('Partial run: the first 2 case(s)');
-    expect(report).toContain('No model qualifies');
+    expect(report).toContain('Nothing is proposed');
+  });
+
+  it('a wire check or a subset of the tier\'s suites proposes nothing, however well models score', async () => {
+    const perfect = provider(() => answer('irrelevant'));
+    // Every model would qualify if proposals ran: force a perfect result through the ranking path.
+    expect(partialRunReason(args({ limit: 1 }))).toMatch(/wire check/);
+    expect(partialRunReason(args({ limit: null, suites: ['grounding'] }))).toMatch(/missing: tool-select, robustness, injection/);
+    expect(partialRunReason(args({ limit: null, suites: TIER_SUITES[2] }))).toBeNull();
+    const run = await runEvaluation({ provider: perfect, args: args({ limit: 1 }), models: ['m/one', 'm/two'] });
+    expect(run.proposedOrder).toEqual([]);
+    expect(run.excluded.map((e) => e.modelId)).toEqual(['m/one', 'm/two']);
+    expect(renderEvalReport(run)).toContain('partial run (--limit 1)');
   });
 
   it('a model every case of which errored is unreachable, not a model that scored zero', async () => {
+    // A full-tier run, so the proposal step runs and must exclude it for being unreachable.
     const run = await runEvaluation({
       provider: provider(() => Promise.resolve(err(transport('offline')))),
-      args: args(),
+      args: args({ limit: null, suites: TIER_SUITES[2] }),
       models: ['m/down'],
     });
     // Not a model that scored zero: there was nothing to score.
-    expect(run.models[0]).toMatchObject({ unreachable: true, unanswered: 2, schemaAdherence: null, retrievalGrounding: null });
-    expect(run.excluded[0]!.reason).toMatch(/Incomplete tier evaluation/);
+    expect(run.models[0]).toMatchObject({ unreachable: true, schemaAdherence: null, retrievalGrounding: null });
+    expect(run.models[0]!.unanswered).toBeGreaterThan(0);
+    expect(run.excluded[0]!.reason).toMatch(/unreachable/);
     expect(renderEvalReport(run)).toContain('m/down (unreachable)');
-    expect(renderEvalReport(run)).toContain('transport ×2');
+    expect(renderEvalReport(run)).toMatch(/transport ×\d+/);
   });
 
   it('proposes nothing it did not measure, and prints an unmeasured score as "not measured"', async () => {

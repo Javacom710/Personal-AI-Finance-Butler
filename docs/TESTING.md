@@ -341,7 +341,7 @@ Phase 8. `npm run ai:eval` calls the live provider and is **never** part of the 
 
 - Deterministic scoring wherever a right answer exists: schema valid, field-exact match, correct tool, correct arguments, stated figure equals engine figure.
 - LLM-as-judge is used only for prose quality, is advisory, and never scores a numeric claim.
-- Output is written to `eval/reports/<date>-tier<n>.md` and `.json`, and a full run is stored in `ai_model_evaluations` (ADR-44, which replaced `capabilities.json`), loaded over the declared matrix at the next server start.
+- Output is written to `eval/reports/<timestamp>-tier<n>.md` and `.json`, and a full run is stored in `ai_model_evaluations` (ADR-44, which replaced `capabilities.json`), loaded over the declared matrix at the next server start.
 - **CI does check one thing:** that every production-routed model has a `capabilities.json` entry no older than 30 days and measured against the current eval version. That is a freshness assertion over stored results, not a live call.
 
 ## 8. E2E tests

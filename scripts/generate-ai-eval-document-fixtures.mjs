@@ -22,7 +22,7 @@ const fixtures = [
   { id: 'doc-012', title: 'ATM WITHDRAWAL SLIP', statement: true, toAccountHint: 'Cash', lines: [['2026-10-02', 'CASH WITHDRAWAL', '5000.00', 'INR', 'transfer']] },
   { id: 'doc-013', title: 'SUNRISE BAKERY', lines: [['Bread', '95.00', 'INR']] },
   { id: 'doc-014', title: 'HANDWRITTEN RECEIPT', date: '2026-10-01', lines: [['Repair service', null, 'INR']] },
-  { id: 'doc-015', title: 'KOTAK STATEMENT', statement: true, accountHint: 'Kotak Bank', lines: [['2026-09-29', 'INSURANCE PREMIUM', '3100.00', 'INR', 'expense'], [null, 'ONLINE PURCHASE', '899.00', 'INR', 'expense']] },
+  { id: 'doc-015', title: 'KOTAK BANK STATEMENT', statement: true, accountHint: 'Kotak Bank', lines: [['2026-09-29', 'INSURANCE PREMIUM', '3100.00', 'INR', 'expense'], [null, 'ONLINE PURCHASE', '899.00', 'INR', 'expense']] },
   { id: 'doc-016', title: 'ORBIT OFFICE SUPPLY INVOICE', date: '2026-09-28', lines: [['Printer paper', '1850.00', 'INR'], ['Pens', '340.00', 'INR'], ['Desk lamp', '1299.00', 'INR']] },
   { id: 'doc-017', title: 'PARIS BOOKSTORE', date: '2026-09-26', lines: [['Travel guide', '18.40', 'EUR']] },
   { id: 'doc-018', title: 'SHOP RETURN VOUCHER', date: '2026-09-25', lines: [['Returned shirt refund', '799.00', 'INR', 'income']] },

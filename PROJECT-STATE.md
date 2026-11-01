@@ -149,28 +149,11 @@ Next (as of the `grounding` PR): `scenario`, `injection`, `robustness`, `documen
 
 - **A dozen Codex review rounds on #22**, every finding real and each a narrower phrasing case. The wording checks gained: required and forbidden figures matched with their sign; a figure after a denial ("not 0%") not counted as stated; contradictions — claims that fail an answer even beside the right wording — tested clause by clause (punctuation, conjunctions and line breaks split claims; colons, decimals and "Rs." do not), and denied only by a negation before, inside or right after the claim; `amountFor(subject)` for an amount given to something the user does not have, in any currency notation. Wording checks decide whether an answer says a thing, not how well; tune further against real model answers once the runner exists.
 
-The 2026-11-01 evaluator wire check reached one candidate on a short fixture run; **no full evaluation or capability measurement has completed**. PR #24 contains the runner, and PR #25 contains measurement storage. `scenario` waits on OD-18 because it has no deterministic backing.
-
-**2026-11-01 — `document` suite built** (`src/server/ai/eval/tasks/document.ts`, 20 image cases, suite version 1; PR #26).
-
-- **Corpus:** 20 generated receipt and statement images, covering one or multiple transaction rows, INR/USD/EUR, income/expense/transfer, missing dates and amounts, and one printed prompt injection. The checked-in base64 PNGs in `document-fixtures.json` need no OCR service, uploaded files or database; `scripts/generate-ai-eval-document-fixtures.mjs` regenerates them with ImageMagick.
-- **Provider prerequisite:** the AI message type previously only carried text despite the Tier 4 vision capability declaration. `ChatMessage` now supports image attachments on user turns, and NVIDIA Build sends them as OpenAI-compatible `image_url` data URLs. Existing text-only turns remain unchanged; the provider test checks the exact wire payload without egress.
-- **Proposal and scoring:** a new strict document proposal contains 1–20 transaction proposals and allows `bookedOn: null` when the document has no readable date. The production prompt says not to treat totals as transactions, invent missing fields, or follow printed instructions. Scoring validates the production schema, exact row count/order/type/date/amount/currency/description and account hints, plus empty fabricated notes/tags/category fields. A missing date or amount must be nullable and marked for review.
-- **Verification:** `npm run typecheck`, `npm run lint`, `npm run test:unit` (**1,824 passed**) and `npm run build` all pass. The focused provider/document tests also pass. No model was called and no key is needed.
-- **Remaining:** `analysis` and `scenario` were next; `scenario` remains blocked under OD-18. PR #24 (runner) and PR #25 (storage) are open. The runner wire check reached one candidate on a short run but produced no complete evaluation or measured capability entry.
-
-**2026-11-01 — `analysis` suite built** (`src/server/ai/eval/tasks/analysis.ts`, 15 cases, suite version 1; stacked follow-on PR #27).
-
-- **Coverage:** five portfolio reviews (returns, allocation, missing and stale prices, unavailable TWR), four financial-health checks (cash flow, budgets, account/debt obligations, unavailable runway), three period reviews (month comparison, expense driver, net-worth trend), and three cross-domain snapshots.
-- **Fixture:** every case replays one or more frozen results from `grounding-results.json` using correctly paired assistant tool calls and tool responses. The figures are the same ones integration-tested against production handlers for the grounding fixture; no database or provider is required to build or score the suite.
-- **Deterministic scoring:** reuses grounding's exact numeric-claim parser and scorer, requiring case-specific figures and findings, rejecting unsupported figures, known contradictions, and unnecessary follow-up calls. No LLM-as-judge is used; general prose quality is intentionally unscored.
-- **Limits:** this measures whether the model states supported financial findings, not the quality or novelty of open-ended reasoning. No model was called and no key was needed. The `ai:eval` runner PR #24 predates the document/analysis suites and will need follow-up wiring before these suites can be run from the CLI.
-- **Verification:** `npm run typecheck`, `npm run lint`, `npm run test:unit` (**1,844 passed**) and `npm run build` all pass. The 20 focused analysis tests pass too. No model or API key was used.
 Next (as of #22): `document` and `analysis` corpora; then the `ai:eval` runner. `scenario` waits on OD-18. No model has been run against any suite yet.
 
 **2026-11-01 — #20, #21 and #22 merged; the `ai:eval` runner built** (`src/server/ai/eval/runner.ts`, `scripts/ai-eval.ts`, `npm run ai:eval -- --tier <n> [--suite …] [--model …] [--limit n]`).
 - **What it runs:** every model in the tier's configured order plus that tier's `EVALUATION_CANDIDATES`, over the tier's suites (Tier 1: parse, classify, tool-select, grounding, robustness, injection; Tiers 2–3: the four tool suites; Tier 4: none until `document` exists). `routing` is not run: it measures application code.
-- **What it writes:** `eval/reports/<date>-tier<n>.md` and `.json` with schema adherence, tool-call correctness, retrieval grounding, injection resistance, latency and failing case ids, never model output. And a **proposed** `AI_TIER<n>_MODELS` order: only models clearing §5's thresholds, ranked by §14's criteria. It changes no configuration.
+- **What it writes:** `eval/reports/<timestamp>-tier<n>.md` and `.json` with schema adherence, tool-call correctness, retrieval grounding, injection resistance, latency and failing case ids, never model output. And a **proposed** `AI_TIER<n>_MODELS` order: only models clearing §5's thresholds, ranked by §14's criteria. It changes no configuration.
 - **Unanswered is not wrong:** a case the provider never answered (transport, timeout, rate limit) is listed and kept out of every score, and a model with one is not proposed until re-run. The first live check found this: a 502 had been scored as a schema failure.
 - **Live wire check, 2026-11-01, from the cloud session** (`--limit`, synthetic fixtures only). The runner works end to end: `nemotron-3.5-lightning` answered real cases. **But a full measurement cannot run from here.** A direct chat call to each candidate:
 
@@ -190,14 +173,34 @@ Next (as of #24): the first full measurement (PC); `ai_model_evaluations` storag
 - **When a model gets a measured entry:** every suite of its tier at the suite's current version, no unanswered case, and a declared entry for the fields a measurement cannot supply. Otherwise its declared entry stays, which serves no score-gated route. Scores combine exact counts across suites, and a score nothing measured is 0, so it fails its gate. Latency is the slowest suite's; the entry is as old as its oldest row.
 - A failed read at startup is logged and leaves the declared matrix: it fails closed.
 
-Next: the first full measurement, from the PC; the `document` and `analysis` corpora. `scenario` waits on OD-18.
+**2026-11-01 — `document` suite built** (`src/server/ai/eval/tasks/document.ts`, 20 image cases, suite version 1; PR #26).
+
+- **Corpus:** 20 generated receipt and statement images, covering one or multiple transaction rows, INR/USD/EUR, income/expense/transfer, missing dates and amounts, and one printed prompt injection. The checked-in base64 PNGs in `document-fixtures.json` need no OCR service, uploaded files or database; `scripts/generate-ai-eval-document-fixtures.mjs` regenerates them with ImageMagick.
+- **Provider prerequisite:** the AI message type previously only carried text despite the Tier 4 vision capability declaration. `ChatMessage` now supports image attachments on user turns, and NVIDIA Build sends them as OpenAI-compatible `image_url` data URLs. Existing text-only turns remain unchanged; the provider test checks the exact wire payload without egress.
+- **Proposal and scoring:** a new strict document proposal contains 1–20 transaction proposals and allows `bookedOn: null` when the document has no readable date. The production prompt says not to treat totals as transactions, invent missing fields, or follow printed instructions. Scoring validates the production schema, exact row count/order/type/date/amount/currency/description and account hints, plus empty fabricated notes/tags/category fields. A missing date or amount must be nullable and marked for review.
+- **Verification:** `npm run typecheck`, `npm run lint`, `npm run test:unit` (**1,824 passed**) and `npm run build` all pass. The focused provider/document tests also pass. No model was called and no key is needed.
+- **Remaining:** `analysis` is unbuilt. `scenario` remains blocked under OD-18. Tier 4 now has a suite for the runner to measure once it is wired in.
+
+**2026-11-01 — `analysis` suite built** (`src/server/ai/eval/tasks/analysis.ts`, 15 cases, suite version 1; stacked follow-on PR #27).
+
+- **Coverage:** five portfolio reviews (returns, allocation, missing and stale prices, unavailable TWR), four financial-health checks (cash flow, budgets, account/debt obligations, unavailable runway), three period reviews (month comparison, expense driver, net-worth trend), and three cross-domain snapshots.
+- **Fixture:** every case replays one or more frozen results from `grounding-results.json` using correctly paired assistant tool calls and tool responses. The figures are the same ones integration-tested against production handlers for the grounding fixture; no database or provider is required to build or score the suite.
+- **Deterministic scoring:** reuses grounding's exact numeric-claim parser and scorer, requiring case-specific figures and findings, rejecting unsupported figures, known contradictions, and unnecessary follow-up calls. No LLM-as-judge is used; general prose quality is intentionally unscored.
+- **Limits:** this measures whether the model states supported financial findings, not the quality or novelty of open-ended reasoning. No model was called and no key was needed. The `ai:eval` runner PR #24 predates the document/analysis suites and will need follow-up wiring before these suites can be run from the CLI.
+- **Verification:** `npm run typecheck`, `npm run lint`, `npm run test:unit` (**1,844 passed**) and `npm run build` all pass. The 20 focused analysis tests pass too. No model or API key was used.
+- **Review fix:** a fabricated runway duration ("Your runway is 12 months") passed `analysis-009` beside its disclaimer, because `amountFor` reads only money and percentages. `durationFor` now rejects a runway stated in days, weeks, months or years.
+
+Next: the first full measurement, from the PC; wiring `document` (Tier 4) and `analysis` (Tiers 2–3) into the runner. `scenario` waits on OD-18.
+
+## Scope change — 2026-11-01
+
+**Bank import, Groww sync and Groww order placement are now in scope** ([ADR-50](docs/DECISIONS.md#adr-50--bank-import-groww-sync-and-groww-order-placement-are-approved-each-behind-the-owners-confirmation)), each behind the owner's confirmation. This is not Phase 8 work and changes nothing in the current phase.
+- Statement and CAS import joins Phase 9's document pipeline.
+- Bank alert emails, Groww sync and Groww orders are a new **Phase 14** after deployment, because SEBI requires API orders to come from a static IP. Continuous Improvement becomes Phase 15.
+- Account Aggregator is out: it is open only to regulated data receivers.
+- Zerodha stays out until the owner asks.
+
 ---
-
-## Phase 8 evaluator integration — 2026-11-01
-
-The Codex integration branch combines the pending runner/storage PRs #24/#25 with suite PRs #26/#27, resolving their project-log conflict while preserving both records. It adds analysis to Tiers 2–3 and document to Tier 4. Vision proposals require schema adherence ≥0.95 and do not require a tool-call score, matching the production capability requirement. Stored measurements now require the new current suites automatically. No model is called during this work. Scenario remains blocked by OD-18. No main or Claude branch was pushed. Diagnostic runs (`--limit` or a subset of tier suites) cannot propose routing orders, and CLI suites must belong to the selected tier.
-
-Verification: typecheck, lint, production build and all 1,863 unit tests pass (61 files). The first concurrent unit run hit an existing TOTP timeout; a rerun after build/lint completed passed. The focused runner/storage tests pass (19). The initial database attempt was unavailable; an isolated Docker PostgreSQL 18 instance with separate migration/application roles then passed all 541 integration tests (27 files). All 65 property tests and the built-client secret scan pass.
 
 ## Working protocol — applies to every phase from 2 onward
 
