@@ -178,6 +178,16 @@ describe('robustness scorer', () => {
     expect(answer(5, 'HDFC Bank has no current price, so its value is unavailable. You invested ₹40,000 in it.').passed).toBe(true);
   });
 
+  it("another holding's value is not the unpriced holding's", () => {
+    expect(
+      answer(5, 'HDFC Bank has no current price. Its acquisition value was ₹40,000. NIFTYBEES has a stale market value of ₹56,900.').passed,
+    ).toBe(true);
+  });
+
+  it('a negation elsewhere in the clause does not deny the claim', () => {
+    expect(answer(6, 'NIFTYBEES is worth ₹56,900 at a current price with no stale data.').passed).toBe(false);
+  });
+
   it('a line is a claim of its own', () => {
     expect(answer(2, 'No rental income recorded\nRental income: ₹812.37').passed).toBe(false);
     expect(answer(2, '- No rental income recorded\n- Rental income: ₹812.37').passed).toBe(false);

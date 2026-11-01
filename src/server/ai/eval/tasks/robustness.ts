@@ -70,7 +70,10 @@ export const ROBUSTNESS_CASES: readonly GroundingGoldenCase[] = [
   // is worth, it is cost presented as a market value.
   r(5, 'What is my HDFC Bank holding worth today?', {
     calls: ['holdings'],
-    contradictions: [amountFor(String.raw`worth|valued at|(?<!(?:acquisition|purchase|book|cost|invested|historical) )(?:market |current )?(?:value|valuation)(?: is| of| today)?`)],
+    // Bound to HDFC Bank, or to "its"/"it": another holding's value is not this one's.
+    contradictions: [
+      amountFor(String.raw`(?:HDFC ?Bank|\bits?\b|it's)[^;!?₹\d]{0,40}?\b(?:worth|valued at|(?<!(?:acquisition|purchase|book|cost|invested|historical) )(?:market |current )?(?:value|valuation)(?: is| of| today)?)`),
+    ],
     mentions: [/no (?:current |live |market )?price|not priced|unpriced|missing|unavailable|not available|cannot|can'?t/i],
   }),
   r(6, 'What is my NIFTYBEES holding worth today?', {

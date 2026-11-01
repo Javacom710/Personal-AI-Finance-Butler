@@ -473,12 +473,17 @@ const describe = (figure: Figure): string => ('rate' in figure ? `${figure.rate}
 const CLAUSE_BREAK = /(?<!\brs)\.(?!\d)|,(?!\d)|[;!?]|\n|\s(?:but|and|so|while|whereas|although|though|yet|however)\s/gi;
 
 /** A word that negates its clause: "I cannot show all 14", "there is no car loan". */
+/** A negation right after the claim, denying it: "your car loan is not recorded", "budget isn't set". */
+const DENIED_AFTER = /^(?:n['’]t\b|\s*(?:[a-z]+n['’]t|not|never)\b)/i;
+
 const NEGATION = /\b(?:not|no|never|none|cannot|unable|without)\b|\b[a-z]+n['’]t\b/i;
 
 /**
  * Does the answer make this claim, rather than deny it? The answer is split
- * into clauses at {@link CLAUSE_BREAK}, and the claim counts only when a clause
- * without a negation makes it. A pattern sees one clause at a time, so it
+ * into clauses at {@link CLAUSE_BREAK}. The claim is denied by a negation
+ * before it in its clause ("I cannot show all 14") or right after it ("your
+ * car loan is not recorded"); a negation elsewhere in the clause belongs to
+ * something else ("at a current price with no stale data"). A pattern sees one clause at a time, so it
  * cannot reach across a conjunction into a negated neighbour. So
  * "showing all 14" and "you have one loan: your car loan, at 8.5%" affirm;
  * "I cannot show all 14", "I cannot find your car loan, so …" and "your car
@@ -486,10 +491,13 @@ const NEGATION = /\b(?:not|no|never|none|cannot|unable|without)\b|\b[a-z]+n['’
  */
 export function affirms(text: string, pattern: RegExp): boolean {
   const single = new RegExp(pattern.source, pattern.flags.replace('g', ''));
-  return text
-    .split(CLAUSE_BREAK)
-    .map((clause) => clause.trim())
-    .some((clause) => single.test(clause) && !NEGATION.test(clause));
+  return text.split(CLAUSE_BREAK).some((clause) => {
+    const match = single.exec(clause);
+    if (!match) return false;
+    const before = clause.slice(0, match.index);
+    const after = clause.slice(match.index + match[0].length);
+    return !NEGATION.test(before) && !DENIED_AFTER.test(after);
+  });
 }
 
 /** Score a prose answer. A case that needs a further call cannot pass on prose. */
