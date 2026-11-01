@@ -958,6 +958,8 @@ CREATE INDEX ai_model_eval_latest_idx ON ai_model_evaluations (model, suite, run
 
 `raw_payload` is kept alongside `normalized` so a rejected or mis-resolved proposal can be inspected without re-running the model.
 
+Built in migration `0006` (Phase 8), with three checks the sketch above omits: `tier` between 1 and 5, `score` between 0 and 1, and `cases_passed` between 0 and `cases_total`. `detail` holds answered/unanswered counts, schema and tool-call counts, failing case ids and provider error counts — never a prompt or a model's output.
+
 `ai_model_evaluations` is **not** user-owned — it describes models, not finances, and carries no `user_id`. It therefore survives a user deletion and is excluded from data export.
 
 ---

@@ -401,6 +401,7 @@ product/UI work item scheduled with the Phase 9 UX pass. It does not block Phase
 - Runner, deterministic scoring, report generation
   - *Progress:* `npm run ai:eval` ✅ built — `eval/runner.ts`, `scripts/ai-eval.ts`; reports and a proposed order, wire-checked live 2026-11-01. A full measurement is blocked by model access from the cloud session (see PROJECT-STATE).
 - Record measured entries: results in `ai_model_evaluations`, loaded over the declared defaults in `capabilities.ts` ([ADR-44](DECISIONS.md#adr-44--the-capability-matrix-stays-capabilitiests-checked-at-startup))
+  - *Progress:* ✅ built — migration `0006`, `src/server/ai-evaluations.ts`, loaded at server start. Empty until the first full `ai:eval` run.
 - Select production routing order per tier
 
 **Done when**

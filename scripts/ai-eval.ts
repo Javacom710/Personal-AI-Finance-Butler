@@ -10,7 +10,10 @@
  *
  * Online, manual and **never in CI**: it calls the provider, costs credits, and
  * model output is not deterministic. Writes `eval/reports/<date>-tier<n>.md`
- * and a `.json` beside it. It proposes a routing order and changes nothing.
+ * and a `.json` beside it, and stores a full run in `ai_model_evaluations`
+ * (`--no-record` to skip), which the server loads over the declared capability
+ * matrix at its next start (ADR-44). It proposes a routing order; it never
+ * changes the tier lists.
  *
  * **No real financial data is sent.** Every prompt is from the golden suites:
  * fixed questions over a synthetic fixture.
@@ -26,6 +29,8 @@ import { env, loadDotEnv } from '../src/lib/env';
 import { resolveModelConfig } from '../src/server/ai/config/models';
 import { createNvidiaProvider } from '../src/server/ai/provider/nvidia-build';
 import { modelsFor, parseEvalArgs, renderEvalReport, runEvaluation } from '../src/server/ai/eval/runner';
+import { recordEvaluationRun } from '../src/server/ai-evaluations';
+import { closeDb } from '../src/server/db/client';
 
 async function main(): Promise<void> {
   const parsed = parseEvalArgs(process.argv.slice(2));
@@ -84,7 +89,22 @@ async function main(): Promise<void> {
   await writeFile(path.join(dir, `${stem}.json`), `${JSON.stringify(json, null, 2)}\n`, 'utf8');
 
   console.log(`\n${markdown}`);
-  console.log(`Written: eval/reports/${stem}.md and .json. No configuration was changed.`);
+  console.log(`Written: eval/reports/${stem}.md and .json. The tier lists were not changed.`);
+
+  if (args.record) {
+    try {
+      const rows = await recordEvaluationRun(run);
+      console.log(`Stored ${rows} row(s) in ai_model_evaluations; the server uses them from its next start.`);
+    } catch (error) {
+      console.error(`NOT stored in ai_model_evaluations: ${error instanceof Error ? error.message : String(error)}`);
+      console.error('The report files are complete. Run the migrations (npm run db:migrate) and re-run to store.');
+      process.exitCode = 1;
+    } finally {
+      await closeDb();
+    }
+  } else {
+    console.log(args.limit ? 'Partial run: not stored.' : 'Not stored (--no-record).');
+  }
 }
 
 main().catch((error: unknown) => {
