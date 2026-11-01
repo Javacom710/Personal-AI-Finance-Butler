@@ -43,6 +43,13 @@ const makeCase = replayCase('analysis');
  */
 /** Time-weighted return: the portfolio result has insufficient price history for it. */
 const TWR_FIGURE = amountFor(String.raw`time[- ]weighted (?:rate of )?return|TWR`);
+/** Dining is over budget (remaining -₹650): saying it is under, or that nothing is over, reverses the finding. */
+const DINING_REVERSED = [
+  /\bdining\b(?:(?!\bover\b)[^;!?]){0,80}\b(?:under|within|below|inside)\s+(?:its\s+|the\s+)?budget/i,
+  /\b(?:nothing|no (?:category|budget))\b[^;!?.]{0,30}\bover(?: budget| its budget|spent)?\b/i,
+  /\ball\b[^;!?.]{0,30}\b(?:within|under)\s+(?:their\s+)?budgets?\b/i,
+];
+
 /** HDFC Bank has no price, so it has no market value. */
 const HDFC_VALUE = amountFor(String.raw`(?:HDFC ?BANK).{0,35}(?:worth|market value|current value)`);
 
@@ -90,19 +97,19 @@ export const ANALYSIS_CASES: readonly AnalysisGoldenCase[] = [
     calls: ['portfolio'],
     required: [money('4992'), money('-30912'), money('-24220')],
     mentions: [/(?:unrealised|unrealized) loss/i, /realised|realized gain/i],
-    contradictions: [TWR_FIGURE],
+    contradictions: [TWR_FIGURE, /\bunreali[sz]ed gain/i, /(?<!un)\breali[sz]ed loss/i],
   }),
   analysisCase(3, 'portfolio', 'Review my allocation by asset class and say what it leaves out.', {
     calls: ['allocationByClass', 'holdings'],
     required: [money('91200'), money('56900'), [rate('0.6158001350')], [rate('0.3841998650')]],
     mentions: [/equit(?:y|ies)/i, /ETF/i, /HDFC ?BANK.{0,60}(?:no price|unpriced|missing price)/i],
-    contradictions: [HDFC_VALUE],
+    contradictions: [CURRENT_PRICE, HDFC_VALUE],
   }),
   analysisCase(4, 'portfolio', 'What can you conclude about my HDFC Bank and NIFTYBEES positions?', {
     calls: ['holdings'],
     required: [money('40000'), money('56900')],
     mentions: [/HDFC ?BANK.{0,70}(?:invested|cost).{0,30}(?:no price|unpriced|missing price)|HDFC ?BANK.{0,70}(?:no price|unpriced|missing price)/i, /NIFTYBEES.{0,50}stale/i],
-    contradictions: [HDFC_VALUE],
+    contradictions: [CURRENT_PRICE, HDFC_VALUE],
   }),
   analysisCase(5, 'portfolio', 'Summarise my investment returns and explain whether time-weighted return is available.', {
     calls: ['portfolio'],
@@ -123,6 +130,7 @@ export const ANALYSIS_CASES: readonly AnalysisGoldenCase[] = [
     calls: ['budgetsOct'],
     required: [money('5040'), money('3150'), [{ money: '-650', eitherSign: true }]],
     mentions: [/food/i, /dining/i, /over budget|over by|exceed/i],
+    contradictions: DINING_REVERSED,
   }),
   analysisCase(8, 'health', 'Review my recorded cash balances and loan obligations.', {
     calls: ['accounts', 'liabilities'],
@@ -141,17 +149,23 @@ export const ANALYSIS_CASES: readonly AnalysisGoldenCase[] = [
     calls: ['compareOct'],
     required: [money('30040'), money('45319.50'), money('89960'), money('75492.87'), money('-15279.50'), money('14467.13')],
     mentions: [/(?:expenses?|spending).{0,40}(?:fell|decreased|lower|down)/i, /savings.{0,40}(?:rose|increased|higher|up)/i],
+    contradictions: [
+      /\b(?:expenses?|spending)\b(?:(?!\b(?:fell|decreased|lower|down)\b)[^;!?]){0,30}\b(?:rose|increased|grew|went up|higher)\b/i,
+      /\bsavings\b(?:(?!\b(?:rose|increased|higher|up)\b)[^;!?]){0,30}\b(?:fell|decreased|declined|dropped|went down|lower)\b/i,
+    ],
   }),
   analysisCase(11, 'period', 'Which spending category was largest last month, and how did this month compare?', {
     calls: ['expenseSepRollup', 'compareOct'],
     required: [money('25000'), money('45319.50'), money('30040')],
     mentions: [/housing/i, /(?:October|this month).{0,50}(?:lower|less|decreased|down)/i],
+    contradictions: [/\b(?:October|this month)\b(?:(?!\b(?:lower|less|decreased|down)\b)[^;!?]){0,50}\b(?:higher|more than|increased|rose|up from)\b/i],
   }),
   analysisCase(12, 'period', 'Summarise my recorded net-worth trend from June through September.', {
     calls: ['netWorthHistory'],
     required: [money('7404700'), money('7409692'), money('7494242'), money('8017389.20')],
     forbidden: money('30326023.20'),
     mentions: [/cost/i, /(?:rose|increased|grew|higher|upward)/i],
+    contradictions: [/\bnet[- ]worth\b(?:(?!\b(?:rose|increased|grew|higher|upward)\b)[^;!?]){0,40}\b(?:fell|decreased|declined|dropped|shrank|lower|downward)\b/i],
   }),
 
   // Cross-domain analysis
@@ -164,7 +178,8 @@ export const ANALYSIS_CASES: readonly AnalysisGoldenCase[] = [
   analysisCase(14, 'cross-domain', 'Connect my savings, current budget pressure and debt obligations.', {
     calls: ['cashflowSep', 'budgetsOct', 'liabilities'],
     required: [money('75492.87'), [{ money: '-650', eitherSign: true }], money('2412345.67'), money('24500')],
-    mentions: [/savings/i, /dining/i, /home loan/i],
+    mentions: [/savings/i, /dining/i, /over budget|over by|exceed/i, /home loan/i],
+    contradictions: DINING_REVERSED,
   }),
   analysisCase(15, 'cross-domain', 'Before I consider adding an investment, analyse my cash, obligations, savings and existing portfolio.', {
     calls: ['accounts', 'liabilities', 'cashflowSep', 'portfolio', 'holdings'],

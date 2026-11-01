@@ -94,6 +94,33 @@ describe('analysis scorer — deterministic factual rubric', () => {
     expect(scoreAnalysisOutput(`${ANSWERS[id]} ${claim}`, [], golden)).toBe(false);
   });
 
+  // An answer that reverses the result's finding fails, though every figure traces.
+  it.each([
+    ['analysis-002', (a: string) => a.replace('unrealised loss', 'unrealised gain')],
+    ['analysis-002', (a: string) => `${a} That was a realised loss.`],
+    ['analysis-003', (a: string) => `${a} NIFTYBEES is valued using a current price.`],
+    ['analysis-004', (a: string) => `${a} NIFTYBEES is valued using a current price.`],
+    ['analysis-007', (a: string) => a.replace('over budget', 'under budget')],
+    ['analysis-007', (a: string) => `${a.replace('over budget', 'under budget')} Nothing is over budget.`],
+    ['analysis-007', (a: string) => `${a} All categories are within budget.`],
+    ['analysis-010', (a: string) => `${a} Expenses rose this month.`],
+    ['analysis-010', (a: string) => `${a} Savings fell this month.`],
+    ['analysis-011', (a: string) => `${a} October spending was higher than September.`],
+    ['analysis-012', (a: string) => `${a} Overall, net worth declined.`],
+    ['analysis-014', (a: string) => a.replace('over budget', 'under budget')],
+    ['analysis-014', (a: string) => `${a} Nothing is over budget.`],
+  ])('%s: rejects an answer that reverses the result\'s finding', (id, edit) => {
+    const golden = ANALYSIS_CASES.find((c) => c.id === id)!;
+    const reversed = edit(ANSWERS[id]!);
+    expect(reversed).not.toBe(ANSWERS[id]);
+    expect(scoreAnalysisOutput(reversed, [], golden)).toBe(false);
+  });
+
+  it('analysis-007: food within budget beside dining over budget is the right finding, not a reversal', () => {
+    const golden = ANALYSIS_CASES.find((c) => c.id === 'analysis-007')!;
+    expect(scoreAnalysisOutput(`${ANSWERS['analysis-007']} Food is within its budget; dining is over budget, unlike food.`, [], golden)).toBe(true);
+  });
+
   it('analysis-009: a denied runway duration is not a claim', () => {
     const golden = ANALYSIS_CASES.find((c) => c.id === 'analysis-009')!;
     expect(scoreAnalysisOutput(`${ANSWERS[golden.id]} I cannot say whether your runway is 12 months.`, [], golden)).toBe(true);
