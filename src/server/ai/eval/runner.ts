@@ -22,14 +22,15 @@ import 'server-only';
  *   reported as unreachable, not as a model that scored zero.
  *
  * The `routing` suite is not here: it measures the application's classifier,
- * not a model, and runs in the unit tests. `document`, `scenario` and
- * `analysis` are not built.
+ * not a model, and runs in the unit tests. `scenario` remains blocked by OD-18.
  */
 
 import type { Tier } from '../config/models';
 import { EVALUATION_CANDIDATES, type ModelConfig } from '../config/models';
 import type { AiProvider } from '../provider/types';
 import { evaluateModel, type EvalCase, type EvalSuite, type ModelReport } from './harness';
+import { ANALYSIS_SUITE_VERSION, analysisSuite } from './tasks/analysis';
+import { DOCUMENT_SUITE_VERSION, documentSuite } from './tasks/document';
 import { CLASSIFY_SUITE_VERSION, classifySuite } from './tasks/classify';
 import { GROUNDING_SUITE_VERSION, groundingSuite } from './tasks/grounding';
 import { INJECTION_SUITE_VERSION, injectionSuite } from './tasks/injection';
@@ -38,9 +39,11 @@ import { ROBUSTNESS_SUITE_VERSION, robustnessSuite } from './tasks/robustness';
 import { TOOL_SELECT_SUITE_VERSION, toolSelectSuite } from './tasks/tool-select';
 
 /** The suites a model can be measured on. */
-export type ModelSuite = Extract<EvalSuite, 'parse' | 'classify' | 'tool-select' | 'grounding' | 'robustness' | 'injection'>;
+export type ModelSuite = Extract<EvalSuite, 'parse' | 'classify' | 'tool-select' | 'grounding' | 'robustness' | 'injection' | 'analysis' | 'document'>;
 
 export const MODEL_SUITES: Readonly<Record<ModelSuite, { readonly version: number; readonly build: () => readonly EvalCase[] }>> = {
+  analysis: { version: ANALYSIS_SUITE_VERSION, build: analysisSuite },
+  document: { version: DOCUMENT_SUITE_VERSION, build: documentSuite },
   parse: { version: PARSE_SUITE_VERSION, build: parseSuite },
   classify: { version: CLASSIFY_SUITE_VERSION, build: classifySuite },
   'tool-select': { version: TOOL_SELECT_SUITE_VERSION, build: toolSelectSuite },
@@ -51,14 +54,14 @@ export const MODEL_SUITES: Readonly<Record<ModelSuite, { readonly version: numbe
 
 /**
  * What each tier is measured on. Tier 1 parses and classifies; every text tier
- * answers questions with tools. Tier 4's `document` suite is not built, so
- * Tier 4 cannot be measured yet, and saying so beats measuring it on text.
+ * answers questions with tools. Tiers 2 and 3 also analyse replayed results;
+ * Tier 4 measures structured image extraction without tools.
  */
 export const TIER_SUITES: Readonly<Record<Tier, readonly ModelSuite[]>> = {
   1: ['parse', 'classify', 'tool-select', 'grounding', 'robustness', 'injection'],
-  2: ['tool-select', 'grounding', 'robustness', 'injection'],
-  3: ['tool-select', 'grounding', 'robustness', 'injection'],
-  4: [],
+  2: ['tool-select', 'grounding', 'robustness', 'injection', 'analysis'],
+  3: ['tool-select', 'grounding', 'robustness', 'injection', 'analysis'],
+  4: ['document'],
   5: [],
 };
 
@@ -105,7 +108,7 @@ export function parseEvalArgs(argv: readonly string[]): ParsedArgs {
   }
   const suites = named.length > 0 ? (named as ModelSuite[]) : TIER_SUITES[tier as Tier];
   if (suites.length === 0) {
-    return { ok: false, error: `Tier ${tier} has no built suite to measure it on (the document suite is not built).` };
+    return { ok: false, error: `Tier ${tier} has no built suite to measure it on.` };
   }
 
   const limitText = value('--limit');
@@ -231,12 +234,13 @@ export function disqualification(result: ModelResult, tier: Tier): string | null
   // A partial measurement is not a measurement: the cases that went unanswered
   // might be exactly the ones it fails.
   if (result.unanswered > 0) return `${result.unanswered} case(s) unanswered by the provider: re-run before proposing`;
-  if (tier === 1) {
-    if (result.schemaAdherence === null) return 'schema adherence not measured (needs parse or classify)';
+  if (tier === 1 || tier === 4) {
+    if (result.schemaAdherence === null) return 'schema adherence not measured (needs a structured-output suite)';
     if (result.schemaAdherence < THRESHOLDS.tier1SchemaAdherence) {
       return `schema adherence ${result.schemaAdherence.toFixed(2)} < ${THRESHOLDS.tier1SchemaAdherence}`;
     }
   }
+  if (tier === 4) return null;
   if (result.toolCallCorrectness === null) return 'tool-call correctness not measured (needs a tool suite)';
   if (result.toolCallCorrectness < THRESHOLDS.toolCallCorrectness) {
     return `tool-call correctness ${result.toolCallCorrectness.toFixed(2)} < ${THRESHOLDS.toolCallCorrectness}`;

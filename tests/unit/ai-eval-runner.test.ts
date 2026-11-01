@@ -68,8 +68,9 @@ describe('ai:eval arguments', () => {
     expect(parseEvalArgs(['--tier', '5']).ok).toBe(false);
     expect(parseEvalArgs(['--tier', '1', '--suite', 'routing']).ok).toBe(false);
     expect(parseEvalArgs(['--tier', '1', '--limit', '0']).ok).toBe(false);
-    // Tier 4's document suite is not built: no suite, no run.
-    expect(parseEvalArgs(['--tier', '4'])).toMatchObject({ ok: false });
+    expect(parseEvalArgs(['--tier', '4'])).toMatchObject({ ok: true, value: { suites: ['document'] } });
+    expect(TIER_SUITES[2]).toContain('analysis');
+    expect(TIER_SUITES[3]).toContain('analysis');
   });
 
   it('every model suite builds its cases, and the routing suite is not among them', () => {
@@ -91,6 +92,11 @@ describe('ai:eval arguments', () => {
 });
 
 describe('ai:eval proposals', () => {
+  it('gates vision proposals by schema rather than tool calling', () => {
+    expect(disqualification(result({ modelId: 'vision', toolCallCorrectness: null }), 4)).toBeNull();
+    expect(disqualification(result({ modelId: 'vision', schemaAdherence: 0.94, toolCallCorrectness: null }), 4)).toMatch(/schema adherence/);
+    expect(disqualification(result({ modelId: 'vision', schemaAdherence: null }), 4)).toMatch(/not measured/);
+  });
   it('Tier 1 needs schema adherence ≥ 0.95; every tool tier needs tool-call correctness ≥ 0.90', () => {
     expect(disqualification(result({ modelId: 'a', schemaAdherence: 0.94 }), 1)).toMatch(/schema adherence 0.94/);
     expect(disqualification(result({ modelId: 'a', schemaAdherence: 0.94 }), 2)).toBeNull();
@@ -119,6 +125,21 @@ describe('ai:eval proposals', () => {
 });
 
 describe('ai:eval run', () => {
+  it('passes document images and schema through the runner without tools', async () => {
+    const run = await runEvaluation({
+      provider: provider((request) => {
+        expect(request.messages[1]?.images?.[0]?.mimeType).toBe('image/png');
+        expect(request.responseFormat?.type).toBe('json_schema');
+        expect(request.tools).toBeUndefined();
+        return answer('{}');
+      }),
+      args: { tier: 4, suites: ['document'], models: [], limit: 1, record: false },
+      models: ['fake/vision'],
+    });
+    expect(run.models[0]).toMatchObject({ schemaAdherence: 0, toolCallCorrectness: null });
+    expect(run.proposedOrder).toEqual([]);
+  });
+
   const args = (over: Partial<EvalArgs> = {}): EvalArgs => ({ tier: 2, suites: ['grounding'], models: [], limit: 2, record: false, ...over });
 
   it('runs each model over the first n cases of each suite and reports the pass counts', async () => {

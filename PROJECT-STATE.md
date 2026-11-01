@@ -193,6 +193,12 @@ Next (as of #24): the first full measurement (PC); `ai_model_evaluations` storag
 Next: the first full measurement, from the PC; the `document` and `analysis` corpora. `scenario` waits on OD-18.
 ---
 
+## Phase 8 evaluator integration — 2026-11-01
+
+The Codex integration branch combines the pending runner/storage PRs #24/#25 with suite PRs #26/#27, resolving their project-log conflict while preserving both records. It adds analysis to Tiers 2–3 and document to Tier 4. Vision proposals require schema adherence ≥0.95 and do not require a tool-call score, matching the production capability requirement. Stored measurements now require the new current suites automatically. No model is called during this work. Scenario remains blocked by OD-18. No main or Claude branch was pushed.
+
+Verification: typecheck, lint, production build and all 1,862 unit tests pass (61 files). The first concurrent unit run hit an existing TOTP timeout; a rerun after build/lint completed passed. The focused runner/storage tests pass (18). Database integration could not start because PostgreSQL at 127.0.0.1:5432 refused the connection; hosted database CI remains required.
+
 ## Working protocol — applies to every phase from 2 onward
 
 Approved by the user on 2026-08-09. The architecture documents in `docs/` are the **implementation baseline**.
