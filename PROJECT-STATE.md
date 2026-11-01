@@ -130,7 +130,12 @@ Changes that came with it:
 - **`categoryNames` is not added** ([ADR-49](docs/DECISIONS.md#adr-49--get_expense_summary-takes-no-category-filter-the-breakdown-row-is-the-answer)). Every single-category question is one row: the `rollup` row for a parent, the `detail` row for a leaf. A fuzzy name resolver would add a silent way to pick the wrong category. AI-SYSTEM.md §8 now describes the tool as built. Revisit if the measured run shows models summing rows in cases 7 and 10.
 - **Defect fixed: budget order was nondeterministic.** `listBudgetStatuses` sorted by `period` only, so monthly budgets came back in whatever order Postgres chose, on screen and to the model. The fixture test caught it: it failed intermittently. Sorted by period, then creation, then id.
 
-Next: `scenario`, `injection`, `robustness`, `document`, `analysis`; then the `ai:eval` runner. No model has been run against any suite yet.
+**2026-11-01 — review fixes on #20; `robustness` corpus built** (`src/server/ai/eval/tasks/robustness.ts`, 10 cases, suite version 1; stacked on #20).
+- **#20 review (Codex, two P2s), both fixed.** Required and forbidden figures are matched with their sign, so "−62.49%" no longer passes for a 62.49% savings rate; an amount owed or over may be stated either way. Grounding case 23 now replays the holdings too and requires naming the unpriced HDFC Bank and the stale NIFTYBEES price.
+- **`robustness` replays the `grounding` fixture** with four more frozen calls: an empty June 2025, January's cash flow (no income, so the savings rate is `null` with `divide_by_zero`), September's transactions clipped to 5 of 14, and net worth on 2020-01-01, before any record. Transaction ids now get fixed placeholders too. Its cases ask what the data cannot answer — no records, unavailable, partial, absent (a transport budget, a car loan, rental income), plus a negative XIRR whose sign must survive. The scorer is `grounding`'s, so figures must trace; on top, the answer must say the value is unavailable, the list partial or the thing absent.
+- **`scenario` is blocked, not skipped:** it needs deterministic projection arithmetic, and `run_financial_scenario` has none (OD-18). Building the suite first would measure a model doing arithmetic the engine should do.
+
+Next: `document` and `analysis` corpora; then the `ai:eval` runner. `scenario` waits on OD-18. Codex's `injection` suite is in PR #21. No model has been run against any suite yet.
 ---
 
 ## Working protocol — applies to every phase from 2 onward

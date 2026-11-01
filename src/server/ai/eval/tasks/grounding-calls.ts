@@ -1,7 +1,8 @@
 import 'server-only';
 
 /**
- * The tool calls the `grounding` suite replays, and the fixed date they run on
+ * The tool calls the `grounding` and `robustness` suites replay, and the fixed
+ * date they run on
  * ([AI-SYSTEM.md §14](../../../../../docs/AI-SYSTEM.md)).
  *
  * Each key names one call. Its result is frozen in `grounding-results.json`,
@@ -45,6 +46,15 @@ export const GROUNDING_CALLS = {
   portfolio: { tool: 'get_portfolio_summary', args: {} },
   holdings: { tool: 'get_holdings', args: {} },
   allocationByClass: { tool: 'get_asset_allocation', args: {} },
+
+  // — For the `robustness` suite: empty, unavailable, clipped and failed results —
+  expenseJun2025: { tool: 'get_expense_summary', args: { asOf: '2025-06-15' } },
+  cashflowJan: { tool: 'get_cashflow_summary', args: { asOf: '2026-01-15' } },
+  transactionsSepClipped: {
+    tool: 'get_transactions',
+    args: { from: '2026-09-01', to: '2026-09-30', limit: 5 },
+  },
+  netWorth2020: { tool: 'get_net_worth', args: { asOf: '2020-01-01' } },
 } as const satisfies Record<string, GroundingCall>;
 
 export type GroundingCallKey = keyof typeof GROUNDING_CALLS;

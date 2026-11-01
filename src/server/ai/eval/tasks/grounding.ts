@@ -86,12 +86,13 @@ export const GROUNDING_RESULTS = groundingResults as Readonly<Record<GroundingCa
 
 const SEPTEMBER = '2026-09';
 
-const money = (...amounts: string[]): Figure[] => amounts.map((amount) => ({ money: amount }));
+export const money = (...amounts: string[]): Figure[] => amounts.map((amount) => ({ money: amount }));
 /** An amount the answer may state as owed or over, with or without its minus sign. */
 const owed = (amount: string): Figure => ({ money: amount, eitherSign: true });
-const rate = (value: string): Figure => ({ rate: value });
+export const rate = (value: string): Figure => ({ rate: value });
 
-interface Spec {
+/** A case builder for a suite that replays the fixture's results: `grounding`, `robustness`. */
+export interface ReplaySpec {
   readonly calls: readonly GroundingCallKey[];
   readonly required?: readonly (readonly Figure[])[];
   readonly forbidden?: readonly Figure[];
@@ -99,15 +100,19 @@ interface Spec {
   readonly followUp?: readonly ExpectedCall[];
 }
 
-const g = (id: number, question: string, spec: Spec): GroundingGoldenCase => ({
-  id: `grounding-${String(id).padStart(3, '0')}`,
-  question,
-  calls: spec.calls,
-  required: spec.required ?? [],
-  forbidden: spec.forbidden ?? [],
-  mentions: spec.mentions ?? [],
-  ...(spec.followUp ? { followUp: spec.followUp } : {}),
-});
+export const replayCase =
+  (prefix: string) =>
+  (id: number, question: string, spec: ReplaySpec): GroundingGoldenCase => ({
+    id: `${prefix}-${String(id).padStart(3, '0')}`,
+    question,
+    calls: spec.calls,
+    required: spec.required ?? [],
+    forbidden: spec.forbidden ?? [],
+    mentions: spec.mentions ?? [],
+    ...(spec.followUp ? { followUp: spec.followUp } : {}),
+  });
+
+const g = replayCase('grounding');
 
 /** Says, in some words, that a value is not available. */
 const UNAVAILABLE = /unavailable|not available|isn'?t available|insufficient|not enough|cannot|can'?t|unable|no (?:current |live )?price|missing|not priced|unpriced/i;
@@ -479,10 +484,15 @@ export function groundingMessages(golden: GroundingGoldenCase): readonly ChatMes
 }
 
 export function groundingSuite(): readonly EvalCase[] {
+  return replaySuite('grounding', GROUNDING_CASES);
+}
+
+/** Cases that replay the fixture's results, scored by the rules above. */
+export function replaySuite(suite: 'grounding' | 'robustness', cases: readonly GroundingGoldenCase[]): readonly EvalCase[] {
   const tools = toolDefinitions();
-  return GROUNDING_CASES.map((golden) => ({
+  return cases.map((golden) => ({
     id: golden.id,
-    suite: 'grounding' as const,
+    suite,
     messages: groundingMessages(golden),
     tools,
     score: (output, toolCalls) => scoreGrounding(output, toolCalls, golden),

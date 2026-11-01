@@ -189,6 +189,8 @@ async function nameRemainingIds(): Promise<void> {
     ['asset', 'select id, name from manual_assets where user_id = $1'],
     ['liability', 'select id, name from liabilities where user_id = $1'],
     ['budget', `select b.id, c.name from budgets b join categories c on c.id = b.category_id where b.user_id = $1`],
+    // Unique in this fixture: no two transactions share a date and a description.
+    ['transaction', `select id, booked_on::text || ' ' || description as name from transactions where user_id = $1`],
   ];
   for (const [kind, text] of queries) {
     const { rows } = await rawSql(text, [fixture.userId]);
