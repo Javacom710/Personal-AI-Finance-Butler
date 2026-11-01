@@ -642,10 +642,12 @@ These metrics feed routing changes — which is the point of measuring them.
 npm run ai:eval -- --tier 1 --suite parse,classify,tool-select
 ```
 
-Runs every candidate in the tier over the suites, produces:
-- `config/capabilities.json` — the measured matrix (§5)
-- `eval/reports/<date>-<tier>.md` — per-model scores, latency percentiles, failure examples
-- A proposed routing order, which a human accepts into `config/models.ts`
+Runs every model in the tier's configured order, plus the tier's `EVALUATION_CANDIDATES`, over the tier's suites (`src/server/ai/eval/runner.ts`, `scripts/ai-eval.ts`), one case at a time, and produces:
+- `eval/reports/<timestamp>-tier<n>.md` and `.json` — per-model scores (schema adherence, tool-call correctness, retrieval grounding, injection resistance), latency percentiles, pass counts per suite, failing case ids. No model output text is stored.
+- A **proposed** order, `AI_TIER<n>_MODELS=…`: only models clearing the §5 thresholds, ranked by the selection criteria below. A human accepts it into the environment; the run changes no configuration.
+- `ai_model_evaluations` rows, one per model and suite, for a full run (`--no-record` to skip; a `--limit` run is never stored). At server start, `src/server/ai-evaluations.ts` turns the latest rows into `source: 'measured'` entries and `createCapabilityMatrix(measured)` layers them over the declared matrix ([ADR-44](DECISIONS.md#adr-44--the-capability-matrix-stays-capabilitiests-checked-at-startup), which replaced `capabilities.json`). A model gets a measured entry only when every suite of its tier has a row at the suite's current version with no unanswered case, and it has a declared entry for the fields a measurement cannot supply. Scores combine exact counts; one nothing measured is 0, which fails its gate. A failed read at startup is logged and leaves the declared matrix.
+
+A case the provider never answered (transport, timeout, rate limit) is reported and excluded from every score, and a model with any such case is not proposed until re-run: a 502 is not a wrong answer, and a partial measurement is not a measurement. `--limit n` runs the first n cases of each suite as a wire check; its report says so and is git-ignored. `routing` is not run here (it measures application code), and Tier 4 has no suite until `document` exists.
 
 Re-run on model change, provider change, or quarterly. CI fails if any production-routed model has no entry, or an entry older than 30 days.
 
@@ -701,7 +703,7 @@ The test that matters: NVIDIA ships a better reasoning model tomorrow. What has 
 npm run ai:catalogue                              # 1. confirm the id exists, authenticated
 npm run ai:eval -- --tier 2 --model <new-id>      # 2. measure it; writes capabilities.json
                                                   #    + ai_model_evaluations rows
-#    3. read eval/reports/<date>-tier2.md — does it clear the tier thresholds?
+#    3. read eval/reports/<timestamp>-tier2.md — does it clear the tier thresholds?
 #    4. edit ONE line in the environment:
 AI_TIER2_MODELS=<new-id>,nvidia/nemotron-3-super-120b-a12b,deepseek-ai/deepseek-v4-flash-0731
 #    5. restart

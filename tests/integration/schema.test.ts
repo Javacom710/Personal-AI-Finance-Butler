@@ -55,6 +55,8 @@ describe('migration', () => {
         'corporate_action_detections',
         // Phase 7 — the daily AI budget's ledger (B-3a)
         'ai_usage_daily',
+        // Phase 8 — model measurements; not user-owned (SCHEMA.md §10)
+        'ai_model_evaluations',
       ]),
     );
 
