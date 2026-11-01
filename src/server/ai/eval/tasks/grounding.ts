@@ -442,8 +442,8 @@ const NEGATION = /\b(?:not|no|never|none|cannot|unable|without)\b|n'?t\b/i;
  * and "I cannot find your car loan, so …" do not.
  */
 export function affirms(text: string, pattern: RegExp): boolean {
-  const global = new RegExp(pattern.source, pattern.flags.includes('g') ? pattern.flags : `${pattern.flags}g`);
-  for (const match of text.matchAll(global)) {
+  const everywhere = new RegExp(pattern.source, pattern.flags.includes('g') ? pattern.flags : `${pattern.flags}g`);
+  for (const match of text.matchAll(everywhere)) {
     const end = (match.index ?? 0) + match[0].length;
     const start = Math.max(...['.', ';', ':', '!', '?', ','].map((d) => text.lastIndexOf(d, (match.index ?? 0) - 1))) + 1;
     if (!NEGATION.test(text.slice(start, end))) return true;
