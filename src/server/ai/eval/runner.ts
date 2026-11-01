@@ -107,6 +107,9 @@ export function parseEvalArgs(argv: readonly string[]): ParsedArgs {
     return { ok: false, error: `Unknown suite(s): ${unknown.join(', ')}. Model suites: ${Object.keys(MODEL_SUITES).join(', ')}.` };
   }
   const suites = named.length > 0 ? (named as ModelSuite[]) : TIER_SUITES[tier as Tier];
+  if (suites.some((suite) => !TIER_SUITES[tier as Tier].includes(suite))) {
+    return { ok: false, error: `Selected suites do not belong to Tier ${tier}.` };
+  }
   if (suites.length === 0) {
     return { ok: false, error: `Tier ${tier} has no built suite to measure it on.` };
   }
@@ -322,7 +325,10 @@ export async function runEvaluation(options: RunOptions): Promise<EvalRun> {
     models.push(summarise(modelId, suites));
   }
 
-  const { order, excluded } = proposeOrder(models, args.tier);
+  const complete = args.limit === null && TIER_SUITES[args.tier].every((suite) => args.suites.includes(suite));
+  const { order, excluded } = complete
+    ? proposeOrder(models, args.tier)
+    : { order: [], excluded: models.map((model) => ({ modelId: model.modelId, reason: 'Incomplete tier evaluation: run all tier suites without --limit before proposing' })) };
   return {
     tier: args.tier,
     startedAt,

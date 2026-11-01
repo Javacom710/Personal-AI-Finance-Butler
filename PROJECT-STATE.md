@@ -195,9 +195,9 @@ Next: the first full measurement, from the PC; the `document` and `analysis` cor
 
 ## Phase 8 evaluator integration — 2026-11-01
 
-The Codex integration branch combines the pending runner/storage PRs #24/#25 with suite PRs #26/#27, resolving their project-log conflict while preserving both records. It adds analysis to Tiers 2–3 and document to Tier 4. Vision proposals require schema adherence ≥0.95 and do not require a tool-call score, matching the production capability requirement. Stored measurements now require the new current suites automatically. No model is called during this work. Scenario remains blocked by OD-18. No main or Claude branch was pushed.
+The Codex integration branch combines the pending runner/storage PRs #24/#25 with suite PRs #26/#27, resolving their project-log conflict while preserving both records. It adds analysis to Tiers 2–3 and document to Tier 4. Vision proposals require schema adherence ≥0.95 and do not require a tool-call score, matching the production capability requirement. Stored measurements now require the new current suites automatically. No model is called during this work. Scenario remains blocked by OD-18. No main or Claude branch was pushed. Diagnostic runs (`--limit` or a subset of tier suites) cannot propose routing orders, and CLI suites must belong to the selected tier.
 
-Verification: typecheck, lint, production build and all 1,862 unit tests pass (61 files). The first concurrent unit run hit an existing TOTP timeout; a rerun after build/lint completed passed. The focused runner/storage tests pass (18). Database integration could not start because PostgreSQL at 127.0.0.1:5432 refused the connection; hosted database CI remains required.
+Verification: typecheck, lint, production build and all 1,863 unit tests pass (61 files). The first concurrent unit run hit an existing TOTP timeout; a rerun after build/lint completed passed. The focused runner/storage tests pass (19). The initial database attempt was unavailable; an isolated Docker PostgreSQL 18 instance with separate migration/application roles then passed all 541 integration tests (27 files). All 65 property tests and the built-client secret scan pass.
 
 ## Working protocol — applies to every phase from 2 onward
 

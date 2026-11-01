@@ -69,6 +69,8 @@ describe('ai:eval arguments', () => {
     expect(parseEvalArgs(['--tier', '1', '--suite', 'routing']).ok).toBe(false);
     expect(parseEvalArgs(['--tier', '1', '--limit', '0']).ok).toBe(false);
     expect(parseEvalArgs(['--tier', '4'])).toMatchObject({ ok: true, value: { suites: ['document'] } });
+    expect(parseEvalArgs(['--tier', '4', '--suite', 'parse']).ok).toBe(false);
+    expect(parseEvalArgs(['--tier', '2', '--suite', 'document']).ok).toBe(false);
     expect(TIER_SUITES[2]).toContain('analysis');
     expect(TIER_SUITES[3]).toContain('analysis');
   });
@@ -125,6 +127,18 @@ describe('ai:eval proposals', () => {
 });
 
 describe('ai:eval run', () => {
+  it('never proposes from a wire check or an incomplete tier evaluation', async () => {
+    for (const limit of [1, null]) {
+      const run = await runEvaluation({
+        provider: provider(() => answer(null)),
+        args: { tier: 2, suites: ['tool-select'], models: [], limit, record: false },
+        models: ['fake/diagnostic'],
+      });
+      expect(run.proposedOrder).toEqual([]);
+      expect(run.excluded[0]?.reason).toMatch(/Incomplete tier evaluation/);
+    }
+  });
+
   it('passes document images and schema through the runner without tools', async () => {
     const run = await runEvaluation({
       provider: provider((request) => {
@@ -165,7 +179,7 @@ describe('ai:eval run', () => {
     });
     // Not a model that scored zero: there was nothing to score.
     expect(run.models[0]).toMatchObject({ unreachable: true, unanswered: 2, schemaAdherence: null, retrievalGrounding: null });
-    expect(run.excluded[0]!.reason).toMatch(/unreachable/);
+    expect(run.excluded[0]!.reason).toMatch(/Incomplete tier evaluation/);
     expect(renderEvalReport(run)).toContain('m/down (unreachable)');
     expect(renderEvalReport(run)).toContain('transport ×2');
   });
