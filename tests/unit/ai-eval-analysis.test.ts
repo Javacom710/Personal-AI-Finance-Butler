@@ -66,6 +66,20 @@ describe('analysis scorer — deterministic factual rubric', () => {
     expect(scoreAnalysisOutput(answer, [], golden)).toBe(false);
   });
 
+  it.each([
+    'Your runway is 12 months.',
+    'That gives you about six months of runway.',
+    'Runway: roughly 8.5 months.',
+  ])('analysis-009: rejects a fabricated runway duration beside the disclaimer — %s', (claim) => {
+    const golden = ANALYSIS_CASES.find((c) => c.id === 'analysis-009')!;
+    expect(scoreAnalysisOutput(`${ANSWERS[golden.id]} ${claim}`, [], golden)).toBe(false);
+  });
+
+  it('analysis-009: a denied runway duration is not a claim', () => {
+    const golden = ANALYSIS_CASES.find((c) => c.id === 'analysis-009')!;
+    expect(scoreAnalysisOutput(`${ANSWERS[golden.id]} I cannot say whether your runway is 12 months.`, [], golden)).toBe(true);
+  });
+
   it('rejects a contradicted data limitation and any unnecessary follow-up tool call', () => {
     const golden = ANALYSIS_CASES[0]!;
     const unsupported = 'Portfolio market value is ₹148,100, with total return -₹24,220 (-11.70%). HDFC Bank has no price and NIFTYBEES is stale, but all prices are current and complete.';
