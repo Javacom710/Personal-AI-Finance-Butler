@@ -66,7 +66,7 @@ export function bindingHolds(text: string, binding: Binding): boolean {
   for (const match of text.matchAll(subject)) {
     const start = match.index ?? 0;
     const end = start + match[0].length;
-    const sentenceEnd = text.slice(end).search(/;|\n|\.(?!\d)/);
+    const sentenceEnd = text.slice(end).search(/;|\n|(?<!\brs)\.(?!\d)/i);
     const after = text.slice(end, sentenceEnd === -1 ? undefined : end + sentenceEnd);
     const following = statedFigures(after).find((f) => f.kind === kind);
     const before = text.slice(Math.max(0, start - 30), start);
