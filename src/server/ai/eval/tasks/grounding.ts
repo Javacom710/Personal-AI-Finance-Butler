@@ -123,8 +123,14 @@ export const replayCase =
 
 const g = replayCase('grounding');
 
-/** Presents a price as current. Affirmed, it contradicts a stale price. */
-export const CURRENT_PRICE = /\b(?:current|live|today'?s|up[- ]to[- ]date|latest market) (?:price|valuation|value)\b|\bat current prices\b/i;
+/**
+ * Claims the valuation uses a current price: "at a current price", "based on
+ * today's price", "the price is current". Affirmed, it contradicts a stale
+ * price. Naming a current price as something missing — "a current price is
+ * needed" — is not a claim to have one.
+ */
+export const CURRENT_PRICE =
+  /\b(?:at|using|uses|with|on|from|based on|valued at)\s+(?:an?\s+|the\s+|its\s+|their\s+)?(?:current|live|today'?s|up[- ]to[- ]date|latest market)\s+(?:prices?|valuations?|values?|market prices?)\b|\bprices?\s+(?:is|are)\s+(?:current|live|up[- ]to[- ]date)\b/i;
 
 /** Says, in some words, that a value is not available. */
 const UNAVAILABLE = /unavailable|not available|isn'?t available|insufficient|not enough|cannot|can'?t|unable|no (?:current |live )?price|missing|not priced|unpriced/i;
@@ -442,10 +448,10 @@ const describe = (figure: Figure): string => ('rate' in figure ? `${figure.rate}
 
 /**
  * Where one claim ends and the next begins: punctuation, or a conjunction
- * joining two claims. "No rental income is recorded but your rent was ₹812"
+ * joining two claims. Not a colon: "Rental income: ₹812.37" is one claim. "No rental income is recorded but your rent was ₹812"
  * is two claims, and the "No" denies only the first.
  */
-const CLAUSE_BREAK = /[.;:!?,]|\s(?:but|and|so|while|whereas|although|though|yet|however)\s/gi;
+const CLAUSE_BREAK = /[.;!?,]|\s(?:but|and|so|while|whereas|although|though|yet|however)\s/gi;
 
 /** A word that negates its clause: "I cannot show all 14", "there is no car loan". */
 const NEGATION = /\b(?:not|no|never|none|cannot|unable|without)\b|\b[a-z]+n['’]t\b/i;

@@ -148,6 +148,16 @@ describe('robustness scorer', () => {
     expect(answer(7, `Here are all 14 of your September transactions: ${five}.`).passed).toBe(false);
   });
 
+  it('a label and its value are one claim', () => {
+    expect(answer(2, 'No rental income is recorded. Rental income: ₹812.37.').passed).toBe(false);
+  });
+
+  it('a current price named as missing is not a claim to have one', () => {
+    expect(answer(6, 'NIFTYBEES is worth ₹56,900 at its stale last price. A current price is needed to confirm its value today.').passed).toBe(true);
+    expect(answer(6, 'NIFTYBEES is worth ₹56,900, valued at the current market price. The price is stale.').passed).toBe(false);
+    expect(answer(6, 'NIFTYBEES is worth ₹56,900. Its price is current, though older data called it stale.').passed).toBe(false);
+  });
+
   it('a word ending in -nt is not a negation', () => {
     expect(answer(2, 'No rental income is recorded. Your rent was ₹812.37.').passed).toBe(false);
     expect(answer(2, 'No rental income is recorded. Your rental income was ₹812.37.').passed).toBe(false);
