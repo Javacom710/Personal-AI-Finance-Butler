@@ -69,8 +69,11 @@ describe('ai:eval arguments', () => {
     expect(parseEvalArgs(['--tier', '5']).ok).toBe(false);
     expect(parseEvalArgs(['--tier', '1', '--suite', 'routing']).ok).toBe(false);
     expect(parseEvalArgs(['--tier', '1', '--limit', '0']).ok).toBe(false);
-    // Tier 4's document suite is not built: no suite, no run.
+    // Tier 4's document suite is not built: no suite, no run — named or not.
     expect(parseEvalArgs(['--tier', '4'])).toMatchObject({ ok: false });
+    expect(parseEvalArgs(['--tier', '4', '--suite', 'tool-select'])).toMatchObject({ ok: false });
+    // A suite from another tier cannot stand in for this tier's measurement.
+    expect(parseEvalArgs(['--tier', '2', '--suite', 'parse'])).toMatchObject({ ok: false, error: expect.stringMatching(/Not a Tier 2 suite: parse/) });
   });
 
   it('every model suite builds its cases, and the routing suite is not among them', () => {
