@@ -40,6 +40,18 @@ export const TransactionProposal = z
 
 export type TransactionProposal = z.infer<typeof TransactionProposal>;
 
+/** A document may omit a date; keep that uncertainty visible for review. */
+export const DocumentLineItemProposal = TransactionProposal.extend({
+  bookedOn: z.iso.date().nullable(),
+}).strict();
+
+/** A receipt or statement may contain several transactions; every item stays a proposal. */
+export const DocumentExtractionProposal = z.object({
+  transactions: z.array(DocumentLineItemProposal).min(1).max(20),
+}).strict();
+
+export type DocumentExtractionProposal = z.infer<typeof DocumentExtractionProposal>;
+
 /**
  * A category suggestion for one transaction (`classifyTransaction`).
  *

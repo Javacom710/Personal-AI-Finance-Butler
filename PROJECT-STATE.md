@@ -2,9 +2,9 @@
 
 Durable status record. Conversation history is temporary; this file is not. Read this first after any context reset, then verify it against `docs/`, the source tree, and the tests before trusting it.
 
-> **Read first — status as of 2026-10-31.** **Phase 7 (AI Infrastructure) is complete**: every ROADMAP Phase 7 "Done when" box is ticked, with the evidence named on each. **Phase 8 (Model Evaluation) started 2026-10-31**: the golden corpora are being built one suite per PR (`parse`, `classify`, `tool-select`, `routing` and `grounding` built); the ADR-45 catalogue check is done and five evaluation candidates were added (see the [Phase 8 log](#phase-8-log)). Both hard drives that held working copies have failed; the repository lives on GitHub, and Claude, Codex and ChatGPT work from it through pull requests. The dated sections further down are historical records. For the recovery, the blocker register and the working rules, see [docs/RECOVERY-2026-10.md](docs/RECOVERY-2026-10.md).
+> **Read first — status as of 2026-11-01.** **Phase 7 (AI Infrastructure) is complete.** **Phase 8 (Model Evaluation) is in progress:** parse, classify, tool-select, routing, grounding, injection and robustness suites are merged; the document suite is in progress in this PR; analysis remains; scenario waits on OD-18. The ADR-45 catalogue check is done and five evaluation candidates were added. The runner is in [open PR #24](https://github.com/Javacom710/Personal-AI-Finance-Butler/pull/24); evaluation storage is in [open PR #25](https://github.com/Javacom710/Personal-AI-Finance-Butler/pull/25). The runner's 2026-11-01 wire check reached one model, but no complete capability evaluation or routed model measurement has been recorded. See the [Phase 8 log](#phase-8-log). Both hard drives that held working copies have failed; the repository lives on GitHub and this work proceeds through pull requests.
 
-**Last updated:** 2026-10-31 · **Current phase:** **8 — Model Evaluation, in progress** ([log](#phase-8-log)). Phase 7 — AI Infrastructure COMPLETE (steps 7.0–7.7; blockers B-1 … B-4, H-1 and R-1 … R-4 closed). Phase 6 remains complete (steps 6.0–6.9 and 6.11 implemented and verified; 6.10 closed unbuilt).
+**Last updated:** 2026-11-01 · **Current phase:** **8 — Model Evaluation, in progress** ([log](#phase-8-log)). Phase 7 — AI Infrastructure COMPLETE (steps 7.0–7.7; blockers B-1 … B-4, H-1 and R-1 … R-4 closed). Phase 6 remains complete (steps 6.0–6.9 and 6.11 implemented and verified; 6.10 closed unbuilt).
 
 *The paragraphs from here to "Working protocol" are the 2026-08-30 record, kept as written.*
 
@@ -173,7 +173,15 @@ Next (as of #24): the first full measurement (PC); `ai_model_evaluations` storag
 - **When a model gets a measured entry:** every suite of its tier at the suite's current version, no unanswered case, and a declared entry for the fields a measurement cannot supply. Otherwise its declared entry stays, which serves no score-gated route. Scores combine exact counts across suites, and a score nothing measured is 0, so it fails its gate. Latency is the slowest suite's; the entry is as old as its oldest row.
 - A failed read at startup is logged and leaves the declared matrix: it fails closed.
 
-Next: the first full measurement, from the PC; the `document` and `analysis` corpora. `scenario` waits on OD-18.
+**2026-11-01 — `document` suite built** (`src/server/ai/eval/tasks/document.ts`, 20 image cases, suite version 1).
+
+- **Corpus:** 20 generated receipt and statement images, covering one or multiple transaction rows, INR/USD/EUR, income/expense/transfer, missing dates and amounts, and one printed prompt injection. The checked-in base64 PNGs in `document-fixtures.json` need no OCR service, uploaded files or database; `scripts/generate-ai-eval-document-fixtures.mjs` regenerates them with ImageMagick.
+- **Provider prerequisite:** the AI message type previously only carried text despite the Tier 4 vision capability declaration. `ChatMessage` now supports image attachments on user turns, and NVIDIA Build sends them as OpenAI-compatible `image_url` data URLs. Existing text-only turns remain unchanged; the provider test checks the exact wire payload without egress.
+- **Proposal and scoring:** a new strict document proposal contains 1–20 transaction proposals and allows `bookedOn: null` when the document has no readable date. The production prompt says not to treat totals as transactions, invent missing fields, or follow printed instructions. Scoring validates the production schema, exact row count/order/type/date/amount/currency/description and account hints, plus empty fabricated notes/tags/category fields. A missing date or amount must be nullable and marked for review.
+- **Verification:** `npm run typecheck`, `npm run lint`, `npm run test:unit` (**1,824 passed**) and `npm run build` all pass. The focused provider/document tests also pass. No model was called and no key is needed.
+- **Remaining:** `analysis` is unbuilt. `scenario` remains blocked under OD-18. Tier 4 now has a suite for the runner to measure once it is wired in.
+
+Next: the first full measurement, from the PC; the `analysis` corpus. `scenario` waits on OD-18.
 
 ## Scope change — 2026-11-01
 
@@ -233,7 +241,7 @@ Corollaries that follow from the above:
 | 6 — Market Data | ✅ **complete, verified.** 6.0–6.9 and **6.11** implemented; **6.10 closed — not built** (OD-15). No open decision remains |
 | 6.5 — Recovery (Oct 2026) | ✅ repository rebuilt from the failed drives and published to GitHub — [docs/RECOVERY-2026-10.md](docs/RECOVERY-2026-10.md) |
 | 7 — AI Infrastructure | ✅ **complete, 2026-10-26.** 7.0–7.7 built; the Phase 8 entry-gate blockers closed (PRs #5–#12, #14) |
-| 8 — Model Evaluation | **in progress** since 2026-10-31: golden corpora being built, one PR per suite (`parse`, `classify`, `tool-select`, `routing`, `grounding`, `injection` and `robustness` done). No model measured yet — see [Phase 8 log](#phase-8-log) |
+| 8 — Model Evaluation | **in progress** since 2026-10-31: `parse`, `classify`, `tool-select`, `routing`, `grounding`, `injection` and `robustness` merged; `document` built in its own PR and `analysis` remains. `scenario` is blocked by OD-18. Runner PR #24 and storage PR #25 are open; no complete capability measurement yet — see [Phase 8 log](#phase-8-log) |
 | 9–14 | not started |
 
 ---

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createNvidiaProvider, type FetchLike } from '@/server/ai/provider/nvidia-build';
 import { dispositionOf } from '@/server/ai/errors';
+import type { ChatRequest } from '@/server/ai/provider/types';
 
 /**
  * Invariant **I-55** — *the provider adapter reports; it never throws, and never
@@ -86,6 +87,34 @@ describe('I-55 — configuration', () => {
     // Never in the body — a request that echoed it would put it wherever the
     // body is logged.
     expect(seen!.body ?? '').not.toContain('nvapi-test-key');
+  });
+
+  it('sends a user image as an OpenAI-compatible data URL and preserves text-only messages', async () => {
+    let sentBody: Record<string, unknown> | null = null;
+    const p = provider(async (_url, init) => {
+      sentBody = JSON.parse(init.body ?? '{}') as Record<string, unknown>;
+      return json(CHAT_OK);
+    });
+    const imageRequest: ChatRequest = {
+      ...request,
+      messages: [
+        { role: 'system', content: 'Read the receipt.' },
+        { role: 'user', content: 'Extract its transactions.', images: [{ mimeType: 'image/png', data: 'UE5HLXRlc3Q=' }] },
+      ],
+    };
+
+    const result = await p.chat(imageRequest);
+    expect(result.ok).toBe(true);
+    const messages = (sentBody as unknown as Record<string, unknown>)['messages'] as readonly Record<string, unknown>[];
+    expect(messages[0]).toEqual({ role: 'system', content: 'Read the receipt.' });
+    expect(messages[1]).toEqual({
+      role: 'user',
+      content: [
+        { type: 'text', text: 'Extract its transactions.' },
+        { type: 'image_url', image_url: { url: 'data:image/png;base64,UE5HLXRlc3Q=' } },
+      ],
+    });
+    expect(JSON.stringify(sentBody)).not.toContain(TEST_KEY);
   });
 });
 

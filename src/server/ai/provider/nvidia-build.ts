@@ -95,13 +95,22 @@ interface WireChatResponse {
 }
 
 function toWireMessage(message: ChatMessage): Record<string, unknown> {
+  const content = message.role === 'user' && message.images?.length
+    ? [
+        { type: 'text', text: message.content },
+        ...message.images.map((image) => ({
+          type: 'image_url',
+          image_url: { url: `data:${image.mimeType};base64,${image.data}` },
+        })),
+      ]
+    : message.content;
   if (message.role === 'tool') {
     return { role: 'tool', content: message.content, tool_call_id: message.toolCallId };
   }
   if (message.role === 'assistant' && message.toolCalls?.length) {
     return {
       role: 'assistant',
-      content: message.content,
+      content,
       tool_calls: message.toolCalls.map((call) => ({
         id: call.id,
         type: 'function',
@@ -109,7 +118,7 @@ function toWireMessage(message: ChatMessage): Record<string, unknown> {
       })),
     };
   }
-  return { role: message.role, content: message.content };
+  return { role: message.role, content };
 }
 
 function readToolCalls(raw: unknown): ToolCall[] {
