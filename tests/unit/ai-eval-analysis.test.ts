@@ -128,6 +128,30 @@ describe('analysis scorer — deterministic factual rubric', () => {
     expect(scoreAnalysisOutput(answer, [], golden)).toBe(true);
   });
 
+  // Every figure traces and every word is present, but a figure is given to the wrong metric.
+  it.each([
+    ['analysis-006', 'Income was ₹45,319.50, expenses were ₹120,812.37, savings were ₹75,492.87, and the savings rate was 62.49%.'],
+    ['analysis-003', 'Equities total ₹56,900 (38.42%); ETFs total ₹91,200 (61.58%). HDFC Bank has no price, so the allocation excludes it.'],
+    ['analysis-003', 'Equities total ₹91,200 (38.42%); ETFs total ₹56,900 (61.58%). HDFC Bank has no price, so the allocation excludes it.'],
+    ['analysis-002', 'The realised gain is -₹30,912; the unrealised loss is ₹4,992, alongside total return -₹24,220.'],
+    ['analysis-007', 'Food spending is ₹3,150 of its ₹10,000 budget, leaving ₹4,960. Dining spending is ₹5,040 against ₹2,500, so it is ₹650 over budget.'],
+    ['analysis-008', 'HDFC Savings has ₹412,022.37; the HDFC Credit Card balance is -₹14,969.50. The Home loan has ₹24,500 outstanding with an EMI of ₹2,412,345.67.'],
+    ['analysis-012', 'At cost basis, net worth rose from June’s ₹7,409,692 to July’s ₹7,404,700, August’s ₹7,494,242 and September’s ₹8,017,389.20.'],
+    ['analysis-013', 'At cost, net worth was ₹148,100. Portfolio market value was ₹8,107,349.20 and total return was -₹24,220. The portfolio valuation is partial: HDFC Bank is unpriced and NIFTYBEES has a stale price.'],
+  ])('%s: rejects a figure given to the wrong metric — %s', (id, answer) => {
+    const golden = ANALYSIS_CASES.find((c) => c.id === id)!;
+    expect(scoreAnalysisOutput(answer, [], golden)).toBe(false);
+  });
+
+  it.each([
+    ['analysis-006', 'Income: ₹1,20,812.37. Expenses: ₹45,319.50. Savings: ₹75,492.87, a savings rate of 62.49%.'],
+    ['analysis-006', 'You earned ₹120,812.37 in income and had ₹45,319.50 of expenses, so savings were ₹75,492.87 — a 62.49% savings rate.'],
+    ['analysis-014', 'September savings were ₹75,492.87. Dining is ₹650 over budget; the home loan outstanding is ₹2,412,345.67 with a ₹24,500 EMI.'],
+  ])('%s: accepts the right figure for each metric in another wording — %s', (id, answer) => {
+    const golden = ANALYSIS_CASES.find((c) => c.id === id)!;
+    expect(scoreAnalysisOutput(answer, [], golden)).toBe(true);
+  });
+
   it('analysis-007: food within budget beside dining over budget is the right finding, not a reversal', () => {
     const golden = ANALYSIS_CASES.find((c) => c.id === 'analysis-007')!;
     expect(scoreAnalysisOutput(`${ANSWERS['analysis-007']} Food is within its budget; dining is over budget, unlike food.`, [], golden)).toBe(true);

@@ -21,6 +21,8 @@ import {
   rate,
   replayCase,
   scoreGroundingAnswer,
+  statedFigures,
+  statesFigure,
   type Figure,
   type GroundingGoldenCase,
 } from './grounding';
@@ -31,6 +33,50 @@ export type AnalysisDomain = 'portfolio' | 'health' | 'period' | 'cross-domain';
 
 export interface AnalysisGoldenCase extends GroundingGoldenCase {
   readonly domain: AnalysisDomain;
+  /** Figures that must be stated as the metric they belong to, not merely somewhere. */
+  readonly bound: readonly Binding[];
+}
+
+/** A required figure tied to its metric: "income ₹1,20,812.37", not income given the expenses figure. */
+export interface Binding {
+  readonly subject: RegExp;
+  /** Any one of these, as in `required`. */
+  readonly figures: readonly Figure[];
+}
+
+/** What may sit between a figure and the metric it is written onto. */
+const ATTACHED = /^\s*(?:(?:in|of|on|for|as)\s+)?(?:total\s+|net\s+)?$/i;
+
+const bind = (subject: RegExp, figure: Figure | readonly Figure[]): Binding => ({
+  subject,
+  figures: Array.isArray(figure) ? figure : [figure as Figure],
+});
+
+/**
+ * The figure an answer gives a metric at one mention: a figure written onto it
+ * ("a ₹24,500 EMI", "₹1,20,812.37 in income", "a 62.49% savings rate"), else
+ * the first figure of the expected kind after it in its sentence ("income was
+ * ₹1,20,812.37"). Requiring each binding at some mention
+ * catches swapped figures ("income ₹45,319.50, expenses ₹1,20,812.37"), which
+ * pass when figures and words are checked apart.
+ */
+export function bindingHolds(text: string, binding: Binding): boolean {
+  const kind = binding.figures.some((f) => 'rate' in f) ? 'percent' : 'money';
+  const subject = new RegExp(binding.subject.source, binding.subject.flags.replace('g', '') + 'g');
+  for (const match of text.matchAll(subject)) {
+    const start = match.index ?? 0;
+    const end = start + match[0].length;
+    const sentenceEnd = text.slice(end).search(/;|\n|\.(?!\d)/);
+    const after = text.slice(end, sentenceEnd === -1 ? undefined : end + sentenceEnd);
+    const following = statedFigures(after).find((f) => f.kind === kind);
+    const before = text.slice(Math.max(0, start - 30), start);
+    const last = statedFigures(before).filter((f) => f.kind === kind).at(-1);
+    const gap = last ? before.slice(before.lastIndexOf(last.text.replace(/^-/, '')) + last.text.replace(/^-/, '').length) : '';
+    const attached = last !== undefined && ATTACHED.test(gap) ? last : undefined;
+    const given = attached ?? following;
+    if (given && binding.figures.some((f) => statesFigure(given, f))) return true;
+  }
+  return false;
 }
 
 const makeCase = replayCase('analysis');
@@ -101,9 +147,10 @@ function analysisCase(
     readonly forbidden?: readonly Figure[];
     readonly mentions?: readonly RegExp[];
     readonly contradictions?: readonly RegExp[];
+    readonly bound?: readonly Binding[];
   },
 ): AnalysisGoldenCase {
-  return { ...makeCase(n, question, spec), domain };
+  return { ...makeCase(n, question, spec), domain, bound: spec.bound ?? [] };
 }
 
 export const ANALYSIS_CASES: readonly AnalysisGoldenCase[] = [
@@ -113,24 +160,37 @@ export const ANALYSIS_CASES: readonly AnalysisGoldenCase[] = [
     required: [money('148100'), money('-24220'), [rate('-0.1169935272')]],
     mentions: [/HDFC ?BANK.{0,60}(?:no price|unpriced|missing price)/i, /NIFTYBEES.{0,60}(?:stale|old price|out of date)/i, /partial|incomplete|coverage/i],
     contradictions: [CURRENT_PRICE, HDFC_VALUE, TWR_FIGURE],
+    bound: [bind(/market value/i, money('148100')), bind(/total return/i, money('-24220'))],
   }),
   analysisCase(2, 'portfolio', 'Explain the portfolio return using the reported realised and unrealised results.', {
     calls: ['portfolio'],
     required: [money('4992'), money('-30912'), money('-24220')],
     mentions: [/(?:unrealised|unrealized) loss/i, /realised|realized gain/i],
     contradictions: [TWR_FIGURE, /\bunreali[sz]ed gain/i, /(?<!un)\breali[sz]ed loss/i],
+    bound: [
+      bind(/(?<!un)\breali[sz]ed\b/i, money('4992')),
+      bind(/\bunreali[sz]ed\b/i, money('-30912')),
+      bind(/total return/i, money('-24220')),
+    ],
   }),
   analysisCase(3, 'portfolio', 'Review my allocation by asset class and say what it leaves out.', {
     calls: ['allocationByClass', 'holdings'],
     required: [money('91200'), money('56900'), [rate('0.6158001350')], [rate('0.3841998650')]],
     mentions: [/equit(?:y|ies)/i, /ETF/i, /HDFC ?BANK.{0,60}(?:no price|unpriced|missing price)/i],
     contradictions: [CURRENT_PRICE, HDFC_VALUE],
+    bound: [
+      bind(/equit(?:y|ies)/i, money('91200')),
+      bind(/equit(?:y|ies)/i, rate('0.6158001350')),
+      bind(/\bETFs?\b/i, money('56900')),
+      bind(/\bETFs?\b/i, rate('0.3841998650')),
+    ],
   }),
   analysisCase(4, 'portfolio', 'What can you conclude about my HDFC Bank and NIFTYBEES positions?', {
     calls: ['holdings'],
     required: [money('40000'), money('56900')],
     mentions: [/HDFC ?BANK.{0,70}(?:invested|cost).{0,30}(?:no price|unpriced|missing price)|HDFC ?BANK.{0,70}(?:no price|unpriced|missing price)/i, /NIFTYBEES.{0,50}stale/i],
     contradictions: [CURRENT_PRICE, HDFC_VALUE],
+    bound: [bind(/HDFC ?BANK/i, money('40000')), bind(/NIFTYBEES/i, money('56900'))],
   }),
   analysisCase(5, 'portfolio', 'Summarise my investment returns and explain whether time-weighted return is available.', {
     calls: ['portfolio'],
@@ -138,6 +198,7 @@ export const ANALYSIS_CASES: readonly AnalysisGoldenCase[] = [
     forbidden: [rate('0')],
     mentions: [/time[- ]weighted return/i, /unavailable|not available|insufficient price history/i],
     contradictions: [TWR_FIGURE],
+    bound: [bind(/total return/i, money('-24220')), bind(/\bXIRR\b/i, rate('-0.2105550000'))],
   }),
 
   // Financial health
@@ -146,17 +207,30 @@ export const ANALYSIS_CASES: readonly AnalysisGoldenCase[] = [
     required: [money('120812.37'), money('45319.50'), money('75492.87'), [rate('0.6248769890')]],
     mentions: [/income/i, /expenses?/i, /savings/i],
     forbidden: [rate('-0.6248769890')],
+    bound: [
+      bind(/\bincome\b/i, money('120812.37')),
+      bind(/\b(?:expenses?|spending|spent)\b/i, money('45319.50')),
+      bind(/\bsavings\b(?!\s+rate)/i, money('75492.87')),
+      bind(/savings rate/i, rate('0.6248769890')),
+    ],
   }),
   analysisCase(7, 'health', 'Review this month’s category budgets. Where am I over or under?', {
     calls: ['budgetsOct'],
     required: [money('5040'), money('3150'), [{ money: '-650', eitherSign: true }]],
     mentions: [/food/i, /dining/i, /over budget|over by|exceed/i],
     contradictions: DINING_REVERSED,
+    bound: [bind(/\bfood\b/i, money('5040')), bind(/\bdining\b/i, money('3150'))],
   }),
   analysisCase(8, 'health', 'Review my recorded cash balances and loan obligations.', {
     calls: ['accounts', 'liabilities'],
     required: [money('412022.37'), [{ money: '-14969.50', eitherSign: true }], money('2412345.67'), money('24500')],
     mentions: [/HDFC Savings/i, /credit card/i, /home loan/i],
+    bound: [
+      bind(/HDFC Savings/i, money('412022.37')),
+      bind(/credit card/i, { money: '-14969.50', eitherSign: true }),
+      bind(/home loan/i, money('2412345.67')),
+      bind(/\bEMI\b/i, money('24500')),
+    ],
   }),
   analysisCase(9, 'health', 'How many months of financial runway do I have?', {
     calls: ['cashflowJan', 'accounts', 'liabilities'],
@@ -179,12 +253,23 @@ export const ANALYSIS_CASES: readonly AnalysisGoldenCase[] = [
     calls: ['expenseSepRollup', 'compareOct'],
     required: [money('25000'), money('45319.50'), money('30040')],
     mentions: [/housing/i, /(?:October|this month).{0,50}(?:lower|less|decreased|down)/i],
+    bound: [
+      bind(/housing/i, money('25000')),
+      bind(/\b(?:October|this month)\b/i, money('30040')),
+      bind(/\b(?:September|last month)\b/i, money('45319.50')),
+    ],
     contradictions: [/\b(?:October|this month)\b(?:(?!\b(?:lower|less|decreased|down)\b)[^;!?]){0,50}\b(?:higher|more than|increased|rose|up from)\b/i],
   }),
   analysisCase(12, 'period', 'Summarise my recorded net-worth trend from June through September.', {
     calls: ['netWorthHistory'],
     required: [money('7404700'), money('7409692'), money('7494242'), money('8017389.20')],
     forbidden: money('30326023.20'),
+    bound: [
+      bind(/\bJune\b/i, money('7404700')),
+      bind(/\bJuly\b/i, money('7409692')),
+      bind(/\bAugust\b/i, money('7494242')),
+      bind(/\bSeptember\b/i, money('8017389.20')),
+    ],
     mentions: [/cost/i, /(?:rose|increased|grew|higher|upward)/i],
     contradictions: [/\bnet[- ]worth\b(?:(?!\b(?:rose|increased|grew|higher|upward)\b)[^;!?]){0,40}\b(?:fell|decreased|declined|dropped|shrank|lower|downward)\b/i],
   }),
@@ -195,18 +280,34 @@ export const ANALYSIS_CASES: readonly AnalysisGoldenCase[] = [
     required: [money('8107349.20'), money('148100'), money('-24220')],
     mentions: [/cost/i, /partial|incomplete|coverage/i, /HDFC ?BANK/i, /stale/i],
     contradictions: [CURRENT_PRICE, HDFC_VALUE, TWR_FIGURE],
+    bound: [
+      bind(/net[- ]worth/i, money('8107349.20')),
+      bind(/market value/i, money('148100')),
+      bind(/total return/i, money('-24220')),
+    ],
   }),
   analysisCase(14, 'cross-domain', 'Connect my savings, current budget pressure and debt obligations.', {
     calls: ['cashflowSep', 'budgetsOct', 'liabilities'],
     required: [money('75492.87'), [{ money: '-650', eitherSign: true }], money('2412345.67'), money('24500')],
     mentions: [/savings/i, /dining/i, /over budget|over by|exceed/i, /home loan/i],
     contradictions: DINING_REVERSED,
+    bound: [
+      bind(/\bsavings\b/i, money('75492.87')),
+      bind(/home loan/i, money('2412345.67')),
+      bind(/\bEMI\b/i, money('24500')),
+    ],
   }),
   analysisCase(15, 'cross-domain', 'Before I consider adding an investment, analyse my cash, obligations, savings and existing portfolio.', {
     calls: ['accounts', 'liabilities', 'cashflowSep', 'portfolio', 'holdings'],
     required: [money('412022.37'), money('24500'), money('75492.87'), money('148100')],
     mentions: [/HDFC ?BANK.{0,60}(?:no price|unpriced|missing price)/i, /NIFTYBEES.{0,60}(?:stale|old price|out of date)/i, /(?:risk tolerance|time horizon|goals|emergency fund)/i],
     contradictions: [CURRENT_PRICE, HDFC_VALUE, TWR_FIGURE, /\b(?:you should|I recommend|I would recommend)\s+(?:to\s+)?(?:invest|buy)\b/i],
+    bound: [
+      bind(/HDFC Savings/i, money('412022.37')),
+      bind(/\bEMI\b/i, money('24500')),
+      bind(/\bsavings\b/i, money('75492.87')),
+      bind(/market value/i, money('148100')),
+    ],
   }),
 ];
 
@@ -217,7 +318,11 @@ export function scoreAnalysisOutput(
 ): boolean {
   // The full set of relevant results is already in the replay. Further reads
   // are unnecessary, and no model-written figure may be computed from them.
-  return toolCalls.length === 0 && scoreGroundingAnswer(output, golden).passed;
+  return (
+    toolCalls.length === 0 &&
+    scoreGroundingAnswer(output, golden).passed &&
+    golden.bound.every((b) => bindingHolds(output ?? '', b))
+  );
 }
 
 export function analysisSuite(): readonly EvalCase[] {
