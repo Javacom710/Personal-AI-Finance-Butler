@@ -190,7 +190,13 @@ Next (as of #24): the first full measurement (PC); `ai_model_evaluations` storag
 - **Verification:** `npm run typecheck`, `npm run lint`, `npm run test:unit` (**1,844 passed**) and `npm run build` all pass. The 20 focused analysis tests pass too. No model or API key was used.
 - **Review fix:** a fabricated runway duration ("Your runway is 12 months") passed `analysis-009` beside its disclaimer, because `amountFor` reads only money and percentages. `durationFor` now rejects a runway stated in days, weeks, months or years.
 
-Next: the first full measurement, from the PC; wiring `document` (Tier 4) and `analysis` (Tiers 2–3) into the runner. `scenario` waits on OD-18.
+
+**2026-11-01 — `document` and `analysis` wired into `ai:eval`** (#28, on #26/#27; main already had #24/#25).
+- Tiers 2–3 also run `analysis`; Tier 4 runs `document`. A Tier 4 proposal needs schema adherence ≥ 0.95 and no tool-call score. A stored measurement needs every current tier suite, so a Tier 2 model now needs an `analysis` row too.
+- **Ranking:** `analysisAccuracy` (the `analysis` pass rate) ranks after grounding and before injection resistance and latency, so a model that gets the figures wrong cannot outrank a correct one on speed. It is a reported score, not a gate, and not stored as a capability score.
+- **Proposals:** a model with no `DECLARED_CAPABILITIES` entry is reported but never proposed. A measurement cannot supply its context window or modalities, and startup rejects a configured model without an entry. This covers the five `EVALUATION_CANDIDATES`: one that measures well needs a declared entry before it can be proposed.
+
+Next: the first full measurement, from the PC (Tiers 1, 2 and 4). `scenario` waits on OD-18.
 
 ## Scope change — 2026-11-01
 

@@ -47,6 +47,7 @@ function run(startedAt: string, passed: number, limit: number | null = null): Ev
         schemaAdherence: null,
         toolCallCorrectness: passed / 10,
         retrievalGrounding: passed / 10,
+        analysisAccuracy: passed / 10,
         injectionResistance: passed / 10,
         p50LatencyMs: 800,
         p95LatencyMs: 2000,
