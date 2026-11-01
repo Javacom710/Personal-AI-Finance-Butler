@@ -100,6 +100,20 @@ function excludeReason(
   return null;
 }
 
+/**
+ * Why these capabilities can never serve the requirement, whatever a model
+ * measures: tool calling, structured-output mode and vision. Scores are left
+ * out — a measurement supplies those. `null` when only scores could stand in
+ * the way. The evaluator uses it so it never proposes a model that selection
+ * would refuse.
+ */
+export function unsupportedBy(
+  capabilities: ModelCapabilities,
+  requirement: CapabilityRequirement,
+): ExclusionReason | null {
+  return excludeReason(capabilities, { ...requirement, minSchemaAdherence: 0, minToolCallCorrectness: 0 });
+}
+
 export function selectCandidates(
   requirement: CapabilityRequirement,
   config: ModelConfig,

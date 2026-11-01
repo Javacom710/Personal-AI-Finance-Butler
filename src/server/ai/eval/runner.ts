@@ -25,9 +25,11 @@ import 'server-only';
  * not a model, and runs in the unit tests. `scenario` remains blocked by OD-18.
  */
 
-import { DECLARED_CAPABILITIES } from '../config/capabilities';
+import { DECLARED_CAPABILITIES, type ModelCapabilities } from '../config/capabilities';
 import type { Tier } from '../config/models';
 import { EVALUATION_CANDIDATES, type ModelConfig } from '../config/models';
+import { allCapabilities, requirementFor, type AiCapability } from '../orchestrator/requirements';
+import { unsupportedBy } from '../orchestrator/select';
 import type { AiProvider } from '../provider/types';
 import { evaluateModel, type EvalCase, type EvalSuite, type ModelReport } from './harness';
 import { ANALYSIS_SUITE_VERSION, analysisSuite } from './tasks/analysis';
@@ -185,6 +187,14 @@ export interface EvalRun {
   readonly models: readonly ModelResult[];
   readonly proposedOrder: readonly string[];
   readonly excluded: readonly { readonly modelId: string; readonly reason: string }[];
+  /** Proposed models that selection will still refuse for some of the tier's capabilities. */
+  readonly caveats?: readonly Caveat[];
+}
+
+export interface Caveat {
+  readonly modelId: string;
+  /** Each capability the model's declared entry cannot serve, and why. */
+  readonly unserved: readonly { readonly capability: AiCapability; readonly reason: string }[];
 }
 
 function percentile(values: readonly number[], p: number): number | null {
@@ -259,36 +269,65 @@ export function disqualification(result: ModelResult, tier: Tier): string | null
   return null;
 }
 
-const declared = (modelId: string): boolean => Object.hasOwn(DECLARED_CAPABILITIES, modelId);
+const declaredEntry = (modelId: string): ModelCapabilities | undefined =>
+  Object.hasOwn(DECLARED_CAPABILITIES, modelId) ? DECLARED_CAPABILITIES[modelId] : undefined;
+
+/** The capabilities of the tier this declared entry can never serve in production, and why. */
+export function unservedCapabilities(entry: ModelCapabilities, tier: Tier): Caveat['unserved'] {
+  return allCapabilities()
+    .map(requirementFor)
+    .filter((r) => r.tier === tier)
+    .flatMap((r) => {
+      const reason = unsupportedBy(entry, r);
+      return reason ? [{ capability: r.capability, reason }] : [];
+    });
+}
 
 /**
  * The proposed order: qualifying models ranked by §14's selection criteria —
  * schema reliability, tool-calling, grounding, financial analysis, injection
  * resistance, then latency. A `null` score ranks below any measured one.
  *
- * A model with no declared capability entry is not proposed, however it
- * scores: a measurement cannot supply its context window or modalities, so
- * startup rejects a configured model without one. Its scores are still
- * reported; adding the entry makes it proposable on the next run.
+ * Only a model production would select is proposed, however it scores:
+ * - with no declared capability entry, startup rejects the configured model —
+ *   a measurement cannot supply its context window or modalities;
+ * - when its declared entry serves none of the tier's capabilities (Tier 4
+ *   needs `json_schema` and vision; a `json_object` model is refused as
+ *   `structured_output_unsupported` whatever it measures), routing never picks it.
+ * A model serving some of them is proposed with a caveat naming the rest:
+ * selection is per capability, so it still serves those it can.
+ * Its scores are reported either way; fixing the entry makes it proposable.
  */
 export function proposeOrder(
   results: readonly ModelResult[],
   tier: Tier,
-  isDeclared: (modelId: string) => boolean = declared,
+  capabilitiesOf: (modelId: string) => ModelCapabilities | undefined = declaredEntry,
 ): {
   order: readonly string[];
   excluded: readonly { modelId: string; reason: string }[];
+  caveats: readonly Caveat[];
 } {
   const excluded: { modelId: string; reason: string }[] = [];
+  const caveats: Caveat[] = [];
   const qualifying: ModelResult[] = [];
+  const tierCapabilities = allCapabilities().filter((c) => requirementFor(c).tier === tier).length;
   for (const r of results) {
+    const entry = capabilitiesOf(r.modelId);
+    const unserved = entry ? unservedCapabilities(entry, tier) : [];
     const reason =
       disqualification(r, tier) ??
-      (isDeclared(r.modelId)
-        ? null
-        : 'no declared capability entry (config/capabilities.ts): add one before routing it, or startup rejects it');
+      (!entry
+        ? 'no declared capability entry (config/capabilities.ts): add one before routing it, or startup rejects it'
+        : unserved.length === tierCapabilities
+          ? `its declared capabilities serve no Tier ${tier} capability (${unserved
+              .map((u) => `${u.capability}: ${u.reason}`)
+              .join('; ')}): reconcile config/capabilities.ts with verified support first`
+          : null);
     if (reason) excluded.push({ modelId: r.modelId, reason });
-    else qualifying.push(r);
+    else {
+      qualifying.push(r);
+      if (unserved.length > 0) caveats.push({ modelId: r.modelId, unserved });
+    }
   }
   const score = (v: number | null) => v ?? -1;
   qualifying.sort(
@@ -300,7 +339,7 @@ export function proposeOrder(
       score(b.injectionResistance) - score(a.injectionResistance) ||
       (a.p50LatencyMs ?? Infinity) - (b.p50LatencyMs ?? Infinity),
   );
-  return { order: qualifying.map((r) => r.modelId), excluded };
+  return { order: qualifying.map((r) => r.modelId), excluded, caveats };
 }
 
 /** Why a run cannot propose an order, or `null` when it can. */
@@ -360,8 +399,8 @@ export async function runEvaluation(options: RunOptions): Promise<EvalRun> {
   // A wire check or a subset of the tier's suites is not a measurement of the
   // tier: its scores are reported, and nothing is proposed from them.
   const partial = partialRunReason(args);
-  const { order, excluded } = partial
-    ? { order: [], excluded: models.map((m) => ({ modelId: m.modelId, reason: partial })) }
+  const { order, excluded, caveats } = partial
+    ? { order: [], excluded: models.map((m) => ({ modelId: m.modelId, reason: partial })), caveats: [] }
     : proposeOrder(models, args.tier);
   return {
     tier: args.tier,
@@ -371,6 +410,7 @@ export async function runEvaluation(options: RunOptions): Promise<EvalRun> {
     models,
     proposedOrder: order,
     excluded,
+    caveats,
   };
 }
 
@@ -429,6 +469,19 @@ export function renderEvalReport(run: EvalRun): string {
     '',
     'Proposed only. A human accepts it into the environment; this run changed no configuration.',
   );
+
+  if (run.caveats && run.caveats.length > 0) {
+    lines.push(
+      '',
+      '### Capabilities a proposed model will not serve',
+      '',
+      'Selection is per capability: these models serve the rest of the tier, and routing refuses them here.',
+      '',
+      ...run.caveats.map(
+        (c) => `- \`${c.modelId}\`: ${c.unserved.map((u) => `${u.capability} (${u.reason})`).join(', ')}`,
+      ),
+    );
+  }
 
   if (run.excluded.length > 0) {
     lines.push('', '### Not proposed', '', ...run.excluded.map((e) => `- \`${e.modelId}\`: ${e.reason}`));

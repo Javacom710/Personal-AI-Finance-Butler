@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { ok, err } from '@/lib/result';
+import { DECLARED_CAPABILITIES, type ModelCapabilities } from '@/server/ai/config/capabilities';
 import { resolveModelConfig } from '@/server/ai/config/models';
 import { transport } from '@/server/ai/errors';
 import {
@@ -23,6 +24,19 @@ import type { AiProvider, ChatRequest } from '@/server/ai/provider/types';
  * prove what the runner measures, what it proposes, and what it refuses to
  * propose — not how any real model performs.
  */
+
+/** A capability entry that serves every requirement, for ranking tests over fake ids. */
+const FULL: ModelCapabilities = {
+  tier: 1,
+  toolCalling: 'native',
+  structuredOutput: 'json_schema',
+  vision: true,
+  embedding: false,
+  contextTokens: 131_072,
+  maxOutputTokens: 8_192,
+  streaming: true,
+  source: 'declared',
+};
 
 const result = (over: Partial<ModelResult> & { modelId: string }): ModelResult => ({
   suites: [],
@@ -124,7 +138,7 @@ describe('ai:eval proposals', () => {
         result({ modelId: 'failing', toolCallCorrectness: 0.5 }),
       ],
       2,
-      () => true,
+      () => FULL,
     );
     expect(order).toEqual(['fast', 'slow', 'ungrounded']);
     expect(excluded.map((e) => e.modelId)).toEqual(['failing']);
@@ -138,14 +152,41 @@ describe('ai:eval proposals', () => {
         result({ modelId: 'injectable-right', analysisAccuracy: 1, injectionResistance: 0.5, p50LatencyMs: 100 }),
       ],
       2,
-      () => true,
+      () => FULL,
     );
     expect(order).toEqual(['slow-right', 'injectable-right', 'fast-wrong']);
   });
 
+  it('never proposes a Tier 4 model whose declared output mode selection would refuse for every document capability', () => {
+    // The configured Tier 4 model declares json_object; extractReceiptData and analyzeDocument need json_schema.
+    const omni = 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning';
+    const vision = result({ modelId: omni, toolCallCorrectness: null });
+    const { order, excluded } = proposeOrder([vision], 4);
+    expect(order).toEqual([]);
+    expect(excluded[0]!.reason).toMatch(/serve no Tier 4 capability.*extractReceiptData: structured_output_unsupported/);
+    // With verified json_schema support declared, the same scores are proposed.
+    const verified = { ...DECLARED_CAPABILITIES[omni]!, structuredOutput: 'json_schema' as const };
+    expect(proposeOrder([vision], 4, () => verified).order).toEqual([omni]);
+  });
+
+  it('proposes a model that serves some of its tier with a caveat naming what routing refuses it', () => {
+    // gpt-oss-20b declares json_object: it serves Tier 1's tool capabilities, not parse or classify.
+    const { order, caveats } = proposeOrder([result({ modelId: 'openai/gpt-oss-20b' })], 1);
+    expect(order).toEqual(['openai/gpt-oss-20b']);
+    expect(caveats).toEqual([
+      {
+        modelId: 'openai/gpt-oss-20b',
+        unserved: [
+          { capability: 'parseTransaction', reason: 'structured_output_unsupported' },
+          { capability: 'classifyTransaction', reason: 'structured_output_unsupported' },
+        ],
+      },
+    ]);
+  });
+
   it('never proposes a model with no declared capability entry, so a proposal cannot fail startup', () => {
     const candidate = 'nvidia/nemotron-3.5-lightning-30b-a3b'; // an EVALUATION_CANDIDATE, not declared
-    const known = 'openai/gpt-oss-20b';
+    const known = 'nvidia/nemotron-3-nano-30b-a3b';
     const { order, excluded } = proposeOrder([result({ modelId: candidate }), result({ modelId: known })], 1);
     expect(order).toEqual([known]);
     expect(excluded).toEqual([{ modelId: candidate, reason: expect.stringMatching(/no declared capability entry/) }]);
