@@ -196,6 +196,18 @@ describe('ai:eval proposals', () => {
 });
 
 describe('ai:eval run', () => {
+  it('analysis cases add nothing to tool-call correctness, so they cannot lift a model over the gate', async () => {
+    // A model that makes no call on every analysis case: before, 15 free tool-call passes.
+    const run = await runEvaluation({
+      provider: provider(() => answer('no figures here')),
+      args: { tier: 2, suites: ['analysis'], models: [], limit: null, record: false },
+      models: ['fake/advanced'],
+    });
+    const analysis = run.models[0]!.suites.find((s) => s.suite === 'analysis')!;
+    expect(analysis.counts.toolCallApplicable).toBe(0);
+    expect(run.models[0]).toMatchObject({ toolCallCorrectness: null, analysisAccuracy: 0 });
+  });
+
   it('passes document images and schema through the runner without tools', async () => {
     const run = await runEvaluation({
       provider: provider((request) => {
