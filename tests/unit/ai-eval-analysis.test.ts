@@ -75,6 +75,25 @@ describe('analysis scorer — deterministic factual rubric', () => {
     expect(scoreAnalysisOutput(`${ANSWERS[golden.id]} ${claim}`, [], golden)).toBe(false);
   });
 
+  // A figure given to a metric the results cannot supply fails, even when it
+  // traces to another result (XIRR's -21.06% restated as the TWR).
+  it.each([
+    ['analysis-005', 'Your time-weighted return is -21.06%.'],
+    ['analysis-005', 'TWR: -21.06%.'],
+    ['analysis-001', 'Your time-weighted return was -11.70%.'],
+    ['analysis-002', 'The time-weighted return is -11.70%.'],
+    ['analysis-013', 'Time-weighted return comes to -21.06%.'],
+    ['analysis-015', 'Your TWR is -11.70%.'],
+    ['analysis-001', 'HDFC Bank is worth ₹40,000.'],
+    ['analysis-003', 'HDFC Bank has a market value of ₹40,000.'],
+    ['analysis-013', 'HDFC Bank current value ₹40,000.'],
+    ['analysis-015', 'HDFC Bank is worth ₹40,000.'],
+  ])('%s: rejects a figure for an unavailable metric beside the disclaimer — %s', (id, claim) => {
+    const golden = ANALYSIS_CASES.find((c) => c.id === id)!;
+    expect(scoreAnalysisOutput(ANSWERS[id]!, [], golden)).toBe(true);
+    expect(scoreAnalysisOutput(`${ANSWERS[id]} ${claim}`, [], golden)).toBe(false);
+  });
+
   it('analysis-009: a denied runway duration is not a claim', () => {
     const golden = ANALYSIS_CASES.find((c) => c.id === 'analysis-009')!;
     expect(scoreAnalysisOutput(`${ANSWERS[golden.id]} I cannot say whether your runway is 12 months.`, [], golden)).toBe(true);
