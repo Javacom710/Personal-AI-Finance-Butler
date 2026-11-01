@@ -1410,5 +1410,238 @@
       "truncated": false,
       "currency": "INR"
     }
+  },
+  "expenseJun2025": {
+    "ok": true,
+    "data": {
+      "total": {
+        "kind": "money",
+        "amount": "0.0000",
+        "currency": "INR",
+        "scale": 4
+      },
+      "additivity": "partition",
+      "depth": "rollup",
+      "groupBy": "category",
+      "rows": []
+    },
+    "meta": {
+      "rowCount": 0,
+      "truncated": false,
+      "currency": "INR",
+      "from": "2025-06-01",
+      "to": "2025-06-30"
+    }
+  },
+  "cashflowJan": {
+    "ok": true,
+    "data": {
+      "income": {
+        "kind": "money",
+        "amount": "0.0000",
+        "currency": "INR",
+        "scale": 4
+      },
+      "expenses": {
+        "kind": "money",
+        "amount": "0.0000",
+        "currency": "INR",
+        "scale": 4
+      },
+      "savings": {
+        "kind": "money",
+        "amount": "0.0000",
+        "currency": "INR",
+        "scale": 4
+      },
+      "netCashFlow": {
+        "kind": "money",
+        "amount": "0.0000",
+        "currency": "INR",
+        "scale": 4
+      },
+      "savingsRate": {
+        "value": null,
+        "unavailableReason": "divide_by_zero"
+      },
+      "fxEffect": {
+        "kind": "money",
+        "amount": "0.0000",
+        "currency": "INR",
+        "scale": 4
+      }
+    },
+    "meta": {
+      "rowCount": 1,
+      "truncated": false,
+      "currency": "INR",
+      "from": "2026-01-01",
+      "to": "2026-01-31"
+    }
+  },
+  "transactionsSepClipped": {
+    "ok": true,
+    "data": {
+      "transactions": [
+        {
+          "id": "00000000-0000-4000-8000-000000000063",
+          "kind": "income",
+          "bookedOn": "2026-09-30",
+          "description": "Savings interest",
+          "category": "Interest",
+          "amount": {
+            "kind": "money",
+            "amount": "812.3700",
+            "currency": "INR",
+            "scale": 4
+          },
+          "baseAmount": {
+            "kind": "money",
+            "amount": "812.3700",
+            "currency": "INR",
+            "scale": 4
+          },
+          "tags": []
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000062",
+          "kind": "transfer",
+          "bookedOn": "2026-09-28",
+          "description": "Card bill payment",
+          "category": null,
+          "amount": {
+            "kind": "money",
+            "amount": "15000.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "baseAmount": {
+            "kind": "money",
+            "amount": "15000.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "tags": []
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000061",
+          "kind": "expense",
+          "bookedOn": "2026-09-27",
+          "description": "Client dinner in Goa",
+          "category": "Dining",
+          "amount": {
+            "kind": "money",
+            "amount": "2360.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "baseAmount": {
+            "kind": "money",
+            "amount": "2360.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "tags": [
+            "goa-trip",
+            "reimbursable"
+          ]
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000060",
+          "kind": "expense",
+          "bookedOn": "2026-09-26",
+          "description": "Cab to Goa airport",
+          "category": "Cabs",
+          "amount": {
+            "kind": "money",
+            "amount": "740.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "baseAmount": {
+            "kind": "money",
+            "amount": "740.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "tags": [
+            "goa-trip"
+          ]
+        },
+        {
+          "id": "00000000-0000-4000-8000-000000000059",
+          "kind": "expense",
+          "bookedOn": "2026-09-22",
+          "description": "Headphones",
+          "category": "Shopping",
+          "amount": {
+            "kind": "money",
+            "amount": "6499.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "baseAmount": {
+            "kind": "money",
+            "amount": "6499.0000",
+            "currency": "INR",
+            "scale": 4
+          },
+          "tags": [
+            "reimbursable"
+          ]
+        }
+      ]
+    },
+    "meta": {
+      "rowCount": 5,
+      "truncated": true,
+      "currency": "INR",
+      "totalMatching": 14,
+      "from": "2026-09-01",
+      "to": "2026-09-30"
+    }
+  },
+  "netWorth2020": {
+    "ok": true,
+    "data": {
+      "basis": "cost",
+      "asOf": "2020-01-01",
+      "assets": {
+        "kind": "money",
+        "amount": "0.0000",
+        "currency": "INR",
+        "scale": 4
+      },
+      "liabilities": {
+        "kind": "money",
+        "amount": "0.0000",
+        "currency": "INR",
+        "scale": 4
+      },
+      "netWorth": {
+        "kind": "money",
+        "amount": "0.0000",
+        "currency": "INR",
+        "scale": 4
+      },
+      "assetCoverage": {
+        "kind": "rate",
+        "value": "1.0000000000",
+        "scale": 10
+      },
+      "liabilityCoverage": {
+        "kind": "rate",
+        "value": "1.0000000000",
+        "scale": 10
+      },
+      "groups": [],
+      "excluded": []
+    },
+    "meta": {
+      "rowCount": 1,
+      "truncated": false,
+      "currency": "INR",
+      "asOf": "2020-01-01"
+    }
   }
 }
