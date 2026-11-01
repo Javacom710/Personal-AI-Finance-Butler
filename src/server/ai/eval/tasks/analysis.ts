@@ -41,8 +41,29 @@ const makeCase = replayCase('analysis');
  * beside it, and the figure may well trace to another result (XIRR's -21.06%
  * given as the TWR), so traceability alone does not catch it.
  */
+/**
+ * The words between a subject and a figure that end the figure's claim to it:
+ * a bracket ("TWR is unavailable (XIRR is -21.06%)" gives the figure to XIRR)
+ * or a denial ("market value is unavailable; ₹40,000 is cost").
+ */
+const NOT_ASSIGNED = String.raw`[()\[\]]|\b(?:unavailable|not|no|none|missing|insufficient|cannot|unknown|without|n['’]t)\b`;
+
+/**
+ * A figure assigned to a subject the results cannot supply: {@link amountFor},
+ * but the figure must follow the subject with nothing between them that hands
+ * it elsewhere or denies it ({@link NOT_ASSIGNED}).
+ */
+export function assignedTo(subject: string): RegExp {
+  const nonZero = String.raw`(?!0(?:\.0+)?(?![\d.,]))`;
+  const gap = String.raw`(?:(?!₹|\brs\b|\binr\b|\$|\d|${NOT_ASSIGNED})[^;!?]){0,40}`;
+  return new RegExp(
+    String.raw`\b(?:${subject})\b${gap}(?:(?:₹|\brs\.?|\binr\b|\$)\s?-?${nonZero}\d|${nonZero}-?\d[\d,.]*\s?%)`,
+    'i',
+  );
+}
+
 /** Time-weighted return: the portfolio result has insufficient price history for it. */
-const TWR_FIGURE = amountFor(String.raw`time[- ]weighted (?:rate of )?return|TWR`);
+const TWR_FIGURE = assignedTo(String.raw`time[- ]weighted (?:rate of )?return|TWR`);
 /** Dining is over budget (remaining -₹650): saying it is under, or that nothing is over, reverses the finding. */
 const DINING_REVERSED = [
   /\bdining\b(?:(?!\bover\b)[^;!?]){0,80}\b(?:under|within|below|inside)\s+(?:its\s+|the\s+)?budget/i,
@@ -51,7 +72,7 @@ const DINING_REVERSED = [
 ];
 
 /** HDFC Bank has no price, so it has no market value. */
-const HDFC_VALUE = amountFor(String.raw`(?:HDFC ?BANK).{0,35}(?:worth|market value|current value)`);
+const HDFC_VALUE = assignedTo(String.raw`(?:HDFC ?BANK)[^()\[\]]{0,35}(?:worth|market value|current value)`);
 
 const COUNT = String.raw`(?:\d+(?:\.\d+)?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|eighteen|twenty|twenty-four|thirty-six)`;
 const SPAN = String.raw`(?:days?|weeks?|months?|mos?|years?|yrs?)`;
@@ -63,9 +84,9 @@ const SPAN = String.raw`(?:days?|weeks?|months?|mos?|years?|yrs?)`;
  * needs its own check.
  */
 export function durationFor(subject: string): RegExp {
-  const gap = String.raw`(?:(?!\d)[^;!?]){0,40}`;
+  const gap = String.raw`(?:(?!\d|${NOT_ASSIGNED})[^;!?]){0,40}`;
   return new RegExp(
-    String.raw`\b(?:${subject})\b${gap}\b${COUNT}\s?${SPAN}\b|\b${COUNT}\s?${SPAN}\b(?:(?!\d)[^;!?]){0,20}\b(?:${subject})\b`,
+    String.raw`\b(?:${subject})\b${gap}\b${COUNT}\s?${SPAN}\b|\b${COUNT}\s?${SPAN}\b(?:(?!\d|${NOT_ASSIGNED})[^;!?]){0,20}\b(?:${subject})\b`,
     'i',
   );
 }
