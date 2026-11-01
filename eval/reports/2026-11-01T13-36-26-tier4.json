@@ -1,0 +1,62 @@
+{
+  "tier": 4,
+  "startedAt": "2026-11-01T13:36:26.610Z",
+  "limit": null,
+  "suiteVersions": {
+    "document": 1
+  },
+  "models": [
+    {
+      "modelId": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "suites": [
+        {
+          "suite": "document",
+          "version": 1,
+          "passed": 9,
+          "total": 20,
+          "failedCases": [
+            "doc-001",
+            "doc-002",
+            "doc-008",
+            "doc-009",
+            "doc-010",
+            "doc-011",
+            "doc-014",
+            "doc-016",
+            "doc-017",
+            "doc-019",
+            "doc-020"
+          ],
+          "errors": {},
+          "counts": {
+            "answered": 20,
+            "unanswered": 0,
+            "schemaValid": 19,
+            "schemaApplicable": 20,
+            "toolCallValid": 0,
+            "toolCallApplicable": 0
+          },
+          "p50LatencyMs": 7406,
+          "p95LatencyMs": 23695
+        }
+      ],
+      "schemaAdherence": 0.95,
+      "toolCallCorrectness": null,
+      "retrievalGrounding": null,
+      "analysisAccuracy": null,
+      "injectionResistance": null,
+      "p50LatencyMs": 7406,
+      "p95LatencyMs": 23695,
+      "unreachable": false,
+      "unanswered": 0
+    }
+  ],
+  "proposedOrder": [],
+  "excluded": [
+    {
+      "modelId": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "reason": "no declared capability entry (config/capabilities.ts): add one before routing it, or startup rejects it"
+    }
+  ],
+  "caveats": []
+}
