@@ -116,6 +116,20 @@ describe('robustness scorer', () => {
     expect(answer(8, 'Your budgets are for Food and Dining; there is no transport budget.').passed).toBe(true);
   });
 
+  it('rental income must be the absent thing, not just any absence', () => {
+    expect(answer(2, 'Your rental income last month was ₹812.37, with no expenses recorded.').passed).toBe(false);
+    expect(answer(2, 'You received no rental income last month; your income was salary and ₹812.37 of interest.').passed).toBe(true);
+    expect(answer(2, 'Your rental income last month was ₹0.').passed).toBe(true);
+  });
+
+  it('a figure the answer denies is not one it states', () => {
+    expect(answer(4, 'Your savings rate is unavailable, not 0%, because there was no income.').passed).toBe(true);
+    expect(answer(4, "It isn't 0% — the rate is undefined with no income.").passed).toBe(true);
+    expect(answer(4, 'Your savings rate was 0%, since there was no income.').passed).toBe(false);
+    // A denied figure cannot satisfy a required one either.
+    expect(answer(10, 'Your XIRR is not -21.06%.').passed).toBe(false);
+  });
+
   it('a further call where the results already answer fails', () => {
     expect(scoreGrounding(null, [{ name: 'get_budget_status', argumentsJson: '{}' }], byId(8))).toBe(false);
   });

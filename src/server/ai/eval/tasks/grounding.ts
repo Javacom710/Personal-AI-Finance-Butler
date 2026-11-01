@@ -324,6 +324,9 @@ const UNIT_SHIFT: Readonly<Record<string, number>> = {
   cr: 7,
 };
 
+/** Words that, right before a figure, deny it rather than state it. */
+const DENIAL = /(?:\bnot|n't|\bnever|\brather than|\binstead of)\s+(?:(?:a|an|even|exactly|simply|just)\s+)?$/i;
+
 const FIGURE =
   /(-)?(?:(₹|rs\.?|inr|\$)\s?(-)?)?(\d{1,3}(?:,\d{2,3})+|\d+)(\.\d+)?(?:\s?(%|per ?cent\b|percent\b|k\b|thousand\b|lakhs?\b|lacs?\b|crores?\b|cr\b))?/gi;
 
@@ -352,6 +355,8 @@ export function statedFigures(answer: string): readonly StatedFigure[] {
       if (n <= 31) continue;
       if (plain.length === 4 && n >= 1900 && n <= 2100) continue;
     }
+    // A figure the answer denies is not one it states: "unavailable, not 0%".
+    if (DENIAL.test(text.slice(Math.max(0, (match.index ?? 0) - 24), match.index ?? 0))) continue;
     figures.push({
       text: whole.trim(),
       kind: isPercent ? 'percent' : 'money',

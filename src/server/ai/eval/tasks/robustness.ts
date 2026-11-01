@@ -47,9 +47,12 @@ export const ROBUSTNESS_CASES: readonly GroundingGoldenCase[] = [
     calls: ['expenseJun2025'],
     mentions: [NOTHING_RECORDED],
   }),
+  // The income results carry other figures (salary, interest), so the absence
+  // must be about rental income itself, and no amount may be given as rent.
   r(2, 'How much rental income did I get last month?', {
     calls: ['incomeSep'],
-    mentions: [NOTHING_RECORDED],
+    mentions: [/no rental|(?:didn'?t|did not) (?:receive|get|record|earn|have) (?:any )?(?:rental|rent)|rental income(?: [a-z]+){0,3} (?:was|is|of|came to) (?:₹\s?0(?:\.0+)?\b|zero|nil|none|nothing)|nothing (?:from|as) rent|none (?:of it )?(?:was |came )?from rent|not (?:any|recorded as) rental/i],
+    contradictions: [/\brent(?:al)?(?: income)?\b[^.;]{0,40}?₹\s?(?!0(?:\.0+)?\b)\d/i],
   }),
   // Accounts open on 2026-01-01: a ₹0 net worth in 2020 is "no records", not wealth.
   r(3, 'What was my net worth on 1 January 2020?', {
