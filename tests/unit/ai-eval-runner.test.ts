@@ -9,6 +9,7 @@ import {
   disqualification,
   modelsFor,
   parseEvalArgs,
+  partialRunReason,
   proposeOrder,
   renderEvalReport,
   runEvaluation,
@@ -133,20 +134,34 @@ describe('ai:eval run', () => {
     expect(run.suiteVersions).toEqual({ grounding: MODEL_SUITES.grounding.version });
     const report = renderEvalReport(run);
     expect(report).toContain('Partial run: the first 2 case(s)');
-    expect(report).toContain('No model qualifies');
+    expect(report).toContain('Nothing is proposed');
+  });
+
+  it('a wire check or a subset of the tier\'s suites proposes nothing, however well models score', async () => {
+    const perfect = provider(() => answer('irrelevant'));
+    // Every model would qualify if proposals ran: force a perfect result through the ranking path.
+    expect(partialRunReason(args({ limit: 1 }))).toMatch(/wire check/);
+    expect(partialRunReason(args({ limit: null, suites: ['grounding'] }))).toMatch(/missing: tool-select, robustness, injection/);
+    expect(partialRunReason(args({ limit: null, suites: TIER_SUITES[2] }))).toBeNull();
+    const run = await runEvaluation({ provider: perfect, args: args({ limit: 1 }), models: ['m/one', 'm/two'] });
+    expect(run.proposedOrder).toEqual([]);
+    expect(run.excluded.map((e) => e.modelId)).toEqual(['m/one', 'm/two']);
+    expect(renderEvalReport(run)).toContain('partial run (--limit 1)');
   });
 
   it('a model every case of which errored is unreachable, not a model that scored zero', async () => {
+    // A full-tier run, so the proposal step runs and must exclude it for being unreachable.
     const run = await runEvaluation({
       provider: provider(() => Promise.resolve(err(transport('offline')))),
-      args: args(),
+      args: args({ limit: null, suites: TIER_SUITES[2] }),
       models: ['m/down'],
     });
     // Not a model that scored zero: there was nothing to score.
-    expect(run.models[0]).toMatchObject({ unreachable: true, unanswered: 2, schemaAdherence: null, retrievalGrounding: null });
+    expect(run.models[0]).toMatchObject({ unreachable: true, schemaAdherence: null, retrievalGrounding: null });
+    expect(run.models[0]!.unanswered).toBeGreaterThan(0);
     expect(run.excluded[0]!.reason).toMatch(/unreachable/);
     expect(renderEvalReport(run)).toContain('m/down (unreachable)');
-    expect(renderEvalReport(run)).toContain('transport ×2');
+    expect(renderEvalReport(run)).toMatch(/transport ×\d+/);
   });
 
   it('proposes nothing it did not measure, and prints an unmeasured score as "not measured"', async () => {
