@@ -101,10 +101,17 @@ export function parseEvalArgs(argv: readonly string[]): ParsedArgs {
   if (unknown.length > 0) {
     return { ok: false, error: `Unknown suite(s): ${unknown.join(', ')}. Model suites: ${Object.keys(MODEL_SUITES).join(', ')}.` };
   }
-  const suites = named.length > 0 ? (named as ModelSuite[]) : TIER_SUITES[tier as Tier];
-  if (suites.length === 0) {
+  const tierSuites = TIER_SUITES[tier as Tier];
+  if (tierSuites.length === 0) {
     return { ok: false, error: `Tier ${tier} has no built suite to measure it on (the document suite is not built).` };
   }
+  // A suite outside the tier measures the wrong task: tool-select says nothing
+  // about reading a receipt, so it may not stand in for a Tier 4 measurement.
+  const foreign = named.filter((s) => !tierSuites.includes(s as ModelSuite));
+  if (foreign.length > 0) {
+    return { ok: false, error: `Not a Tier ${tier} suite: ${foreign.join(', ')}. Tier ${tier} suites: ${tierSuites.join(', ')}.` };
+  }
+  const suites = named.length > 0 ? (named as ModelSuite[]) : tierSuites;
 
   const limitText = value('--limit');
   const limit = limitText === undefined ? null : Number(limitText);
