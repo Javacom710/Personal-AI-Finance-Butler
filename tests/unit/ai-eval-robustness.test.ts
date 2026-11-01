@@ -168,6 +168,16 @@ describe('robustness scorer', () => {
     expect(answer(2, 'You received no rental income. Rental income: ₹0.').passed).toBe(true);
   });
 
+  it('an amount belongs to the subject nearest before it', () => {
+    expect(answer(2, 'Your rental income was ₹0 versus salary of ₹1,20,000.').passed).toBe(true);
+  });
+
+  it('an unpriced holding valued at its cost fails; its cost reported as cost passes', () => {
+    expect(answer(5, 'Your HDFC Bank holding is worth ₹40,000 today. Its current price is unavailable.').passed).toBe(false);
+    expect(answer(5, 'Its market value is ₹40,000, though the price is missing.').passed).toBe(false);
+    expect(answer(5, 'HDFC Bank has no current price, so its value is unavailable. You invested ₹40,000 in it.').passed).toBe(true);
+  });
+
   it('a decimal point or a thousands comma does not split a claim', () => {
     expect(answer(8, 'There is no transport budget, transport budget ₹2,500.').passed).toBe(false);
   });

@@ -130,8 +130,12 @@ const g = replayCase('grounding');
  */
 export function amountFor(subject: string): RegExp {
   const nonZero = String.raw`(?!0(?:\.0+)?(?![\d.,]))`;
+  // The gap may not hold an amount of its own: the subject's amount is the
+  // first one after it, so "rental income ₹0 versus salary ₹1,20,000" gives
+  // rent ₹0, not the salary.
+  const gap = String.raw`(?:(?!₹|\brs\b|\binr\b|\$|\d)[^;!?]){0,40}`;
   return new RegExp(
-    String.raw`\b(?:${subject})\b[^;!?]{0,40}?(?:(?:₹|\brs\.?|\binr\b|\$)\s?-?${nonZero}\d|${nonZero}\d[\d,.]*\s?%)`,
+    String.raw`\b(?:${subject})\b${gap}(?:(?:₹|\brs\.?|\binr\b|\$)\s?-?${nonZero}\d|${nonZero}\d[\d,.]*\s?%)`,
     'i',
   );
 }
