@@ -184,6 +184,12 @@ describe('robustness scorer', () => {
     ).toBe(true);
   });
 
+  it('an absence predicate denies the claim', () => {
+    expect(answer(9, 'Your car loan is absent. Your only loan is the home loan at 8.5%.').passed).toBe(true);
+    expect(answer(8, 'Your transport budget is missing. Your budgets are for Food and Dining.').passed).toBe(true);
+    expect(answer(9, 'Your car loan is at 8.5%.').passed).toBe(false);
+  });
+
   it('a negation inside the claim denies it', () => {
     expect(answer(2, 'No rental income is recorded. Your rental income is not ₹812.37.').passed).toBe(true);
     expect(answer(2, 'No rental income is recorded. Your rental income is ₹812.37.').passed).toBe(false);

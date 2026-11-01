@@ -473,8 +473,12 @@ const describe = (figure: Figure): string => ('rate' in figure ? `${figure.rate}
 const CLAUSE_BREAK = /(?<!\brs)\.(?!\d)|,(?!\d)|[;!?]|\n|\s(?:but|and|so|while|whereas|although|though|yet|however)\s/gi;
 
 /** A word that negates its clause: "I cannot show all 14", "there is no car loan". */
-/** A negation right after the claim, denying it: "your car loan is not recorded", "budget isn't set". */
-const DENIED_AFTER = /^(?:n['’]t\b|\s*(?:[a-z]+n['’]t|not|never)\b)/i;
+/**
+ * A negation or an absence right after the claim, denying it: "your car loan
+ * is not recorded", "budget isn't set", "your car loan is absent / missing".
+ */
+const DENIED_AFTER =
+  /^(?:n['’]t\b|\s*(?:[a-z]+n['’]t|not|never|absent|missing|unavailable|non-?existent|none|nil)\b)/i;
 
 const NEGATION = /\b(?:not|no|never|none|cannot|unable|without)\b|\b[a-z]+n['’]t\b/i;
 
