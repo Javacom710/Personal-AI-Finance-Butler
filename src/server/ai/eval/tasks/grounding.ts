@@ -327,7 +327,7 @@ function roundTo(scaled: bigint, shift: number, places: number): bigint {
 }
 
 /** A number as the answer states it. */
-interface StatedFigure {
+export interface StatedFigure {
   readonly text: string;
   readonly kind: 'money' | 'percent';
   /** Written with a minus sign: "−₹650", "₹-650", "-62.49%". */
@@ -409,7 +409,7 @@ function statesValue(figure: StatedFigure, value: string, asPercent: boolean, si
 }
 
 /** A required or forbidden figure is matched with its sign: −62.49% is not 62.49%. */
-function statesFigure(stated: StatedFigure, expected: Figure): boolean {
+export function statesFigure(stated: StatedFigure, expected: Figure): boolean {
   const signed = expected.eitherSign !== true;
   if ('rate' in expected) return stated.kind === 'percent' && statesValue(stated, expected.rate, true, signed);
   return stated.kind === 'money' && statesValue(stated, expected.money, false, signed);

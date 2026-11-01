@@ -2,7 +2,7 @@
 
 Durable status record. Conversation history is temporary; this file is not. Read this first after any context reset, then verify it against `docs/`, the source tree, and the tests before trusting it.
 
-> **Read first — status as of 2026-11-01.** **Phase 7 (AI Infrastructure) is complete.** **Phase 8 (Model Evaluation) is in progress:** parse, classify, tool-select, routing, grounding, injection and robustness suites are merged; the document suite is in progress in this PR; analysis remains; scenario waits on OD-18. The ADR-45 catalogue check is done and five evaluation candidates were added. The runner is in [open PR #24](https://github.com/Javacom710/Personal-AI-Finance-Butler/pull/24); evaluation storage is in [open PR #25](https://github.com/Javacom710/Personal-AI-Finance-Butler/pull/25). The runner's 2026-11-01 wire check reached one model, but no complete capability evaluation or routed model measurement has been recorded. See the [Phase 8 log](#phase-8-log). Both hard drives that held working copies have failed; the repository lives on GitHub and this work proceeds through pull requests.
+> **Read first — status as of 2026-11-01.** **Phase 7 (AI Infrastructure) is complete.** **Phase 8 (Model Evaluation) is in progress:** parse, classify, tool-select, routing, grounding, injection and robustness suites are merged; the document suite is built in [PR #26](https://github.com/Javacom710/Personal-AI-Finance-Butler/pull/26); the analysis suite is built in [follow-on PR #27](https://github.com/Javacom710/Personal-AI-Finance-Butler/pull/27); scenario waits on OD-18. The ADR-45 catalogue check is done and five evaluation candidates were added. The runner is in [open PR #24](https://github.com/Javacom710/Personal-AI-Finance-Butler/pull/24); evaluation storage is in [open PR #25](https://github.com/Javacom710/Personal-AI-Finance-Butler/pull/25). The runner's 2026-11-01 wire check reached one model, but no complete capability evaluation or routed model measurement has been recorded. See the [Phase 8 log](#phase-8-log). Both hard drives that held working copies have failed; the repository lives on GitHub and this work proceeds through pull requests.
 
 **Last updated:** 2026-11-01 · **Current phase:** **8 — Model Evaluation, in progress** ([log](#phase-8-log)). Phase 7 — AI Infrastructure COMPLETE (steps 7.0–7.7; blockers B-1 … B-4, H-1 and R-1 … R-4 closed). Phase 6 remains complete (steps 6.0–6.9 and 6.11 implemented and verified; 6.10 closed unbuilt).
 
@@ -173,7 +173,7 @@ Next (as of #24): the first full measurement (PC); `ai_model_evaluations` storag
 - **When a model gets a measured entry:** every suite of its tier at the suite's current version, no unanswered case, and a declared entry for the fields a measurement cannot supply. Otherwise its declared entry stays, which serves no score-gated route. Scores combine exact counts across suites, and a score nothing measured is 0, so it fails its gate. Latency is the slowest suite's; the entry is as old as its oldest row.
 - A failed read at startup is logged and leaves the declared matrix: it fails closed.
 
-**2026-11-01 — `document` suite built** (`src/server/ai/eval/tasks/document.ts`, 20 image cases, suite version 1).
+**2026-11-01 — `document` suite built** (`src/server/ai/eval/tasks/document.ts`, 20 image cases, suite version 1; PR #26).
 
 - **Corpus:** 20 generated receipt and statement images, covering one or multiple transaction rows, INR/USD/EUR, income/expense/transfer, missing dates and amounts, and one printed prompt injection. The checked-in base64 PNGs in `document-fixtures.json` need no OCR service, uploaded files or database; `scripts/generate-ai-eval-document-fixtures.mjs` regenerates them with ImageMagick.
 - **Provider prerequisite:** the AI message type previously only carried text despite the Tier 4 vision capability declaration. `ChatMessage` now supports image attachments on user turns, and NVIDIA Build sends them as OpenAI-compatible `image_url` data URLs. Existing text-only turns remain unchanged; the provider test checks the exact wire payload without egress.
@@ -181,7 +181,16 @@ Next (as of #24): the first full measurement (PC); `ai_model_evaluations` storag
 - **Verification:** `npm run typecheck`, `npm run lint`, `npm run test:unit` (**1,824 passed**) and `npm run build` all pass. The focused provider/document tests also pass. No model was called and no key is needed.
 - **Remaining:** `analysis` is unbuilt. `scenario` remains blocked under OD-18. Tier 4 now has a suite for the runner to measure once it is wired in.
 
-Next: the first full measurement, from the PC; the `analysis` corpus. `scenario` waits on OD-18.
+**2026-11-01 — `analysis` suite built** (`src/server/ai/eval/tasks/analysis.ts`, 15 cases, suite version 1; stacked follow-on PR #27).
+
+- **Coverage:** five portfolio reviews (returns, allocation, missing and stale prices, unavailable TWR), four financial-health checks (cash flow, budgets, account/debt obligations, unavailable runway), three period reviews (month comparison, expense driver, net-worth trend), and three cross-domain snapshots.
+- **Fixture:** every case replays one or more frozen results from `grounding-results.json` using correctly paired assistant tool calls and tool responses. The figures are the same ones integration-tested against production handlers for the grounding fixture; no database or provider is required to build or score the suite.
+- **Deterministic scoring:** reuses grounding's exact numeric-claim parser and scorer, requiring case-specific figures and findings, rejecting unsupported figures, known contradictions, and unnecessary follow-up calls. No LLM-as-judge is used; general prose quality is intentionally unscored.
+- **Limits:** this measures whether the model states supported financial findings, not the quality or novelty of open-ended reasoning. No model was called and no key was needed. The `ai:eval` runner PR #24 predates the document/analysis suites and will need follow-up wiring before these suites can be run from the CLI.
+- **Verification:** `npm run typecheck`, `npm run lint`, `npm run test:unit` (**1,844 passed**) and `npm run build` all pass. The 20 focused analysis tests pass too. No model or API key was used.
+- **Review fix:** a fabricated runway duration ("Your runway is 12 months") passed `analysis-009` beside its disclaimer, because `amountFor` reads only money and percentages. `durationFor` now rejects a runway stated in days, weeks, months or years. A second finding (a TWR of -21.06% passed `analysis-005`; the figure traces to XIRR) led to a sweep: every case that reads the portfolio result rejects a TWR figure, and every case covering unpriced HDFC Bank rejects a market value for it. A third round (Dining "under budget", a stale price called current) led to reversal checks on every case with a directional finding: realised/unrealised sign, stale vs current price, Dining over budget, expense and savings direction, October vs September, net-worth trend. Later rounds: a figure beside a disclaimer is not assigned to the missing metric (`assignedTo` stops at a bracket or denial); analysis no longer counts toward tool-call correctness (its calls are replayed); and key figures are **bound to their metric** (`bound`, `bindingHolds`), so an answer that swaps income and expenses, or equity and ETF, fails even though every figure traces.
+
+Next: the first full measurement, from the PC; wiring `document` (Tier 4) and `analysis` (Tiers 2–3) into the runner. `scenario` waits on OD-18.
 
 ## Scope change — 2026-11-01
 
@@ -241,7 +250,7 @@ Corollaries that follow from the above:
 | 6 — Market Data | ✅ **complete, verified.** 6.0–6.9 and **6.11** implemented; **6.10 closed — not built** (OD-15). No open decision remains |
 | 6.5 — Recovery (Oct 2026) | ✅ repository rebuilt from the failed drives and published to GitHub — [docs/RECOVERY-2026-10.md](docs/RECOVERY-2026-10.md) |
 | 7 — AI Infrastructure | ✅ **complete, 2026-10-26.** 7.0–7.7 built; the Phase 8 entry-gate blockers closed (PRs #5–#12, #14) |
-| 8 — Model Evaluation | **in progress** since 2026-10-31: `parse`, `classify`, `tool-select`, `routing`, `grounding`, `injection` and `robustness` merged; `document` built in its own PR and `analysis` remains. `scenario` is blocked by OD-18. Runner PR #24 and storage PR #25 are open; no complete capability measurement yet — see [Phase 8 log](#phase-8-log) |
+| 8 — Model Evaluation | **in progress** since 2026-10-31: `parse`, `classify`, `tool-select`, `routing`, `grounding`, `injection` and `robustness` merged; `document` built in PR #26 and `analysis` built in PR #27. `scenario` is blocked by OD-18. Runner PR #24 and storage PR #25 are open; no complete capability measurement yet — see [Phase 8 log](#phase-8-log) |
 | 9–14 | not started |
 
 ---
