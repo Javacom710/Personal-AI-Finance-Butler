@@ -147,6 +147,8 @@ describe('analysis scorer — deterministic factual rubric', () => {
     ['analysis-006', 'Income: ₹1,20,812.37. Expenses: ₹45,319.50. Savings: ₹75,492.87, a savings rate of 62.49%.'],
     ['analysis-006', 'You earned ₹120,812.37 in income and had ₹45,319.50 of expenses, so savings were ₹75,492.87 — a 62.49% savings rate.'],
     ['analysis-014', 'September savings were ₹75,492.87. Dining is ₹650 over budget; the home loan outstanding is ₹2,412,345.67 with a ₹24,500 EMI.'],
+    ['analysis-006', 'Income was Rs. 120,812.37, expenses were Rs. 45,319.50, savings were Rs. 75,492.87, and the savings rate was 62.49%.'],
+    ['analysis-008', 'HDFC Savings has Rs. 412,022.37; the HDFC Credit Card balance is -Rs. 14,969.50. The Home loan has Rs. 2,412,345.67 outstanding with an EMI of Rs. 24,500.'],
   ])('%s: accepts the right figure for each metric in another wording — %s', (id, answer) => {
     const golden = ANALYSIS_CASES.find((c) => c.id === id)!;
     expect(scoreAnalysisOutput(answer, [], golden)).toBe(true);
