@@ -39,7 +39,8 @@ import type { ReadCtx } from './services/_ctx';
 import { refused, type AiFailure } from './ai/errors';
 import { createNvidiaProvider, NVIDIA_BUILD_KEY } from './ai/provider/nvidia-build';
 import type { AiProvider } from './ai/provider/types';
-import { assertEveryConfiguredModelKnown, createCapabilityMatrix } from './ai/config/capabilities';
+import { assertEveryConfiguredModelKnown, createCapabilityMatrix, type ModelCapabilities } from './ai/config/capabilities';
+import { measuredCapabilities } from './ai-evaluations';
 import { resolveModelConfig } from './ai/config/models';
 import { createHealthRegistry } from './ai/orchestrator/breaker';
 import { createOrchestrator, type Orchestrator, type RunInput, type RunOutput } from './ai/orchestrator';
@@ -289,6 +290,36 @@ export interface AiRuntime {
 let cached: AiRuntime | null = null;
 
 /**
+ * Measured capability entries, loaded once at startup from
+ * `ai_model_evaluations` (ADR-44). Empty until {@link loadMeasuredCapabilities}
+ * runs, which leaves only declared entries: no score-gated route serves.
+ */
+let measured: Readonly<Record<string, ModelCapabilities>> = {};
+
+/**
+ * Load the stored measurements and drop the cached runtime so the next request
+ * routes on them. Called at server start; a new `npm run ai:eval` takes effect
+ * on the next start (AI-SYSTEM.md §17: measure, then restart).
+ *
+ * A failed read is logged and leaves the declared matrix in place. That fails
+ * closed: an unmeasured model serves no score-gated route.
+ */
+export async function loadMeasuredCapabilities(
+  load: () => Promise<Record<string, ModelCapabilities>> = measuredCapabilities,
+): Promise<number> {
+  try {
+    measured = await load();
+  } catch (error) {
+    measured = {};
+    log.warn('ai.measured_capabilities_unavailable', {
+      reason: error instanceof Error ? error.message : String(error),
+    });
+  }
+  cached = null;
+  return Object.keys(measured).length;
+}
+
+/**
  * Build (once) the provider and orchestrator.
  *
  * Cached because the circuit breaker's state must survive between requests — a
@@ -334,7 +365,7 @@ function checkedAiConfiguration() {
     tier3: e.AI_TIER3_MODELS,
     tier4: e.AI_TIER4_MODELS,
   });
-  const matrix = createCapabilityMatrix();
+  const matrix = createCapabilityMatrix(measured);
   assertEveryConfiguredModelKnown(config.allConfigured(), matrix);
   return { config, matrix };
 }

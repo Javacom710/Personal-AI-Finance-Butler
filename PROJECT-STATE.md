@@ -166,6 +166,31 @@ The 2026-11-01 evaluator wire check reached one candidate on a short fixture run
 - **Deterministic scoring:** reuses grounding's exact numeric-claim parser and scorer, requiring case-specific figures and findings, rejecting unsupported figures, known contradictions, and unnecessary follow-up calls. No LLM-as-judge is used; general prose quality is intentionally unscored.
 - **Limits:** this measures whether the model states supported financial findings, not the quality or novelty of open-ended reasoning. No model was called and no key was needed. The `ai:eval` runner PR #24 predates the document/analysis suites and will need follow-up wiring before these suites can be run from the CLI.
 - **Verification:** `npm run typecheck`, `npm run lint`, `npm run test:unit` (**1,844 passed**) and `npm run build` all pass. The 20 focused analysis tests pass too. No model or API key was used.
+Next (as of #22): `document` and `analysis` corpora; then the `ai:eval` runner. `scenario` waits on OD-18. No model has been run against any suite yet.
+
+**2026-11-01 — #20, #21 and #22 merged; the `ai:eval` runner built** (`src/server/ai/eval/runner.ts`, `scripts/ai-eval.ts`, `npm run ai:eval -- --tier <n> [--suite …] [--model …] [--limit n]`).
+- **What it runs:** every model in the tier's configured order plus that tier's `EVALUATION_CANDIDATES`, over the tier's suites (Tier 1: parse, classify, tool-select, grounding, robustness, injection; Tiers 2–3: the four tool suites; Tier 4: none until `document` exists). `routing` is not run: it measures application code.
+- **What it writes:** `eval/reports/<date>-tier<n>.md` and `.json` with schema adherence, tool-call correctness, retrieval grounding, injection resistance, latency and failing case ids, never model output. And a **proposed** `AI_TIER<n>_MODELS` order: only models clearing §5's thresholds, ranked by §14's criteria. It changes no configuration.
+- **Unanswered is not wrong:** a case the provider never answered (transport, timeout, rate limit) is listed and kept out of every score, and a model with one is not proposed until re-run. The first live check found this: a 502 had been scored as a schema failure.
+- **Live wire check, 2026-11-01, from the cloud session** (`--limit`, synthetic fixtures only). The runner works end to end: `nemotron-3.5-lightning` answered real cases. **But a full measurement cannot run from here.** A direct chat call to each candidate:
+
+| Model | Result |
+|---|---|
+| `nvidia/nemotron-3.5-lightning-30b-a3b`, `nvidia/nemotron-3-ultra-550b-a55b`, `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning` | **200** — answer |
+| `nvidia/nemotron-3-super-120b-a12b` (**Tier 2 primary**), `nvidia/nemotron-nano-3-30b-a3b` | **404** "Function … not found for account" — listed in the catalogue, not enabled for this key's account |
+| `openai/gpt-oss-20b` (**Tier 1 serving**), `google/gemma-4-31b-it`, `deepseek-ai/deepseek-v4.1-flash`, `z-ai/glm-5.3-flash` | **502** "upstream request failed" at exactly 30 s — consistent with the session's egress proxy cutting long requests, not with the model |
+
+  So **Tier 2 has no reachable model for this account today**, and Tier 1's serving model is unverified. Before the first real measurement: run `npm run ai:eval` from the development PC (no proxy), and check on build.nvidia.com whether the 404 models need enabling for the account.
+
+Next (as of #24): the first full measurement (PC); `ai_model_evaluations` storage and its load into `createCapabilityMatrix`; the `document` and `analysis` corpora. `scenario` waits on OD-18.
+
+**2026-11-01 — measured results stored and loaded (ADR-44)** (migration `0006_phase8_ai_model_evaluations`, `src/server/ai-evaluations.ts`; stacked on #24).
+- `npm run ai:eval` stores a full run: one `ai_model_evaluations` row per model and suite, with exact counts and failing case ids in `detail`, never output. `--no-record` skips it; a `--limit` run is refused.
+- At server start (`instrumentation.ts`), the latest rows become `source: 'measured'` capability entries, layered over the declared matrix by `createCapabilityMatrix(measured)`. A new measurement takes effect at the next start.
+- **When a model gets a measured entry:** every suite of its tier at the suite's current version, no unanswered case, and a declared entry for the fields a measurement cannot supply. Otherwise its declared entry stays, which serves no score-gated route. Scores combine exact counts across suites, and a score nothing measured is 0, so it fails its gate. Latency is the slowest suite's; the entry is as old as its oldest row.
+- A failed read at startup is logged and leaves the declared matrix: it fails closed.
+
+Next: the first full measurement, from the PC; the `document` and `analysis` corpora. `scenario` waits on OD-18.
 ---
 
 ## Working protocol — applies to every phase from 2 onward
