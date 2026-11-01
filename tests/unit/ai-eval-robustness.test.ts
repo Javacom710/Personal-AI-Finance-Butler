@@ -137,6 +137,17 @@ describe('robustness scorer', () => {
     expect(answer(9, 'Your car loan is at 8.5%. It is not the only loan you could take.').passed).toBe(false);
   });
 
+  it('a negation denies only its own claim, not one joined to it', () => {
+    expect(answer(2, 'No rental income is recorded but your rent was ₹812.37.').passed).toBe(false);
+    expect(answer(9, "There's no car loan and your car loan is at 8.5%.").passed).toBe(false);
+  });
+
+  it('"all 14" as the denominator of a subset is not a completeness claim', () => {
+    const five = 'interest ₹812.37, a card payment ₹15,000, dinner ₹2,360, a cab ₹740 and headphones ₹6,499';
+    expect(answer(7, `There are 14 September transactions. I can show only 5 of all 14 transactions: ${five}.`).passed).toBe(true);
+    expect(answer(7, `Here are all 14 of your September transactions: ${five}.`).passed).toBe(false);
+  });
+
   it('a word ending in -nt is not a negation', () => {
     expect(answer(2, 'No rental income is recorded. Your rent was ₹812.37.').passed).toBe(false);
     expect(answer(2, 'No rental income is recorded. Your rental income was ₹812.37.').passed).toBe(false);

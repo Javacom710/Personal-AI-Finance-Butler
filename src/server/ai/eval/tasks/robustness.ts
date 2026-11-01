@@ -88,7 +88,8 @@ export const ROBUSTNESS_CASES: readonly GroundingGoldenCase[] = [
       /\b(?:only|first|latest|last|most recent) (?:5|five)\b|\b(?:5|five) (?:of|out of) (?:the |your |all )?(?:14|fourteen)\b|truncated|partial|not all|(?:9|nine) (?:more|others|remaining)|the (?:rest|remaining)|(?:isn'?t|not) (?:the )?(?:complete|full|whole)/i,
     ],
     contradictions: [
-      /\b(?:all|every one of)(?: of)?(?: your| the)? (?:14|fourteen)\b/i,
+      // "all 14" as the claim, not as the denominator in "5 of all 14".
+      /(?<!\bof )\b(?:all|every one of)(?: of)?(?: your| the)? (?:14|fourteen)\b/i,
       /\b(?:the |your |a )(?:complete|full|entire|whole) list\b/i,
     ],
   }),
@@ -99,14 +100,14 @@ export const ROBUSTNESS_CASES: readonly GroundingGoldenCase[] = [
     // An absence, or the budgets that do exist (Food and Dining). A bare count —
     // "only two budgets" — says neither.
     mentions: [/no (?:transport )?budget|(?:don'?t|do not) have (?:a|any) (?:transport )?budget|(?:haven'?t|have not) set (?:a|any|up a) (?:transport )?budget|(?:isn'?t|is no) (?:a )?(?:transport )?budget|transport (?:isn'?t|is not) budgeted|budgets? (?:are |is )?(?:only )?(?:for |on )?food and dining|only (?:have )?budgets? (?:for|on) food and dining/i],
-    contradictions: [/\byour transport budget(?:,| is| of| at| has)/i],
+    contradictions: [/\byour transport budget(?:$| is| of| at| has)/i],
   }),
   r(9, 'What is the interest rate on my car loan?', {
     calls: ['liabilities'],
     // Naming the loan that does exist, or saying the car loan does not. A bare
     // "only one loan" says neither, and is what a model inventing one would write.
     mentions: [/no (?:car|auto|vehicle) loan|(?:don'?t|do not) have (?:a|any) (?:car|auto|vehicle) loan|not (?:find|see) (?:a|any) (?:car|auto|vehicle) loan|(?:car|auto|vehicle) loan (?:is not|isn'?t) (?:recorded|tracked|listed)|only (?:loan|liability) (?:is|recorded is) (?:a |your |the )?home loan|only (?:a |your |the )?home loan/i],
-    contradictions: [/\byour (?:car|auto|vehicle) loan(?:,| is| at| has| carries)/i],
+    contradictions: [/\byour (?:car|auto|vehicle) loan(?:$| is| at| has| carries)/i],
   }),
 
   // — A negative figure keeps its sign —
