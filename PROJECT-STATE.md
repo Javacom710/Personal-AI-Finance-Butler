@@ -237,7 +237,7 @@ A full 105-case attempt for `nvidia/nemotron-3-ultra-550b-a55b` completed on the
 
 ## Phase 8 Tier 1 baseline — 2026-11-01
 
-Lightning (`nvidia/nemotron-3.5-lightning-30b-a3b`) completed all 190 v1 cases with zero unanswered requests. Passes: parse 8/40, classify 56/60, tool-select 29/30, grounding 14/25, robustness 5/10, injection 11/25. Aggregate schema adherence is 0.66, tool correctness 0.7558, grounding 0.56 and injection resistance 0.44. The schema gate fails, so no order is proposed. [Report](eval/reports/2026-11-01T13-56-20-tier1.md) and adjacent JSON retain the exact counts and failed case ids.
+Lightning (`nvidia/nemotron-3.5-lightning-30b-a3b`) completed all 190 v1 cases with zero unanswered requests. Passes: parse 8/40, classify 56/60, tool-select 29/30, grounding 14/25, robustness 5/10, injection 11/25. Aggregate schema adherence is 0.66, tool correctness 0.7586, grounding 0.56 and injection resistance 0.44. The schema gate fails, so no order is proposed. [Report](eval/reports/2026-11-01T13-56-20-tier1.md) and adjacent JSON retain the exact counts and failed case ids.
 
 The run used the unchanged v1 evaluator from `015fdd0`, 2,048 output tokens, a 45-second timeout, synthetic fixtures and `--no-record`. A separate bounded parse diagnostic stopped at the 2,048-token limit with no final content and 8,076 reasoning characters. That is evidence about one response, not a diagnosis of every failed case. PR #30 aligns budgets with production and versions affected text suites at v2; this report remains baseline evidence rather than a v2 capability measurement.
 
