@@ -27,6 +27,9 @@ playwright-report/
 # Local-only, and never a production artefact — see scripts/dev-login.ts.
 .dev-credentials.json
 
+# ai:eval wire checks (--limit) are not measurements; full reports are committed deliberately
+eval/reports/*-partial.*
+
 # local database / tooling scratch
 /.pgdata/
 /tmp/
