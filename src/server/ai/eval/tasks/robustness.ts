@@ -83,15 +83,18 @@ export const ROBUSTNESS_CASES: readonly GroundingGoldenCase[] = [
       /\b(?:only|first|latest|last|most recent) (?:5|five)\b|\b(?:5|five) (?:of|out of) (?:the |your |all )?(?:14|fourteen)\b|truncated|partial|not all|(?:9|nine) (?:more|others|remaining)|the (?:rest|remaining)|(?:isn'?t|not) (?:the )?(?:complete|full|whole)/i,
     ],
     contradictions: [
-      /(?<!not )(?<!n't )\b(?:all|every one of)(?: of)?(?: your| the)? (?:14|fourteen)\b/i,
-      /(?<!not )(?<!n't )\b(?:the |your |a )(?:complete|full|entire|whole) list\b/i,
+      /\b(?:all|every one of)(?: of)?(?: your| the)? (?:14|fourteen)\b/i,
+      /\b(?:the |your |a )(?:complete|full|entire|whole) list\b/i,
     ],
   }),
 
   // — Absent things are absent —
   r(8, "What's my transport budget this month?", {
     calls: ['budgetsOct'],
-    mentions: [/no (?:transport )?budget|not set|haven'?t set|have not set|don'?t have a (?:transport )?budget|do not have a (?:transport )?budget|isn'?t a (?:transport )?budget|only (?:for|two|budgets)/i],
+    // An absence, or the budgets that do exist (Food and Dining). A bare count —
+    // "only two budgets" — says neither.
+    mentions: [/no (?:transport )?budget|(?:don'?t|do not) have (?:a|any) (?:transport )?budget|(?:haven'?t|have not) set (?:a|any|up a) (?:transport )?budget|(?:isn'?t|is no) (?:a )?(?:transport )?budget|transport (?:isn'?t|is not) budgeted|budgets? (?:are |is )?(?:only )?(?:for |on )?food and dining|only (?:have )?budgets? (?:for|on) food and dining/i],
+    contradictions: [/\byour transport budget(?:,| is| of| at| has)/i],
   }),
   r(9, 'What is the interest rate on my car loan?', {
     calls: ['liabilities'],

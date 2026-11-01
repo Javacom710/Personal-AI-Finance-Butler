@@ -101,6 +101,21 @@ describe('robustness scorer', () => {
     expect(answer(9, 'Your only loan is your home loan, at 8.5%; there is no car loan.').passed).toBe(true);
   });
 
+  it('a denied claim is not a contradiction, wherever the negation sits in its clause', () => {
+    expect(
+      answer(7, 'There are 14 transactions, but I cannot show all 14 because this is only a partial list of the first 5: interest ₹812.37.').passed,
+    ).toBe(true);
+    expect(
+      answer(9, 'I cannot find your car loan, so its interest rate is unavailable; your only loan is the home loan at 8.5%.').passed,
+    ).toBe(true);
+  });
+
+  it('a transport budget invented from a count of budgets fails', () => {
+    expect(answer(8, 'You have only two budgets: Food and Transport. Your transport budget is ₹2,500 this month.').passed).toBe(false);
+    expect(answer(8, 'You have only two budgets. Your transport budget is ₹2,500.').passed).toBe(false);
+    expect(answer(8, 'Your budgets are for Food and Dining; there is no transport budget.').passed).toBe(true);
+  });
+
   it('a further call where the results already answer fails', () => {
     expect(scoreGrounding(null, [{ name: 'get_budget_status', argumentsJson: '{}' }], byId(8))).toBe(false);
   });

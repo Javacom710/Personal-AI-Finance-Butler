@@ -77,7 +77,8 @@ export interface GroundingGoldenCase {
   /**
    * Claims the answer must not make, even beside a required mention: "all 14
    * transactions" for a clipped list. A pattern that accepts the right wording
-   * cannot also reject the wrong claim made next to it.
+   * cannot also reject the wrong claim made next to it. Only an affirmed claim
+   * counts; see {@link affirms}.
    */
   readonly contradictions: readonly RegExp[];
   /**
@@ -430,6 +431,26 @@ export interface GroundingVerdict {
 
 const describe = (figure: Figure): string => ('rate' in figure ? `${figure.rate} (rate)` : figure.money);
 
+/** A word that negates its clause: "I cannot show all 14", "there is no car loan". */
+const NEGATION = /\b(?:not|no|never|none|cannot|unable|without)\b|n'?t\b/i;
+
+/**
+ * Does the answer make this claim, rather than deny it? A match counts only
+ * when the clause it sits in — from the previous `.`, `;`, `:`, `!`, `?` or
+ * `,` up to the end of the match — has no negation. So "showing all 14" and
+ * "you have one loan: your car loan, at 8.5%" affirm; "I cannot show all 14"
+ * and "I cannot find your car loan, so …" do not.
+ */
+export function affirms(text: string, pattern: RegExp): boolean {
+  const global = new RegExp(pattern.source, pattern.flags.includes('g') ? pattern.flags : `${pattern.flags}g`);
+  for (const match of text.matchAll(global)) {
+    const end = (match.index ?? 0) + match[0].length;
+    const start = Math.max(...['.', ';', ':', '!', '?', ','].map((d) => text.lastIndexOf(d, (match.index ?? 0) - 1))) + 1;
+    if (!NEGATION.test(text.slice(start, end))) return true;
+  }
+  return false;
+}
+
 /** Score a prose answer. A case that needs a further call cannot pass on prose. */
 export function scoreGroundingAnswer(answer: string | null, golden: GroundingGoldenCase): GroundingVerdict {
   const text = answer ?? '';
@@ -442,7 +463,7 @@ export function scoreGroundingAnswer(answer: string | null, golden: GroundingGol
     .map((anyOf) => anyOf.map(describe).join(' or '));
   const forbidden = golden.forbidden.filter((f) => stated.some((s) => statesFigure(s, f))).map(describe);
   const unmentioned = golden.mentions.filter((pattern) => !pattern.test(text)).map(String);
-  const contradicted = golden.contradictions.filter((pattern) => pattern.test(text)).map(String);
+  const contradicted = golden.contradictions.filter((pattern) => affirms(text, pattern)).map(String);
 
   const passed =
     golden.followUp === undefined &&
