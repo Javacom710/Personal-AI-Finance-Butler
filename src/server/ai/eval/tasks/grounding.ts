@@ -440,21 +440,27 @@ export interface GroundingVerdict {
 
 const describe = (figure: Figure): string => ('rate' in figure ? `${figure.rate} (rate)` : figure.money);
 
+const CLAUSE_BREAKS = ['.', ';', ':', '!', '?', ','] as const;
+
 /** A word that negates its clause: "I cannot show all 14", "there is no car loan". */
 const NEGATION = /\b(?:not|no|never|none|cannot|unable|without)\b|\b[a-z]+n['’]t\b/i;
 
 /**
  * Does the answer make this claim, rather than deny it? A match counts only
- * when the clause it sits in — from the previous `.`, `;`, `:`, `!`, `?` or
- * `,` up to the end of the match — has no negation. So "showing all 14" and
- * "you have one loan: your car loan, at 8.5%" affirm; "I cannot show all 14"
- * and "I cannot find your car loan, so …" do not.
+ * when the whole clause it sits in — between the `.`, `;`, `:`, `!`, `?` or
+ * `,` either side of it — has no negation, before the match or after it. So
+ * "showing all 14" and "you have one loan: your car loan, at 8.5%" affirm;
+ * "I cannot show all 14", "I cannot find your car loan, so …" and "your car
+ * loan is not recorded" do not.
  */
 export function affirms(text: string, pattern: RegExp): boolean {
   const everywhere = new RegExp(pattern.source, pattern.flags.includes('g') ? pattern.flags : `${pattern.flags}g`);
   for (const match of text.matchAll(everywhere)) {
-    const end = (match.index ?? 0) + match[0].length;
-    const start = Math.max(...['.', ';', ':', '!', '?', ','].map((d) => text.lastIndexOf(d, (match.index ?? 0) - 1))) + 1;
+    const at = match.index ?? 0;
+    const after = at + match[0].length;
+    const start = Math.max(...CLAUSE_BREAKS.map((d) => text.lastIndexOf(d, at - 1))) + 1;
+    const ends = CLAUSE_BREAKS.map((d) => text.indexOf(d, after)).filter((i) => i >= 0);
+    const end = ends.length > 0 ? Math.min(...ends) : text.length;
     if (!NEGATION.test(text.slice(start, end))) return true;
   }
   return false;

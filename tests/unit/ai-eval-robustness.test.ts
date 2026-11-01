@@ -130,6 +130,13 @@ describe('robustness scorer', () => {
     expect(answer(10, 'Your XIRR is not -21.06%.').passed).toBe(false);
   });
 
+  it('a negation after the claim denies it too', () => {
+    expect(answer(9, 'Your car loan is not recorded. Your only loan is the home loan at 8.5%.').passed).toBe(true);
+    expect(answer(8, "Your transport budget isn't set. Your budgets are for Food and Dining.").passed).toBe(true);
+    // Affirmed in its own clause, still a contradiction.
+    expect(answer(9, 'Your car loan is at 8.5%. It is not the only loan you could take.').passed).toBe(false);
+  });
+
   it('a word ending in -nt is not a negation', () => {
     expect(answer(2, 'No rental income is recorded. Your rent was ₹812.37.').passed).toBe(false);
     expect(answer(2, 'No rental income is recorded. Your rental income was ₹812.37.').passed).toBe(false);
