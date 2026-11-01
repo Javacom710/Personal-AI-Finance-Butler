@@ -166,6 +166,15 @@ Next (as of #22): `document` and `analysis` corpora; then the `ai:eval` runner. 
   So **Tier 2 has no reachable model for this account today**, and Tier 1's serving model is unverified. Before the first real measurement: run `npm run ai:eval` from the development PC (no proxy), and check on build.nvidia.com whether the 404 models need enabling for the account.
 
 Next: the first full measurement (PC); `ai_model_evaluations` storage and its load into `createCapabilityMatrix`; the `document` and `analysis` corpora. `scenario` waits on OD-18.
+
+## Scope change — 2026-11-01
+
+**Bank import, Groww sync and Groww order placement are now in scope** ([ADR-50](docs/DECISIONS.md#adr-50--bank-import-groww-sync-and-groww-order-placement-are-approved-each-behind-the-owners-confirmation)), each behind the owner's confirmation. This is not Phase 8 work and changes nothing in the current phase.
+- Statement and CAS import joins Phase 9's document pipeline.
+- Bank alert emails, Groww sync and Groww orders are a new **Phase 14** after deployment, because SEBI requires API orders to come from a static IP. Continuous Improvement becomes Phase 15.
+- Account Aggregator is out: it is open only to regulated data receivers.
+- Zerodha stays out until the owner asks.
+
 ---
 
 ## Working protocol — applies to every phase from 2 onward

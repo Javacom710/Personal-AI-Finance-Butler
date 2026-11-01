@@ -419,7 +419,7 @@ product/UI work item scheduled with the Phase 9 UX pass. It does not block Phase
 - Financial assistant: the question set in `CLAUDE.md <ai_financial_assistant>`
 - Portfolio analysis, financial-health analysis, period summaries, cross-domain analysis
 - Scenario analysis — engine computes, model explains
-- Tier 4 document/receipt extraction → proposal pipeline
+- Tier 4 document/receipt extraction → proposal pipeline, including bank statements and the CAS ([ADR-50](DECISIONS.md#adr-50--bank-import-groww-sync-and-groww-order-placement-are-approved-each-behind-the-owners-confirmation))
 
 **Done when**
 - [ ] The proposal corpus (~40 cases) produces the expected status for every case
@@ -495,7 +495,26 @@ Audit against `CLAUDE.md <development_method>` Phase 10 and [SECURITY.md](SECURI
 
 ---
 
-## Phase 14 — Continuous Improvement
+## Phase 14 — Bank and Broker Integrations
+
+Approved 2026-11-01 ([ADR-50](DECISIONS.md#adr-50--bank-import-groww-sync-and-groww-order-placement-are-approved-each-behind-the-owners-confirmation)). Every step keeps the owner in the loop. Order placement comes after Phase 13, because SEBI requires API orders to come from a whitelisted static IP.
+
+- **14.1 Bank alert emails:** read bank alert emails from Gmail (OAuth, read-only, sender filter) into the review queue
+- **14.2 Groww read sync:** holdings, positions and orders, on a schedule; differences against the ledger become reconciliation proposals
+- **14.3 Groww orders:** draft (by the owner or suggested by the AI) → exact-order review with estimated charges → confirmation with fresh authentication → placement from the production host → fill recorded as an investment transaction
+
+**Done when**
+- [ ] No imported row reaches the ledger without the owner's approval; approval uses the same services as manual entry
+- [ ] Duplicate detection against existing transactions is tested, including the same transaction from a statement and an alert email
+- [ ] A Groww/ledger difference is shown, never auto-corrected
+- [ ] No order is placed without a single-use, short-lived confirmation bound to the exact order fields; a changed field invalidates it
+- [ ] The AI tool registry has no order tool and no access to Groww or Gmail tokens (asserted by test)
+- [ ] Tokens are encrypted at rest, absent from logs and client bundles, and revocable
+- [ ] Order placement works only from the static-IP production host; the daily 2FA expiry is handled without retry loops
+
+---
+
+## Phase 15 — Continuous Improvement
 
 Ongoing, not a one-off.
 
@@ -530,7 +549,7 @@ Per `CLAUDE.md <production_definition_of_done>`:
 
 ## Deliberately deferred
 
-Not built unless explicitly requested (`CLAUDE.md <feature_scope>`): brokerage execution, automated/autonomous trading, bank synchronisation, automatic statement import, tax filing, robo-advisory, product marketplace, social features, multi-user households, native mobile, WhatsApp, voice, derivatives/options/futures engines, high-frequency market data, a full planning suite, RAG, a vector database, multi-agent architecture.
+Not built unless explicitly requested (`CLAUDE.md <feature_scope>`): automated/autonomous trading, Account Aggregator bank sync, brokers other than Groww, tax filing, robo-advisory, product marketplace, social features, multi-user households, native mobile, WhatsApp, voice, derivatives/options/futures engines, high-frequency market data, a full planning suite, RAG, a vector database, multi-agent architecture. Bank import, Groww sync and Groww order placement moved out of this list on 2026-11-01 ([ADR-50](DECISIONS.md#adr-50--bank-import-groww-sync-and-groww-order-placement-are-approved-each-behind-the-owners-confirmation)) and are Phase 14.
 
 Recorded future work with stated activation criteria: embeddings ([ADR-19](DECISIONS.md#adr-19--embeddings-deferred-full-text-search-first-pgvector-if-ever)), additional cost-basis methods, bond accrual pricing, WebAuthn passkeys, WAL archiving to cut RPO from 24 h to minutes.
 

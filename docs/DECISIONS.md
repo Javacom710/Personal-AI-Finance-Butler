@@ -1018,6 +1018,33 @@ Why:
 
 ---
 
+## ADR-50 — Bank import, Groww sync and Groww order placement are approved, each behind the owner's confirmation
+
+**Decision.** Requested and approved by the owner 2026-11-01. It moves three items off `CLAUDE.md <feature_scope>`'s "do not build unless explicitly requested" list: bank synchronisation, automatic bank transaction imports, and brokerage order execution. Pulling and analysing brokerage and bank data comes with them.
+
+> **Data may come in automatically, and orders may go out, but nothing enters the ledger and no order reaches the broker until the owner has seen it and confirmed it. The AI may suggest without limit. It never holds a credential, never writes the ledger, and never calls an order endpoint.**
+
+**What is built, and how each one keeps the owner in the loop**
+
+| Capability | Source | The owner's step |
+|---|---|---|
+| Bank transaction import | (a) uploaded bank statements (PDF/CSV) and the CAS (CAMS/KFintech, NSDL/CDSL); (b) bank alert emails read from the owner's Gmail, read-only scope, filtered by sender | Extracted rows become proposals in a review queue. Duplicates of existing transactions are flagged. Nothing posts until the owner approves the batch, and approval runs the same application services as manual entry (`ai_mutation_rule`) |
+| Brokerage data | **Groww Trade API only**: holdings, positions, orders | A scheduled read. The ledger stays the source of truth: holdings are still derived from investment transactions. A difference between Groww and the ledger becomes a reconciliation proposal, never an automatic correction |
+| Order placement | **Groww Trade API, equities** | Anyone may draft an order, the AI included, and suggestions are unlimited. Placing one needs the owner to review the exact order (instrument, side, quantity, order type, price, estimated cost with charges), then confirm with fresh authentication. The confirmation is single-use, short-lived and bound to those exact fields. No per-order or daily cap: the owner chose per-order confirmation as the control. A fill is recorded through the investment-transaction service with an audit entry |
+
+**Constraints found before deciding (2026-11-01)**
+- **The RBI Account Aggregator framework is closed to this app.** A data receiver (FIU) must be regulated by RBI, SEBI, IRDAI or PFRDA. Bank data therefore comes from statements and alert emails instead. Revisit only if a route open to individuals appears.
+- **SEBI's retail API framework (from 2026-04-01):** API orders must come from a registered app ID on a whitelisted **static IP**, with 2FA once every trading day. So order placement needs the production host (Phase 13) with a static IP. It cannot run from a development machine or a cloud session.
+- **Groww** documents holdings, positions and equity/F&O/commodity orders. Mutual-fund orders are not documented, so they are out until confirmed. A 2023 review listed it at about ₹499/month + GST; confirm current pricing before subscribing. **Jar** has no public API that was found, so its data comes from statements or manual entry.
+
+**Security.** Groww API tokens and the Gmail OAuth token are server-only and encrypted at rest with the application key. They never appear in logs, the browser, or any AI context. Scopes are the minimum, and revocation is documented. The AI tool registry gains read projections of synced data only. **No order tool exists in the AI registry**: the order path is reachable only from the confirmation UI.
+
+**Still out of scope.** Automated or autonomous trading; recurring or conditional orders; F&O, options and futures; any order without its own confirmation. **Zerodha (Kite Connect) stays unintegrated** (OD-3) until the owner asks for it explicitly.
+
+**Rejected.** *Account Aggregator*: not eligible. *Scraping broker or bank websites*: breaks terms of service, is fragile, and needs the owner's passwords. *Auto-applying imports*: violates `ai_mutation_rule`. *Order caps*: the owner's per-order confirmation is the control he chose.
+
+---
+
 ## Open decisions requiring the user
 
 | # | Decision | Why it cannot be defaulted | Blocks |
