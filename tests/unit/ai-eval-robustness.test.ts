@@ -87,6 +87,20 @@ describe('robustness scorer', () => {
     expect(answer(1, 'No spending recorded, roughly ₹30,000 as usual.').untraceable).toEqual(['₹30,000']);
   });
 
+  it('a clipped list claimed complete fails, whatever else it says', () => {
+    const five = 'interest ₹812.37, a card payment ₹15,000, dinner ₹2,360, a cab ₹740 and headphones ₹6,499';
+    expect(answer(7, `Showing all 14 of your September transactions: ${five}.`)).toMatchObject({ passed: false });
+    expect(answer(7, `Here is the complete list of your 14 September transactions: ${five}.`).passed).toBe(false);
+    expect(answer(7, `You had 14 transactions; showing 5 of 14 — this is not the full list: ${five}.`).passed).toBe(true);
+    expect(answer(7, `Of your 14 September transactions, only five are shown: ${five}.`).passed).toBe(true);
+  });
+
+  it('a car loan invented from the home loan fails', () => {
+    expect(answer(9, 'You have only one loan: your car loan, at 8.5%.').passed).toBe(false);
+    expect(answer(9, 'You have only one loan recorded. Your car loan is at 8.5%.').passed).toBe(false);
+    expect(answer(9, 'Your only loan is your home loan, at 8.5%; there is no car loan.').passed).toBe(true);
+  });
+
   it('a further call where the results already answer fails', () => {
     expect(scoreGrounding(null, [{ name: 'get_budget_status', argumentsJson: '{}' }], byId(8))).toBe(false);
   });

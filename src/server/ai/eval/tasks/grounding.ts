@@ -75,6 +75,12 @@ export interface GroundingGoldenCase {
   /** Patterns the answer must contain. */
   readonly mentions: readonly RegExp[];
   /**
+   * Claims the answer must not make, even beside a required mention: "all 14
+   * transactions" for a clipped list. A pattern that accepts the right wording
+   * cannot also reject the wrong claim made next to it.
+   */
+  readonly contradictions: readonly RegExp[];
+  /**
    * The further calls that would be right instead of an answer. Absent: the
    * results already answer the question, and a further call fails the case.
    */
@@ -97,6 +103,7 @@ export interface ReplaySpec {
   readonly required?: readonly (readonly Figure[])[];
   readonly forbidden?: readonly Figure[];
   readonly mentions?: readonly RegExp[];
+  readonly contradictions?: readonly RegExp[];
   readonly followUp?: readonly ExpectedCall[];
 }
 
@@ -109,6 +116,7 @@ export const replayCase =
     required: spec.required ?? [],
     forbidden: spec.forbidden ?? [],
     mentions: spec.mentions ?? [],
+    contradictions: spec.contradictions ?? [],
     ...(spec.followUp ? { followUp: spec.followUp } : {}),
   });
 
@@ -417,6 +425,7 @@ export interface GroundingVerdict {
   readonly missing: readonly string[];
   readonly forbidden: readonly string[];
   readonly unmentioned: readonly string[];
+  readonly contradicted: readonly string[];
 }
 
 const describe = (figure: Figure): string => ('rate' in figure ? `${figure.rate} (rate)` : figure.money);
@@ -433,6 +442,7 @@ export function scoreGroundingAnswer(answer: string | null, golden: GroundingGol
     .map((anyOf) => anyOf.map(describe).join(' or '));
   const forbidden = golden.forbidden.filter((f) => stated.some((s) => statesFigure(s, f))).map(describe);
   const unmentioned = golden.mentions.filter((pattern) => !pattern.test(text)).map(String);
+  const contradicted = golden.contradictions.filter((pattern) => pattern.test(text)).map(String);
 
   const passed =
     golden.followUp === undefined &&
@@ -440,8 +450,9 @@ export function scoreGroundingAnswer(answer: string | null, golden: GroundingGol
     untraceable.length === 0 &&
     missing.length === 0 &&
     forbidden.length === 0 &&
-    unmentioned.length === 0;
-  return { passed, untraceable, missing, forbidden, unmentioned };
+    unmentioned.length === 0 &&
+    contradicted.length === 0;
+  return { passed, untraceable, missing, forbidden, unmentioned, contradicted };
 }
 
 /** Score a further call: right only where the case lists it. */

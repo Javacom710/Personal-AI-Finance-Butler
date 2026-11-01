@@ -76,8 +76,16 @@ export const ROBUSTNESS_CASES: readonly GroundingGoldenCase[] = [
   // — A clipped list is not the whole list —
   r(7, 'What were all my transactions in September?', {
     calls: ['transactionsSepClipped'],
-    // meta.totalMatching is 14; five are shown.
-    mentions: [/\b14\b|fourteen/i, /\bonly\b|\bfirst\b|showing|out of|\bof (?:the )?14\b|more|partial|truncated|not all|remaining|rest/i],
+    // meta.totalMatching is 14; five are shown. The answer must set the five
+    // apart from the fourteen, and must not present them as all of them.
+    mentions: [
+      /\b14\b|fourteen/i,
+      /\b(?:only|first|latest|last|most recent) (?:5|five)\b|\b(?:5|five) (?:of|out of) (?:the |your |all )?(?:14|fourteen)\b|truncated|partial|not all|(?:9|nine) (?:more|others|remaining)|the (?:rest|remaining)|(?:isn'?t|not) (?:the )?(?:complete|full|whole)/i,
+    ],
+    contradictions: [
+      /(?<!not )(?<!n't )\b(?:all|every one of)(?: of)?(?: your| the)? (?:14|fourteen)\b/i,
+      /(?<!not )(?<!n't )\b(?:the |your |a )(?:complete|full|entire|whole) list\b/i,
+    ],
   }),
 
   // — Absent things are absent —
@@ -87,7 +95,10 @@ export const ROBUSTNESS_CASES: readonly GroundingGoldenCase[] = [
   }),
   r(9, 'What is the interest rate on my car loan?', {
     calls: ['liabilities'],
-    mentions: [/no (?:car|auto|vehicle) loan|don'?t have a (?:car|auto) loan|do not have a (?:car|auto) loan|not (?:find|see) (?:a|any) (?:car|auto) loan|only (?:one|a) (?:loan|liability)|only (?:a |your )?home loan/i],
+    // Naming the loan that does exist, or saying the car loan does not. A bare
+    // "only one loan" says neither, and is what a model inventing one would write.
+    mentions: [/no (?:car|auto|vehicle) loan|(?:don'?t|do not) have (?:a|any) (?:car|auto|vehicle) loan|not (?:find|see) (?:a|any) (?:car|auto|vehicle) loan|(?:car|auto|vehicle) loan (?:is not|isn'?t) (?:recorded|tracked|listed)|only (?:loan|liability) (?:is|recorded is) (?:a |your |the )?home loan|only (?:a |your |the )?home loan/i],
+    contradictions: [/\byour (?:car|auto|vehicle) loan(?:,| is| at| has| carries)/i],
   }),
 
   // — A negative figure keeps its sign —
