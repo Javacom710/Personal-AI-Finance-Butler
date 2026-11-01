@@ -178,6 +178,16 @@ describe('robustness scorer', () => {
     expect(answer(5, 'HDFC Bank has no current price, so its value is unavailable. You invested ₹40,000 in it.').passed).toBe(true);
   });
 
+  it('a line is a claim of its own', () => {
+    expect(answer(2, 'No rental income recorded\nRental income: ₹812.37').passed).toBe(false);
+    expect(answer(2, '- No rental income recorded\n- Rental income: ₹812.37').passed).toBe(false);
+  });
+
+  it('an acquisition value is not a market value', () => {
+    expect(answer(5, 'HDFC Bank has no current price. Its acquisition value was ₹40,000.').passed).toBe(true);
+    expect(answer(5, 'HDFC Bank has no current price. Its value is ₹40,000.').passed).toBe(false);
+  });
+
   it('a decimal point or a thousands comma does not split a claim', () => {
     expect(answer(8, 'There is no transport budget, transport budget ₹2,500.').passed).toBe(false);
   });

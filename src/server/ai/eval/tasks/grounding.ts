@@ -466,10 +466,11 @@ const describe = (figure: Figure): string => ('rate' in figure ? `${figure.rate}
 /**
  * Where one claim ends and the next begins: punctuation, or a conjunction
  * joining two claims. Not a colon ("Rental income: ₹812.37" is one claim), and
- * not a decimal point, a thousands comma or the dot of "Rs.". "No rental income is recorded but your rent was ₹812"
+ * not a decimal point, a thousands comma or the dot of "Rs.". A line break
+ * ends a claim: a list line is a claim of its own. "No rental income is recorded but your rent was ₹812"
  * is two claims, and the "No" denies only the first.
  */
-const CLAUSE_BREAK = /(?<!\brs)\.(?!\d)|,(?!\d)|[;!?]|\s(?:but|and|so|while|whereas|although|though|yet|however)\s/gi;
+const CLAUSE_BREAK = /(?<!\brs)\.(?!\d)|,(?!\d)|[;!?]|\n|\s(?:but|and|so|while|whereas|although|though|yet|however)\s/gi;
 
 /** A word that negates its clause: "I cannot show all 14", "there is no car loan". */
 const NEGATION = /\b(?:not|no|never|none|cannot|unable|without)\b|\b[a-z]+n['’]t\b/i;
