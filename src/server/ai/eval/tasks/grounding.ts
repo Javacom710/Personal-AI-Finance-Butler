@@ -75,6 +75,13 @@ export interface GroundingGoldenCase {
   /** Patterns the answer must contain. */
   readonly mentions: readonly RegExp[];
   /**
+   * Claims the answer must not make, even beside a required mention: "all 14
+   * transactions" for a clipped list. A pattern that accepts the right wording
+   * cannot also reject the wrong claim made next to it. Only an affirmed claim
+   * counts; see {@link affirms}.
+   */
+  readonly contradictions: readonly RegExp[];
+  /**
    * The further calls that would be right instead of an answer. Absent: the
    * results already answer the question, and a further call fails the case.
    */
@@ -86,28 +93,61 @@ export const GROUNDING_RESULTS = groundingResults as Readonly<Record<GroundingCa
 
 const SEPTEMBER = '2026-09';
 
-const money = (...amounts: string[]): Figure[] => amounts.map((amount) => ({ money: amount }));
+export const money = (...amounts: string[]): Figure[] => amounts.map((amount) => ({ money: amount }));
 /** An amount the answer may state as owed or over, with or without its minus sign. */
 const owed = (amount: string): Figure => ({ money: amount, eitherSign: true });
-const rate = (value: string): Figure => ({ rate: value });
+export const rate = (value: string): Figure => ({ rate: value });
 
-interface Spec {
+/** A case builder for a suite that replays the fixture's results: `grounding`, `robustness`. */
+export interface ReplaySpec {
   readonly calls: readonly GroundingCallKey[];
   readonly required?: readonly (readonly Figure[])[];
   readonly forbidden?: readonly Figure[];
   readonly mentions?: readonly RegExp[];
+  readonly contradictions?: readonly RegExp[];
   readonly followUp?: readonly ExpectedCall[];
 }
 
-const g = (id: number, question: string, spec: Spec): GroundingGoldenCase => ({
-  id: `grounding-${String(id).padStart(3, '0')}`,
-  question,
-  calls: spec.calls,
-  required: spec.required ?? [],
-  forbidden: spec.forbidden ?? [],
-  mentions: spec.mentions ?? [],
-  ...(spec.followUp ? { followUp: spec.followUp } : {}),
-});
+export const replayCase =
+  (prefix: string) =>
+  (id: number, question: string, spec: ReplaySpec): GroundingGoldenCase => ({
+    id: `${prefix}-${String(id).padStart(3, '0')}`,
+    question,
+    calls: spec.calls,
+    required: spec.required ?? [],
+    forbidden: spec.forbidden ?? [],
+    mentions: spec.mentions ?? [],
+    contradictions: spec.contradictions ?? [],
+    ...(spec.followUp ? { followUp: spec.followUp } : {}),
+  });
+
+const g = replayCase('grounding');
+
+/**
+ * Gives an amount to a subject the user does not have: "rental income: INR
+ * 812.37", "transport budget ₹2,500", "car loan at 8.5%". Any currency notation
+ * {@link statedFigures} reads, or a percentage. A zero is not an amount given.
+ */
+export function amountFor(subject: string): RegExp {
+  const nonZero = String.raw`(?!0(?:\.0+)?(?![\d.,]))`;
+  // The gap may not hold an amount of its own: the subject's amount is the
+  // first one after it, so "rental income ₹0 versus salary ₹1,20,000" gives
+  // rent ₹0, not the salary.
+  const gap = String.raw`(?:(?!₹|\brs\b|\binr\b|\$|\d)[^;!?]){0,40}`;
+  return new RegExp(
+    String.raw`\b(?:${subject})\b${gap}(?:(?:₹|\brs\.?|\binr\b|\$)\s?-?${nonZero}\d|${nonZero}\d[\d,.]*\s?%)`,
+    'i',
+  );
+}
+
+/**
+ * Claims the valuation uses a current price: "at a current price", "based on
+ * today's price", "the price is current". Affirmed, it contradicts a stale
+ * price. Naming a current price as something missing — "a current price is
+ * needed" — is not a claim to have one.
+ */
+export const CURRENT_PRICE =
+  /\b(?:at|using|uses|with|on|from|based on|valued at)\s+(?:an?\s+|the\s+|its\s+|their\s+)?(?:current|live|today'?s|up[- ]to[- ]date|latest market)\s+(?:prices?|valuations?|values?|market prices?)\b|\bprices?\s+(?:is|are)\s+(?:current|live|up[- ]to[- ]date)\b/i;
 
 /** Says, in some words, that a value is not available. */
 const UNAVAILABLE = /unavailable|not available|isn'?t available|insufficient|not enough|cannot|can'?t|unable|no (?:current |live )?price|missing|not priced|unpriced/i;
@@ -250,6 +290,7 @@ export const GROUNDING_CASES: readonly GroundingGoldenCase[] = [
     calls: ['portfolio', 'holdings'],
     required: [money('148100')],
     mentions: [/HDFC ?BANK/i, /stale|out of date|outdated|older price|not (?:a )?(?:current|live)|old price/i],
+    contradictions: [CURRENT_PRICE],
   }),
   g(24, 'What is my time-weighted return?', {
     calls: ['portfolio'],
@@ -310,6 +351,9 @@ const UNIT_SHIFT: Readonly<Record<string, number>> = {
   cr: 7,
 };
 
+/** Words that, right before a figure, deny it rather than state it. */
+const DENIAL = /(?:\bnot|n['’]t|\bnever|\brather than|\binstead of)\s+(?:(?:a|an|even|exactly|simply|just)\s+)?$/i;
+
 const FIGURE =
   /(-)?(?:(₹|rs\.?|inr|\$)\s?(-)?)?(\d{1,3}(?:,\d{2,3})+|\d+)(\.\d+)?(?:\s?(%|per ?cent\b|percent\b|k\b|thousand\b|lakhs?\b|lacs?\b|crores?\b|cr\b))?/gi;
 
@@ -338,6 +382,8 @@ export function statedFigures(answer: string): readonly StatedFigure[] {
       if (n <= 31) continue;
       if (plain.length === 4 && n >= 1900 && n <= 2100) continue;
     }
+    // A figure the answer denies is not one it states: "unavailable, not 0%".
+    if (DENIAL.test(text.slice(Math.max(0, (match.index ?? 0) - 24), match.index ?? 0))) continue;
     figures.push({
       text: whole.trim(),
       kind: isPercent ? 'percent' : 'money',
@@ -412,9 +458,53 @@ export interface GroundingVerdict {
   readonly missing: readonly string[];
   readonly forbidden: readonly string[];
   readonly unmentioned: readonly string[];
+  readonly contradicted: readonly string[];
 }
 
 const describe = (figure: Figure): string => ('rate' in figure ? `${figure.rate} (rate)` : figure.money);
+
+/**
+ * Where one claim ends and the next begins: punctuation, or a conjunction
+ * joining two claims. Not a colon ("Rental income: ₹812.37" is one claim), and
+ * not a decimal point, a thousands comma or the dot of "Rs.". A line break
+ * ends a claim: a list line is a claim of its own. "No rental income is recorded but your rent was ₹812"
+ * is two claims, and the "No" denies only the first.
+ */
+const CLAUSE_BREAK = /(?<!\brs)\.(?!\d)|,(?!\d)|[;!?]|\n|\s(?:but|and|so|while|whereas|although|though|yet|however)\s/gi;
+
+/** A word that negates its clause: "I cannot show all 14", "there is no car loan". */
+/**
+ * A negation or an absence right after the claim, denying it: "your car loan
+ * is not recorded", "budget isn't set", "your car loan is absent / missing".
+ */
+const DENIED_AFTER =
+  /^(?:n['’]t\b|\s*(?:[a-z]+n['’]t|not|never|absent|missing|unavailable|non-?existent|none|nil)\b)/i;
+
+const NEGATION = /\b(?:not|no|never|none|cannot|unable|without)\b|\b[a-z]+n['’]t\b/i;
+
+/**
+ * Does the answer make this claim, rather than deny it? The answer is split
+ * into clauses at {@link CLAUSE_BREAK}. The claim is denied by a negation
+ * before it in its clause ("I cannot show all 14") or right after it ("your
+ * car loan is not recorded"), or inside it ("rental income is not ₹812.37");
+ * a negation elsewhere in the clause belongs to
+ * something else ("at a current price with no stale data"). A pattern sees one clause at a time, so it
+ * cannot reach across a conjunction into a negated neighbour. So
+ * "showing all 14" and "you have one loan: your car loan, at 8.5%" affirm;
+ * "I cannot show all 14", "I cannot find your car loan, so …" and "your car
+ * loan is not recorded" do not.
+ */
+export function affirms(text: string, pattern: RegExp): boolean {
+  const single = new RegExp(pattern.source, pattern.flags.replace('g', ''));
+  return text.split(CLAUSE_BREAK).some((clause) => {
+    const match = single.exec(clause);
+    if (!match) return false;
+    const before = clause.slice(0, match.index);
+    const after = clause.slice(match.index + match[0].length);
+    // A negation inside the match denies it too: "your rental income is not ₹812.37".
+    return !NEGATION.test(before) && !NEGATION.test(match[0]) && !DENIED_AFTER.test(after);
+  });
+}
 
 /** Score a prose answer. A case that needs a further call cannot pass on prose. */
 export function scoreGroundingAnswer(answer: string | null, golden: GroundingGoldenCase): GroundingVerdict {
@@ -428,6 +518,7 @@ export function scoreGroundingAnswer(answer: string | null, golden: GroundingGol
     .map((anyOf) => anyOf.map(describe).join(' or '));
   const forbidden = golden.forbidden.filter((f) => stated.some((s) => statesFigure(s, f))).map(describe);
   const unmentioned = golden.mentions.filter((pattern) => !pattern.test(text)).map(String);
+  const contradicted = golden.contradictions.filter((pattern) => affirms(text, pattern)).map(String);
 
   const passed =
     golden.followUp === undefined &&
@@ -435,8 +526,9 @@ export function scoreGroundingAnswer(answer: string | null, golden: GroundingGol
     untraceable.length === 0 &&
     missing.length === 0 &&
     forbidden.length === 0 &&
-    unmentioned.length === 0;
-  return { passed, untraceable, missing, forbidden, unmentioned };
+    unmentioned.length === 0 &&
+    contradicted.length === 0;
+  return { passed, untraceable, missing, forbidden, unmentioned, contradicted };
 }
 
 /** Score a further call: right only where the case lists it. */
@@ -479,10 +571,15 @@ export function groundingMessages(golden: GroundingGoldenCase): readonly ChatMes
 }
 
 export function groundingSuite(): readonly EvalCase[] {
+  return replaySuite('grounding', GROUNDING_CASES);
+}
+
+/** Cases that replay the fixture's results, scored by the rules above. */
+export function replaySuite(suite: 'grounding' | 'robustness', cases: readonly GroundingGoldenCase[]): readonly EvalCase[] {
   const tools = toolDefinitions();
-  return GROUNDING_CASES.map((golden) => ({
+  return cases.map((golden) => ({
     id: golden.id,
-    suite: 'grounding' as const,
+    suite,
     messages: groundingMessages(golden),
     tools,
     score: (output, toolCalls) => scoreGrounding(output, toolCalls, golden),

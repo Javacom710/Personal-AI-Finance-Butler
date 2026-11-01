@@ -142,6 +142,14 @@ Next (as of the `grounding` PR): `scenario`, `injection`, `robustness`, `documen
 
 - **Review fix (2026-11-01):** "request" took the model-choice verbs' three-word gap, so "I request financial health with deepseek" lost its task and fell to Tier 1. `MODEL_REQUEST` now strips only a model named immediately after "request".
 
+**2026-11-01 — review fixes on #20; `robustness` corpus built** (`src/server/ai/eval/tasks/robustness.ts`, 10 cases, suite version 1; PR #22, after #20 and #21).
+- **#20 review (Codex, two P2s), both fixed.** Required and forbidden figures are matched with their sign, so "−62.49%" no longer passes for a 62.49% savings rate; an amount owed or over may be stated either way. Grounding case 23 now replays the holdings too and requires naming the unpriced HDFC Bank and the stale NIFTYBEES price.
+- **`robustness` replays the `grounding` fixture** with four more frozen calls: an empty June 2025, January's cash flow (no income, so the savings rate is `null` with `divide_by_zero`), September's transactions clipped to 5 of 14, and net worth on 2020-01-01, before any record. Transaction ids now get fixed placeholders too. Its cases ask what the data cannot answer — no records, unavailable, partial, absent (a transport budget, a car loan, rental income), plus a negative XIRR whose sign must survive. The scorer is `grounding`'s, so figures must trace; on top, the answer must say the value is unavailable, the list partial or the thing absent.
+- **`scenario` is blocked, not skipped:** it needs deterministic projection arithmetic, and `run_financial_scenario` has none (OD-18). Building the suite first would measure a model doing arithmetic the engine should do.
+
+- **A dozen Codex review rounds on #22**, every finding real and each a narrower phrasing case. The wording checks gained: required and forbidden figures matched with their sign; a figure after a denial ("not 0%") not counted as stated; contradictions — claims that fail an answer even beside the right wording — tested clause by clause (punctuation, conjunctions and line breaks split claims; colons, decimals and "Rs." do not), and denied only by a negation before, inside or right after the claim; `amountFor(subject)` for an amount given to something the user does not have, in any currency notation. Wording checks decide whether an answer says a thing, not how well; tune further against real model answers once the runner exists.
+
+Next: `document` and `analysis` corpora; then the `ai:eval` runner. `scenario` waits on OD-18. No model has been run against any suite yet.
 ---
 
 ## Working protocol — applies to every phase from 2 onward
@@ -192,7 +200,7 @@ Corollaries that follow from the above:
 | 6 — Market Data | ✅ **complete, verified.** 6.0–6.9 and **6.11** implemented; **6.10 closed — not built** (OD-15). No open decision remains |
 | 6.5 — Recovery (Oct 2026) | ✅ repository rebuilt from the failed drives and published to GitHub — [docs/RECOVERY-2026-10.md](docs/RECOVERY-2026-10.md) |
 | 7 — AI Infrastructure | ✅ **complete, 2026-10-26.** 7.0–7.7 built; the Phase 8 entry-gate blockers closed (PRs #5–#12, #14) |
-| 8 — Model Evaluation | **in progress** since 2026-10-31: golden corpora being built, one PR per suite (`parse`, `classify`, `tool-select`, `routing`, `grounding` and `injection` done; `robustness` in PR #22). No model measured yet — see [Phase 8 log](#phase-8-log) |
+| 8 — Model Evaluation | **in progress** since 2026-10-31: golden corpora being built, one PR per suite (`parse`, `classify`, `tool-select`, `routing`, `grounding`, `injection` and `robustness` done). No model measured yet — see [Phase 8 log](#phase-8-log) |
 | 9–14 | not started |
 
 ---
