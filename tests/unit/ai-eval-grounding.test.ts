@@ -54,6 +54,7 @@ function exemplar(c: GroundingGoldenCase): string {
     '/\\bcost\\b/i': 'at cost',
     '/market/i': 'at market value',
     '/HDFC ?BANK/i': 'HDFC Bank is excluded because it has no price',
+    '/stale|out of date|outdated|older price|not (?:a )?(?:current|live)|old price/i': 'the NIFTYBEES price is stale',
   };
   const words = c.mentions.map((m) => mentions[String(m)] ?? 'it is unavailable: insufficient price history');
   return `From your records: ${figures}. ${words.join('; ')}.`.trim();
@@ -89,7 +90,7 @@ describe('grounding corpus — shape', () => {
     for (const c of GROUNDING_CASES) {
       const values = traceableValues(c.calls.map((k) => GROUNDING_RESULTS[k]));
       const inResults = (f: Figure) =>
-        'rate' in f ? values.rates.some((r) => Number(r) === Number(f.rate)) : values.numbers.some((n) => Math.abs(Number(n)) === Number(f.money));
+        'rate' in f ? values.rates.some((r) => Number(r) === Number(f.rate)) : values.numbers.some((n) => Number(n) === Number(f.money));
       // A required figure the model was not given could only be guessed or computed.
       for (const anyOf of c.required) expect(anyOf.some(inResults), `${c.id} requires ${JSON.stringify(anyOf)}`).toBe(true);
       // A forbidden figure that is in the results is a figure the answer may legitimately state.
@@ -238,6 +239,32 @@ describe('grounding scorer — answers', () => {
   it('a credit-card balance is stated as an amount owed, either sign', () => {
     expect(answer(17, 'You owe ₹14,969.50 on the card.').passed).toBe(true);
     expect(answer(17, 'The card balance is -₹14,969.50.').passed).toBe(true);
+    expect(answer(17, 'The card balance is ₹-14,969.50.').passed).toBe(true);
+    expect(answer(15, 'Dining is over budget: ₹650 over.').passed).toBe(true);
+  });
+
+  it('a reversed sign is a wrong figure, not a rounding of the right one', () => {
+    expect(answer(12, 'Your savings rate was -62.49%.')).toMatchObject({ passed: false, missing: ['0.6248769890 (rate)'] });
+    expect(answer(12, 'Your savings rate was −62.49%.').passed).toBe(false);
+    expect(answer(18, 'Your net worth at cost is -₹81,07,349.20.').passed).toBe(false);
+    expect(answer(16, 'Your HDFC Savings balance is ₹-4,12,022.37.').passed).toBe(false);
+    // A hyphenated range is not a minus sign.
+    expect(statedFigures('between 10-15 October').map((f) => f.negative)).toEqual([]);
+  });
+
+  it('a partial portfolio valuation says what it leaves out and what is stale', () => {
+    const portfolio = byId(23);
+    expect(portfolio.calls).toEqual(['portfolio', 'holdings']);
+    expect(scoreGroundingAnswer('Your entire portfolio is worth ₹1,48,100 at current prices.', portfolio)).toMatchObject({
+      passed: false,
+      unmentioned: expect.arrayContaining([expect.stringContaining('HDFC')]),
+    });
+    expect(
+      scoreGroundingAnswer(
+        'The priced part of your portfolio is worth ₹1,48,100. HDFC Bank has no price and is left out, and the NIFTYBEES price is stale.',
+        portfolio,
+      ).passed,
+    ).toBe(true);
   });
 
   it('an empty answer fails', () => {

@@ -118,7 +118,8 @@ Next (as of the `tool-select` PR): `grounding`, `scenario`, `injection`, `robust
 
 Scoring is deterministic:
 - **Every figure the answer states must trace** to a value in its results, at its stated precision (₹8,641 and ₹86.4 lakh trace to 8640.5000; a sum or difference the model computed traces to nothing). Dates, years and whole numbers up to 31 are not figures.
-- **Required figures** must be stated to the rupee; a percentage may be rounded but must round from the engine's rate.
+- **Required figures** must be stated to the rupee and with their sign (−62.49% is not the savings rate); a percentage may be rounded but must round from the engine's rate. An amount owed or over may be stated either way.
+- **The portfolio value** must come with what it leaves out (unpriced HDFC Bank) and what is stale (NIFTYBEES): coverage is 0.78, so the figure is not a complete current valuation.
 - **Forbidden figures** are the known wrong answers: Food's own ₹800 or its children's ₹7,840.50 as "food", summed overlapping tags, summed net-worth levels, a two-category sum, TWR as 0%.
 - **Required mentions:** the cost or market basis of a net-worth figure, the holding a market valuation excludes, and why TWR is unavailable.
 - **Two cases cannot be answered from what they were given**: a `detail` result for the Food total, and a `rollup` for Groceries. They pass only by the right further call. Prose can't pass, because the only answering figure would be a computed one.

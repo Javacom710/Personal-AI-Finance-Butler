@@ -19,8 +19,10 @@ import 'server-only';
  *   "₹8.64 lakh" all trace to 8640.5000. A figure the model computed — a sum of
  *   rows, a difference of two levels — traces to nothing and fails, because
  *   AI-SYSTEM.md rule 7 says the model never states a figure it did not receive;
- * - **every required figure is stated**, to the rupee for money. A percentage
- *   may be rounded to any precision, but must round from the engine's rate;
+ * - **every required figure is stated**, to the rupee for money, **with its
+ *   sign**: −62.49% is not a 62.49% savings rate. A percentage may be rounded
+ *   to any precision, but must round from the engine's rate. An amount owed or
+ *   over may be stated either way ("you owe ₹14,969.50");
  * - **no forbidden figure is stated**. These are the known wrong answers: the
  *   parent's own row reported as its rollup, overlapping tag rows added up,
  *   net-worth levels summed;
@@ -51,8 +53,15 @@ import { scoreToolSelectCalls, type ExpectedCall } from './tool-select';
 
 export const GROUNDING_SUITE_VERSION = 1;
 
-/** A figure: an exact amount, or a rate stated as a fraction (`0.62` is 62%). */
-export type Figure = { readonly money: string } | { readonly rate: string };
+/**
+ * A figure: an exact amount, or a rate stated as a fraction (`0.62` is 62%).
+ * Its sign must match the stated sign, unless `eitherSign` says the figure is
+ * as often written as an amount owed or over ("you owe ₹14,969.50") as with
+ * its sign ("−₹14,969.50").
+ */
+export type Figure =
+  | { readonly money: string; readonly eitherSign?: true }
+  | { readonly rate: string; readonly eitherSign?: true };
 
 export interface GroundingGoldenCase {
   readonly id: string;
@@ -78,6 +87,8 @@ export const GROUNDING_RESULTS = groundingResults as Readonly<Record<GroundingCa
 const SEPTEMBER = '2026-09';
 
 const money = (...amounts: string[]): Figure[] => amounts.map((amount) => ({ money: amount }));
+/** An amount the answer may state as owed or over, with or without its minus sign. */
+const owed = (amount: string): Figure => ({ money: amount, eitherSign: true });
 const rate = (value: string): Figure => ({ rate: value });
 
 interface Spec {
@@ -188,7 +199,8 @@ export const GROUNDING_CASES: readonly GroundingGoldenCase[] = [
   // — Budgets —
   g(15, 'Am I over budget on anything this month?', {
     calls: ['budgetsOct'],
-    required: [money('650', '3150')],
+    // Over by ₹650 (remaining is −650), or the ₹3,150 actual against ₹2,500.
+    required: [[owed('-650'), ...money('3150')]],
     mentions: [/dining/i],
   }),
 
@@ -199,7 +211,8 @@ export const GROUNDING_CASES: readonly GroundingGoldenCase[] = [
   }),
   g(17, 'How much do I owe on my credit card right now?', {
     calls: ['accounts'],
-    required: [money('14969.50')],
+    // The balance is −14,969.50; "you owe ₹14,969.50" states it as a debt.
+    required: [[owed('-14969.50')]],
   }),
 
   // — Net worth: the basis is part of the answer —
@@ -231,9 +244,12 @@ export const GROUNDING_CASES: readonly GroundingGoldenCase[] = [
   }),
 
   // — Investments: unpriced and unavailable are not zero —
+  // Coverage is 0.78: HDFC Bank has no price and NIFTYBEES's is stale, so the
+  // figure is not a complete current valuation and the answer must say so.
   g(23, 'What is my portfolio worth?', {
-    calls: ['portfolio'],
+    calls: ['portfolio', 'holdings'],
     required: [money('148100')],
+    mentions: [/HDFC ?BANK/i, /stale|out of date|outdated|older price|not (?:a )?(?:current|live)|old price/i],
   }),
   g(24, 'What is my time-weighted return?', {
     calls: ['portfolio'],
@@ -252,11 +268,12 @@ export const GROUNDING_CASES: readonly GroundingGoldenCase[] = [
 const SCALE = 12;
 
 function toScaled(value: string): bigint | null {
-  const match = /^-?(\d+)(?:\.(\d+))?$/.exec(value.trim());
+  const match = /^(-?)(\d+)(?:\.(\d+))?$/.exec(value.trim());
   if (!match) return null;
-  const whole = match[1] ?? '0';
-  const fraction = (match[2] ?? '').slice(0, SCALE).padEnd(SCALE, '0');
-  return BigInt(whole) * 10n ** BigInt(SCALE) + BigInt(fraction);
+  const whole = match[2] ?? '0';
+  const fraction = (match[3] ?? '').slice(0, SCALE).padEnd(SCALE, '0');
+  const magnitude = BigInt(whole) * 10n ** BigInt(SCALE) + BigInt(fraction);
+  return match[1] === '-' ? -magnitude : magnitude;
 }
 
 /** `|value| / 10^shift`, rounded half-up to `places`, as a scaled integer at `places`. */
@@ -272,6 +289,8 @@ function roundTo(scaled: bigint, shift: number, places: number): bigint {
 interface StatedFigure {
   readonly text: string;
   readonly kind: 'money' | 'percent';
+  /** Written with a minus sign: "−₹650", "₹-650", "-62.49%". */
+  readonly negative: boolean;
   /** The stated digits at their stated precision, as an integer: "8,640.50" → 864050. */
   readonly digits: bigint;
   readonly places: number;
@@ -292,21 +311,21 @@ const UNIT_SHIFT: Readonly<Record<string, number>> = {
 };
 
 const FIGURE =
-  /(?:(₹|rs\.?|inr|\$)\s?)?(\d{1,3}(?:,\d{2,3})+|\d+)(\.\d+)?(?:\s?(%|per ?cent\b|percent\b|k\b|thousand\b|lakhs?\b|lacs?\b|crores?\b|cr\b))?/gi;
+  /(-)?(?:(₹|rs\.?|inr|\$)\s?(-)?)?(\d{1,3}(?:,\d{2,3})+|\d+)(\.\d+)?(?:\s?(%|per ?cent\b|percent\b|k\b|thousand\b|lakhs?\b|lacs?\b|crores?\b|cr\b))?/gi;
 
 /** The figures an answer states. Dates, years and small whole numbers are not figures. */
 export function statedFigures(answer: string): readonly StatedFigure[] {
   const text = answer
     .replace(/\d{4}-\d{2}-\d{2}/g, ' ')
-    // A figure written with a minus sign is still the same magnitude.
+    // A minus sign, however typed.
     .replace(/[−–]/g, '-');
   const figures: StatedFigure[] = [];
   for (const match of text.matchAll(FIGURE)) {
-    const [whole, currency, integer, fraction, unitRaw] = match;
+    const [whole, minusBefore, currency, minusAfter, integer, fraction, unitRaw] = match;
     if (!integer) continue;
-    // Part of a word or identifier, such as "Nifty50" or "F1".
+    // Part of a word or identifier, such as "Nifty50", "F1" or "goa-2".
     const before = text[(match.index ?? 0) - 1];
-    if (before !== undefined && /[A-Za-z_]/.test(before) && !currency) continue;
+    if (before !== undefined && /[A-Za-z0-9_]/.test(before) && !currency) continue;
 
     const unit = unitRaw?.toLowerCase().replace(/\s/g, '');
     const plain = integer.replace(/,/g, '');
@@ -322,6 +341,7 @@ export function statedFigures(answer: string): readonly StatedFigure[] {
     figures.push({
       text: whole.trim(),
       kind: isPercent ? 'percent' : 'money',
+      negative: minusBefore !== undefined || minusAfter !== undefined,
       digits: BigInt(`${plain}${fraction ? fraction.slice(1) : ''}`),
       places,
       shift,
@@ -330,17 +350,23 @@ export function statedFigures(answer: string): readonly StatedFigure[] {
   return figures;
 }
 
-/** Does a stated figure round from this exact value, at the precision it is stated? */
-function statesValue(figure: StatedFigure, value: string, asPercent: boolean): boolean {
+/**
+ * Does a stated figure round from this exact value, at the precision it is
+ * stated? `signed`: the sign must match too. A zero has no sign.
+ */
+function statesValue(figure: StatedFigure, value: string, asPercent: boolean, signed: boolean): boolean {
   const scaled = toScaled(value);
   if (scaled === null) return false;
   const shift = figure.shift - (asPercent ? 2 : 0);
-  return roundTo(scaled, shift, figure.places) === figure.digits;
+  if (roundTo(scaled, shift, figure.places) !== figure.digits) return false;
+  return !signed || figure.digits === 0n || figure.negative === scaled < 0n;
 }
 
+/** A required or forbidden figure is matched with its sign: −62.49% is not 62.49%. */
 function statesFigure(stated: StatedFigure, expected: Figure): boolean {
-  if ('rate' in expected) return stated.kind === 'percent' && statesValue(stated, expected.rate, true);
-  return stated.kind === 'money' && statesValue(stated, expected.money, false);
+  const signed = expected.eitherSign !== true;
+  if ('rate' in expected) return stated.kind === 'percent' && statesValue(stated, expected.rate, true, signed);
+  return stated.kind === 'money' && statesValue(stated, expected.money, false, signed);
 }
 
 /** Stated to the rupee: neither "₹8.6k" nor "₹86 lakh" states an exact amount. */
@@ -371,8 +397,11 @@ export function traceableValues(results: readonly unknown[]): { readonly numbers
 }
 
 function traceable(stated: StatedFigure, values: ReturnType<typeof traceableValues>): boolean {
-  if (stated.kind === 'percent') return values.rates.some((r) => statesValue(stated, r, true));
-  return values.numbers.some((n) => statesValue(stated, n, false));
+  // Traceability is about invention, not sign: a magnitude the tools returned
+  // was not made up. A wrong sign is caught where it matters, on the required
+  // and forbidden figures.
+  if (stated.kind === 'percent') return values.rates.some((r) => statesValue(stated, r, true, false));
+  return values.numbers.some((n) => statesValue(stated, n, false, false));
 }
 
 // ------------------------------------------------------------------ scoring
