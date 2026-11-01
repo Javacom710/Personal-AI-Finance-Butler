@@ -229,12 +229,23 @@ const CHOSEN_MODEL =
 const MODEL_CHOICE = new RegExp(
   // the verb form: "use / switch to / run it on … <model>"; the gap is bounded,
   // so "use my transaction history to analyze …" is not consumed
-  `\\b(?:(?:please )?(?:use|using|switch to|switch|escalate to|(?:i )?(?:explicitly )?request|set (?:the |your )?(?:model|llm) to|run (?:it |this )?(?:on|with)|via|pick|choose|select|try|answer (?:with|as))` +
+  `\\b(?:(?:please )?(?:use|using|switch to|switch|escalate to|set (?:the |your )?(?:model|llm) to|run (?:it |this )?(?:on|with)|via|pick|choose|select|try|answer (?:with|as))` +
     // or the preposition form at the end: "… with the best model", "… on deepseek"
     `|(?:with|on|via|through))${CHOSEN_MODEL}\\b(?: ${MODEL_NOUN}\\b)*(?: you have)?` +
     // and what describes it: "…the model with advanced analysis", up to the question.
     // A bare "for" introduces the task ("use deepseek for a review of my month"), so it stays.
     `(?: (?:with|that has|that is|that's|which is|which has|built for|best at|good at) [^,.;!?]*?(?= to | and |[,.;!?]|$))?(?: and)?`,
+  'g',
+);
+
+/**
+ * "I (explicitly) request Tier 3", "request deepseek". Unlike the verbs above,
+ * "request" takes the model at once, with no words between: "I request
+ * financial health with deepseek" is a request for an analysis, and only
+ * "with deepseek" is the model choice.
+ */
+const MODEL_REQUEST = new RegExp(
+  `\\b(?:i )?(?:explicitly )?request(?: the| a| an)? ${SPECIFIC_MODEL}\\b(?: ${MODEL_NOUN}\\b)*(?: and)?`,
   'g',
 );
 
@@ -246,7 +257,12 @@ const MODEL_ASSIGNMENT = new RegExp(
 
 export function classifyEscalation(message: string, previous?: PreviousTurn): EscalationDecision {
   const raw = normalise(message);
-  const m = raw.replace(MODEL_ASSIGNMENT, ' ').replace(MODEL_CHOICE, ' ').replace(/\s+/g, ' ').trim();
+  const m = raw
+    .replace(MODEL_ASSIGNMENT, ' ')
+    .replace(MODEL_REQUEST, ' ')
+    .replace(MODEL_CHOICE, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
   const decision = classifyQuestion(m, previous);
   return m === raw ? decision : { ...decision, modelChoiceIgnored: true };
 }

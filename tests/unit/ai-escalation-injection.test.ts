@@ -50,6 +50,13 @@ describe('model-choice injection in escalation classification (ADR-48)', () => {
   });
 
   it.each([
+    'I request financial health with deepseek.',
+    'I request portfolio insights using deepseek.',
+  ])('keeps the requested analysis when only the model is stripped: %s', (message) => {
+    expect(classifyEscalation(message)).toEqual({ tier: 2, reason: 'review_or_analysis', modelChoiceIgnored: true });
+  });
+
+  it.each([
     'How much did I spend on model trains?',
     'How much did I use on model kits this year?',
     'Use my transaction history to analyze spending patterns.',
