@@ -50,10 +50,16 @@ async function main(): Promise<void> {
     return;
   }
   const child = spawn(process.execPath, ['--conditions=react-server', '--import', 'tsx', 'scripts/ai-eval-budgeted.ts', ...process.argv.slice(2)], { stdio: 'inherit' });
-  const result = await new Promise<number>((resolve, reject) => {
-    child.once('error', reject);
-    child.once('exit', code => resolve(code ?? 1));
-  });
-  process.exitCode = result;
+  const interrupt = () => child.kill('SIGINT');
+  const terminate = () => child.kill('SIGTERM');
+  process.once('SIGINT', interrupt); process.once('SIGTERM', terminate);
+  try {
+    process.exitCode = await new Promise<number>((resolve, reject) => {
+      child.once('error', reject);
+      child.once('exit', code => resolve(code ?? 1));
+    });
+  } finally {
+    process.removeListener('SIGINT', interrupt); process.removeListener('SIGTERM', terminate);
+  }
 }
 main().catch(error => { console.error(error instanceof Error ? error.message : String(error)); process.exitCode = 1; });

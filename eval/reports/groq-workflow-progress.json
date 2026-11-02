@@ -1,0 +1,442 @@
+{
+  "asOf": "2026-11-02T16:22:03.739Z",
+  "providerIdentity": "https://api.groq.com/openai/v1",
+  "stop": "offline reports finalized",
+  "plannedSuites": 23,
+  "plannedCases": 610,
+  "retainedCaseResults": 48,
+  "answeredCaseResults": 47,
+  "unansweredCaseResults": 1,
+  "unattemptedCases": 562,
+  "ownerApprovalRequired": true,
+  "workflowRecordsResults": false,
+  "workflowChangesRouting": false,
+  "coverageComplete": false,
+  "next": {
+    "tier": 1,
+    "model": "openai/gpt-oss-20b",
+    "suite": "robustness",
+    "total": 10,
+    "retained": 8,
+    "answered": 7,
+    "unanswered": 1,
+    "passed": 3,
+    "status": "partial",
+    "remainingCaseIds": [
+      "robustness-009",
+      "robustness-010"
+    ],
+    "counts": {
+      "answered": 7,
+      "unanswered": 1,
+      "schemaValid": 0,
+      "schemaApplicable": 0,
+      "toolCallValid": 0,
+      "toolCallApplicable": 2
+    }
+  },
+  "candidates": [
+    {
+      "tier": 1,
+      "modelId": "openai/gpt-oss-120b",
+      "schemaAdherence": 1,
+      "toolCallCorrectness": null,
+      "retrievalGrounding": null,
+      "analysisAccuracy": null,
+      "injectionResistance": null,
+      "p50LatencyMs": null,
+      "p95LatencyMs": null,
+      "unanswered": 0,
+      "unreachable": false,
+      "missingSuites": [
+        "classify",
+        "tool-select",
+        "grounding",
+        "robustness",
+        "injection"
+      ],
+      "gateFailure": "Incomplete tier coverage: no routing proposal.",
+      "declarationBlockers": [],
+      "latencyNote": "Not pooled or ranked: earlier fetch-guard timings include quota waits.",
+      "ownerApprovalRequired": true
+    },
+    {
+      "tier": 1,
+      "modelId": "openai/gpt-oss-20b",
+      "schemaAdherence": null,
+      "toolCallCorrectness": 0,
+      "retrievalGrounding": null,
+      "analysisAccuracy": null,
+      "injectionResistance": null,
+      "p50LatencyMs": null,
+      "p95LatencyMs": null,
+      "unanswered": 1,
+      "unreachable": false,
+      "missingSuites": [
+        "parse",
+        "classify",
+        "tool-select",
+        "grounding",
+        "robustness",
+        "injection"
+      ],
+      "gateFailure": "Incomplete tier coverage: no routing proposal.",
+      "declarationBlockers": [
+        "parseTransaction: structured_output_unsupported",
+        "classifyTransaction: structured_output_unsupported"
+      ],
+      "latencyNote": "Not pooled or ranked: earlier fetch-guard timings include quota waits.",
+      "ownerApprovalRequired": true
+    },
+    {
+      "tier": 2,
+      "modelId": "openai/gpt-oss-120b",
+      "schemaAdherence": null,
+      "toolCallCorrectness": null,
+      "retrievalGrounding": null,
+      "analysisAccuracy": null,
+      "injectionResistance": null,
+      "p50LatencyMs": null,
+      "p95LatencyMs": null,
+      "unanswered": 0,
+      "unreachable": true,
+      "missingSuites": [
+        "tool-select",
+        "grounding",
+        "robustness",
+        "injection",
+        "analysis"
+      ],
+      "gateFailure": "Incomplete tier coverage: no routing proposal.",
+      "declarationBlockers": [
+        "Tier-specific measured eligibility must be reconciled before routing this model in this tier."
+      ],
+      "latencyNote": "Not pooled or ranked: earlier fetch-guard timings include quota waits.",
+      "ownerApprovalRequired": true
+    },
+    {
+      "tier": 3,
+      "modelId": "openai/gpt-oss-120b",
+      "schemaAdherence": null,
+      "toolCallCorrectness": null,
+      "retrievalGrounding": null,
+      "analysisAccuracy": null,
+      "injectionResistance": null,
+      "p50LatencyMs": null,
+      "p95LatencyMs": null,
+      "unanswered": 0,
+      "unreachable": true,
+      "missingSuites": [
+        "tool-select",
+        "grounding",
+        "robustness",
+        "injection",
+        "analysis"
+      ],
+      "gateFailure": "Incomplete tier coverage: no routing proposal.",
+      "declarationBlockers": [
+        "Tier-specific measured eligibility must be reconciled before routing this model in this tier."
+      ],
+      "latencyNote": "Not pooled or ranked: earlier fetch-guard timings include quota waits.",
+      "ownerApprovalRequired": true
+    },
+    {
+      "tier": 4,
+      "modelId": "qwen/qwen3.8-27b",
+      "schemaAdherence": null,
+      "toolCallCorrectness": null,
+      "retrievalGrounding": null,
+      "analysisAccuracy": null,
+      "injectionResistance": null,
+      "p50LatencyMs": null,
+      "p95LatencyMs": null,
+      "unanswered": 0,
+      "unreachable": true,
+      "missingSuites": [
+        "document"
+      ],
+      "gateFailure": "Incomplete tier coverage: no routing proposal.",
+      "declarationBlockers": [
+        "No declared capability entry."
+      ],
+      "latencyNote": "Not pooled or ranked: earlier fetch-guard timings include quota waits.",
+      "ownerApprovalRequired": true
+    }
+  ],
+  "rows": [
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-120b",
+      "suite": "parse",
+      "legacyEvidence": "2026-11-02T13-20-02-tier1.json",
+      "total": 40,
+      "retained": 40,
+      "answered": 40,
+      "unanswered": 0,
+      "passed": 35,
+      "status": "complete",
+      "counts": {
+        "answered": 40,
+        "unanswered": 0,
+        "schemaValid": 40,
+        "schemaApplicable": 40,
+        "toolCallValid": 0,
+        "toolCallApplicable": 0
+      }
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-120b",
+      "suite": "classify",
+      "total": 60,
+      "retained": 0,
+      "answered": 0,
+      "unanswered": 0,
+      "passed": 0,
+      "status": "pending"
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-120b",
+      "suite": "tool-select",
+      "total": 30,
+      "retained": 0,
+      "answered": 0,
+      "unanswered": 0,
+      "passed": 0,
+      "status": "pending"
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-120b",
+      "suite": "grounding",
+      "total": 25,
+      "retained": 0,
+      "answered": 0,
+      "unanswered": 0,
+      "passed": 0,
+      "status": "pending"
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-120b",
+      "suite": "robustness",
+      "total": 10,
+      "retained": 0,
+      "answered": 0,
+      "unanswered": 0,
+      "passed": 0,
+      "status": "pending"
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-120b",
+      "suite": "injection",
+      "total": 25,
+      "retained": 0,
+      "answered": 0,
+      "unanswered": 0,
+      "passed": 0,
+      "status": "pending"
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-20b",
+      "suite": "parse",
+      "total": 40,
+      "retained": 0,
+      "answered": 0,
+      "unanswered": 0,
+      "passed": 0,
+      "status": "pending"
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-20b",
+      "suite": "classify",
+      "total": 60,
+      "retained": 0,
+      "answered": 0,
+      "unanswered": 0,
+      "passed": 0,
+      "status": "pending"
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-20b",
+      "suite": "tool-select",
+      "total": 30,
+      "retained": 0,
+      "answered": 0,
+      "unanswered": 0,
+      "passed": 0,
+      "status": "pending"
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-20b",
+      "suite": "grounding",
+      "total": 25,
+      "retained": 0,
+      "answered": 0,
+      "unanswered": 0,
+      "passed": 0,
+      "status": "pending"
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-20b",
+      "suite": "robustness",
+      "total": 10,
+      "retained": 8,
+      "answered": 7,
+      "unanswered": 1,
+      "passed": 3,
+      "status": "partial",
+      "counts": {
+        "answered": 7,
+        "unanswered": 1,
+        "schemaValid": 0,
+        "schemaApplicable": 0,
+        "toolCallValid": 0,
+        "toolCallApplicable": 2
+      },
+      "remainingCaseIds": [
+        "robustness-009",
+        "robustness-010"
+      ]
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-20b",
+      "suite": "injection",
+      "total": 25,
+      "retained": 0,
+      "answered": 0,
+      "unanswered": 0,
+      "passed": 0,
+      "status": "pending"
+    },
+    {
+      "tier": 2,
+      "model": "openai/gpt-oss-120b",
+      "suite": "tool-select",
+      "total": 30,
+      "retained": 0,
+      "answered": 0,
+      "unanswered": 0,
+      "passed": 0,
+      "status": "pending"
+    },
+    {
+      "tier": 2,
+      "model": "openai/gpt-oss-120b",
+      "suite": "grounding",
+      "total": 25,
+      "retained": 0,
+      "answered": 0,
+      "unanswered": 0,
+      "passed": 0,
+      "status": "pending"
+    },
+    {
+      "tier": 2,
+      "model": "openai/gpt-oss-120b",
+      "suite": "robustness",
+      "total": 10,
+      "retained": 0,
+      "answered": 0,
+      "unanswered": 0,
+      "passed": 0,
+      "status": "pending"
+    },
+    {
+      "tier": 2,
+      "model": "openai/gpt-oss-120b",
+      "suite": "injection",
+      "total": 25,
+      "retained": 0,
+      "answered": 0,
+      "unanswered": 0,
+      "passed": 0,
+      "status": "pending"
+    },
+    {
+      "tier": 2,
+      "model": "openai/gpt-oss-120b",
+      "suite": "analysis",
+      "total": 15,
+      "retained": 0,
+      "answered": 0,
+      "unanswered": 0,
+      "passed": 0,
+      "status": "pending"
+    },
+    {
+      "tier": 3,
+      "model": "openai/gpt-oss-120b",
+      "suite": "tool-select",
+      "total": 30,
+      "retained": 0,
+      "answered": 0,
+      "unanswered": 0,
+      "passed": 0,
+      "status": "pending"
+    },
+    {
+      "tier": 3,
+      "model": "openai/gpt-oss-120b",
+      "suite": "grounding",
+      "total": 25,
+      "retained": 0,
+      "answered": 0,
+      "unanswered": 0,
+      "passed": 0,
+      "status": "pending"
+    },
+    {
+      "tier": 3,
+      "model": "openai/gpt-oss-120b",
+      "suite": "robustness",
+      "total": 10,
+      "retained": 0,
+      "answered": 0,
+      "unanswered": 0,
+      "passed": 0,
+      "status": "pending"
+    },
+    {
+      "tier": 3,
+      "model": "openai/gpt-oss-120b",
+      "suite": "injection",
+      "total": 25,
+      "retained": 0,
+      "answered": 0,
+      "unanswered": 0,
+      "passed": 0,
+      "status": "pending"
+    },
+    {
+      "tier": 3,
+      "model": "openai/gpt-oss-120b",
+      "suite": "analysis",
+      "total": 15,
+      "retained": 0,
+      "answered": 0,
+      "unanswered": 0,
+      "passed": 0,
+      "status": "pending"
+    },
+    {
+      "tier": 4,
+      "model": "qwen/qwen3.8-27b",
+      "suite": "document",
+      "total": 20,
+      "retained": 0,
+      "answered": 0,
+      "unanswered": 0,
+      "passed": 0,
+      "status": "pending"
+    }
+  ]
+}

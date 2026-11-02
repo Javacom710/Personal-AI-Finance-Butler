@@ -89,3 +89,31 @@ Carry is kept separately from native usage, so it cannot be imported again as fr
 The existing evaluator, budget helper and all AI source files were left unchanged, and the saved 8-case robustness fingerprint was recomputed successfully. New code lives outside those fingerprint inputs. Tests cover midnight rollover, 24-hour expiry, double-count prevention, preservation of current usage, unknown/crash reservations, malformed ledgers and a two-invocation offline CLI test with fetch denied. Automation remains paused; no new live results were recorded or tier orders changed.
 
 Validation for the rolling-window wrapper: **1,958 unit tests**, typecheck, lint, production build and client-secret scan pass. On a fresh day with imported calls, the wrapper also allows the preceding minute bucket to refill before invoking the evaluator; check-only performs no wait or provider call.
+
+## Finite batch coordinator
+
+The primary entry point is now **`npm run ai:measure:groq`**. It reads the fixed [23-entry plan](../groq-measurement-plan.json), validates the retained evidence and generates a [consolidated progress/readiness report](../groq-workflow-progress.md) plus [JSON](../groq-workflow-progress.json).
+
+```sh
+# Offline: validate evidence and refresh current progress/readiness.
+npm run ai:measure:groq -- --status
+
+# Offline: recover reports after all cases were checkpointed but report writing failed.
+npm run ai:measure:groq -- --finalize
+
+# Live, only when quota permits: execute the complete remaining queue.
+AI_API_KEY="$Authorization_Groq" NODE_USE_ENV_PROXY=1 \
+  npm run ai:measure:groq -- --run
+```
+
+The batch command finalizes completed reports first, resumes partial suites next, then starts pending suites. It keeps going after each successful suite, skipping completed coverage. A partial/no-progress stop, child failure or provider quota/auth/server failure stops the queue without retrying or discarding evidence. The queue has a finite bound: at most one successful completion per planned suite entry in an invocation. A second workflow lock prevents overlapping coordinators; signals are forwarded through the wrapper to the evaluator. Inspect a lock's PID before any stale-lock cleanup.
+
+Evidence validation checks endpoint, source fingerprint, model, tier, profile, suite version, production budget, exact case IDs, duplicate IDs, full report coverage and agreement between reports and retained scores. Unreferenced loose reports, partial `--limit` runs and stale/foreign evidence cannot silently satisfy the plan. The original 120B parse report is an explicit legacy reference in the fixed plan. Source-bound checkpoints are required for subsequent evidence.
+
+Offline finalization uses the original harness aggregation and proposal helpers without a provider call or rescoring. A regression test compares recovered model summaries/exclusions directly with the ordinary live runner fed a fake provider. Other tests cover positive and negative evidence validation, full-queue completion, partial/no-progress stops, HTTP 429, child failure, lost evidence, exact-count quality aggregation and declaration gaps. Quality failures remain visible; coverage completion is not a passing quality claim.
+
+The consolidated JSON separates per-candidate missing suites, unchanged numeric gate failures and declaration/tier support gaps. It does not pool or rank the earlier contaminated latency measurements. It never records live results or accepts tier orders. The static `remaining-work.json`/`.md` files are historical snapshots; the generated workflow progress files are the current overview.
+
+Both offline modes were executed with fetch blocked. They retained **48/610** case results and left the real quota ledger and 8-case checkpoint SHA-256 hashes unchanged. No live model call was made during this development. The one-time continuation on **3 November at approximately 21:30 IST** now uses the batch coordinator; the former recurring schedule remains paused.
+
+Full coordinator validation: **1,989 unit tests** (31 workflow cases), typecheck, lint, production build, client-secret scan and whitespace checks pass. The complete measurement suite has not run yet; live model evidence remains quota-limited and must be completed before accepting a lineup.

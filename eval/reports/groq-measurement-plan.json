@@ -1,0 +1,122 @@
+{
+  "formatVersion": 1,
+  "providerIdentity": "https://api.groq.com/openai/v1",
+  "rows": [
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-120b",
+      "suite": "parse",
+      "legacyEvidence": "2026-11-02T13-20-02-tier1.json"
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-120b",
+      "suite": "classify"
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-120b",
+      "suite": "tool-select"
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-120b",
+      "suite": "grounding"
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-120b",
+      "suite": "robustness"
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-120b",
+      "suite": "injection"
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-20b",
+      "suite": "parse"
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-20b",
+      "suite": "classify"
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-20b",
+      "suite": "tool-select"
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-20b",
+      "suite": "grounding"
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-20b",
+      "suite": "robustness"
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-20b",
+      "suite": "injection"
+    },
+    {
+      "tier": 2,
+      "model": "openai/gpt-oss-120b",
+      "suite": "tool-select"
+    },
+    {
+      "tier": 2,
+      "model": "openai/gpt-oss-120b",
+      "suite": "grounding"
+    },
+    {
+      "tier": 2,
+      "model": "openai/gpt-oss-120b",
+      "suite": "robustness"
+    },
+    {
+      "tier": 2,
+      "model": "openai/gpt-oss-120b",
+      "suite": "injection"
+    },
+    {
+      "tier": 2,
+      "model": "openai/gpt-oss-120b",
+      "suite": "analysis"
+    },
+    {
+      "tier": 3,
+      "model": "openai/gpt-oss-120b",
+      "suite": "tool-select"
+    },
+    {
+      "tier": 3,
+      "model": "openai/gpt-oss-120b",
+      "suite": "grounding"
+    },
+    {
+      "tier": 3,
+      "model": "openai/gpt-oss-120b",
+      "suite": "robustness"
+    },
+    {
+      "tier": 3,
+      "model": "openai/gpt-oss-120b",
+      "suite": "injection"
+    },
+    {
+      "tier": 3,
+      "model": "openai/gpt-oss-120b",
+      "suite": "analysis"
+    },
+    {
+      "tier": 4,
+      "model": "qwen/qwen3.8-27b",
+      "suite": "document"
+    }
+  ]
+}
