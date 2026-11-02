@@ -1,0 +1,21 @@
+{
+  "providerIdentity": "https://api.groq.com/openai/v1",
+  "chatRequestsIncludingReachability": 65,
+  "conservativeTokenReserve": 148382,
+  "providerReportedTokens": 80798,
+  "unknownUsageErrors": 8,
+  "unknownUsageErrorReserve": 65536,
+  "reachabilityTokenReserve": 2048,
+  "httpStatuses": {
+    "200": 50,
+    "400": 8
+  },
+  "note": "Provider-reported tokens exclude responses without usage and reachability. Conservative reserve is not billed usage. No 429 was observed. No live results were stored.",
+  "parseCheckpoint": {
+    "requests": 40,
+    "providerReportedTokens": 64251,
+    "serverReportedP50Ms": 1463.476133,
+    "serverReportedP95Ms": 2157.880803,
+    "latencyNote": "These are Groq usage.total_time (server queue + inference), excluding client network time and quota waits. The standard report includes fetch-guard waits; do not compare its latency to unguarded runs."
+  }
+}

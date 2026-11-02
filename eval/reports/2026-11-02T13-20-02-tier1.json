@@ -1,0 +1,67 @@
+{
+  "tier": 1,
+  "requestIntervalMs": 3000,
+  "requestTimeoutMs": 60000,
+  "startedAt": "2026-11-02T13:20:02.356Z",
+  "limit": null,
+  "suiteVersions": {
+    "parse": 2
+  },
+  "models": [
+    {
+      "modelId": "openai/gpt-oss-120b",
+      "suites": [
+        {
+          "finishReasons": {
+            "stop": 40
+          },
+          "maxTokens": 1024,
+          "suite": "parse",
+          "version": 2,
+          "passed": 35,
+          "total": 40,
+          "failedCases": [
+            "parse-021",
+            "parse-025",
+            "parse-029",
+            "parse-032",
+            "parse-035"
+          ],
+          "errors": {},
+          "counts": {
+            "answered": 40,
+            "unanswered": 0,
+            "schemaValid": 40,
+            "schemaApplicable": 40,
+            "toolCallValid": 0,
+            "toolCallApplicable": 0
+          },
+          "p50LatencyMs": 16275,
+          "p95LatencyMs": 17451
+        }
+      ],
+      "schemaAdherence": 1,
+      "toolCallCorrectness": null,
+      "retrievalGrounding": null,
+      "analysisAccuracy": null,
+      "injectionResistance": null,
+      "p50LatencyMs": 16275,
+      "p95LatencyMs": 17451,
+      "unreachable": false,
+      "unanswered": 0,
+      "requestProfile": {
+        "id": "default-v1",
+        "fingerprint": "{\"id\":\"default-v1\",\"reasoning\":\"provider_default\"}"
+      }
+    }
+  ],
+  "proposedOrder": [],
+  "excluded": [
+    {
+      "modelId": "openai/gpt-oss-120b",
+      "reason": "not measured on every Tier 1 suite (missing: classify, tool-select, grounding, robustness, injection)"
+    }
+  ],
+  "caveats": [],
+  "providerIdentity": "https://api.groq.com/openai/v1"
+}

@@ -8,6 +8,12 @@ Provider: `https://api.groq.com/openai/v1`. Base: merged PR #37 (`faa20f9`). All
 
 Groq's [vision documentation](https://console.groq.com/docs/vision) identifies `qwen/qwen3.8-27b` as a multimodal model; the authenticated catalogue includes it. It accepted image requests in the unchanged Tier 4 document suite: 3 HTTP 200 responses in the interrupted attempt. Eight other cases returned HTTP 400 `json_validate_failed`. No prompt or schema adjustment was attempted. A successful HTTP response alone establishes neither correct extraction nor production eligibility.
 
+## Completed suite checkpoint — still partial Tier 1 coverage
+
+[`2026-11-02T13-20-02-tier1.md`](../2026-11-02T13-20-02-tier1.md) and its JSON contain the full 40-case **parse v2** suite for `openai/gpt-oss-120b`: **35/40 correct**, **40/40 schema-valid**, **0 unanswered**, and **40 stop finishes** at the unchanged 1,024-token production budget/default profile. Failures: `parse-021`, `parse-025`, `parse-029`, `parse-032`, `parse-035`. Command: `npm run ai:eval -- --tier 1 --suite parse --model openai/gpt-oss-120b --interval-ms 3000 --no-record`.
+
+The report proposes nothing because classify, tool-select, grounding, robustness and injection are missing. 35/40 is extraction accuracy; it must not be conflated with the schema gate. The latency caveat below applies. `daily-usage-summary.json` separately preserves provider-reported server latency and final conservative token accounting. Do not repeat this completed parse suite merely to finish the remaining Tier 1 suites.
+
 ## Interrupted attempts — never use for routing
 
 - Requested full Tier 1 command: `npm run ai:eval -- --tier 1 --model openai/gpt-oss-120b,openai/gpt-oss-20b --interval-ms 3000 --no-record`. Seven completed 120B requests appear in the journal. Paused and terminated before completing `parse`, when response headers showed only 110 tokens remaining in the minute bucket. No suite score/report was produced. The 20B run did not begin.
@@ -28,7 +34,7 @@ The temporary fetch guard's waits are inside the adapter's latency timer. Any re
 
 | Tier | Proposed accepted order now | Reason / remaining measurement |
 |---|---|---|
-| 1 | None yet | Complete all six suites for both 120B and 20B before comparing or approving an order. Existing declared defaults are unchanged. |
+| 1 | None yet | 120B parse is complete; finish its other five suites and all six 20B suites before comparing or approving an order. Existing declared defaults are unchanged. |
 | 2 | `[]` | Keep closed; 120B needs its own five suites and tier-specific eligibility before acceptance. |
 | 3 | `[]` | Keep closed; independently measure its five suites at Tier 3 budgets. |
 | 4 | `[]` | Keep closed; complete the Qwen document suite and verify its declared support before any proposal. |
@@ -44,3 +50,5 @@ New reports carry a normalized endpoint identity (scheme, host, port and base pa
 Provider provenance: 1,949 unit tests and 8 targeted PostgreSQL 17 integration tests pass; typecheck, lint, production build, client-secret scan and diff whitespace checks pass. The config, capability declarations, prompts, golden tasks, score module and harness are unchanged from merged #37.
 
 Continuation is scheduled daily at 20:00 Asia/Calcutta starting 2026-11-03 (maximum 14 occurrences), in the context of draft PR #38. It must stop at owner approval or an environment/access blocker and never merge the PR. Completed per-suite evidence must be retained across windows; this schedule is not evidence that any remaining run has completed.
+
+Final daily checkpoint: 65 chat requests including reachability; 148,382 conservative reserved tokens (not billed usage). Future quota windows must retain the completed parse report.
