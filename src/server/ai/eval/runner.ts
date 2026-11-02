@@ -211,6 +211,8 @@ export interface ModelResult {
 }
 
 export interface EvalRun {
+  /** Endpoint used by the live script; missing legacy provenance cannot be stored. */
+  readonly providerIdentity?: string;
   readonly requestIntervalMs?: number;
   readonly requestTimeoutMs?: number;
   readonly tier: Tier;
@@ -488,6 +490,7 @@ export function renderEvalReport(run: EvalRun): string {
     '',
     `Run ${run.startedAt}. Suites: ${suites.map((s) => `${s} v${run.suiteVersions[s]}`).join(', ')}.`,
   ];
+  lines.push('', `Provider endpoint: ${run.providerIdentity ?? 'not recorded (legacy report)'}.`);
   lines.push('', `Request timeout: ${run.requestTimeoutMs ?? 'not recorded'} ms. Output-token budgets: ${suites.map((suite) => `${suite}: ${run.models[0]?.suites.find((s) => s.suite === suite)?.maxTokens ?? 'not recorded'}`).join(', ')}.`);
   lines.push('', `Minimum request interval: ${run.requestIntervalMs ?? 'not recorded'} ms (evaluation scheduling only).`, '', 'Request profiles:');
   for (const m of run.models) {

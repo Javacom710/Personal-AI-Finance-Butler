@@ -29,7 +29,7 @@ import { aiProviderSettings, env, loadDotEnv } from '../src/lib/env';
 import { resolveModelConfig } from '../src/server/ai/config/models';
 import { createNvidiaProvider } from '../src/server/ai/provider/nvidia-build';
 import { modelsFor, parseEvalArgs, renderEvalReport, runEvaluation } from '../src/server/ai/eval/runner';
-import { recordEvaluationRun } from '../src/server/ai-evaluations';
+import { evaluationProviderIdentity, recordEvaluationRun } from '../src/server/ai-evaluations';
 import { closeDb } from '../src/server/db/client';
 
 async function main(): Promise<void> {
@@ -68,7 +68,7 @@ async function main(): Promise<void> {
     defaultTimeoutMs: e.AI_REQUEST_TIMEOUT_MS,
   });
 
-  const run = await runEvaluation({
+  const measured = await runEvaluation({
     provider,
     args,
     models,
@@ -76,6 +76,7 @@ async function main(): Promise<void> {
     log: (line) => console.log(`  ${line}`),
   });
 
+  const run = { ...measured, providerIdentity: evaluationProviderIdentity(ai.baseUrl) };
   const dir = path.resolve('eval/reports');
   await mkdir(dir, { recursive: true });
   // The run's own timestamp, to the second, so a later run on the same day —

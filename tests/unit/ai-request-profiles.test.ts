@@ -4,7 +4,7 @@ import { DEFAULT_REQUEST_PROFILE as DEFAULT, THINKING_DISABLED_PROFILE as DISABL
 import { resolveModelConfig } from '@/server/ai/config/models';
 import { createCapabilityMatrix, DECLARED_CAPABILITIES, type ModelCapabilities } from '@/server/ai/config/capabilities';
 import { createNvidiaProvider, type FetchLike } from '@/server/ai/provider/nvidia-build';
-import { capabilitiesFromEvaluations, type StoredEvaluation } from '@/server/ai-evaluations';
+import { capabilitiesFromEvaluations as convertEvaluations, type StoredEvaluation } from '@/server/ai-evaluations';
 import { MODEL_SUITES, TIER_SUITES, parseEvalArgs, runEvaluation } from '@/server/ai/eval/runner';
 import { createOrchestrator } from '@/server/ai/orchestrator';
 import { selectCandidates } from '@/server/ai/orchestrator/select';
@@ -13,6 +13,10 @@ import { createHealthRegistry } from '@/server/ai/orchestrator/breaker';
 import { rateLimited } from '@/server/ai/errors';
 import { meterProvider } from '@/server/ai-runtime';
 import type { AiProvider } from '@/server/ai/provider/types';
+
+const PROVIDER = 'https://api.groq.com/openai/v1';
+const capabilitiesFromEvaluations = (...args: Parameters<typeof convertEvaluations>) =>
+  convertEvaluations(args[0], args[1], args[2], PROVIDER);
 
 const MODEL = 'nvidia/nemotron-3.5-lightning-30b-a3b';
 const profiles = resolveRequestProfiles(JSON.stringify({ [MODEL]: DISABLED.id }));
@@ -29,7 +33,7 @@ function rows(identity = requestProfileIdentity(DISABLED)): StoredEvaluation[] {
     return {
       model: MODEL, suite, evalVersion: MODEL_SUITES[suite].version, casesPassed: total,
       p50LatencyMs: 7, p95LatencyMs: 9, runAt: NOW,
-      detail: { requestProfile: identity, answered: total, unanswered: 0, schemaValid: schema ? total : 0,
+      detail: { providerIdentity: PROVIDER, requestProfile: identity, answered: total, unanswered: 0, schemaValid: schema ? total : 0,
         schemaApplicable: schema ? total : 0, toolCallValid: tools ? total : 0, toolCallApplicable: tools ? total : 0, failedCases: [], errors: {} },
     };
   });

@@ -28,11 +28,19 @@ import { db } from './db/client';
 import { aiModelEvaluations } from './db/schema';
 import { DECLARED_CAPABILITIES, type ModelCapabilities } from './ai/config/capabilities';
 import { MODEL_SUITES, TIER_SUITES, type EvalRun, type ModelSuite, type SuiteCounts } from './ai/eval/runner';
-import { env } from '../lib/env';
+import { aiProviderSettings, env } from '../lib/env';
 import { DEFAULT_REQUEST_PROFILE, matchesRequestProfile, requestProfileById, requestProfileIdentity, resolveRequestProfiles, type RequestProfileIdentity, type RequestProfiles } from './ai/config/request-profiles';
+
+/** Endpoint identity excludes credentials, query parameters and fragments. */
+export function evaluationProviderIdentity(baseUrl: string): string {
+  const url = new URL(baseUrl);
+  if (!['https:', 'http:'].includes(url.protocol)) throw new Error('Invalid evaluation provider endpoint.');
+  return `${url.origin}${url.pathname.replace(/\/+$/, '')}`;
+}
 
 /** What a stored row keeps beyond its columns: counts and case ids, never output. */
 export interface EvaluationDetail extends SuiteCounts {
+  readonly providerIdentity?: string;
   readonly requestProfile?: RequestProfileIdentity;
   readonly finishReasons?: Readonly<Record<string, number>>;
   readonly maxTokens?: number;
@@ -47,11 +55,14 @@ export interface EvaluationDetail extends SuiteCounts {
  */
 export async function recordEvaluationRun(run: EvalRun): Promise<number> {
   if (run.limit !== null) throw new Error('A partial run (--limit) is a wire check and is never stored.');
+  const providerIdentity = evaluationProviderIdentity(aiProviderSettings(env()).baseUrl);
+  if (run.providerIdentity !== providerIdentity) throw new Error('Missing or mismatched evaluation provider provenance.');
   const rows = run.models.flatMap((m) =>
     m.suites.map((s) => {
       const profile = requestProfileById(m.modelId, m.requestProfile?.id ?? DEFAULT_REQUEST_PROFILE.id);
       if (!matchesRequestProfile(m.requestProfile, profile)) throw new Error('Invalid evaluation request-profile provenance.');
       const detail: EvaluationDetail = {
+        providerIdentity,
         requestProfile: requestProfileIdentity(profile),
         ...s.counts,
         failedCases: s.failedCases,
@@ -92,8 +103,9 @@ export interface StoredEvaluation {
   readonly runAt: Date;
 }
 
-/** The latest stored row for each model, suite and profile; other profiles cannot shadow it. */
+/** Latest rows for the active endpoint; foreign/legacy rows cannot shadow its profiles. */
 export async function latestEvaluations(): Promise<readonly StoredEvaluation[]> {
+  const providerIdentity = evaluationProviderIdentity(aiProviderSettings(env()).baseUrl);
   const { rows } = await db().execute<{
     model: string;
     suite: string;
@@ -107,6 +119,7 @@ export async function latestEvaluations(): Promise<readonly StoredEvaluation[]> 
     select distinct on (model, suite, detail->'requestProfile')
            model, suite, eval_version, cases_passed, p50_latency_ms, p95_latency_ms, detail, run_at
       from ${aiModelEvaluations}
+     where detail->>'providerIdentity' = ${providerIdentity}
      order by model, suite, detail->'requestProfile', run_at desc
   `);
   return rows.map((r) => ({
@@ -136,9 +149,14 @@ export function capabilitiesFromEvaluations(
   rows: readonly StoredEvaluation[],
   declared: Readonly<Record<string, ModelCapabilities>> = DECLARED_CAPABILITIES,
   profiles: RequestProfiles = resolveRequestProfiles(),
+  providerIdentity?: string,
 ): Record<string, ModelCapabilities> {
   const byModel = new Map<string, StoredEvaluation[]>();
-  for (const row of rows) byModel.set(row.model, [...(byModel.get(row.model) ?? []), row]);
+  if (!providerIdentity) return {};
+  for (const row of rows) {
+    if (row.detail.providerIdentity !== providerIdentity) continue;
+    byModel.set(row.model, [...(byModel.get(row.model) ?? []), row]);
+  }
 
   const measured: Record<string, ModelCapabilities> = {};
   for (const [model, modelRows] of byModel) {
@@ -187,5 +205,5 @@ export function capabilitiesFromEvaluations(
 
 /** The measured entries from the database. */
 export async function measuredCapabilities(): Promise<Record<string, ModelCapabilities>> {
-  return capabilitiesFromEvaluations(await latestEvaluations(), DECLARED_CAPABILITIES, resolveRequestProfiles(env().AI_REQUEST_PROFILES));
+  return capabilitiesFromEvaluations(await latestEvaluations(), DECLARED_CAPABILITIES, resolveRequestProfiles(env().AI_REQUEST_PROFILES), evaluationProviderIdentity(aiProviderSettings(env()).baseUrl));
 }

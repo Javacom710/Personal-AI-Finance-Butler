@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { latestEvaluations, measuredCapabilities, recordEvaluationRun } from '@/server/ai-evaluations';
+import { evaluationProviderIdentity, latestEvaluations, measuredCapabilities, recordEvaluationRun } from '@/server/ai-evaluations';
 import { aiRuntime, loadMeasuredCapabilities, resetAiRuntime } from '@/server/ai-runtime';
 import { DEFAULT_REQUEST_PROFILE, THINKING_DISABLED_PROFILE, requestProfileIdentity } from '@/server/ai/config/request-profiles';
 import { MODEL_SUITES, TIER_SUITES, type EvalRun, type ModelSuite } from '@/server/ai/eval/runner';
@@ -13,6 +13,8 @@ import { rawSql, closeMoneyHarness } from './money-harness';
  * per model and suite are read back, and the runtime loads them as measured
  * capability entries. No provider is called: the run is built here.
  */
+
+import { aiProviderSettings, env } from '@/lib/env';
 
 const MODEL = 'nvidia/nemotron-3-super-120b-a12b';
 
@@ -39,6 +41,7 @@ function run(startedAt: string, passed: number, limit: number | null = null): Ev
     counts: { answered: 10, unanswered: 0, schemaValid: 0, schemaApplicable: 0, toolCallValid: passed, toolCallApplicable: 10 },
   }));
   return {
+    providerIdentity: evaluationProviderIdentity(aiProviderSettings(env()).baseUrl),
     tier: 2,
     requestTimeoutMs: 45000,
     startedAt,
@@ -134,5 +137,30 @@ describe('ai_model_evaluations', () => {
     const forged = withProfile(THINKING_DISABLED_PROFILE, '2026-11-02T10:00:00Z');
     await expect(recordEvaluationRun({ ...forged, models: forged.models.map(m => ({ ...m, requestProfile: { id: THINKING_DISABLED_PROFILE.id, fingerprint: 'forged' } })) })).rejects.toThrow(/provenance/);
     expect((await latestEvaluations()).filter(r => r.model === model)).toHaveLength(latest.length);
+  });
+});
+
+describe('stored provider provenance', () => {
+  it('rejects unlabelled and foreign runs before inserting rows', async () => {
+    const source = run('2026-11-02T12:00:00Z', 10);
+    await expect(recordEvaluationRun({ ...source, providerIdentity: undefined })).rejects.toThrow(/provider provenance/);
+    await expect(recordEvaluationRun({ ...source, providerIdentity: 'https://other.invalid/v1' })).rejects.toThrow(/provider provenance/);
+  });
+
+  it('foreign and unlabelled newer rows cannot shadow this provider', async () => {
+    const source = run('2026-11-02T12:00:00Z', 10);
+    await recordEvaluationRun(source);
+    await rawSql(`insert into ai_model_evaluations (model, tier, eval_version, suite, cases_total, cases_passed, score, detail, run_at)
+      select model, tier, eval_version, suite, cases_total, 0, 0,
+             jsonb_set(detail, '{providerIdentity}', '"https://other.invalid/v1"'::jsonb), '2026-11-03T00:00:00Z'
+      from ai_model_evaluations where model = '${MODEL}' and run_at = '2026-11-02T12:00:00Z'`);
+    await rawSql(`insert into ai_model_evaluations (model, tier, eval_version, suite, cases_total, cases_passed, score, detail, run_at)
+      select model, tier, eval_version, suite, cases_total, 0, 0,
+             detail - 'providerIdentity', '2026-11-04T00:00:00Z'
+      from ai_model_evaluations where model = '${MODEL}' and run_at = '2026-11-02T12:00:00Z'`);
+    const latest = (await latestEvaluations()).filter(r => r.model === MODEL);
+    expect(latest).toHaveLength(TIER_SUITES[2].length);
+    expect(latest.every(r => r.casesPassed === 10 && r.detail.providerIdentity === source.providerIdentity)).toBe(true);
+    expect((await measuredCapabilities())[MODEL]?.scores?.toolCallCorrectness).toBe(1);
   });
 });
