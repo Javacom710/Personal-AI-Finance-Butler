@@ -1,0 +1,44 @@
+{
+  "note": "Bounded minimal reachability probes, not capability measurements. No tools, schema or real financial data. Default request profile, maxTokens=16, timeout=45000. No raw content/reasoning retained.",
+  "results": [
+    {
+      "model": "nvidia/nemotron-3-super-120b-a12b",
+      "startedAt": "2026-11-02T07:34:50.641Z",
+      "elapsedMs": 108,
+      "reached": false,
+      "failureKind": "transport",
+      "status": 404
+    },
+    {
+      "model": "nvidia/nemotron-nano-3-30b-a3b",
+      "startedAt": "2026-11-02T07:34:50.749Z",
+      "elapsedMs": 73,
+      "reached": false,
+      "failureKind": "transport",
+      "status": 404
+    },
+    {
+      "model": "openai/gpt-oss-20b",
+      "startedAt": "2026-11-02T07:34:50.822Z",
+      "elapsedMs": 3128,
+      "reached": true,
+      "finishReason": "length"
+    },
+    {
+      "model": "deepseek-ai/deepseek-v4.1-flash",
+      "startedAt": "2026-11-02T07:34:53.950Z",
+      "elapsedMs": 45002,
+      "reached": false,
+      "failureKind": "timeout",
+      "status": null
+    },
+    {
+      "model": "z-ai/glm-5.3-flash",
+      "startedAt": "2026-11-02T07:35:38.952Z",
+      "elapsedMs": 45002,
+      "reached": false,
+      "failureKind": "timeout",
+      "status": null
+    }
+  ]
+}
