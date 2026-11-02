@@ -252,7 +252,7 @@ function ratio(values: readonly (boolean | null)[]): number | null {
  */
 const UNANSWERED = new Set(['transport', 'timeout', 'rate_limited', 'unauthorized', 'not_configured']);
 
-function countsOf(report: ModelReport): SuiteCounts {
+export function countsOf(report: ModelReport): SuiteCounts {
   const scored = report.cases.filter((c) => c.errorClass === null || !UNANSWERED.has(c.errorClass));
   return {
     answered: scored.length,
@@ -264,7 +264,7 @@ function countsOf(report: ModelReport): SuiteCounts {
   };
 }
 
-function summarise(modelId: string, suites: readonly SuiteResult[]): ModelResult {
+export function summarise(modelId: string, suites: readonly SuiteResult[]): ModelResult {
   const cases = suites.flatMap((s) => s.report.cases);
   const scored = cases.filter((c) => c.errorClass === null || !UNANSWERED.has(c.errorClass));
   const answered = cases.filter((c) => c.errorClass === null);
