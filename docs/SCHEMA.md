@@ -896,6 +896,9 @@ CREATE TABLE ai_tool_calls (
   created_at  timestamptz NOT NULL DEFAULT now()
 );
 
+-- Phase 9 first slice implements transaction proposals only; conversation and
+-- other-kind columns are deferred. See PHASE9-TRANSACTION-ENTRY.md for the
+-- implemented subset and its deferred audit/linkage guards.
 CREATE TABLE ai_proposals (
   id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id           uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
