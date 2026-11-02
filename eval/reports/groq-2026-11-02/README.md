@@ -49,7 +49,7 @@ New reports carry a normalized endpoint identity (scheme, host, port and base pa
 
 Provider provenance: 1,949 unit tests and 8 targeted PostgreSQL 17 integration tests pass; typecheck, lint, production build, client-secret scan and diff whitespace checks pass. The config, capability declarations, prompts, golden tasks, score module and harness are unchanged from merged #37.
 
-Continuation is scheduled daily at 20:00 Asia/Calcutta starting 2026-11-03 (maximum 14 occurrences), in the context of draft PR #38. It must stop at owner approval or an environment/access blocker and never merge the PR. Completed per-suite evidence must be retained across windows; this schedule is not evidence that any remaining run has completed.
+The earlier daily automation (14-occurrence cap) is **paused as of 2026-11-02 15:22 UTC**. No automatic runs occur while paused. Completed evidence is retained independently of the schedule. See the [finite remaining-work checklist](remaining-work.md): 610 planned cases, 48 retained results, 562 not yet attempted in usable evidence. No passing outcome is required from an unsuitable model; report its failure and exclude it under the unchanged gates.
 
 Final daily checkpoint: 65 chat requests including reachability; 148,382 conservative reserved tokens (not billed usage). Future quota windows must retain the completed parse report.
 
@@ -76,4 +76,6 @@ The CLI reserves UTF-8 text bytes, tool-envelope overhead, image tokens and the 
 
 Verified a second invocation at the reserve stop issued **zero requests** and left both ledger and score-checkpoint SHA-256 hashes unchanged. Tests confirm batch and checkpoint aggregation agree and that image base64 bytes are not counted as tokens. All **1,952 unit tests**, typecheck, lint, production build and client-secret scan pass. The prior eight targeted integration tests and PostgreSQL 17/18 CI were green before this continuation; latest-push CI is reported separately by GitHub.
 
-The scheduled continuation has been updated to resume only cases 009/010, preserve the completed 120B parse report, and account for current usage before any additional suite. No accepted tier order is proposed yet.
+The automation is paused. Its retained resume instructions cover only cases 009/010 next, preserve the completed 120B parse report, and require quota accounting before any additional suite. No accepted tier order is proposed yet.
+
+The finite checklist was generated and validated offline against the current suite versions and retained case IDs. No source file, scored checkpoint, prompt or gate changed, and no additional provider request was made when pausing the automation.
