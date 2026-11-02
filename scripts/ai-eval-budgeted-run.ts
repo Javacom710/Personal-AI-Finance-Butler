@@ -45,6 +45,10 @@ async function main(): Promise<void> {
     console.log('Waiting 60 seconds for the preceding minute bucket before starting.');
     await new Promise(resolve => setTimeout(resolve, 60_000));
   }
+  if (new Date().toISOString().slice(0, 10) !== ledger.day) {
+    console.log('Date changed during preflight; evaluator not launched. Run preflight again.');
+    return;
+  }
   const child = spawn(process.execPath, ['--conditions=react-server', '--import', 'tsx', 'scripts/ai-eval-budgeted.ts', ...process.argv.slice(2)], { stdio: 'inherit' });
   const result = await new Promise<number>((resolve, reject) => {
     child.once('error', reject);
