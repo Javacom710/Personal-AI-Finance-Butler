@@ -1,0 +1,102 @@
+{
+  "experimental": true,
+  "productionCompatible": false,
+  "sourceCommit": "fe176a1fda4ecc0c8f4fd8ac1b9da233c45b4e95",
+  "reference": "https://build.nvidia.com/nvidia/nemotron-3.5-lightning-30b-a3b/modelcard",
+  "requestOverrides": {
+    "chat_template_kwargs": {
+      "enable_thinking": false
+    }
+  },
+  "note": "Fixed first three cases of each suite. Never stored or proposed for routing; no production request behavior changed.",
+  "run": {
+    "tier": 1,
+    "requestTimeoutMs": 45000,
+    "startedAt": "2026-11-02T06:28:03.927Z",
+    "limit": 3,
+    "suiteVersions": {
+      "parse": 2,
+      "classify": 2
+    },
+    "models": [
+      {
+        "modelId": "nvidia/nemotron-3.5-lightning-30b-a3b",
+        "suites": [
+          {
+            "finishReasons": {
+              "stop": 3
+            },
+            "maxTokens": 1024,
+            "suite": "parse",
+            "version": 2,
+            "passed": 3,
+            "total": 3,
+            "failedCases": [],
+            "errors": {},
+            "counts": {
+              "answered": 3,
+              "unanswered": 0,
+              "schemaValid": 3,
+              "schemaApplicable": 3,
+              "toolCallValid": 0,
+              "toolCallApplicable": 0
+            },
+            "p50LatencyMs": 3540,
+            "p95LatencyMs": 6901
+          },
+          {
+            "finishReasons": {
+              "stop": 3
+            },
+            "maxTokens": 512,
+            "suite": "classify",
+            "version": 2,
+            "passed": 3,
+            "total": 3,
+            "failedCases": [],
+            "errors": {},
+            "counts": {
+              "answered": 3,
+              "unanswered": 0,
+              "schemaValid": 3,
+              "schemaApplicable": 3,
+              "toolCallValid": 0,
+              "toolCallApplicable": 0
+            },
+            "p50LatencyMs": 568,
+            "p95LatencyMs": 865
+          }
+        ],
+        "schemaAdherence": 1,
+        "toolCallCorrectness": null,
+        "retrievalGrounding": null,
+        "analysisAccuracy": null,
+        "injectionResistance": null,
+        "p50LatencyMs": 2696,
+        "p95LatencyMs": 6901,
+        "unreachable": false,
+        "unanswered": 0
+      }
+    ],
+    "proposedOrder": [],
+    "excluded": [
+      {
+        "modelId": "nvidia/nemotron-3.5-lightning-30b-a3b",
+        "reason": "partial run (--limit 3): a wire check, not a measurement"
+      }
+    ],
+    "caveats": []
+  },
+  "selectedCaseIds": {
+    "parse": [
+      "parse-001",
+      "parse-002",
+      "parse-003"
+    ],
+    "classify": [
+      "classify-001",
+      "classify-002",
+      "classify-003"
+    ]
+  }
+}
