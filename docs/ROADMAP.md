@@ -405,6 +405,7 @@ product/UI work item scheduled with the Phase 9 UX pass. It does not block Phase
   - *Progress:* ✅ built — migration `0006`, `src/server/ai-evaluations.ts`, loaded at server start. No database rows recorded yet: the first Tier 4 runs used `--no-record`; their Markdown/JSON reports are checked in.
 - Select production routing order per tier
   - Experimental Lightning thinking-disabled probe (2026-11-02): first three parse and first three classify cases passed at unchanged production budgets. This six-case profile experiment is not a qualified routing measurement; production requests and model orders remain unchanged.
+  - Expanded experimental Tier 1 attempt: all 190 cases selected, 66 unanswered (63 rate limits, 3 timeouts). Answered structured cases were schema-valid (69/69), but exact parsing was 26/40 and answered-only tool correctness was 20/25 (0.80, injection only; tool-select was entirely rate-limited). No promotion/storage. [Request-profile contract proposal](../eval/experiments/REQUEST-PROFILE-PROPOSAL.md) awaits the owner's decision before implementation; production request settings/orders are unchanged. Fresh paced evaluations would follow an approved, explicitly represented profile.
   - V2 structured diagnostic (2026-11-02): Lightning parse 0/40, classify 1/60, 5 unanswered, schema adherence 1/95 over answered cases. This two-suite run does not qualify a Tier 1 route; remaining tool suites were not run for this rejected attempt. Provider access and qualified full-tier measurements remain outstanding.
 
 **Done when**
