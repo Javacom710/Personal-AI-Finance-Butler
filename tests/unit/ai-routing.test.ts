@@ -102,14 +102,14 @@ describe('I-56 — the catalogue identifiers are normalised, not guessed', () =>
 
   it('keeps a fallback wherever one is possible, and says so where it is not', () => {
     const config = resolveModelConfig();
-    // Tiers 1 and 2 have a genuine second candidate.
+    // ADR-52 (Groq): Tier 1 has a genuine second candidate.
     expect(config.candidates(1).length).toBeGreaterThanOrEqual(2);
-    expect(config.candidates(2).length).toBeGreaterThanOrEqual(2);
-    // Tier 3 has none by design; Tier 4 has none because the only vision model
-    // CLAUDE.md names that exists is the omni one. Both fail closed rather than
-    // answering a document question without having seen the document.
+    // Tiers 2 and 3 have one each until more models are measured; Tier 4 is
+    // empty until a vision model passes the document suite, so a document
+    // request fails closed rather than reaching a text-only model.
+    expect(config.candidates(2)).toHaveLength(1);
     expect(config.candidates(3)).toHaveLength(1);
-    expect(config.candidates(4)).toHaveLength(1);
+    expect(config.candidates(4)).toHaveLength(0);
   });
 
   it('takes tier order from configuration, replacing the default outright', () => {

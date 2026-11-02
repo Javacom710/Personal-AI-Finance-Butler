@@ -25,6 +25,7 @@ const SECRET_VARS = [
   'APP_ENCRYPTION_KEY',
   'SESSION_COOKIE_SECRET',
   'NVIDIA_API_KEY',
+  'AI_API_KEY',
   // Phase 6. Optional, so the scan simply has nothing to look for when it is
   // unset — which is why the count in the summary line is the honest number.
   'TWELVE_DATA_API_KEY',

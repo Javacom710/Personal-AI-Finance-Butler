@@ -89,7 +89,7 @@ export function shouldTryNextCandidate(failure: AiFailure): boolean {
 
 export const notConfigured = (): AiFailure => ({
   kind: 'not_configured',
-  message: 'NVIDIA_API_KEY is not set. AI features are unavailable; every other feature is unaffected.',
+  message: 'No AI provider key (AI_API_KEY) is set. AI features are unavailable; every other feature is unaffected.',
 });
 
 export const unauthorized = (status: number, message = 'The provider rejected the credential.'): AiFailure => ({

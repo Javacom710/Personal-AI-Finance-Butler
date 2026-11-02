@@ -191,24 +191,17 @@ export function unavailableCandidates(): readonly CandidateId[] {
  * an empty tier is not a gap, it is the decision.
  */
 const DEFAULT_ORDER: Readonly<Record<Tier, readonly string[]>> = {
-  1: ['nvidia/nemotron-3-nano-30b-a3b', 'openai/gpt-oss-20b', 'google/gemma-4-31b-it'],
-  // GLM was here until the authenticated catalogue read showed no GLM model
-  // exists. Two candidates remain, so Tier 2 still has a fallback.
-  2: ['nvidia/nemotron-3-super-120b-a12b', 'deepseek-ai/deepseek-v4-flash-0731'],
-  // No fallback by design: a Tier 3 request that cannot be served should fail,
-  // not quietly become a Tier 2 answer the user believes is a Tier 3 one.
-  3: ['nvidia/nemotron-3-ultra-550b-a55b'],
-  // **One candidate, and therefore no fallback.** `nemotron-nano-12b-v2-vl` was
-  // the intended primary and does not exist. Vision cannot fall back to a text
-  // model, so the honest configuration is a single model whose failure fails the
-  // request — not a second entry that would quietly answer a document question
-  // without having seen the document. The catalogue does carry other vision
-  // models (`meta/llama-3.2-*-vision-instruct`, `microsoft/phi-3-vision-*`), but
-  // they are outside `CLAUDE.md`'s approved candidate pool, so adding one is a
-  // scope decision rather than a routing fix. That decision was taken for one
-  // model on 2026-10-31: `nemotron-3.5-super-vl-120b-a12b` is an evaluation
-  // candidate (EVALUATION_CANDIDATES), and stays out of this order until measured.
-  4: ['nvidia/nemotron-3-nano-omni-30b-a3b-reasoning'],
+  // Provider switched to Groq on 2026-11-02 (ADR-52): NVIDIA's free hosted API
+  // answered for only 8 of the 50 chat models it listed, and none of the 8 met
+  // Tier 1's tool-call gate. These are Groq identifiers. They are declared, not
+  // measured: score-gated routes stay closed until `npm run ai:eval` measures
+  // them and a human accepts the order. A model may serve more than one tier.
+  1: ['openai/gpt-oss-120b', 'openai/gpt-oss-20b'],
+  2: ['openai/gpt-oss-120b'],
+  3: ['openai/gpt-oss-120b'],
+  // **Empty until a vision model is measured on the document suite.** A vision
+  // request then fails closed instead of reaching a text-only model.
+  4: [],
   5: [],
 };
 

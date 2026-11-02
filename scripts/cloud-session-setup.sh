@@ -99,7 +99,7 @@ APP_ORIGIN=http://localhost:3000
 LOG_LEVEL=error
 EOF
   # Keys set on the cloud environment pass through, so features that need them work.
-  for k in TWELVE_DATA_API_KEY NVIDIA_API_KEY; do
+  for k in TWELVE_DATA_API_KEY NVIDIA_API_KEY AI_API_KEY AI_BASE_URL; do
     [ -n "${!k:-}" ] && echo "$k=${!k}" >> .env
   done
 fi

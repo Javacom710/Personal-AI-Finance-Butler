@@ -23,7 +23,7 @@
 
 import { z } from 'zod';
 
-import { loadDotEnv, env } from '../src/lib/env';
+import { aiProviderSettings, loadDotEnv, env } from '../src/lib/env';
 import { createNvidiaProvider } from '../src/server/ai/provider/nvidia-build';
 import {
   resolveModelConfig,
@@ -49,10 +49,11 @@ async function main(): Promise<void> {
   const e = env();
 
   heading('Configuration');
-  console.log(`NVIDIA_API_KEY : ${redactKey(e.NVIDIA_API_KEY)}`);
-  console.log(`NVIDIA_BASE_URL: ${e.NVIDIA_BASE_URL}`);
+  const ai = aiProviderSettings(e);
+  console.log(`AI_API_KEY : ${redactKey(ai.apiKey)}`);
+  console.log(`AI_BASE_URL: ${ai.baseUrl}`);
 
-  if (!e.NVIDIA_API_KEY) {
+  if (!ai.apiKey) {
     console.log(
       [
         '',
@@ -62,7 +63,8 @@ async function main(): Promise<void> {
         '',
         'To run the live checks, add to .env (which is git-ignored):',
         '',
-        '    NVIDIA_API_KEY=nvapi-...        # from https://build.nvidia.com',
+        '    AI_API_KEY=...                   # e.g. from https://console.groq.com/keys',
+        '    AI_BASE_URL=https://api.groq.com/openai/v1',
         '',
         'then re-run: npm run ai:smoke',
       ].join('\n'),
@@ -80,8 +82,8 @@ async function main(): Promise<void> {
   });
   const provider = createNvidiaProvider({
     requestProfiles: routing.requestProfiles,
-    apiKey: e.NVIDIA_API_KEY,
-    baseUrl: e.NVIDIA_BASE_URL,
+    apiKey: ai.apiKey,
+    baseUrl: ai.baseUrl,
     fetch: globalThis.fetch as never,
     defaultTimeoutMs: e.AI_REQUEST_TIMEOUT_MS,
   });

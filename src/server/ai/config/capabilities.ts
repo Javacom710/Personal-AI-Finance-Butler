@@ -97,6 +97,19 @@ export const DECLARED_CAPABILITIES: Readonly<Record<string, ModelCapabilities>> 
     streaming: true,
     source: 'declared',
   },
+  // Groq (ADR-52). Groq documents strict json_schema structured outputs and
+  // native tool use for the gpt-oss models; declared until measured.
+  'openai/gpt-oss-120b': {
+    tier: 1,
+    toolCalling: 'native',
+    structuredOutput: 'json_schema',
+    vision: false,
+    embedding: false,
+    contextTokens: 131_072,
+    maxOutputTokens: 32_768,
+    streaming: true,
+    source: 'declared',
+  },
   'openai/gpt-oss-20b': {
     tier: 1,
     toolCalling: 'native',

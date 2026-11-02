@@ -1061,6 +1061,37 @@ Fresh evaluations use the represented profile and explicit client pacing, with p
 
 ---
 
+## ADR-52 — The model provider is any OpenAI-compatible API; Groq replaces NVIDIA Build's free tier
+
+**Decision.** Owner, 2026-11-02. The owner chose NVIDIA Build for having many models in one place, not as a requirement, and asked for the best overall setup, free where possible.
+
+> **The AI layer talks to one OpenAI-compatible chat-completions provider, chosen by configuration (`AI_API_KEY`, `AI_BASE_URL`). The current provider is Groq's free tier, with zero data retention enabled on the account. Tier orders hold Groq identifiers, declared until `npm run ai:eval` measures them under the unchanged gates. The selection rules (tiers, thresholds, ADR-18, ADR-41, ADR-44, ADR-48, ADR-51) are unchanged.**
+
+**Why NVIDIA's free hosted API was dropped (measured 2026-11-02 from the owner's key):**
+- Only 8 of the 50 chat models it listed answered a one-line request. 31 returned HTTP 404, including the routed Tier 1 and Tier 2 primaries, and 9 timed out at 40 s.
+- None of the 8 met Tier 1's tool-call gate (0.90): Lightning 0.76, Bolt 0.80, Laguna 0.79. The larger models took about 11 s per request.
+- The tier is a free trial for prototyping (about 40 requests per minute); production use is a paid NVIDIA licence.
+
+**Why Groq.**
+- Its free tier serves `openai/gpt-oss-120b` and `-20b` with 30 requests/min and 1,000 requests and 200K tokens per day, enough for one user.
+- Its terms bar training on API inputs and outputs without permission, it keeps no request data by default, and zero data retention is on.
+- It is the same open-weight family the spec named for Tier 1.
+
+**What changed in code (contained).**
+- `src/lib/env.ts` gains `AI_API_KEY` and `AI_BASE_URL`, resolved by `aiProviderSettings()`; the `NVIDIA_*` names remain a legacy fallback.
+- The composition root and the two scripts use it.
+- The provider adapter is unchanged: it was already a plain OpenAI-compatible `fetch` client. Its file name and provider label (`nvidia-build`) are kept to avoid churn.
+- `models.ts` tier orders and one declared capability entry.
+- Tier 4 is empty until a vision model passes the document suite, so document requests fail closed.
+
+**Rejected.**
+- *Gemini's free tier:* prompts may be used for training and read by reviewers in India.
+- *OpenRouter's `:free` models:* the providers behind them often log or train.
+- *Self-hosting:* the models that fit a home PC are the size class that failed the tool gate.
+- *Paid gateways* stay available as a fallback: switching is a key and a URL.
+
+---
+
 ## Open decisions requiring the user
 
 | # | Decision | Why it cannot be defaulted | Blocks |
