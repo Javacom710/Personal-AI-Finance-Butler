@@ -1,0 +1,100 @@
+{
+  "identity": "2396a7238a172d450e7ce2db502f47bba97d6550ab9c80ff50ff50ebe2fd91fd",
+  "providerIdentity": "https://api.groq.com/openai/v1",
+  "model": "openai/gpt-oss-20b",
+  "tier": 1,
+  "suite": "robustness",
+  "version": 2,
+  "maxTokens": 2048,
+  "startedAt": "2026-11-02T15:06:34.956Z",
+  "cases": [
+    {
+      "caseId": "robustness-001",
+      "suite": "robustness",
+      "modelId": "openai/gpt-oss-20b",
+      "passed": true,
+      "latencyMs": 856,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "robustness-002",
+      "suite": "robustness",
+      "modelId": "openai/gpt-oss-20b",
+      "passed": false,
+      "latencyMs": 607,
+      "schemaValid": null,
+      "toolCallValid": false,
+      "errorClass": null,
+      "finishReason": "tool_calls"
+    },
+    {
+      "caseId": "robustness-003",
+      "suite": "robustness",
+      "modelId": "openai/gpt-oss-20b",
+      "passed": false,
+      "latencyMs": 1249,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "robustness-004",
+      "suite": "robustness",
+      "modelId": "openai/gpt-oss-20b",
+      "passed": true,
+      "latencyMs": 947,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "robustness-005",
+      "suite": "robustness",
+      "modelId": "openai/gpt-oss-20b",
+      "passed": true,
+      "latencyMs": 646,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "robustness-006",
+      "suite": "robustness",
+      "modelId": "openai/gpt-oss-20b",
+      "passed": false,
+      "latencyMs": 490,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "robustness-007",
+      "suite": "robustness",
+      "modelId": "openai/gpt-oss-20b",
+      "passed": false,
+      "latencyMs": 596,
+      "schemaValid": null,
+      "toolCallValid": false,
+      "errorClass": null,
+      "finishReason": "tool_calls"
+    },
+    {
+      "caseId": "robustness-008",
+      "suite": "robustness",
+      "modelId": "openai/gpt-oss-20b",
+      "passed": false,
+      "latencyMs": 580,
+      "schemaValid": null,
+      "toolCallValid": false,
+      "errorClass": "transport",
+      "finishReason": null
+    }
+  ]
+}

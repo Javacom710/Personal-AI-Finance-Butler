@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { capabilitiesFromEvaluations, type StoredEvaluation } from '@/server/ai-evaluations';
+import { capabilitiesFromEvaluations as convertEvaluations, evaluationProviderIdentity, type StoredEvaluation } from '@/server/ai-evaluations';
 import { DECLARED_CAPABILITIES } from '@/server/ai/config/capabilities';
 import { MODEL_SUITES, TIER_SUITES, type ModelSuite } from '@/server/ai/eval/runner';
 
@@ -9,6 +9,10 @@ import { MODEL_SUITES, TIER_SUITES, type ModelSuite } from '@/server/ai/eval/run
  * are built here, so these tests pin the rules — complete, current, fully
  * answered, declared — without a database.
  */
+
+const PROVIDER = 'https://api.groq.com/openai/v1';
+const capabilitiesFromEvaluations = (...args: Parameters<typeof convertEvaluations>) =>
+  convertEvaluations(args[0], args[1], args[2], PROVIDER);
 
 const TIER2 = 'nvidia/nemotron-3-super-120b-a12b';
 const TIER1 = 'openai/gpt-oss-20b';
@@ -23,7 +27,7 @@ function row(model: string, suite: ModelSuite, over: Partial<StoredEvaluation> &
     p50LatencyMs: 1000,
     p95LatencyMs: 3000,
     runAt: new Date('2026-11-01T10:00:00Z'),
-    detail: {
+    detail: { providerIdentity: PROVIDER,
       answered: 10,
       unanswered: 0,
       schemaValid: 0,
@@ -98,5 +102,24 @@ describe('measured capability entries', () => {
     const entry = capabilitiesFromEvaluations(rows)[TIER2]!;
     expect(entry.scores!.p50LatencyMs).toBe(5000);
     expect(entry.verifiedAt).toBe('2026-10-30T00:00:00.000Z');
+  });
+});
+
+describe('provider provenance', () => {
+  it('never authorizes missing, foreign or mixed-provider results', () => {
+    const current = fullTier2();
+    const foreign = current.map(r => ({ ...r, runAt: new Date('2026-11-02'), detail: { ...r.detail, providerIdentity: 'https://integrate.api.nvidia.com/v1' } }));
+    const legacy = current.map(r => ({ ...r, detail: { ...r.detail, providerIdentity: undefined } }));
+    expect(convertEvaluations(current)).toEqual({});
+    expect(convertEvaluations(legacy, undefined, undefined, PROVIDER)).toEqual({});
+    expect(convertEvaluations(foreign, undefined, undefined, PROVIDER)).toEqual({});
+    expect(convertEvaluations([...current.slice(1), foreign[0]!], undefined, undefined, PROVIDER)).toEqual({});
+    expect(convertEvaluations([...foreign, ...current], undefined, undefined, PROVIDER)[TIER2]?.source).toBe('measured');
+  });
+
+  it('normalizes endpoint identity without retaining credentials or query secrets', () => {
+    expect(evaluationProviderIdentity('https://user:password@API.GROQ.COM:443/openai/v1/?key=secret#fragment')).toBe(PROVIDER);
+    expect(evaluationProviderIdentity('https://api.groq.com/other/v1')).not.toBe(PROVIDER);
+    expect(() => evaluationProviderIdentity('file:///tmp/key')).toThrow();
   });
 });

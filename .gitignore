@@ -51,3 +51,8 @@ Thumbs.db
 
 # typescript
 *.tsbuildinfo
+
+# Resumable evaluation lock and atomic-write temporaries (reports remain tracked).
+eval/reports/.groq-measurement.lock
+eval/reports/*.tmp
+eval/reports/.groq-workflow.lock

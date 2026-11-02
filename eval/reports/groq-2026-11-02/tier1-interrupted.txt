@@ -1,0 +1,6 @@
+
+> finance-os@0.1.0 ai:eval
+> node --conditions=react-server --import tsx scripts/ai-eval.ts --tier 1 --model openai/gpt-oss-120b,openai/gpt-oss-20b --interval-ms 3000 --no-record
+
+Tier 1: 2 model(s) × parse, classify, tool-select, grounding, robustness, injection
+Terminated

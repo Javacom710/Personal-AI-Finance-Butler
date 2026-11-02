@@ -175,6 +175,11 @@ export async function evaluateModel(
     });
   }
 
+  return reportFromCases(modelId, results);
+}
+
+/** Aggregate scored checkpoints using exactly the live harness's report rules. */
+export function reportFromCases(modelId: string, results: readonly CaseResult[]): ModelReport {
   return {
     modelId,
     cases: results,

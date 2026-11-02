@@ -211,6 +211,8 @@ export interface ModelResult {
 }
 
 export interface EvalRun {
+  /** Endpoint used by the live script; missing legacy provenance cannot be stored. */
+  readonly providerIdentity?: string;
   readonly requestIntervalMs?: number;
   readonly requestTimeoutMs?: number;
   readonly tier: Tier;
@@ -250,7 +252,7 @@ function ratio(values: readonly (boolean | null)[]): number | null {
  */
 const UNANSWERED = new Set(['transport', 'timeout', 'rate_limited', 'unauthorized', 'not_configured']);
 
-function countsOf(report: ModelReport): SuiteCounts {
+export function countsOf(report: ModelReport): SuiteCounts {
   const scored = report.cases.filter((c) => c.errorClass === null || !UNANSWERED.has(c.errorClass));
   return {
     answered: scored.length,
@@ -262,7 +264,7 @@ function countsOf(report: ModelReport): SuiteCounts {
   };
 }
 
-function summarise(modelId: string, suites: readonly SuiteResult[]): ModelResult {
+export function summarise(modelId: string, suites: readonly SuiteResult[]): ModelResult {
   const cases = suites.flatMap((s) => s.report.cases);
   const scored = cases.filter((c) => c.errorClass === null || !UNANSWERED.has(c.errorClass));
   const answered = cases.filter((c) => c.errorClass === null);
@@ -488,6 +490,7 @@ export function renderEvalReport(run: EvalRun): string {
     '',
     `Run ${run.startedAt}. Suites: ${suites.map((s) => `${s} v${run.suiteVersions[s]}`).join(', ')}.`,
   ];
+  lines.push('', `Provider endpoint: ${run.providerIdentity ?? 'not recorded (legacy report)'}.`);
   lines.push('', `Request timeout: ${run.requestTimeoutMs ?? 'not recorded'} ms. Output-token budgets: ${suites.map((suite) => `${suite}: ${run.models[0]?.suites.find((s) => s.suite === suite)?.maxTokens ?? 'not recorded'}`).join(', ')}.`);
   lines.push('', `Minimum request interval: ${run.requestIntervalMs ?? 'not recorded'} ms (evaluation scheduling only).`, '', 'Request profiles:');
   for (const m of run.models) {
