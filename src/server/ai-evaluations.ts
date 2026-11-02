@@ -31,6 +31,7 @@ import { MODEL_SUITES, TIER_SUITES, type EvalRun, type ModelSuite, type SuiteCou
 
 /** What a stored row keeps beyond its columns: counts and case ids, never output. */
 export interface EvaluationDetail extends SuiteCounts {
+  readonly finishReasons?: Readonly<Record<string, number>>;
   readonly maxTokens?: number;
   readonly requestTimeoutMs?: number;
   readonly failedCases: readonly string[];
@@ -49,6 +50,7 @@ export async function recordEvaluationRun(run: EvalRun): Promise<number> {
         ...s.counts,
         failedCases: s.failedCases,
         errors: s.errors,
+        ...(s.finishReasons === undefined ? {} : { finishReasons: s.finishReasons }),
         ...(s.maxTokens === undefined ? {} : { maxTokens: s.maxTokens }),
         ...(run.requestTimeoutMs === undefined ? {} : { requestTimeoutMs: run.requestTimeoutMs }),
       };
