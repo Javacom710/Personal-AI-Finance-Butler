@@ -59,5 +59,14 @@
       "reportedTokens": null,
       "reservedTokens": 17416
     }
-  ]
+  ],
+  "carry": {
+    "requests": 0,
+    "tokens": 0
+  },
+  "nativeBaseline": {
+    "at": "2026-11-02T15:39:14.511Z",
+    "requests": 65,
+    "tokens": 148382
+  }
 }

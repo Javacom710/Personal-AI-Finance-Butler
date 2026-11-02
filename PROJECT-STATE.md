@@ -377,6 +377,12 @@ The owner questioned the recurring schedule; it is now **paused**, with no repla
 
 The conservative daily reserve remains 183,316 and cannot fund the next case. No new provider calls were made in this continuation. A conservative next quota check is after **2026-11-03 21:00 Asia/Calcutta**, more than 24 hours after the latest recorded request; still account for any other account activity. Completing development here means finishing the specified suite coverage, reporting exclusions under unchanged gates, and presenting the lineup for owner approval—not obtaining passing results from every candidate. PR #38 remains draft; no recording or tier-order changes. Source and checkpoint fingerprints were left unchanged. PostgreSQL 17/18 CI at `f9134dd` is green.
 
+## Evaluation tooling development — 2026-11-02, 15:39 UTC
+
+Added `npm run ai:eval:budgeted -- <evaluation arguments>`, a rolling-24-hour preflight wrapper around the existing checkpointed CLI. It carries only native prior-day usage, avoids reimporting carry, preserves today's usage/crash reserves, and rejects inconsistent ledgers before launching the evaluator. `--check-only` is offline. Historical baseline time is conservatively sealed once under the measurement lock; repeat checks do not postpone expiry. This removes the previous requirement to seed recent usage manually at each UTC-day boundary. A new ledger with imported calls also waits for the preceding minute bucket before its first request.
+
+The offline check left the totals at **73 requests / 183,316 conservative tokens**. It sealed the older 148,382-token baseline at **2026-11-02T15:39:14.511Z**; conservative carry can therefore retain it through the same time tomorrow. The earlier 21:00 IST check suggestion is a time to inspect headroom, not guaranteed full capacity. No new provider request was sent. Original evaluator/fingerprint inputs, gates, prompts, scorers, suites, profiles and tier orders are unchanged. The 8-case checkpoint fingerprint still matches. **Validation: 1,958 unit tests, typecheck, lint, production build and client-secret scan pass.** An offline CLI test blocks fetch and verifies that two preflight invocations preserve identical totals without retaining a lock. Automation remains paused.
+
 ## Working protocol — applies to every phase from 2 onward
 
 Approved by the user on 2026-08-09. The architecture documents in `docs/` are the **implementation baseline**.

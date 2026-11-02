@@ -63,7 +63,7 @@ The [current daily ledger](../groq-budget-2026-11-02.json) supersedes the earlie
 
 ```sh
 AI_API_KEY="$Authorization_Groq" NODE_USE_ENV_PROXY=1 \
-  node --conditions=react-server --import tsx scripts/ai-eval-budgeted.ts \
+  npm run ai:eval:budgeted -- \
   --tier 1 --suite robustness --model openai/gpt-oss-20b \
   --interval-ms 3000 --no-record
 ```
@@ -79,3 +79,13 @@ Verified a second invocation at the reserve stop issued **zero requests** and le
 The automation is paused. Its retained resume instructions cover only cases 009/010 next, preserve the completed 120B parse report, and require quota accounting before any additional suite. No accepted tier order is proposed yet.
 
 The finite checklist was generated and validated offline against the current suite versions and retained case IDs. No source file, scored checkpoint, prompt or gate changed, and no additional provider request was made when pausing the automation.
+
+## Development continuation — rolling-window preflight
+
+Use **`npm run ai:eval:budgeted -- <existing evaluation arguments>`** for subsequent measurements. `scripts/ai-eval-budgeted-run.ts` first locks the quota ledger, imports native usage from the preceding 24 hours, and only then launches the existing checkpointed evaluator. `npm run ai:eval:budgeted -- --check-only` performs the offline accounting without launching any provider call. The original direct CLI's UTC-day counter alone does not provide this rollover protection.
+
+Carry is kept separately from native usage, so it cannot be imported again as fresh usage on later days. Refreshing carry preserves today's calls and crash reservations. Unknown older timestamps are bounded conservatively; the first locked preflight can seal existing un-timed reservations with the current time as an upper bound. Repeated checks do not extend that time. Today's original 65-request / 148,382-token baseline was sealed at `2026-11-02T15:39:14.511Z`, so that conservative baseline can remain reserved until 24 hours after that timestamp even though the actual calls were earlier. The total remains **73 requests / 183,316 reserved tokens**, not billed usage.
+
+The existing evaluator, budget helper and all AI source files were left unchanged, and the saved 8-case robustness fingerprint was recomputed successfully. New code lives outside those fingerprint inputs. Tests cover midnight rollover, 24-hour expiry, double-count prevention, preservation of current usage, unknown/crash reservations, malformed ledgers and a two-invocation offline CLI test with fetch denied. Automation remains paused; no new live results were recorded or tier orders changed.
+
+Validation for the rolling-window wrapper: **1,958 unit tests**, typecheck, lint, production build and client-secret scan pass. On a fresh day with imported calls, the wrapper also allows the preceding minute bucket to refill before invoking the evaluator; check-only performs no wait or provider call.
