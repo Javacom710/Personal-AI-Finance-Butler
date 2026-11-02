@@ -399,6 +399,7 @@ export interface InsertTransactionArgs {
   readonly notes: string | null;
   readonly source: RecordSource;
   readonly recurringRuleId?: string | null;
+  readonly aiProposalId?: string | null;
   readonly entries: readonly EntryDraft[];
   readonly tags: readonly string[];
 }
@@ -412,6 +413,7 @@ export async function insertTransaction(
   ctx: WriteCtx,
   args: InsertTransactionArgs,
 ): Promise<Result<string, DomainError>> {
+  if ((args.source === 'ai') !== Boolean(args.aiProposalId)) return err(validationFailed({ _: ['AI transactions require a confirmed proposal link.'] }));
   const [header] = await ctx.tx
     .insert(transactions)
     .values({
@@ -423,6 +425,7 @@ export async function insertTransaction(
       notes: args.notes,
       source: args.source,
       recurringRuleId: args.recurringRuleId ?? null,
+      aiProposalId: args.aiProposalId ?? null,
     })
     .returning({ id: transactions.id });
 
@@ -449,6 +452,7 @@ export async function insertTransaction(
     entityType: 'transaction',
     entityId: header.id,
     after: {
+      aiProposalId: args.aiProposalId ?? null,
       kind: args.kind,
       bookedOn: args.bookedOn,
       description: args.description,
@@ -470,7 +474,7 @@ export async function insertTransaction(
 export async function createTransaction(
   ctx: WriteCtx,
   raw: unknown,
-  options: { readonly source?: RecordSource; readonly recurringRuleId?: string | null } = {},
+  options: { readonly source?: RecordSource; readonly recurringRuleId?: string | null; readonly aiProposalId?: string } = {},
 ): Promise<Result<TransactionView, DomainError>> {
   const parsed = createTransactionSchema.safeParse(raw);
   if (!parsed.success) return err(fieldErrors(parsed.error));
@@ -515,6 +519,7 @@ export async function createTransaction(
     notes: input.notes ?? null,
     source: options.source ?? 'manual',
     recurringRuleId: options.recurringRuleId ?? null,
+    aiProposalId: options.aiProposalId ?? null,
     entries: built.value,
     tags: input.tags,
   });

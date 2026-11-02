@@ -101,6 +101,7 @@ const MIGRATIONS = [
   '0004_phase6_market_data',
   '0005_phase7_ai_usage_daily',
   '0006_phase8_ai_model_evaluations',
+  '0007_phase9_transaction_proposals',
 ] as const;
 
 /**

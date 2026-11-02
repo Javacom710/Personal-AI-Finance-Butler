@@ -54,7 +54,7 @@ export interface TransferResult {
 export async function createTransfer(
   ctx: WriteCtx,
   raw: unknown,
-  options: { readonly source?: RecordSource; readonly recurringRuleId?: string | null } = {},
+  options: { readonly source?: RecordSource; readonly recurringRuleId?: string | null; readonly aiProposalId?: string } = {},
 ): Promise<Result<TransferResult, DomainError>> {
   const parsed = createTransferSchema.safeParse(raw);
   if (!parsed.success) return err(fieldErrors(parsed.error));
@@ -142,6 +142,7 @@ export async function createTransfer(
     notes: input.notes ?? null,
     source: options.source ?? 'manual',
     recurringRuleId: options.recurringRuleId ?? null,
+    aiProposalId: options.aiProposalId ?? null,
     entries: built.value,
     tags: input.tags,
   });
