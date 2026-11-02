@@ -344,7 +344,8 @@ The clean setup can initially retain the existing working key: the immediate con
 1. `npm run ai:reachability`.
 2. `npm run ai:eval -- --tier 1 --model openai/gpt-oss-120b,openai/gpt-oss-20b --interval-ms 3000 --no-record`, and the same for Tiers 2 and 3 with Groq text models (measured on each tier's own suites; a Tier 2/3 model needs its own declared entry at that tier, or tier-specific eligibility first). Watch Groq's free limits: 30 requests/min, 1,000 requests and 200K tokens per day. Spread the runs over days if needed.
 3. Find a Groq vision model that answers, and run the Tier 4 document suite on it.
-4. Bring the measured lineup to the owner for approval, then record it (`--record`) and set the orders.
+4. **Before the first `--record`:** scope stored measurements to the provider (Codex review of #37, P1). `ai_model_evaluations` provenance identifies a measurement by model, suite and request profile, never by provider or endpoint. So after a provider switch, an old provider's row for the same model id could authorise the new one. Record a non-secret provider identity (for example the base URL's host) in each row's detail. Match it in `latestEvaluations()` / `capabilitiesFromEvaluations()`, and treat rows without it as ineligible. No rows exist today: every live run used `--no-record`.
+5. Bring the measured lineup to the owner for approval, then record it (`--record`) and set the orders.
 
 **Unchanged:** scenario remains blocked by OD-18; NVIDIA reports stay as history.
 
