@@ -41,6 +41,7 @@ import 'server-only';
  */
 
 import type { Tier } from './models';
+import type { RequestProfileIdentity } from './request-profiles';
 
 export type ToolCallingSupport = 'native' | 'none';
 export type StructuredOutputSupport = 'json_schema' | 'json_object' | 'prompted' | 'none';
@@ -56,6 +57,8 @@ export interface CapabilityScores {
 }
 
 export interface ModelCapabilities {
+  /** Missing on legacy measurements: default profile only. */
+  readonly requestProfile?: RequestProfileIdentity;
   readonly tier: Tier;
   readonly toolCalling: ToolCallingSupport;
   readonly structuredOutput: StructuredOutputSupport;

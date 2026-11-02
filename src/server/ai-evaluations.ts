@@ -28,9 +28,12 @@ import { db } from './db/client';
 import { aiModelEvaluations } from './db/schema';
 import { DECLARED_CAPABILITIES, type ModelCapabilities } from './ai/config/capabilities';
 import { MODEL_SUITES, TIER_SUITES, type EvalRun, type ModelSuite, type SuiteCounts } from './ai/eval/runner';
+import { env } from '../lib/env';
+import { DEFAULT_REQUEST_PROFILE, matchesRequestProfile, requestProfileById, requestProfileIdentity, resolveRequestProfiles, type RequestProfileIdentity, type RequestProfiles } from './ai/config/request-profiles';
 
 /** What a stored row keeps beyond its columns: counts and case ids, never output. */
 export interface EvaluationDetail extends SuiteCounts {
+  readonly requestProfile?: RequestProfileIdentity;
   readonly finishReasons?: Readonly<Record<string, number>>;
   readonly maxTokens?: number;
   readonly requestTimeoutMs?: number;
@@ -46,7 +49,10 @@ export async function recordEvaluationRun(run: EvalRun): Promise<number> {
   if (run.limit !== null) throw new Error('A partial run (--limit) is a wire check and is never stored.');
   const rows = run.models.flatMap((m) =>
     m.suites.map((s) => {
+      const profile = requestProfileById(m.modelId, m.requestProfile?.id ?? DEFAULT_REQUEST_PROFILE.id);
+      if (!matchesRequestProfile(m.requestProfile, profile)) throw new Error('Invalid evaluation request-profile provenance.');
       const detail: EvaluationDetail = {
+        requestProfile: requestProfileIdentity(profile),
         ...s.counts,
         failedCases: s.failedCases,
         errors: s.errors,
@@ -86,7 +92,7 @@ export interface StoredEvaluation {
   readonly runAt: Date;
 }
 
-/** The latest stored row for each model and suite. */
+/** The latest stored row for each model, suite and profile; other profiles cannot shadow it. */
 export async function latestEvaluations(): Promise<readonly StoredEvaluation[]> {
   const { rows } = await db().execute<{
     model: string;
@@ -98,10 +104,10 @@ export async function latestEvaluations(): Promise<readonly StoredEvaluation[]> 
     detail: EvaluationDetail;
     run_at: string | Date;
   }>(sql`
-    select distinct on (model, suite)
+    select distinct on (model, suite, detail->'requestProfile')
            model, suite, eval_version, cases_passed, p50_latency_ms, p95_latency_ms, detail, run_at
       from ${aiModelEvaluations}
-     order by model, suite, run_at desc
+     order by model, suite, detail->'requestProfile', run_at desc
   `);
   return rows.map((r) => ({
     model: r.model,
@@ -129,6 +135,7 @@ const ratio = (num: number, den: number): number => (den === 0 ? 0 : num / den);
 export function capabilitiesFromEvaluations(
   rows: readonly StoredEvaluation[],
   declared: Readonly<Record<string, ModelCapabilities>> = DECLARED_CAPABILITIES,
+  profiles: RequestProfiles = resolveRequestProfiles(),
 ): Record<string, ModelCapabilities> {
   const byModel = new Map<string, StoredEvaluation[]>();
   for (const row of rows) byModel.set(row.model, [...(byModel.get(row.model) ?? []), row]);
@@ -139,12 +146,16 @@ export function capabilitiesFromEvaluations(
     if (!base) continue;
     const required = TIER_SUITES[base.tier];
     if (required.length === 0) continue;
-
+    const profile = profiles.forModel(model);
+    const matching = modelRows
+      .filter((r) => matchesRequestProfile(r.detail.requestProfile, profile))
+      .sort((a, b) => b.runAt.getTime() - a.runAt.getTime());
     const current = required.map((suite) =>
-      modelRows.find((r) => r.suite === suite && r.evalVersion === MODEL_SUITES[suite].version),
+      matching.find((r) => r.suite === suite),
     );
     if (current.some((r) => r === undefined)) continue;
     const used = current as StoredEvaluation[];
+    if (used.some((r) => r.evalVersion !== MODEL_SUITES[r.suite as ModelSuite].version)) continue;
     if (used.some((r) => r.detail.unanswered > 0)) continue;
 
     const sum = (pick: (d: EvaluationDetail) => number) => used.reduce((n, r) => n + pick(r.detail), 0);
@@ -158,6 +169,7 @@ export function capabilitiesFromEvaluations(
     measured[model] = {
       ...base,
       source: 'measured',
+      requestProfile: requestProfileIdentity(profile),
       scores: {
         schemaAdherence: ratio(sum((d) => d.schemaValid), sum((d) => d.schemaApplicable)),
         toolCallCorrectness: ratio(sum((d) => d.toolCallValid), sum((d) => d.toolCallApplicable)),
@@ -175,5 +187,5 @@ export function capabilitiesFromEvaluations(
 
 /** The measured entries from the database. */
 export async function measuredCapabilities(): Promise<Record<string, ModelCapabilities>> {
-  return capabilitiesFromEvaluations(await latestEvaluations());
+  return capabilitiesFromEvaluations(await latestEvaluations(), DECLARED_CAPABILITIES, resolveRequestProfiles(env().AI_REQUEST_PROFILES));
 }

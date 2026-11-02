@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { latestEvaluations, measuredCapabilities, recordEvaluationRun } from '@/server/ai-evaluations';
 import { aiRuntime, loadMeasuredCapabilities, resetAiRuntime } from '@/server/ai-runtime';
+import { DEFAULT_REQUEST_PROFILE, THINKING_DISABLED_PROFILE, requestProfileIdentity } from '@/server/ai/config/request-profiles';
 import { MODEL_SUITES, TIER_SUITES, type EvalRun, type ModelSuite } from '@/server/ai/eval/runner';
 import type { ModelReport } from '@/server/ai/eval/harness';
 import { closeHarness, truncateAll } from './harness';
@@ -109,5 +110,29 @@ describe('ai_model_evaluations', () => {
          values ('m', 2, 1, 'grounding', 5, 6, 1.0)`,
       ),
     ).rejects.toThrow();
+  });
+
+  it('retains separate default and thinking-disabled histories and refuses forged provenance', async () => {
+    const model = 'nvidia/nemotron-3.5-lightning-30b-a3b';
+    const source = run('2026-11-02T07:00:00Z', 9);
+    const withProfile = (identity: typeof DEFAULT_REQUEST_PROFILE, startedAt: string): EvalRun => ({
+      ...source,
+      startedAt,
+      models: source.models.map(m => ({ ...m, modelId: model, requestProfile: requestProfileIdentity(identity) })),
+    });
+    await recordEvaluationRun(withProfile(DEFAULT_REQUEST_PROFILE, '2026-11-02T07:00:00Z'));
+    await recordEvaluationRun(withProfile(THINKING_DISABLED_PROFILE, '2026-11-02T08:00:00Z'));
+    await recordEvaluationRun(withProfile(DEFAULT_REQUEST_PROFILE, '2026-11-02T09:00:00Z'));
+    const latest = (await latestEvaluations()).filter(r => r.model === model);
+    expect(latest).toHaveLength(TIER_SUITES[2].length * 2);
+    const defaultRows = latest.filter(r => r.detail.requestProfile?.id === DEFAULT_REQUEST_PROFILE.id);
+    const disabledRows = latest.filter(r => r.detail.requestProfile?.id === THINKING_DISABLED_PROFILE.id);
+    expect(defaultRows.every(r => r.runAt.toISOString() === '2026-11-02T09:00:00.000Z')).toBe(true);
+    expect(disabledRows.every(r => r.runAt.toISOString() === '2026-11-02T08:00:00.000Z')).toBe(true);
+    expect(defaultRows[0]!.detail.requestProfile).toEqual(requestProfileIdentity(DEFAULT_REQUEST_PROFILE));
+    expect(disabledRows[0]!.detail.requestProfile).toEqual(requestProfileIdentity(THINKING_DISABLED_PROFILE));
+    const forged = withProfile(THINKING_DISABLED_PROFILE, '2026-11-02T10:00:00Z');
+    await expect(recordEvaluationRun({ ...forged, models: forged.models.map(m => ({ ...m, requestProfile: { id: THINKING_DISABLED_PROFILE.id, fingerprint: 'forged' } })) })).rejects.toThrow(/provenance/);
+    expect((await latestEvaluations()).filter(r => r.model === model)).toHaveLength(latest.length);
   });
 });

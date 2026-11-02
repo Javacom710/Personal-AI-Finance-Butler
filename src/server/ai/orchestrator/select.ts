@@ -28,11 +28,13 @@ import 'server-only';
 
 import type { CapabilityMatrix, ModelCapabilities, StructuredOutputSupport } from '../config/capabilities';
 import type { ModelConfig } from '../config/models';
+import { matchesRequestProfile } from '../config/request-profiles';
 import type { CapabilityRequirement } from './requirements';
 import type { HealthRegistry } from './breaker';
 
 /** Why a model was excluded. Diagnostics — never shown to a model. */
 export type ExclusionReason =
+  | 'request_profile_mismatch'
   | 'no_capability_entry'
   | 'tool_calling_unsupported'
   | 'structured_output_unsupported'
@@ -130,6 +132,10 @@ export function selectCandidates(
     const capabilities = matrix.get(modelId);
     if (!capabilities) {
       excluded.push({ modelId, reason: 'no_capability_entry' });
+      continue;
+    }
+    if (capabilities.source === 'measured' && !matchesRequestProfile(capabilities.requestProfile, config.requestProfiles.forModel(modelId))) {
+      excluded.push({ modelId, reason: 'request_profile_mismatch' });
       continue;
     }
     const reason = excludeReason(capabilities, requirement);
