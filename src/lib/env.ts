@@ -101,6 +101,16 @@ const envSchema = z.object({
   NVIDIA_BASE_URL: z.url().default('https://integrate.api.nvidia.com/v1'),
 
   /**
+   * The model provider's key and base URL (ADR-52). Any OpenAI-compatible
+   * chat-completions API works, e.g. Groq at `https://api.groq.com/openai/v1`.
+   * When set, these win over `NVIDIA_API_KEY` / `NVIDIA_BASE_URL`, which remain
+   * only as a legacy fallback. Same handling as the NVIDIA key: read only in the
+   * composition root, never in `src/server/ai/**`.
+   */
+  AI_API_KEY: z.string().min(1).optional(),
+  AI_BASE_URL: z.url().optional(),
+
+  /**
    * Tier → ordered candidate model identifiers, comma-separated
    * ([ADR-17](../../docs/DECISIONS.md#adr-17--model-identifiers-are-configuration-not-code)).
    *
@@ -160,6 +170,15 @@ export function env(): Env {
 }
 
 /** Test and script support: re-read the environment after mutating `process.env`. */
+/** The model provider's credentials: `AI_*` first, the legacy `NVIDIA_*` names second (ADR-52). */
+export function aiProviderSettings(e: Env): { apiKey: string | undefined; baseUrl: string } {
+  return e.AI_API_KEY
+    ? { apiKey: e.AI_API_KEY, baseUrl: e.AI_BASE_URL ?? e.NVIDIA_BASE_URL }
+    : // The legacy key stays paired with its own URL, so an `AI_BASE_URL` set for
+      // a new provider can never redirect the NVIDIA key to it.
+      { apiKey: e.NVIDIA_API_KEY, baseUrl: e.NVIDIA_BASE_URL };
+}
+
 export function resetEnvCache(): void {
   cached = null;
 }

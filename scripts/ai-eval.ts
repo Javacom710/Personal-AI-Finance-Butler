@@ -25,7 +25,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-import { env, loadDotEnv } from '../src/lib/env';
+import { aiProviderSettings, env, loadDotEnv } from '../src/lib/env';
 import { resolveModelConfig } from '../src/server/ai/config/models';
 import { createNvidiaProvider } from '../src/server/ai/provider/nvidia-build';
 import { modelsFor, parseEvalArgs, renderEvalReport, runEvaluation } from '../src/server/ai/eval/runner';
@@ -43,8 +43,9 @@ async function main(): Promise<void> {
 
   loadDotEnv();
   const e = env();
-  if (!e.NVIDIA_API_KEY) {
-    console.error('NVIDIA_API_KEY is not configured. ai:eval measures live models and cannot run without it.');
+  const ai = aiProviderSettings(e);
+  if (!ai.apiKey) {
+    console.error('AI_API_KEY is not configured. ai:eval measures live models and cannot run without it.');
     process.exitCode = 1;
     return;
   }
@@ -61,8 +62,8 @@ async function main(): Promise<void> {
 
   const provider = createNvidiaProvider({
     requestProfiles: config.requestProfiles,
-    apiKey: e.NVIDIA_API_KEY,
-    baseUrl: e.NVIDIA_BASE_URL,
+    apiKey: ai.apiKey,
+    baseUrl: ai.baseUrl,
     fetch: globalThis.fetch as never,
     defaultTimeoutMs: e.AI_REQUEST_TIMEOUT_MS,
   });

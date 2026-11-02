@@ -8,7 +8,14 @@
  * ```
  * npm run ai:smoke        # connectivity, catalogue, generation, structured output
  * npm run ai:catalogue    # just the authenticated catalogue read
+ * npm run ai:reachability # can each configured model actually be called?
  * ```
+ *
+ * `ai:reachability` exists because the catalogue is not the truth: on
+ * 2026-11-02, 31 of the 50 chat models it listed returned HTTP 404 when called,
+ * including two routed primaries. It sends one tiny fixed request to every
+ * model the tiers route to and every evaluation candidate. It exits non-zero
+ * when a routed model fails, so it can run monthly or before a deployment.
  *
  * **No financial data is sent.** The prompts below are fixed, trivial and
  * non-personal — a connectivity check has no business carrying a ledger.
@@ -16,7 +23,7 @@
 
 import { z } from 'zod';
 
-import { loadDotEnv, env } from '../src/lib/env';
+import { aiProviderSettings, loadDotEnv, env } from '../src/lib/env';
 import { createNvidiaProvider } from '../src/server/ai/provider/nvidia-build';
 import {
   resolveModelConfig,
@@ -27,6 +34,7 @@ import {
 import { validateAgainst, toJsonSchema } from '../src/server/ai/structured/validate';
 
 const CATALOGUE_ONLY = process.argv.includes('--catalogue');
+const REACHABILITY = process.argv.includes('--reachability');
 
 function heading(text: string): void {
   console.log(`\n${text}\n${'-'.repeat(text.length)}`);
@@ -41,10 +49,11 @@ async function main(): Promise<void> {
   const e = env();
 
   heading('Configuration');
-  console.log(`NVIDIA_API_KEY : ${redactKey(e.NVIDIA_API_KEY)}`);
-  console.log(`NVIDIA_BASE_URL: ${e.NVIDIA_BASE_URL}`);
+  const ai = aiProviderSettings(e);
+  console.log(`AI_API_KEY : ${redactKey(ai.apiKey)}`);
+  console.log(`AI_BASE_URL: ${ai.baseUrl}`);
 
-  if (!e.NVIDIA_API_KEY) {
+  if (!ai.apiKey) {
     console.log(
       [
         '',
@@ -54,7 +63,8 @@ async function main(): Promise<void> {
         '',
         'To run the live checks, add to .env (which is git-ignored):',
         '',
-        '    NVIDIA_API_KEY=nvapi-...        # from https://build.nvidia.com',
+        '    AI_API_KEY=...                   # e.g. from https://console.groq.com/keys',
+        '    AI_BASE_URL=https://api.groq.com/openai/v1',
         '',
         'then re-run: npm run ai:smoke',
       ].join('\n'),
@@ -63,12 +73,25 @@ async function main(): Promise<void> {
     return;
   }
 
+  const routing = resolveModelConfig({
+    tier1: e.AI_TIER1_MODELS,
+    tier2: e.AI_TIER2_MODELS,
+    tier3: e.AI_TIER3_MODELS,
+    tier4: e.AI_TIER4_MODELS,
+    requestProfiles: e.AI_REQUEST_PROFILES,
+  });
   const provider = createNvidiaProvider({
-    apiKey: e.NVIDIA_API_KEY,
-    baseUrl: e.NVIDIA_BASE_URL,
+    requestProfiles: routing.requestProfiles,
+    apiKey: ai.apiKey,
+    baseUrl: ai.baseUrl,
     fetch: globalThis.fetch as never,
     defaultTimeoutMs: e.AI_REQUEST_TIMEOUT_MS,
   });
+
+  if (REACHABILITY) {
+    await reachability(provider, routing, e.AI_REQUEST_TIMEOUT_MS);
+    return;
+  }
 
   // 1 — catalogue, and the identifier reconciliation CLAUDE.md's list needs.
   heading('1. Catalogue');
@@ -157,6 +180,51 @@ async function main(): Promise<void> {
   heading('Result');
   console.log('Provider reachable, generation works, failures are classified.');
   console.log('No financial data was sent. No credential was printed.');
+}
+
+/**
+ * One tiny, fixed, non-personal request per model. A routed model that fails is
+ * an outage waiting to happen and sets the exit code; a failing evaluation
+ * candidate is only reported.
+ */
+async function reachability(
+  provider: ReturnType<typeof createNvidiaProvider>,
+  routing: ReturnType<typeof resolveModelConfig>,
+  timeoutMs: number,
+): Promise<void> {
+  const routed = new Map<string, number[]>();
+  for (const tier of [1, 2, 3, 4] as const) {
+    for (const id of routing.candidates(tier)) routed.set(id, [...(routed.get(id) ?? []), tier]);
+  }
+  const candidates = EVALUATION_CANDIDATES.filter((c) => !routed.has(c.id));
+
+  heading('Reachability (one tiny request per model)');
+  let failedRouted = 0;
+  const probe = async (id: string): Promise<string> => {
+    const result = await provider.chat({
+      model: id,
+      messages: [{ role: 'user', content: 'Reply with the single word OK.' }],
+      maxTokens: 16,
+      timeoutMs,
+    });
+    return result.ok ? `ok ${String(result.value.latencyMs).padStart(6)} ms` : `FAIL ${result.error.kind}`;
+  };
+  for (const [id, tiers] of routed) {
+    const outcome = await probe(id);
+    if (outcome.startsWith('FAIL')) failedRouted += 1;
+    console.log(`  ${outcome.padEnd(24)} ${id}  (routed: Tier ${tiers.join(', ')})`);
+  }
+  for (const c of candidates) {
+    console.log(`  ${(await probe(c.id)).padEnd(24)} ${c.id}  (candidate: Tier ${c.tier})`);
+  }
+
+  heading('Result');
+  if (failedRouted > 0) {
+    console.log(`${failedRouted} routed model(s) did not answer. Requests routed to them will fall back or fail.`);
+    process.exitCode = 1;
+  } else {
+    console.log('Every routed model answered. No financial data was sent.');
+  }
 }
 
 main().catch((error: unknown) => {

@@ -328,6 +328,27 @@ The new setup will separately establish credential/account access, the authentic
 
 The clean setup can initially retain the existing working key: the immediate configuration correction is to target the cloud secret at the application's expected `NVIDIA_API_KEY` variable rather than `Authorization_Nvidia`, avoiding command-local aliases. Replacing/revoking the credential is a separate owner/account decision after validation. No source edit is needed for that binding change.
 
+## Provider switch to Groq — 2026-11-02 (ADR-52)
+
+**The owner opened the provider choice; NVIDIA Build's free tier is replaced by Groq.** The decision is [ADR-52](docs/DECISIONS.md#adr-52--the-model-provider-is-any-openai-compatible-api-groq-replaces-nvidia-builds-free-tier).
+- **Evidence, from the owner's key:** 8 of the 50 listed chat models answered; 31 returned 404, including both routed primaries. Full Tier 1 runs (thinking-disabled profile for Lightning) failed the 0.90 tool gate:
+  - Bolt: tool 0.80, injection 0.32, schema 0.99;
+  - Laguna XS: tool 0.79, injection 0.60, schema 1.00;
+  - Lightning: tool 0.76.
+- Muse Glimmer (~11 s per request) was stopped. Mistral Large 4's Tier 2 run was stopped when the provider choice opened.
+- **`npm run ai:reachability`:** one tiny request per routed model and evaluation candidate. It exits non-zero when a routed model fails.
+- **Configuration:** `AI_API_KEY` and `AI_BASE_URL=https://api.groq.com/openai/v1` (the `NVIDIA_*` names remain a fallback).
+- **Tier orders (Groq ids, declared only):** T1 `openai/gpt-oss-120b`, `openai/gpt-oss-20b`; T2, T3 and T4 empty until a model is measured on that tier's own suites. Measured eligibility is keyed to a model's declared tier, so one model cannot serve several tiers until that is made tier-specific.
+
+**Handover to Codex — next steps, in order:**
+1. `npm run ai:reachability`.
+2. `npm run ai:eval -- --tier 1 --model openai/gpt-oss-120b,openai/gpt-oss-20b --interval-ms 3000 --no-record`, and the same for Tiers 2 and 3 with Groq text models (measured on each tier's own suites; a Tier 2/3 model needs its own declared entry at that tier, or tier-specific eligibility first). Watch Groq's free limits: 30 requests/min, 1,000 requests and 200K tokens per day. Spread the runs over days if needed.
+3. Find a Groq vision model that answers, and run the Tier 4 document suite on it.
+4. **Before the first `--record`:** scope stored measurements to the provider (Codex review of #37, P1). `ai_model_evaluations` provenance identifies a measurement by model, suite and request profile, never by provider or endpoint. So after a provider switch, an old provider's row for the same model id could authorise the new one. Record a non-secret provider identity (for example the base URL's host) in each row's detail. Match it in `latestEvaluations()` / `capabilitiesFromEvaluations()`, and treat rows without it as ineligible. No rows exist today: every live run used `--no-record`.
+5. Bring the measured lineup to the owner for approval, then record it (`--record`) and set the orders.
+
+**Unchanged:** scenario remains blocked by OD-18; NVIDIA reports stay as history.
+
 ## Working protocol — applies to every phase from 2 onward
 
 Approved by the user on 2026-08-09. The architecture documents in `docs/` are the **implementation baseline**.

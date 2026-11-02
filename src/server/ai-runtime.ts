@@ -26,7 +26,7 @@ import { randomUUID } from 'node:crypto';
 
 import { and, eq, sql } from 'drizzle-orm';
 
-import { env } from '../lib/env';
+import { aiProviderSettings, env } from '../lib/env';
 import { err, ok, type Result } from '../lib/result';
 import { db } from './db/client';
 import { aiUsageDaily, settings } from './db/schema';
@@ -284,7 +284,7 @@ export async function recordDailyAiUsage(entry: DailyUsageEntry): Promise<void> 
 export interface AiRuntime {
   readonly provider: AiProvider;
   readonly orchestrator: Orchestrator;
-  /** False when `NVIDIA_API_KEY` is unset. A Settings predicate, never a route input. */
+  /** False when no provider key (`AI_API_KEY` or `NVIDIA_API_KEY`) is set. A Settings predicate, never a route input. */
   isConfigured(): boolean;
 }
 
@@ -333,8 +333,7 @@ export function aiRuntime(): AiRuntime {
   const { config, matrix } = checkedAiConfiguration();
   const provider = meterProvider(createNvidiaProvider({
     requestProfiles: config.requestProfiles,
-    apiKey: e.NVIDIA_API_KEY,
-    baseUrl: e.NVIDIA_BASE_URL,
+    ...aiProviderSettings(e),
     fetch: globalThis.fetch as never,
     defaultTimeoutMs: e.AI_REQUEST_TIMEOUT_MS,
   }));
@@ -486,7 +485,7 @@ export async function runAiCapability(options: RunOptions): Promise<Result<RunOu
   if (!runtime.isConfigured()) {
     const failure = refused(
       'unsupported_capability',
-      'NVIDIA_API_KEY is not configured. AI features are unavailable; every other feature is unaffected.',
+      'No AI provider key (AI_API_KEY) is configured. AI features are unavailable; every other feature is unaffected.',
     );
     finish('refused', { failureKind: failure.kind });
     return err(failure);
