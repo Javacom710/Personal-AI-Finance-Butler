@@ -115,6 +115,8 @@ const envSchema = z.object({
   AI_TIER2_MODELS: z.string().default(''),
   AI_TIER3_MODELS: z.string().default(''),
   AI_TIER4_MODELS: z.string().default(''),
+  /** JSON model → versioned profile id; validated by the AI configuration resolver. */
+  AI_REQUEST_PROFILES: z.string().default(''),
 
   /** Requests per minute for the AI endpoints. One user, so a small number is the right one. */
   AI_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(10),

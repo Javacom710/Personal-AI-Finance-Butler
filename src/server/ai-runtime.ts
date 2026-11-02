@@ -228,6 +228,7 @@ export function withMetering<T>(meter: Metering, fn: () => Promise<T>): Promise<
  */
 export function meterProvider(inner: AiProvider): AiProvider {
   return {
+    ...(inner.requestProfileFor ? { requestProfileFor: (model: string) => inner.requestProfileFor!(model) } : {}),
     key: inner.key,
     isConfigured: () => inner.isConfigured(),
     listModels: () => inner.listModels(),
@@ -329,14 +330,14 @@ export function aiRuntime(): AiRuntime {
   if (cached) return cached;
 
   const e = env();
+  const { config, matrix } = checkedAiConfiguration();
   const provider = meterProvider(createNvidiaProvider({
+    requestProfiles: config.requestProfiles,
     apiKey: e.NVIDIA_API_KEY,
     baseUrl: e.NVIDIA_BASE_URL,
     fetch: globalThis.fetch as never,
     defaultTimeoutMs: e.AI_REQUEST_TIMEOUT_MS,
   }));
-
-  const { config, matrix } = checkedAiConfiguration();
 
   const orchestrator = createOrchestrator({
     provider,
@@ -364,6 +365,7 @@ function checkedAiConfiguration() {
     tier2: e.AI_TIER2_MODELS,
     tier3: e.AI_TIER3_MODELS,
     tier4: e.AI_TIER4_MODELS,
+    requestProfiles: e.AI_REQUEST_PROFILES,
   });
   const matrix = createCapabilityMatrix(measured);
   assertEveryConfiguredModelKnown(config.allConfigured(), matrix);

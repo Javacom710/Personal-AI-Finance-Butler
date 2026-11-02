@@ -1045,6 +1045,22 @@ Why:
 
 ---
 
+## ADR-51 — request profiles are application-controlled and measurements must match them
+
+**Accepted 2026-11-02.** The owner approved the [request-profile implementation scope](../eval/experiments/REQUEST-PROFILE-PROPOSAL.md) by instructing work to continue after the explicit approval question. This accepts the contract implementation, not Lightning for production or a new tier order.
+
+**Problem.** Lightning's default-profile structured evaluation fails, while a documented thinking-disabled experiment produces different results. A score identified only by model and suite could certify production requests that do not use the setting tested. The experimental runs also have incomplete coverage and cannot be imported as qualified measurements.
+
+**Decision.** Add a versioned application-configured default profile and an opt-in Lightning thinking-disabled profile. Preserve existing default wire requests. The provider adapter remains the only serializer of NVIDIA controls and exposes its actual profile identity to the evaluator. Reports and each stored suite's JSON detail retain the canonical identity/fingerprint. No migration or runtime dependency is required.
+
+Load only complete, current-suite evidence matching the active profile; legacy rows without provenance belong exclusively to the default profile. Retain separate histories so one profile's newer result cannot shadow another's. Check provenance again at selection and compare the configured profile with the actual adapter before egress. Invalid profile/model combinations fail configuration. The user/model cannot select profiles through conversational text, tool arguments or arbitrary wire overrides.
+
+Fresh evaluations use the represented profile and explicit client pacing, with provider rate limits retained separately from wrong model answers. Do not import the experimental artifacts retrospectively. Model support declarations, exact task accuracy, thresholds, remaining Phase 8 gates and human routing acceptance are unchanged. OD-18 remains separate.
+
+**Rejected.** An untracked fetch override in production; treating experimental results as default-profile evidence; allowing user-selected reasoning controls; changing prompts or scorers per model; silently adding Lightning to a tier.
+
+---
+
 ## Open decisions requiring the user
 
 | # | Decision | Why it cannot be defaulted | Blocks |

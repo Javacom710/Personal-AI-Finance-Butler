@@ -28,6 +28,7 @@ import 'server-only';
 import { DECLARED_CAPABILITIES, type ModelCapabilities } from '../config/capabilities';
 import type { Tier } from '../config/models';
 import { EVALUATION_CANDIDATES, type ModelConfig } from '../config/models';
+import { DEFAULT_REQUEST_PROFILE, matchesRequestProfile, requestProfileById, requestProfileIdentity, type RequestProfileIdentity } from '../config/request-profiles';
 import { allCapabilities, requirementFor, type AiCapability } from '../orchestrator/requirements';
 import { unsupportedBy } from '../orchestrator/select';
 import type { AiProvider } from '../provider/types';
@@ -92,6 +93,8 @@ export const THRESHOLDS = { tier1SchemaAdherence: 0.95, toolCallCorrectness: 0.9
 // ------------------------------------------------------------------ arguments
 
 export interface EvalArgs {
+  /** Evaluation-only pacing, outside provider latency and the request deadline. */
+  readonly intervalMs?: number;
   readonly tier: Tier;
   readonly suites: readonly ModelSuite[];
   /** Explicit models; empty means the tier's configured order plus its evaluation candidates. */
@@ -142,10 +145,15 @@ export function parseEvalArgs(argv: readonly string[]): ParsedArgs {
   const limitText = value('--limit');
   const limit = limitText === undefined ? null : Number(limitText);
   if (limit !== null && (!Number.isInteger(limit) || limit < 1)) return { ok: false, error: '--limit must be a positive integer.' };
+  const intervalText = value('--interval-ms');
+  const intervalMs = intervalText === undefined ? 2_000 : Number(intervalText);
+  if (!Number.isSafeInteger(intervalMs) || intervalMs < 0 || intervalMs > 60_000) {
+    return { ok: false, error: '--interval-ms must be an integer from 0 to 60000.' };
+  }
 
   return {
     ok: true,
-    value: { tier: tier as Tier, suites, models: list('--model'), limit, record: limit === null && !argv.includes('--no-record') },
+    value: { tier: tier as Tier, suites, models: list('--model'), limit, record: limit === null && !argv.includes('--no-record'), intervalMs },
   };
 }
 
@@ -185,6 +193,7 @@ export interface SuiteCounts {
 }
 
 export interface ModelResult {
+  readonly requestProfile?: RequestProfileIdentity;
   readonly modelId: string;
   readonly suites: readonly SuiteResult[];
   readonly schemaAdherence: number | null;
@@ -202,6 +211,7 @@ export interface ModelResult {
 }
 
 export interface EvalRun {
+  readonly requestIntervalMs?: number;
   readonly requestTimeoutMs?: number;
   readonly tier: Tier;
   readonly startedAt: string;
@@ -389,6 +399,26 @@ export async function runEvaluation(options: RunOptions): Promise<EvalRun> {
   const now = options.now ?? (() => new Date());
   const log = options.log ?? (() => undefined);
   const startedAt = now().toISOString();
+  // Read provenance from the adapter that actually serializes requests, rather
+  // than a separately supplied label that could certify a different wire body.
+  const profiles = new Map(options.models.map((model) => {
+    const identity = provider.requestProfileFor?.(model) ?? DEFAULT_REQUEST_PROFILE;
+    const profile = requestProfileById(model, identity.id);
+    if (!matchesRequestProfile(identity, profile)) throw new Error('Provider request-profile provenance is invalid.');
+    return [model, requestProfileIdentity(profile)] as const;
+  }));
+  const intervalMs = args.intervalMs ?? 0;
+  let nextRequestAt = 0;
+  const schedule = intervalMs === 0 ? undefined : {
+    async beforeCase() {
+      const waitMs = nextRequestAt - Date.now();
+      if (waitMs > 0) await new Promise<void>((resolve) => setTimeout(resolve, waitMs));
+      nextRequestAt = Date.now() + intervalMs;
+    },
+    rateLimited(retryAfterMs: number | null) {
+      nextRequestAt = Math.max(nextRequestAt, Date.now() + (retryAfterMs ?? 60_000));
+    },
+  };
 
   const built = args.suites.map((suite) => {
     const all = MODEL_SUITES[suite].build();
@@ -400,7 +430,7 @@ export async function runEvaluation(options: RunOptions): Promise<EvalRun> {
     const suites: SuiteResult[] = [];
     for (const { suite, cases } of built) {
       const maxTokens = maxTokensFor(args.tier, suite);
-      const report = await evaluateModel(provider, modelId, cases, options.timeoutMs, maxTokens);
+      const report = await evaluateModel(provider, modelId, cases, options.timeoutMs, maxTokens, schedule);
       const passed = report.cases.filter((c) => c.passed === true).length;
       const errors: Record<string, number> = {};
       const finishReasons: Record<string, number> = {};
@@ -423,7 +453,7 @@ export async function runEvaluation(options: RunOptions): Promise<EvalRun> {
       const errorText = Object.keys(errors).length > 0 ? ` (errors: ${JSON.stringify(errors)})` : '';
       log(`${modelId}  ${suite}: ${passed}/${report.cases.length}${errorText}`);
     }
-    models.push(summarise(modelId, suites));
+    models.push({ ...summarise(modelId, suites), requestProfile: profiles.get(modelId)! });
   }
 
   // A wire check or a subset of the tier's suites is not a measurement of the
@@ -434,6 +464,7 @@ export async function runEvaluation(options: RunOptions): Promise<EvalRun> {
     : proposeOrder(models, args.tier);
   return {
     tier: args.tier,
+    requestIntervalMs: intervalMs,
     requestTimeoutMs: options.timeoutMs ?? 60_000,
     startedAt,
     limit: args.limit,
@@ -458,6 +489,10 @@ export function renderEvalReport(run: EvalRun): string {
     `Run ${run.startedAt}. Suites: ${suites.map((s) => `${s} v${run.suiteVersions[s]}`).join(', ')}.`,
   ];
   lines.push('', `Request timeout: ${run.requestTimeoutMs ?? 'not recorded'} ms. Output-token budgets: ${suites.map((suite) => `${suite}: ${run.models[0]?.suites.find((s) => s.suite === suite)?.maxTokens ?? 'not recorded'}`).join(', ')}.`);
+  lines.push('', `Minimum request interval: ${run.requestIntervalMs ?? 'not recorded'} ms (evaluation scheduling only).`, '', 'Request profiles:');
+  for (const m of run.models) {
+    lines.push(`- ${m.modelId}: ${m.requestProfile ? `${m.requestProfile.id}; fingerprint \`${m.requestProfile.fingerprint}\`` : 'legacy default profile (identity not recorded)'}`);
+  }
   if (run.limit !== null) {
     lines.push(
       '',

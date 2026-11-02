@@ -1,5 +1,7 @@
 import 'server-only';
 
+import { resolveRequestProfiles, type RequestProfiles } from './request-profiles';
+
 /**
  * Tier → ordered candidate models, and the identifier normalisation between
  * `CLAUDE.md`'s candidate pool and NVIDIA Build's actual catalogue
@@ -212,6 +214,7 @@ const DEFAULT_ORDER: Readonly<Record<Tier, readonly string[]>> = {
 
 /** Env-supplied overrides, comma-separated, passed in from the composition root. */
 export interface TierOverrides {
+  readonly requestProfiles?: string;
   readonly tier1?: string;
   readonly tier2?: string;
   readonly tier3?: string;
@@ -219,6 +222,7 @@ export interface TierOverrides {
 }
 
 export interface ModelConfig {
+  readonly requestProfiles: RequestProfiles;
   /** Ordered candidate ids for a tier. Already normalised to catalogue names. */
   candidates(tier: Tier): readonly string[];
   /** Every id this configuration could route to, across all tiers. */
@@ -251,6 +255,7 @@ export function resolveModelConfig(overrides: TierOverrides = {}): ModelConfig {
   };
 
   return {
+    requestProfiles: resolveRequestProfiles(overrides.requestProfiles),
     candidates: (tier) => resolved[tier],
     allConfigured: () => [...new Set(Object.values(resolved).flat())],
   };

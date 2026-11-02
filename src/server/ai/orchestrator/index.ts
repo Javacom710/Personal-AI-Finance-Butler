@@ -32,6 +32,7 @@ import {
 import type { AiProvider, ChatMessage, ChatRequest, ChatResponse, ToolDefinition } from '../provider/types';
 import type { CapabilityMatrix } from '../config/capabilities';
 import type { ModelConfig } from '../config/models';
+import { matchesRequestProfile } from '../config/request-profiles';
 import { runChain, type Attempt } from './fallback';
 import { selectCandidates, type Excluded } from './select';
 import { requirementFor, type AiCapability, type CapabilityRequirement } from './requirements';
@@ -73,7 +74,14 @@ export interface Orchestrator {
 
 export function createOrchestrator(deps: OrchestratorDeps): Orchestrator {
   function plan(requirement: CapabilityRequirement) {
-    return selectCandidates(requirement, deps.config, deps.matrix, deps.health, deps.now());
+    const selected = selectCandidates(requirement, deps.config, deps.matrix, deps.health, deps.now());
+    const excluded = [...selected.excluded];
+    const candidates = selected.candidates.filter((modelId) => {
+      if (matchesRequestProfile(deps.provider.requestProfileFor?.(modelId), deps.config.requestProfiles.forModel(modelId))) return true;
+      excluded.push({ modelId, reason: 'request_profile_mismatch' });
+      return false;
+    });
+    return { candidates, excluded };
   }
 
   return {

@@ -118,10 +118,12 @@ export async function evaluateModel(
   cases: readonly EvalCase[],
   timeoutMs = 60_000,
   maxTokens = 2_048,
+  schedule?: { beforeCase(): Promise<void>; rateLimited(retryAfterMs: number | null): void },
 ): Promise<ModelReport> {
   const results: CaseResult[] = [];
 
   for (const testCase of cases) {
+    await schedule?.beforeCase();
     const startedAt = Date.now();
     const response = await provider.chat({
       model: modelId,
@@ -135,6 +137,7 @@ export async function evaluateModel(
     });
 
     if (!response.ok) {
+      if (response.error.kind === 'rate_limited') schedule?.rateLimited(response.error.retryAfterMs);
       results.push({
         caseId: testCase.id,
         suite: testCase.suite,

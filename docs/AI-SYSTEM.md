@@ -79,7 +79,7 @@ Measured against the Anthropic-style feature set assumed in the previous draft:
 | **Prompt caching** | ❌ **not available** | No 0.1× cached-read discount. Prompt size is a direct, linear cost — §12 rewrites the cost model around trimming, not caching. |
 | Server-side fallback | ❌ | Fallback is ours to implement (§7) |
 | Refusal as a typed stop reason | ❌ | Content filtering surfaces as `finish_reason: 'content_filter'` or a provider error; handled in §16 |
-| Reasoning-effort parameter | ❌ | Depth is a model choice (tier selection), not a request parameter |
+| General reasoning-effort parameter | ❌ | Depth remains a tier choice. The documented Lightning thinking-disabled setting is available through an application-controlled, versioned request profile only; it never changes the tier or accepts controls from user text (ADR-51). |
 
 **The recurring word is "varies by model."** That is the defining property of an open-weight multi-model architecture and the reason `CLAUDE.md` mandates an evaluation suite. The design answer is the capability matrix (§5): a *measured, stored* record of what each model actually does, consulted by the router on every request.
 
@@ -654,6 +654,16 @@ Re-run on model change, provider change, or quarterly. CI fails if any productio
 ### Evaluation request budgets
 
 The CLI derives output limits from the production capability requirements: parse 1,024, classify 512, Tier 1 read tasks 2,048, Tier 2 4,096, Tier 3 8,192. Tier 4 uses the smaller receipt/document limit (2,048), since both routes share the schema score. Reports and stored row detail record the suite output limit and request timeout. Changed request contracts invalidate older measurements through the affected suite versions; version-1 text-suite reports used a universal 2,048-token limit. Document v1 keeps its original budget and remains comparable. Reports and stored details also retain counts of provider completion reasons (including `length`) separately from transport errors. These diagnostics do not change scores; historical reports label missing counts as unrecorded.
+
+### Request profiles and measurement provenance (ADR-51)
+
+`AI_REQUEST_PROFILES` is an optional JSON map from model id to profile id, resolved by `config/request-profiles.ts`. Empty preserves the existing request body (`default-v1`). The only additional profile is `lightning-thinking-disabled-v1`, supported exclusively for `nvidia/nemotron-3.5-lightning-30b-a3b`; the NVIDIA adapter serializes its sole control as `chat_template_kwargs: { enable_thinking: false }`. Unknown profiles or unsupported model/profile pairs fail configuration. Prompts, tool arguments and user messages cannot set a profile or supply arbitrary provider parameters.
+
+Production and `ai:eval` use the same configuration resolver. The adapter exposes the canonical profile identity/fingerprint it actually uses; the evaluator captures that identity in each model result and storage retains it in each suite's JSON detail. The fingerprint is the canonical JSON semantic description (profile id and reasoning mode), not a mutable wire-parameter map. Default wire bodies, prompts, token budgets and suite versions are unchanged. Non-default results require explicit provenance; legacy identity-less rows certify only `default-v1` and are never reinterpreted as thinking-disabled results.
+
+The latest database rows are kept separately by model, suite and profile. Loading a measured entry requires every current suite to match the active profile and the existing completeness rules. A newer result for another profile cannot hide a matching measurement. Selection checks the entry against active configuration, and the orchestrator also checks the actual adapter identity before egress. Changing a profile invalidates incompatible evidence; it does not choose a model or override the capability/tier gates. Existing experimental artifacts are not imported retrospectively. A human still accepts a proposed model order separately.
+
+`ai:eval` defaults to a 2,000 ms minimum interval between request starts (`--interval-ms 0..60000` to adjust). Pacing applies across suites/models before the request clock starts; it does not inflate provider latency or consume the request deadline. With pacing enabled, a rate-limited request is retained as unanswered, and the next case respects `Retry-After` or a 60-second cooldown if the provider supplied none. No failed case is replayed. Reports include the interval. This client scheduling change does not alter the request profile or suite scores.
 
 ### Selection criteria
 

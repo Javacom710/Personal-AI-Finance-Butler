@@ -30,6 +30,7 @@ import 'server-only';
  */
 
 import { err, ok, type Result } from '../../../lib/result';
+import { resolveRequestProfiles, requestProfileIdentity, type RequestProfiles } from '../config/request-profiles';
 import {
   malformedResponse,
   notConfigured,
@@ -63,6 +64,7 @@ export type FetchLike = (
 ) => Promise<Response>;
 
 export interface NvidiaProviderConfig {
+  readonly requestProfiles?: RequestProfiles;
   /** Absent means unconfigured — a typed failure, never a fabricated result. */
   readonly apiKey: string | undefined;
   readonly baseUrl: string;
@@ -159,6 +161,7 @@ function readTokens(raw: unknown): number {
 
 /** Construct the provider. Absent key is legal; it surfaces at call time. */
 export function createNvidiaProvider(config: NvidiaProviderConfig): AiProvider {
+  const profiles = config.requestProfiles ?? resolveRequestProfiles();
   const endpoint = (path: string) => `${config.baseUrl.replace(/\/+$/, '')}${path}`;
 
   const isConfigured = () => typeof config.apiKey === 'string' && config.apiKey.length > 0;
@@ -217,6 +220,7 @@ export function createNvidiaProvider(config: NvidiaProviderConfig): AiProvider {
   return {
     key: NVIDIA_BUILD_KEY,
     isConfigured,
+    requestProfileFor: (model) => requestProfileIdentity(profiles.forModel(model)),
 
     async chat(request: ChatRequest): Promise<Result<ChatResponse, AiFailure>> {
       const startedAt = Date.now();
@@ -226,6 +230,9 @@ export function createNvidiaProvider(config: NvidiaProviderConfig): AiProvider {
         messages: request.messages.map(toWireMessage),
         max_tokens: request.maxTokens,
       };
+      if (profiles.forModel(request.model).reasoning === 'disabled') {
+        body['chat_template_kwargs'] = { enable_thinking: false };
+      }
       if (request.temperature !== undefined) body['temperature'] = request.temperature;
       if (request.tools?.length) {
         body['tools'] = request.tools.map((tool) => ({

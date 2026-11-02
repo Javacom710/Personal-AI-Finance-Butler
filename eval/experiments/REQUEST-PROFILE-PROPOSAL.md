@@ -1,6 +1,6 @@
 # Proposed request-profile contract
 
-**For owner decision. Not an approved architecture change or production configuration.**
+**Implementation scope approved 2026-11-02; recorded in [ADR-51](../../docs/DECISIONS.md#adr-51--request-profiles-are-application-controlled-and-measurements-must-match-them).** The owner instructed work to continue after the explicit approval question. This document preserves the reviewed proposal; its implementation does not accept a production model order or reinterpret the experimental artifacts.
 
 The default Lightning request failed the parse/classify v2 schema gate. NVIDIA documents `chat_template_kwargs.enable_thinking=false`, and the separate experiment in this directory tests it without changing prompts, scorers or production token budgets. Its results cannot certify today's production requests: the application never sends that flag, and measurements currently identify model and suite rather than a request profile.
 

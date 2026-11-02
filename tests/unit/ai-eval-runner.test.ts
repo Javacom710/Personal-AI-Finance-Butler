@@ -73,11 +73,11 @@ describe('ai:eval arguments', () => {
   it('defaults the suites to the tier, and rejects what it cannot measure', () => {
     expect(parseEvalArgs(['--tier', '1'])).toEqual({
       ok: true,
-      value: { tier: 1, suites: TIER_SUITES[1], models: [], limit: null, record: true },
+      value: { tier: 1, suites: TIER_SUITES[1], models: [], limit: null, record: true, intervalMs: 2000 },
     });
     expect(parseEvalArgs(['--tier', '2', '--suite', 'grounding,injection', '--model', 'a/b, c/d', '--limit', '3'])).toEqual({
       ok: true,
-      value: { tier: 2, suites: ['grounding', 'injection'], models: ['a/b', 'c/d'], limit: 3, record: false },
+      value: { tier: 2, suites: ['grounding', 'injection'], models: ['a/b', 'c/d'], limit: 3, record: false, intervalMs: 2000 },
     });
     expect(parseEvalArgs(['--tier', '1', '--no-record'])).toMatchObject({ ok: true, value: { record: false } });
     expect(parseEvalArgs([]).ok).toBe(false);

@@ -25,6 +25,7 @@ import 'server-only';
 
 import type { Result } from '../../../lib/result';
 import type { AiFailure } from '../errors';
+import type { RequestProfileIdentity } from '../config/request-profiles';
 
 /** A conversation turn. `tool` carries a result back to the model. */
 export type ChatRole = 'system' | 'user' | 'assistant' | 'tool';
@@ -129,6 +130,8 @@ export interface ProviderModel {
  * — by the first adapter. They are added when a caller exists.
  */
 export interface AiProvider {
+  /** The configured request identity, bound to the adapter used for evaluation. */
+  requestProfileFor?(model: string): RequestProfileIdentity;
   /** Stable identity for logs and observability. */
   readonly key: string;
   /** False when no credential is configured. A *predicate*, never a routing input. */
