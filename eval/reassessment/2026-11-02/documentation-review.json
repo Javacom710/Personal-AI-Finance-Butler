@@ -1,0 +1,107 @@
+{
+  "note": "Current official public model metadata; advertised capabilities are not measured task quality or proof of serving access. No inference call was made.",
+  "models": [
+    {
+      "model": "nvidia/nemotron-3.5-bolt-e4b",
+      "url": "https://build.nvidia.com/nvidia/nemotron-3.5-bolt-e4b/modelcard",
+      "documentationStatus": 200,
+      "specifications": {
+        "contextLength": 65536,
+        "parameters": 8000000000,
+        "inputModalities": [
+          "Text"
+        ],
+        "outputModalities": [
+          "Text"
+        ]
+      },
+      "advertisedCapabilities": {
+        "functionCalling": true,
+        "structuredOutput": true,
+        "reasoning": true
+      },
+      "mentionsJsonSchema": true,
+      "mentionsJsonObject": true
+    },
+    {
+      "model": "moonshotai/kimi-k2.6",
+      "url": "https://build.nvidia.com/moonshotai/kimi-k2.6/modelcard",
+      "documentationStatus": 200,
+      "specifications": null,
+      "advertisedCapabilities": null,
+      "mentionsJsonSchema": false,
+      "mentionsJsonObject": false
+    },
+    {
+      "model": "minimaxai/minimax-m3.1-flash",
+      "url": "https://build.nvidia.com/minimaxai/minimax-m3.1-flash/modelcard",
+      "documentationStatus": 200,
+      "specifications": {
+        "contextLength": 262144,
+        "parameters": 220490854016,
+        "inputModalities": [
+          "Text",
+          "Image",
+          "Video"
+        ],
+        "outputModalities": [
+          "Text"
+        ]
+      },
+      "advertisedCapabilities": {
+        "functionCalling": true,
+        "structuredOutput": true,
+        "reasoning": true
+      },
+      "mentionsJsonSchema": false,
+      "mentionsJsonObject": false
+    },
+    {
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "url": "https://build.nvidia.com/nvidia/nemotron-3.5-super-vl-120b-a12b/modelcard",
+      "documentationStatus": 200,
+      "specifications": {
+        "contextLength": 262144,
+        "parameters": 123611012096,
+        "inputModalities": [
+          "Text",
+          "Image",
+          "Video"
+        ],
+        "outputModalities": [
+          "Text"
+        ]
+      },
+      "advertisedCapabilities": {
+        "functionCalling": true,
+        "structuredOutput": true,
+        "reasoning": true
+      },
+      "mentionsJsonSchema": true,
+      "mentionsJsonObject": true
+    },
+    {
+      "model": "mistralai/mistral-large-4-1t-a52b",
+      "url": "https://build.nvidia.com/mistralai/mistral-large-4-1t-a52b/modelcard",
+      "documentationStatus": 200,
+      "specifications": {
+        "contextLength": 262144,
+        "parameters": "1050B",
+        "inputModalities": [
+          "Text",
+          "Image"
+        ],
+        "outputModalities": [
+          "Text"
+        ]
+      },
+      "advertisedCapabilities": {
+        "functionCalling": true,
+        "structuredOutput": true,
+        "reasoning": true
+      },
+      "mentionsJsonSchema": false,
+      "mentionsJsonObject": false
+    }
+  ]
+}

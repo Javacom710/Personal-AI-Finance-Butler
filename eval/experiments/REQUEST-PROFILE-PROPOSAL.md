@@ -14,8 +14,8 @@ The default Lightning request failed the parse/classify v2 schema gate. NVIDIA d
 
 **Acceptance of this implementation scope would not accept a production model order.** Lightning remains an evaluation candidate until verified declared capabilities, complete current-profile measurements and the separate human routing decision satisfy AI-SYSTEM.md §14. The full experiment also needs to be assessed on exact task accuracy and grounding, not schema validity alone.
 
-## Why a decision is needed
+## Approval boundary
 
-This changes the approved request/measurement contract and model strategy, rather than merely running another default-profile benchmark. PROJECT-STATE.md's working protocol requires stopping before a major architectural correction, and the earlier probe explicitly leaves production-profile adoption unapproved. The requested decision is whether to implement the scope above; no implementation or production adoption has been made here.
+This changes the approved request/measurement contract and model strategy, rather than merely running another default-profile benchmark. The owner approved implementing the scope above after the explicit approval question, as PROJECT-STATE.md's working protocol requires. ADR-51 now governs the implementation. Production model-order acceptance remains separate; none of the exploratory artifacts in this directory qualifies it.
 
 OD-18 remains separate: scenario arithmetic, the missing metrics and TWR wiring still need their scheduling decision. This proposal does not move them into Phase 8 or advance to Phase 9.
