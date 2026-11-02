@@ -38,3 +38,9 @@ This is an incomplete measurement checkpoint, not a final lineup recommendation.
 ## Provider provenance fix
 
 New reports carry a normalized endpoint identity (scheme, host, port and base path; no user information, query or fragment). Recording refuses missing or mismatched provenance. `latestEvaluations()` filters by active endpoint before choosing latest rows; the pure capability loader also filters and fails closed without a provider identity. Rows lacking provider identity are ineligible. Existing JSON detail carries the field, so no schema migration is needed. This closes #37's P1 before any live measurement is stored.
+
+## Validation and continuation
+
+Provider provenance: 1,949 unit tests and 8 targeted PostgreSQL 17 integration tests pass; typecheck, lint, production build, client-secret scan and diff whitespace checks pass. The config, capability declarations, prompts, golden tasks, score module and harness are unchanged from merged #37.
+
+Continuation is scheduled daily at 20:00 Asia/Calcutta starting 2026-11-03 (maximum 14 occurrences), in the context of draft PR #38. It must stop at owner approval or an environment/access blocker and never merge the PR. Completed per-suite evidence must be retained across windows; this schedule is not evidence that any remaining run has completed.
