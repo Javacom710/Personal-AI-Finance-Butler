@@ -404,6 +404,7 @@ product/UI work item scheduled with the Phase 9 UX pass. It does not block Phase
 - Record measured entries: results in `ai_model_evaluations`, loaded over the declared defaults in `capabilities.ts` ([ADR-44](DECISIONS.md#adr-44--the-capability-matrix-stays-capabilitiests-checked-at-startup))
   - *Progress:* ✅ built — migration `0006`, `src/server/ai-evaluations.ts`, loaded at server start. No database rows recorded yet: the first Tier 4 runs used `--no-record`; their Markdown/JSON reports are checked in.
 - Select production routing order per tier
+  - V2 structured diagnostic (2026-11-02): Lightning parse 0/40, classify 1/60, 5 unanswered, schema adherence 1/95 over answered cases. This two-suite run does not qualify a Tier 1 route; remaining tool suites were not run for this rejected attempt. Provider access and qualified full-tier measurements remain outstanding.
 
 **Done when**
 - [ ] Every tier has at least one model meeting its thresholds (Tier 1 `schemaAdherence ≥ 0.95`; any tool-using route `toolCallCorrectness ≥ 0.90`)
