@@ -52,3 +52,28 @@ Provider provenance: 1,949 unit tests and 8 targeted PostgreSQL 17 integration t
 Continuation is scheduled daily at 20:00 Asia/Calcutta starting 2026-11-03 (maximum 14 occurrences), in the context of draft PR #38. It must stop at owner approval or an environment/access blocker and never merge the PR. Completed per-suite evidence must be retained across windows; this schedule is not evidence that any remaining run has completed.
 
 Final daily checkpoint: 65 chat requests including reachability; 148,382 conservative reserved tokens (not billed usage). Future quota windows must retain the completed parse report.
+
+## Continuation — 2026-11-02, 15:06–15:09 UTC
+
+20B's unchanged **robustness v2** suite now has [8/10 case checkpoints](../checkpoint-tier1-robustness-openai-gpt-oss-20b.json): 3 passed, 4 failed the existing scorer, and 1 received HTTP 400 (classified as `transport` by the unchanged adapter). Cases 009 and 010 remain unattempted. This is partial evidence, **not** a full-suite score or routing recommendation. Cases 002 and 007 returned tool calls marked invalid by the existing scorer. No output text was saved, and the HTTP 400 was not retried.
+
+The [current daily ledger](../groq-budget-2026-11-02.json) supersedes the earlier stopping point: **73 chat requests / 183,316 conservative reserved tokens**, including the prior 148,382 baseline. Seven new answered requests reported 17,518 tokens; the unanswered request retains its 17,416-token upper reservation. This reservation is not billed usage. The next case's bound does not fit under the 190K stop point, so no more provider calls were made.
+
+### Resume without repeating completed cases
+
+```sh
+AI_API_KEY="$Authorization_Groq" NODE_USE_ENV_PROXY=1 \
+  node --conditions=react-server --import tsx scripts/ai-eval-budgeted.ts \
+  --tier 1 --suite robustness --model openai/gpt-oss-20b \
+  --interval-ms 3000 --no-record
+```
+
+Use the configured secret binding; never print it. The CLI requires one model/suite, `--no-record`, and no `--limit`; it never writes evaluation rows or tier orders. It saves scored case results after each request and resumes only when the provider, source files, request profile, suite version and production budget fingerprint match. Source-only changes invalidate checkpoints; report-only commits do not. Do not edit fingerprints to force a resume. The score checkpoint contains no model output.
+
+Quota waits now occur **before** entering the production adapter. The new case latencies exclude those waits. Earlier parse timings retain their documented fetch-guard caveat. The existing harness's aggregation was extracted unchanged into `reportFromCases`; the runner's existing count/summary helpers are reused. No gate, scorer, prompt, suite or request profile changed.
+
+The CLI reserves UTF-8 text bytes, tool-envelope overhead, image tokens and the production output budget before a request; it reconciles only when the provider reports usage. It stops without a retry on HTTP 429 and stops before issuing an unaffordable request. Its ledger counters are UTC-day scoped: before starting a fresh day's ledger, also conservatively account for any preceding-24-hour activity; a date change alone does not prove provider quota reset. A lock prevents overlapping measurements; inspect its PID before removing any stale lock.
+
+Verified a second invocation at the reserve stop issued **zero requests** and left both ledger and score-checkpoint SHA-256 hashes unchanged. Tests confirm batch and checkpoint aggregation agree and that image base64 bytes are not counted as tokens. All **1,952 unit tests**, typecheck, lint, production build and client-secret scan pass. The prior eight targeted integration tests and PostgreSQL 17/18 CI were green before this continuation; latest-push CI is reported separately by GitHub.
+
+The scheduled continuation has been updated to resume only cases 009/010, preserve the completed 120B parse report, and account for current usage before any additional suite. No accepted tier order is proposed yet.

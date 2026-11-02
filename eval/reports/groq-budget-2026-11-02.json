@@ -1,0 +1,63 @@
+{
+  "day": "2026-11-02",
+  "requests": 73,
+  "reservedTokens": 183316,
+  "events": [
+    {
+      "at": "2026-11-02T15:06:35.791Z",
+      "model": "openai/gpt-oss-20b",
+      "status": 200,
+      "reportedTokens": 2144,
+      "reservedTokens": 2144
+    },
+    {
+      "at": "2026-11-02T15:06:54.913Z",
+      "model": "openai/gpt-oss-20b",
+      "status": 200,
+      "reportedTokens": 2332,
+      "reservedTokens": 2332
+    },
+    {
+      "at": "2026-11-02T15:07:14.753Z",
+      "model": "openai/gpt-oss-20b",
+      "status": 200,
+      "reportedTokens": 2368,
+      "reservedTokens": 2368
+    },
+    {
+      "at": "2026-11-02T15:07:34.797Z",
+      "model": "openai/gpt-oss-20b",
+      "status": 200,
+      "reportedTokens": 2415,
+      "reservedTokens": 2415
+    },
+    {
+      "at": "2026-11-02T15:07:54.746Z",
+      "model": "openai/gpt-oss-20b",
+      "status": 200,
+      "reportedTokens": 2883,
+      "reservedTokens": 2883
+    },
+    {
+      "at": "2026-11-02T15:08:16.593Z",
+      "model": "openai/gpt-oss-20b",
+      "status": 200,
+      "reportedTokens": 2704,
+      "reservedTokens": 2704
+    },
+    {
+      "at": "2026-11-02T15:08:39.526Z",
+      "model": "openai/gpt-oss-20b",
+      "status": 200,
+      "reportedTokens": 2672,
+      "reservedTokens": 2672
+    },
+    {
+      "at": "2026-11-02T15:09:02.103Z",
+      "model": "openai/gpt-oss-20b",
+      "status": 400,
+      "reportedTokens": null,
+      "reservedTokens": 17416
+    }
+  ]
+}
