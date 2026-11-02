@@ -1,0 +1,404 @@
+{
+  "requests": 25,
+  "tokens": 193427,
+  "events": [
+    {
+      "at": "2026-11-02T13:13:00.472Z",
+      "model": "openai/gpt-oss-120b",
+      "status": 200,
+      "usage": {
+        "queue_time": 0.215197282,
+        "prompt_tokens": 1013,
+        "prompt_time": 0.047635208,
+        "completion_tokens": 610,
+        "completion_time": 1.273465847,
+        "total_tokens": 1623,
+        "total_time": 1.321101055,
+        "completion_tokens_details": {
+          "reasoning_tokens": 537
+        }
+      },
+      "limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "998",
+        "x-ratelimit-remaining-tokens": "6971",
+        "x-ratelimit-reset-requests": "2m52.8s",
+        "x-ratelimit-reset-tokens": "7.717s"
+      }
+    },
+    {
+      "at": "2026-11-02T13:13:03.266Z",
+      "model": "openai/gpt-oss-120b",
+      "status": 200,
+      "usage": {
+        "queue_time": 0.213169224,
+        "prompt_tokens": 1013,
+        "prompt_time": 0.062749046,
+        "completion_tokens": 563,
+        "completion_time": 1.179371691,
+        "total_tokens": 1576,
+        "total_time": 1.242120737,
+        "completion_tokens_details": {
+          "reasoning_tokens": 474
+        }
+      },
+      "limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "997",
+        "x-ratelimit-remaining-tokens": "5136",
+        "x-ratelimit-reset-requests": "4m19.2s",
+        "x-ratelimit-reset-tokens": "21.48s"
+      }
+    },
+    {
+      "at": "2026-11-02T13:13:06.480Z",
+      "model": "openai/gpt-oss-120b",
+      "status": 200,
+      "usage": {
+        "queue_time": 0.050594613,
+        "prompt_tokens": 1018,
+        "prompt_time": 0.287940917,
+        "completion_tokens": 606,
+        "completion_time": 1.274508317,
+        "total_tokens": 1624,
+        "total_time": 1.562449234,
+        "completion_tokens_details": {
+          "reasoning_tokens": 513
+        }
+      },
+      "limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "996",
+        "x-ratelimit-remaining-tokens": "4234",
+        "x-ratelimit-reset-requests": "5m45.6s",
+        "x-ratelimit-reset-tokens": "28.245s"
+      }
+    },
+    {
+      "at": "2026-11-02T13:13:09.867Z",
+      "model": "openai/gpt-oss-120b",
+      "status": 200,
+      "usage": {
+        "queue_time": 0.212559304,
+        "prompt_tokens": 1009,
+        "prompt_time": 0.068036823,
+        "completion_tokens": 840,
+        "completion_time": 1.764577059,
+        "total_tokens": 1849,
+        "total_time": 1.832613882,
+        "completion_tokens_details": {
+          "reasoning_tokens": 750
+        }
+      },
+      "limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "995",
+        "x-ratelimit-remaining-tokens": "2740",
+        "x-ratelimit-reset-requests": "7m12s",
+        "x-ratelimit-reset-tokens": "39.449s"
+      }
+    },
+    {
+      "at": "2026-11-02T13:13:12.306Z",
+      "model": "openai/gpt-oss-120b",
+      "status": 200,
+      "usage": {
+        "queue_time": 0.29907972,
+        "prompt_tokens": 1008,
+        "prompt_time": 0.05020226,
+        "completion_tokens": 545,
+        "completion_time": 1.142568851,
+        "total_tokens": 1553,
+        "total_time": 1.1927711109999999,
+        "completion_tokens_details": {
+          "reasoning_tokens": 461
+        }
+      },
+      "limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "994",
+        "x-ratelimit-remaining-tokens": "1294",
+        "x-ratelimit-reset-requests": "8m38.4s",
+        "x-ratelimit-reset-tokens": "50.295s"
+      }
+    },
+    {
+      "at": "2026-11-02T13:13:15.939Z",
+      "model": "openai/gpt-oss-120b",
+      "status": 200,
+      "usage": {
+        "queue_time": 0.312286125,
+        "prompt_tokens": 1016,
+        "prompt_time": 0.80248993,
+        "completion_tokens": 474,
+        "completion_time": 1.007841414,
+        "total_tokens": 1490,
+        "total_time": 1.810331344,
+        "prompt_tokens_details": {
+          "cached_tokens": 768
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 382
+        }
+      },
+      "limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "993",
+        "x-ratelimit-remaining-tokens": "422",
+        "x-ratelimit-reset-requests": "10m4.8s",
+        "x-ratelimit-reset-tokens": "56.835s"
+      }
+    },
+    {
+      "at": "2026-11-02T13:13:17.910Z",
+      "model": "openai/gpt-oss-120b",
+      "status": 200,
+      "usage": {
+        "queue_time": 0.051559936,
+        "prompt_tokens": 1004,
+        "prompt_time": 0.042615887,
+        "completion_tokens": 483,
+        "completion_time": 1.0058888,
+        "total_tokens": 1487,
+        "total_time": 1.048504687,
+        "completion_tokens_details": {
+          "reasoning_tokens": 398
+        }
+      },
+      "limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "992",
+        "x-ratelimit-remaining-tokens": "110",
+        "x-ratelimit-reset-requests": "11m31.2s",
+        "x-ratelimit-reset-tokens": "59.175s"
+      }
+    },
+    {
+      "at": "2026-11-02T13:14:35.326Z",
+      "model": "qwen/qwen3.8-27b",
+      "status": 400,
+      "usage": null,
+      "limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "999",
+        "x-ratelimit-remaining-tokens": "5392",
+        "x-ratelimit-reset-requests": "1m26.4s",
+        "x-ratelimit-reset-tokens": "19.56s"
+      },
+      "error": {
+        "code": "json_validate_failed",
+        "type": "invalid_request_error",
+        "message": "Failed to generate JSON. Please adjust your prompt. See 'failed_generation' for more details."
+      }
+    },
+    {
+      "at": "2026-11-02T13:14:57.027Z",
+      "model": "qwen/qwen3.8-27b",
+      "status": 400,
+      "usage": null,
+      "limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "998",
+        "x-ratelimit-remaining-tokens": "5447",
+        "x-ratelimit-reset-requests": "2m52.8s",
+        "x-ratelimit-reset-tokens": "19.147s"
+      },
+      "error": {
+        "code": "json_validate_failed",
+        "type": "invalid_request_error",
+        "message": "Failed to generate JSON. Please adjust your prompt. See 'failed_generation' for more details."
+      }
+    },
+    {
+      "at": "2026-11-02T13:15:18.359Z",
+      "model": "qwen/qwen3.8-27b",
+      "status": 200,
+      "usage": {
+        "queue_time": 0.162675858,
+        "prompt_tokens": 1639,
+        "prompt_time": 0.120160538,
+        "completion_tokens": 132,
+        "completion_time": 0.334003675,
+        "total_tokens": 1771,
+        "total_time": 0.454164213
+      },
+      "limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "997",
+        "x-ratelimit-remaining-tokens": "5447",
+        "x-ratelimit-reset-requests": "4m19.2s",
+        "x-ratelimit-reset-tokens": "19.147s"
+      }
+    },
+    {
+      "at": "2026-11-02T13:15:39.903Z",
+      "model": "qwen/qwen3.8-27b",
+      "status": 200,
+      "usage": {
+        "queue_time": 0.135194975,
+        "prompt_tokens": 1639,
+        "prompt_time": 0.12352023,
+        "completion_tokens": 190,
+        "completion_time": 0.388702278,
+        "total_tokens": 1829,
+        "total_time": 0.512222508
+      },
+      "limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "996",
+        "x-ratelimit-remaining-tokens": "4282",
+        "x-ratelimit-reset-requests": "5m45.6s",
+        "x-ratelimit-reset-tokens": "30.737s"
+      }
+    },
+    {
+      "at": "2026-11-02T13:16:12.756Z",
+      "model": "qwen/qwen3.8-27b",
+      "status": 400,
+      "usage": null,
+      "limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "995",
+        "x-ratelimit-remaining-tokens": "4355",
+        "x-ratelimit-reset-requests": "7m12s",
+        "x-ratelimit-reset-tokens": "29.151s"
+      },
+      "error": {
+        "code": "json_validate_failed",
+        "type": "invalid_request_error",
+        "message": "Failed to generate JSON. Please adjust your prompt. See 'failed_generation' for more details."
+      }
+    },
+    {
+      "at": "2026-11-02T13:16:44.413Z",
+      "model": "qwen/qwen3.8-27b",
+      "status": 400,
+      "usage": null,
+      "limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "994",
+        "x-ratelimit-remaining-tokens": "5345",
+        "x-ratelimit-reset-requests": "8m38.4s",
+        "x-ratelimit-reset-tokens": "19.912s"
+      },
+      "error": {
+        "code": "json_validate_failed",
+        "type": "invalid_request_error",
+        "message": "Failed to generate JSON. Please adjust your prompt. See 'failed_generation' for more details."
+      }
+    },
+    {
+      "at": "2026-11-02T13:17:06.761Z",
+      "model": "qwen/qwen3.8-27b",
+      "status": 400,
+      "usage": null,
+      "limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "993",
+        "x-ratelimit-remaining-tokens": "5367",
+        "x-ratelimit-reset-requests": "10m4.8s",
+        "x-ratelimit-reset-tokens": "19.747s"
+      },
+      "error": {
+        "code": "json_validate_failed",
+        "type": "invalid_request_error",
+        "message": "Failed to generate JSON. Please adjust your prompt. See 'failed_generation' for more details."
+      }
+    },
+    {
+      "at": "2026-11-02T13:17:28.619Z",
+      "model": "qwen/qwen3.8-27b",
+      "status": 400,
+      "usage": null,
+      "limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "992",
+        "x-ratelimit-remaining-tokens": "5403",
+        "x-ratelimit-reset-requests": "11m31.2s",
+        "x-ratelimit-reset-tokens": "19.477s"
+      },
+      "error": {
+        "code": "json_validate_failed",
+        "type": "invalid_request_error",
+        "message": "Failed to generate JSON. Please adjust your prompt. See 'failed_generation' for more details."
+      }
+    },
+    {
+      "at": "2026-11-02T13:17:50.994Z",
+      "model": "qwen/qwen3.8-27b",
+      "status": 400,
+      "usage": null,
+      "limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "991",
+        "x-ratelimit-remaining-tokens": "5403",
+        "x-ratelimit-reset-requests": "12m57.599s",
+        "x-ratelimit-reset-tokens": "19.477s"
+      },
+      "error": {
+        "code": "json_validate_failed",
+        "type": "invalid_request_error",
+        "message": "Failed to generate JSON. Please adjust your prompt. See 'failed_generation' for more details."
+      }
+    },
+    {
+      "at": "2026-11-02T13:18:12.613Z",
+      "model": "qwen/qwen3.8-27b",
+      "status": 200,
+      "usage": {
+        "queue_time": 0.116501858,
+        "prompt_tokens": 1639,
+        "prompt_time": 0.124181755,
+        "completion_tokens": 106,
+        "completion_time": 0.212083073,
+        "total_tokens": 1745,
+        "total_time": 0.336264828
+      },
+      "limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "990",
+        "x-ratelimit-remaining-tokens": "5442",
+        "x-ratelimit-reset-requests": "14m24s",
+        "x-ratelimit-reset-tokens": "19.185s"
+      }
+    },
+    {
+      "at": "2026-11-02T13:18:34.569Z",
+      "model": "qwen/qwen3.8-27b",
+      "status": 400,
+      "usage": null,
+      "limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "989",
+        "x-ratelimit-remaining-tokens": "4273",
+        "x-ratelimit-reset-requests": "15m50.4s",
+        "x-ratelimit-reset-tokens": "31.037s"
+      },
+      "error": {
+        "code": "json_validate_failed",
+        "type": "invalid_request_error",
+        "message": "Failed to generate JSON. Please adjust your prompt. See 'failed_generation' for more details."
+      }
+    }
+  ],
+  "providerIdentity": "https://api.groq.com/openai/v1",
+  "note": "Interrupted runs only. Original conservative token estimate includes base64 byte overcount on errors, not billed tokens. No scores or model output retained; no completed suite report from these attempts."
+}

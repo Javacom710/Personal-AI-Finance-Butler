@@ -1,0 +1,6 @@
+
+> finance-os@0.1.0 ai:eval
+> node --conditions=react-server --import tsx scripts/ai-eval.ts --tier 4 --model qwen/qwen3.8-27b --interval-ms 3000 --no-record
+
+Tier 4: 1 model(s) × document
+STOP: conservative daily quota reserve reached {"requests":25,"tokens":193427,"reserve":13598}
