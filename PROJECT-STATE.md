@@ -263,6 +263,10 @@ The [100-case structured report](eval/reports/2026-11-02T05-44-53-tier1.md) and 
 
 Verification for this report-only change: typecheck and lint pass, along with the 1,923 unit tests on the budget-aligned code. Report versions, budgets, counts, coverage and empty proposed order were checked.
 
+## Phase 8 completion diagnostics — 2026-11-02
+
+Baseline diagnosis required an extra live call because reports retained failed case ids but not the provider's completion reason. This follow-on captures each returned finish reason and aggregates counts per model/suite into report JSON, Markdown and stored row detail. `length` identifies an output-limit stop; `stop` does not assert a correct answer. Provider failures have no finish reason and remain separate error counts. Historical reports explicitly say reasons were not recorded. No prompt, score, token budget, suite version or routing policy changes; raw content/reasoning is never added to reports or storage. Verification: typecheck, lint, all 1,929 unit tests, five targeted PostgreSQL storage integration tests and production build pass. Tests use fake providers; no live call was used to verify this change. The isolated PostgreSQL container was restarted after the cloud environment restart before the database rerun.
+
 ## Working protocol — applies to every phase from 2 onward
 
 Approved by the user on 2026-08-09. The architecture documents in `docs/` are the **implementation baseline**.

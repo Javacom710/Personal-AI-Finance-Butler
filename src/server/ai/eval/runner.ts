@@ -159,6 +159,8 @@ export function modelsFor(tier: Tier, config: ModelConfig, explicit: readonly st
 // ------------------------------------------------------------------ running
 
 export interface SuiteResult {
+  /** Completion reasons of answered requests; absent in legacy reports. */
+  readonly finishReasons?: Readonly<Record<string, number>>;
   /** Absent only in reports written before production budgets were recorded. */
   readonly maxTokens?: number;
   readonly suite: ModelSuite;
@@ -401,8 +403,13 @@ export async function runEvaluation(options: RunOptions): Promise<EvalRun> {
       const report = await evaluateModel(provider, modelId, cases, options.timeoutMs, maxTokens);
       const passed = report.cases.filter((c) => c.passed === true).length;
       const errors: Record<string, number> = {};
+      const finishReasons: Record<string, number> = {};
+      for (const c of report.cases) {
+        if (c.finishReason != null) finishReasons[c.finishReason] = (finishReasons[c.finishReason] ?? 0) + 1;
+      }
       for (const c of report.cases) if (c.errorClass) errors[c.errorClass] = (errors[c.errorClass] ?? 0) + 1;
       suites.push({
+        finishReasons,
         maxTokens,
         suite,
         version: MODEL_SUITES[suite].version,
@@ -510,6 +517,15 @@ export function renderEvalReport(run: EvalRun): string {
 
   if (run.excluded.length > 0) {
     lines.push('', '### Not proposed', '', ...run.excluded.map((e) => `- \`${e.modelId}\`: ${e.reason}`));
+  }
+
+  lines.push('', '## Completion reasons', '', 'Counts describe provider responses, not pass/fail scores. Legacy reports may not have recorded them.', '');
+  for (const m of run.models) {
+    for (const s of m.suites) {
+      const reasons = s.finishReasons === undefined ? 'not recorded'
+        : Object.entries(s.finishReasons).map(([reason, count]) => `${reason} ×${count}`).join(', ') || 'no completion reason returned';
+      lines.push(`- ${m.modelId} ${s.suite}: ${reasons}`);
+    }
   }
 
   lines.push('', '## Failures', '');
