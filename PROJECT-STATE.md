@@ -342,7 +342,7 @@ The clean setup can initially retain the existing working key: the immediate con
 
 **Handover to Codex — next steps, in order:**
 1. `npm run ai:reachability`.
-2. `npm run ai:eval -- --tier 1 --model openai/gpt-oss-120b --model openai/gpt-oss-20b --interval-ms 3000 --no-record`, and the same for Tiers 2 and 3. Watch Groq's free limits: 30 requests/min, 1,000 requests and 200K tokens per day. Spread the runs over days if needed.
+2. `npm run ai:eval -- --tier 1 --model openai/gpt-oss-120b,openai/gpt-oss-20b --interval-ms 3000 --no-record`, and the same for Tiers 2 and 3. Watch Groq's free limits: 30 requests/min, 1,000 requests and 200K tokens per day. Spread the runs over days if needed.
 3. Find a Groq vision model that answers, and run the Tier 4 document suite on it.
 4. Bring the measured lineup to the owner for approval, then record it (`--record`) and set the orders.
 
