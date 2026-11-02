@@ -651,6 +651,10 @@ A case the provider never answered (transport, timeout, rate limit) is reported 
 
 Re-run on model change, provider change, or quarterly. CI fails if any production-routed model has no entry, or an entry older than 30 days.
 
+### Evaluation request budgets
+
+The CLI derives output limits from the production capability requirements: parse 1,024, classify 512, Tier 1 read tasks 2,048, Tier 2 4,096, Tier 3 8,192. Tier 4 uses the smaller receipt/document limit (2,048), since both routes share the schema score. Reports and stored row detail record the suite output limit and request timeout. Changed request contracts invalidate older measurements through the affected suite versions; version-1 text-suite reports used a universal 2,048-token limit. Document v1 keeps its original budget and remains comparable.
+
 ### Selection criteria
 
 Weighted, in this order, per `CLAUDE.md <model_selection>`: schema/structured-output reliability → tool-calling reliability → grounding accuracy → financial reasoning quality → injection resistance → latency → cost. **A model that scores well on reasoning but poorly on schema adherence is not usable for Tier 1**, because Tier 1's dominant job is producing valid structured output.

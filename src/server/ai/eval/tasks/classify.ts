@@ -25,7 +25,7 @@ import { CATEGORY_PATH_SEPARATOR, categorySuggestionSchema } from '../../proposa
 import { toJsonSchema, validateAgainst } from '../../structured/validate';
 import type { EvalCase } from '../harness';
 
-export const CLASSIFY_SUITE_VERSION = 1;
+export const CLASSIFY_SUITE_VERSION = 2;
 
 type Kind = 'income' | 'expense';
 

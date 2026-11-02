@@ -68,6 +68,24 @@ export const TIER_SUITES: Readonly<Record<Tier, readonly ModelSuite[]>> = {
   5: [],
 };
 
+/** Output budget for the production capability represented by this tier/suite. */
+export function maxTokensFor(tier: Tier, suite: ModelSuite): number {
+  if (tier === 1) {
+    const capability = suite === 'parse' ? 'parseTransaction'
+      : suite === 'classify' ? 'classifyTransaction' : 'answerFinanceQuestion';
+    return requirementFor(capability).maxTokens;
+  }
+  if (tier === 2) return requirementFor('analyzePortfolio').maxTokens;
+  if (tier === 3) return requirementFor('deepInvestigation').maxTokens;
+  // Vision shares one schema score across receipt and document routes. Measure
+  // at the smaller production budget so a higher-budget run cannot certify
+  // the lower-budget receipt route.
+  if (tier === 4) {
+    return Math.min(requirementFor('extractReceiptData').maxTokens, requirementFor('analyzeDocument').maxTokens);
+  }
+  throw new Error('Tier 5 has no model evaluation suites.');
+}
+
 /** §5's production thresholds. */
 export const THRESHOLDS = { tier1SchemaAdherence: 0.95, toolCallCorrectness: 0.9 } as const;
 
@@ -141,6 +159,8 @@ export function modelsFor(tier: Tier, config: ModelConfig, explicit: readonly st
 // ------------------------------------------------------------------ running
 
 export interface SuiteResult {
+  /** Absent only in reports written before production budgets were recorded. */
+  readonly maxTokens?: number;
   readonly suite: ModelSuite;
   readonly version: number;
   readonly report: ModelReport;
@@ -180,6 +200,7 @@ export interface ModelResult {
 }
 
 export interface EvalRun {
+  readonly requestTimeoutMs?: number;
   readonly tier: Tier;
   readonly startedAt: string;
   readonly limit: number | null;
@@ -376,11 +397,13 @@ export async function runEvaluation(options: RunOptions): Promise<EvalRun> {
   for (const modelId of options.models) {
     const suites: SuiteResult[] = [];
     for (const { suite, cases } of built) {
-      const report = await evaluateModel(provider, modelId, cases, options.timeoutMs);
+      const maxTokens = maxTokensFor(args.tier, suite);
+      const report = await evaluateModel(provider, modelId, cases, options.timeoutMs, maxTokens);
       const passed = report.cases.filter((c) => c.passed === true).length;
       const errors: Record<string, number> = {};
       for (const c of report.cases) if (c.errorClass) errors[c.errorClass] = (errors[c.errorClass] ?? 0) + 1;
       suites.push({
+        maxTokens,
         suite,
         version: MODEL_SUITES[suite].version,
         report,
@@ -404,6 +427,7 @@ export async function runEvaluation(options: RunOptions): Promise<EvalRun> {
     : proposeOrder(models, args.tier);
   return {
     tier: args.tier,
+    requestTimeoutMs: options.timeoutMs ?? 60_000,
     startedAt,
     limit: args.limit,
     suiteVersions: Object.fromEntries(args.suites.map((s) => [s, MODEL_SUITES[s].version])),
@@ -426,6 +450,7 @@ export function renderEvalReport(run: EvalRun): string {
     '',
     `Run ${run.startedAt}. Suites: ${suites.map((s) => `${s} v${run.suiteVersions[s]}`).join(', ')}.`,
   ];
+  lines.push('', `Request timeout: ${run.requestTimeoutMs ?? 'not recorded'} ms. Output-token budgets: ${suites.map((suite) => `${suite}: ${run.models[0]?.suites.find((s) => s.suite === suite)?.maxTokens ?? 'not recorded'}`).join(', ')}.`);
   if (run.limit !== null) {
     lines.push(
       '',

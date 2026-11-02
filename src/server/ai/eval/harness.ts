@@ -115,6 +115,7 @@ export async function evaluateModel(
   modelId: string,
   cases: readonly EvalCase[],
   timeoutMs = 60_000,
+  maxTokens = 2_048,
 ): Promise<ModelReport> {
   const results: CaseResult[] = [];
 
@@ -123,7 +124,7 @@ export async function evaluateModel(
     const response = await provider.chat({
       model: modelId,
       messages: testCase.messages,
-      maxTokens: 2_048,
+      maxTokens,
       timeoutMs,
       ...(testCase.tools ? { tools: testCase.tools, toolChoice: 'auto' as const } : {}),
       ...(testCase.schema
