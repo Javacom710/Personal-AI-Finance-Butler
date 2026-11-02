@@ -20,7 +20,7 @@ import 'server-only';
  * production routing, and never scores a numeric claim.
  */
 
-import type { AiProvider, ChatMessage, ToolDefinition } from '../provider/types';
+import type { AiProvider, ChatMessage, ToolDefinition, FinishReason } from '../provider/types';
 import type { AiFailure } from '../errors';
 
 /** The suites `AI-SYSTEM.md` §14 names. Corpora live in `./tasks/`, one file per suite. */
@@ -66,6 +66,8 @@ export interface EvalCase {
 }
 
 export interface CaseResult {
+  /** Absent in legacy results; null means there was no normalized provider response. */
+  readonly finishReason?: FinishReason | null;
   readonly caseId: string;
   readonly suite: EvalSuite;
   readonly modelId: string;
@@ -142,6 +144,7 @@ export async function evaluateModel(
         schemaValid: testCase.schema ? false : null,
         toolCallValid: testCase.tools ? false : null,
         errorClass: response.error.kind,
+        finishReason: null,
       });
       continue;
     }
@@ -165,6 +168,7 @@ export async function evaluateModel(
           : response.value.toolCalls.length > 0 && passed !== false)
         : null,
       errorClass: null,
+      finishReason: response.value.finishReason,
     });
   }
 
