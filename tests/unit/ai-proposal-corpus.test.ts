@@ -68,6 +68,7 @@ describe('40-case transaction proposal corpus', () => {
   it('rejects numeric amounts again at the reviewed-value boundary', () => {
     const resolved = resolveTransactionProposal(TransactionProposal.parse(base()), [bank, cash], [dining]);
     expect(reviewedTransactionSchema.safeParse({ ...resolved.draft, amount: 1250 }).success).toBe(false);
+    expect(reviewedTransactionSchema.safeParse({ ...resolved.draft, amount: '1,250' }).success).toBe(false);
     expect(reviewedTransactionSchema.safeParse({ ...resolved.draft, amount: '1250.5000' }).success).toBe(true);
   });
   it('uses the unchanged gated orchestrator, no tools, and at most one schema repair', async () => {

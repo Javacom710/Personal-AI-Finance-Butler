@@ -100,13 +100,15 @@ describe('migration', () => {
     );
   });
 
-  it('created the shape triggers that enforce I-1 to I-3 below the application', async () => {
+  it('created shape and proposal audit/linkage triggers below the application', async () => {
     const result = await db().execute<{ tgname: string }>(
       sql`select tgname from pg_trigger where not tgisinternal order by tgname`,
     );
     expect(result.rows.map((r) => r.tgname)).toEqual([
+      'ai_proposals_confirmation_audit',
       'categories_shape_check',
       'transaction_entries_shape_check',
+      'transactions_proposal_link',
       'transactions_shape_check',
     ]);
   });
