@@ -174,7 +174,9 @@ export function env(): Env {
 export function aiProviderSettings(e: Env): { apiKey: string | undefined; baseUrl: string } {
   return e.AI_API_KEY
     ? { apiKey: e.AI_API_KEY, baseUrl: e.AI_BASE_URL ?? e.NVIDIA_BASE_URL }
-    : { apiKey: e.NVIDIA_API_KEY, baseUrl: e.AI_BASE_URL ?? e.NVIDIA_BASE_URL };
+    : // The legacy key stays paired with its own URL, so an `AI_BASE_URL` set for
+      // a new provider can never redirect the NVIDIA key to it.
+      { apiKey: e.NVIDIA_API_KEY, baseUrl: e.NVIDIA_BASE_URL };
 }
 
 export function resetEnvCache(): void {

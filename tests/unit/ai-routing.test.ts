@@ -104,11 +104,10 @@ describe('I-56 — the catalogue identifiers are normalised, not guessed', () =>
     const config = resolveModelConfig();
     // ADR-52 (Groq): Tier 1 has a genuine second candidate.
     expect(config.candidates(1).length).toBeGreaterThanOrEqual(2);
-    // Tiers 2 and 3 have one each until more models are measured; Tier 4 is
-    // empty until a vision model passes the document suite, so a document
-    // request fails closed rather than reaching a text-only model.
-    expect(config.candidates(2)).toHaveLength(1);
-    expect(config.candidates(3)).toHaveLength(1);
+    // Tiers 2-4 are empty until a model is measured on that tier's own suites,
+    // so those requests fail closed rather than reaching an unmeasured model.
+    expect(config.candidates(2)).toHaveLength(0);
+    expect(config.candidates(3)).toHaveLength(0);
     expect(config.candidates(4)).toHaveLength(0);
   });
 

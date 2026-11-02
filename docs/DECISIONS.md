@@ -1081,8 +1081,7 @@ Fresh evaluations use the represented profile and explicit client pacing, with p
 - `src/lib/env.ts` gains `AI_API_KEY` and `AI_BASE_URL`, resolved by `aiProviderSettings()`; the `NVIDIA_*` names remain a legacy fallback.
 - The composition root and the two scripts use it.
 - The provider adapter is unchanged: it was already a plain OpenAI-compatible `fetch` client. Its file name and provider label (`nvidia-build`) are kept to avoid churn.
-- `models.ts` tier orders and one declared capability entry.
-- Tier 4 is empty until a vision model passes the document suite, so document requests fail closed.
+- `models.ts` tier orders and one declared capability entry. Tier 1 is `openai/gpt-oss-120b`, `openai/gpt-oss-20b`. Tiers 2-4 are empty until a model is measured on that tier's own suites, so those requests fail closed. Measured eligibility is keyed to a model's declared tier, so sharing one model across tiers first needs tier-specific eligibility.
 
 **Rejected.**
 - *Gemini's free tier:* prompts may be used for training and read by reviewers in India.

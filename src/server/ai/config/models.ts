@@ -195,10 +195,16 @@ const DEFAULT_ORDER: Readonly<Record<Tier, readonly string[]>> = {
   // answered for only 8 of the 50 chat models it listed, and none of the 8 met
   // Tier 1's tool-call gate. These are Groq identifiers. They are declared, not
   // measured: score-gated routes stay closed until `npm run ai:eval` measures
-  // them and a human accepts the order. A model may serve more than one tier.
+  // them and a human accepts the order.
   1: ['openai/gpt-oss-120b', 'openai/gpt-oss-20b'],
-  2: ['openai/gpt-oss-120b'],
-  3: ['openai/gpt-oss-120b'],
+  // **Empty until measured.** Measured capability eligibility is keyed to a
+  // model's declared tier (`capabilitiesFromEvaluations` uses that tier's
+  // suites), so listing a Tier 1 model here would let Tier 1 results authorise
+  // analysis routes without an analysis measurement. A Tier 2/3 model is added
+  // once measured on its own tier's suites, or once eligibility is made
+  // tier-specific. Until then these routes fail closed.
+  2: [],
+  3: [],
   // **Empty until a vision model is measured on the document suite.** A vision
   // request then fails closed instead of reaching a text-only model.
   4: [],
