@@ -1767,3 +1767,11 @@ This supersedes the initial assistant slice's "persistent history pending" limit
 ## Transaction-draft navigation review fix — 2026-11-03
 
 PR #39 review identified that `/money/proposals` was linked only from the no-accounts state. Added **Review drafts** to populated Money navigation and retained the empty-state link. Draft generation remains disabled; this makes the authorized review flow discoverable. Existing review UI tests (4) and typecheck pass. The read-only assistant remains authorized separately on stacked PR #40, superseding the historical transaction-only scope above.
+
+## Reachable saved assistant history — 2026-11-03 continuation
+
+PR #40 now includes PR #39's navigation fix and replaces the fixed latest-50 history screen with active/archive pagination. Every query is owner-scoped, returns at most 50 visible rows with one lookahead row, and orders tied timestamps by UUID. Malformed/repeated/fractional/unsafe page input fails before database access. Newer/older links preserve the selected group; empty later pages retain a way back. This adds no migration, financial write, model call or activation flag.
+
+Validation: **68 focused unit tests and 21 PostgreSQL 17 integration tests pass**, covering all 103 saved-history fixture rows, group/owner isolation, equal-timestamp ordering, invalid inputs, existing conversation concurrency and the disabled release boundary. Typecheck, lint, the ordinary Turbopack production build and client-secret scan pass. Authenticated production HTTP verification passed for all paged history, invalid/empty pages, disabled question controls, and the draft-review link in both empty/populated Money states. Synthetic test users/sessions/accounts/history and the preview server were removed afterward. PR #40's prior full regression and PostgreSQL 17/18 CI passed; the follow-up CI runs separately.
+
+Phase 8 readiness remains unchanged: no OpenRouter key binding is available. Provider preparation PR #41 and finite runner PR #42 remain open. Strict ZDR-only account readiness/funding and actual approved-model answer quality are still prerequisites for live activation. No existing prompt, evaluation corpus, scorer, gate or tier order changed; scenarios stay blocked by OD-18.

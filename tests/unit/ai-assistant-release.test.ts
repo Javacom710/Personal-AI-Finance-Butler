@@ -4,13 +4,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AssistantAnswer } from '@app/(app)/ai/answer';
 import type { QuestionAnswer } from '@/server/ai/assistant/question';
 const auth = vi.hoisted(() => vi.fn());
-vi.mock('@/server/services', () => ({ createReadCtx: async () => ({ ok: true, value: { userId: 'owner' } }), listConversations: async () => [], createConversation: vi.fn(), renameConversation: vi.fn(), archiveConversation: vi.fn(), deleteConversation: vi.fn() }));
+const history = vi.hoisted(() => vi.fn());
+vi.mock('@/server/services', () => ({ createReadCtx: async () => ({ ok: true, value: { userId: 'owner' } }), listConversationPage: history, createConversation: vi.fn(), renameConversation: vi.fn(), archiveConversation: vi.fn(), deleteConversation: vi.fn() }));
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 vi.mock('@/server/auth/guards', () => ({ requireSession: auth }));
 import { askFinanceQuestionAction } from '@app/(app)/ai/actions';
 import AiPage from '@app/(app)/ai/page';
 const answer: QuestionAnswer = { interpretation: '<script>alert(1)</script> This is interpretation.', sources: [{ callId: 'one', name: 'get_portfolio_summary', failed: false, result: { ok: true, data: { total: { kind: 'money', amount: '1250.5000', currency: 'INR', scale: 4 }, twr: { value: null, unavailableReason: 'insufficient_history' } }, meta: { truncated: true, asOf: '2026-10-31', currency: 'INR' } } }], modelId: 'fake-test-model', fallbackDepth: 1 };
-beforeEach(() => { auth.mockReset(); auth.mockResolvedValue({ userId: 'owner' }); });
+beforeEach(() => { auth.mockReset(); auth.mockResolvedValue({ userId: 'owner' }); history.mockReset(); history.mockResolvedValue({ ok: true, value: { items: [], page: 1, hasMore: false } }); });
 describe('disabled assistant release boundary', () => {
   it('authenticates direct calls and returns unavailable without composing any runtime', async () => {
     expect(await askFinanceQuestionAction()).toEqual({ status: 'unavailable', message: expect.stringContaining('not been sent') });
@@ -24,6 +25,36 @@ describe('disabled assistant release boundary', () => {
     const html = renderToStaticMarkup(await AiPage());
     expect(html).toMatch(/<textarea[^>]*disabled=""/); expect(html).toMatch(/<button[^>]*disabled=""/);
     expect(html).toContain('Awaiting setup approval'); expect(html).not.toContain('fake-test-model');
+  });
+});
+describe('saved conversation navigation', () => {
+  it('links to older active history and escapes saved titles while keeping questions disabled', async () => {
+    history.mockResolvedValue({ ok: true, value: { items: [{ id: 'saved-id', title: '<script>private title</script>' }], page: 1, hasMore: true } });
+    const html = renderToStaticMarkup(await AiPage());
+    expect(history).toHaveBeenCalledWith({ userId: 'owner' }, false, 1);
+    expect(html).toContain('/ai?history=active&amp;page=2');
+    expect(html).not.toContain('Newer conversations');
+    expect(html).toContain('/ai/conversations/saved-id'); expect(html).toContain('&lt;script&gt;');
+    expect(html).toMatch(/<textarea[^>]*disabled=""/);
+  });
+  it('preserves the archived group across page navigation', async () => {
+    history.mockResolvedValue({ ok: true, value: { items: [], page: 2, hasMore: true } });
+    const html = renderToStaticMarkup(await AiPage({ searchParams: Promise.resolve({ history: 'archived', page: '2' }) }));
+    expect(history).toHaveBeenCalledWith({ userId: 'owner' }, true, '2');
+    expect(html).toContain('/ai?history=archived&amp;page=1');
+    expect(html).toContain('/ai?history=archived&amp;page=3');
+  });
+  it('offers a first-page correction for rejected history input', async () => {
+    history.mockResolvedValue({ ok: false, error: { kind: 'validation_failed' } });
+    const html = renderToStaticMarkup(await AiPage({ searchParams: Promise.resolve({ history: 'archived', page: ['1', '2'] }) }));
+    expect(history).toHaveBeenCalledWith({ userId: 'owner' }, true, ['1', '2']);
+    expect(html).toContain('role="alert"'); expect(html).toContain('/ai?history=archived&amp;page=1');
+  });
+  it('keeps the way back from an empty out-of-range page', async () => {
+    history.mockResolvedValue({ ok: true, value: { items: [], page: 3, hasMore: false } });
+    const html = renderToStaticMarkup(await AiPage({ searchParams: Promise.resolve({ page: '3' }) }));
+    expect(html).toContain('No conversations on this page');
+    expect(html).toContain('Newer conversations'); expect(html).not.toContain('Older conversations');
   });
 });
 describe('assistant answer presentation', () => {

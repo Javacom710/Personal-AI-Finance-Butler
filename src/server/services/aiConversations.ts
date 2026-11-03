@@ -22,8 +22,25 @@ export async function createConversation(ctx: RequestCtx, title: unknown = 'New 
     return ok(row!);
   });
 }
+function conversationHistory(ctx: ReadCtx, archived: boolean) {
+  return ctx.db.select().from(aiConversations)
+    .where(and(eq(aiConversations.userId, ctx.userId), archived ? sql`${aiConversations.archivedAt} is not null` : isNull(aiConversations.archivedAt)))
+    .orderBy(desc(aiConversations.updatedAt), desc(aiConversations.id));
+}
 export async function listConversations(ctx: ReadCtx, archived = false): Promise<ConversationView[]> {
-  return ctx.db.select().from(aiConversations).where(and(eq(aiConversations.userId, ctx.userId), archived ? sql`${aiConversations.archivedAt} is not null` : isNull(aiConversations.archivedAt))).orderBy(desc(aiConversations.updatedAt), desc(aiConversations.id)).limit(50);
+  return conversationHistory(ctx, archived).limit(50);
+}
+const HISTORY_PAGE_SIZE = 50;
+const historyPageSchema = z.union([z.number(), z.string().regex(/^[1-9]\d*$/).transform(Number)])
+  .pipe(z.number().int().min(1).max(Math.floor(Number.MAX_SAFE_INTEGER / HISTORY_PAGE_SIZE)));
+
+/** Bounded pages keep every saved conversation reachable, including archived history. */
+export async function listConversationPage(ctx: ReadCtx, archived = false, page: unknown = 1): Promise<Result<{ items: ConversationView[]; page: number; hasMore: boolean }, DomainError>> {
+  const parsed = historyPageSchema.safeParse(page);
+  if (!parsed.success) return err(validationFailed({ page: ['Choose a positive whole-number history page.'] }));
+  const rows = await conversationHistory(ctx, archived)
+    .limit(HISTORY_PAGE_SIZE + 1).offset((parsed.data - 1) * HISTORY_PAGE_SIZE);
+  return ok({ items: rows.slice(0, HISTORY_PAGE_SIZE), page: parsed.data, hasMore: rows.length > HISTORY_PAGE_SIZE });
 }
 export async function getConversation(ctx: ReadCtx, id: unknown): Promise<Result<ConversationView, DomainError>> {
   const parsed = idSchema.safeParse(id);

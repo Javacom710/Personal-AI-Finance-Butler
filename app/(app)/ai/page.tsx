@@ -1,16 +1,19 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { PageHeader } from '../../_components/page-shell';
-import { createReadCtx, listConversations } from '@/server/services';
+import { createReadCtx, listConversationPage } from '@/server/services';
 import { ConversationManagement } from './management';
 import { requireSession } from '@/server/auth/guards';
 
 export const metadata: Metadata = { title: 'AI' };
-export default async function AiPage() {
+export default async function AiPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> } = {}) {
   const session = await requireSession('/ai');
   const ctx = await createReadCtx(session.userId);
   if (!ctx.ok) throw new Error('Conversation settings are unavailable.');
-  const [active, archived] = await Promise.all([listConversations(ctx.value), listConversations(ctx.value, true)]);
+  const params = await searchParams ?? {};
+  const archived = params.history === 'archived';
+  const result = await listConversationPage(ctx.value, archived, params.page ?? 1);
+  const historyLink = (page: number) => `/ai?history=${archived ? 'archived' : 'active'}&page=${page}`;
   return <>
     <PageHeader title="Financial assistant" description="Ask about your finances using read-only financial tools." />
     <section className="space-y-3 rounded-lg border border-border p-4">
@@ -23,11 +26,21 @@ export default async function AiPage() {
     </section>
     <section className="space-y-4" aria-label="Saved conversations">
       <h2 className="font-semibold">Saved conversations</h2>
-      <p className="text-sm text-ink-muted">You can manage conversation history while questions await setup approval. The most recent 50 conversations in each group are shown. Creating a conversation does not send data to a model.</p>
+      <p className="text-sm text-ink-muted">You can manage conversation history while questions await setup approval. Creating a conversation does not send data to a model.</p>
       <ConversationManagement />
-      {!active.length && <p>No active conversations.</p>}
-      <ul>{active.map(c => <li key={c.id}><Link className="underline" href={`/ai/conversations/${c.id}`}>{c.title ?? 'Untitled conversation'}</Link></li>)}</ul>
-      {!!archived.length && <details><summary>Archived conversations</summary><ul>{archived.map(c => <li key={c.id}><Link className="underline" href={`/ai/conversations/${c.id}`}>{c.title ?? 'Untitled conversation'}</Link></li>)}</ul></details>}
+      <nav aria-label="Conversation history groups" className="flex gap-4 text-sm">
+        <Link href="/ai" aria-current={!archived ? 'page' : undefined} className="underline">Active conversations</Link>
+        <Link href="/ai?history=archived" aria-current={archived ? 'page' : undefined} className="underline">Archived conversations</Link>
+      </nav>
+      {!result.ok ? <p role="alert">Choose a positive whole-number history page. <Link href={historyLink(1)} className="underline">Open the first page</Link></p> : <>
+        {!result.value.items.length && <p>{result.value.page === 1 ? `No ${archived ? 'archived' : 'active'} conversations.` : 'No conversations on this page.'}</p>}
+        <ul>{result.value.items.map(c => <li key={c.id}><Link className="underline" href={`/ai/conversations/${c.id}`}>{c.title ?? 'Untitled conversation'}</Link></li>)}</ul>
+        <nav aria-label="Conversation history pages" className="flex flex-wrap gap-4 text-sm">
+          {result.value.page > 1 && <Link href={historyLink(result.value.page - 1)} className="underline">Newer conversations</Link>}
+          <span>Page {result.value.page}</span>
+          {result.value.hasMore && <Link href={historyLink(result.value.page + 1)} className="underline">Older conversations</Link>}
+        </nav>
+      </>}
     </section>
   </>;
 }
