@@ -56,7 +56,7 @@ it('retains failed individual reads as unavailable evidence without logging priv
 });
 it('allows the actual gated request to recover a half-open breaker instead of consuming its probe through diagnostics', async () => {
   const fake = fakeReviewProvider(); const now = new Date('2026-11-03T08:00:00Z');
-  for (let i = 0; i < 3; i++) fake.health.recordFailure(fake.model, { kind: 'transport', message: 'Fake transport failure' }, now);
+  for (let i = 0; i < 3; i++) fake.health.recordFailure(fake.model, { kind: 'transport', message: 'Fake transport failure', status: null }, now);
   fake.advance(1200000);
   const diagnostic = vi.spyOn(fake.orchestrator, 'explain');
   expect((await monthlyFinancialReview(ai, fake.orchestrator, '2026-10')).ok).toBe(true);

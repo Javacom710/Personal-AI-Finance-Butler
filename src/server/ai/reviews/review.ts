@@ -1,5 +1,4 @@
 import 'server-only';
-import { isDeepStrictEqual } from 'node:util';
 import { err, ok, type Result } from '../../../lib/result';
 import { jsonBytes, type AiReadCtx } from '../../ai-read';
 import { invalidOutput, type AiFailure } from '../errors';
@@ -27,6 +26,9 @@ export interface FinancialReview {
 }
 export const REVIEW_LIMITS = Object.freeze({ calls: 8, bytes: 65536, narrativeCharacters: 8000 });
 export const reviewSourceUnavailable = (source: ToolOutcome) => source.failed || (source.result !== null && typeof source.result === 'object' && 'ok' in source.result && source.result.ok === false);
+const readArguments = (raw: string) => JSON.stringify(JSON.parse(raw), (_key, value: unknown) =>
+  value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b))) : value);
 
 /** New review prose is deliberately qualitative; figures are rendered only from tool data. */
 export function reviewNarrative(content: string | null) {
@@ -65,7 +67,7 @@ export async function runFinancialReview(ai: AiReadCtx, orchestrator: Orchestrat
   if (requested.value.response.finishReason !== 'tool_calls' || calls.length !== plan.calls.length || new Set(calls.map(c => c.id)).size !== calls.length || calls.some(c => !c.id.trim() || c.id.length > 200)) return err(invalidOutput('The review did not request its exact bounded read plan.'));
   let matching: number[];
   try {
-    matching = plan.calls.map(expected => calls.findIndex(actual => actual.name === expected.name && isDeepStrictEqual(JSON.parse(actual.argumentsJson), JSON.parse(expected.argumentsJson))));
+    matching = plan.calls.map(expected => calls.findIndex(actual => actual.name === expected.name && readArguments(actual.argumentsJson) === readArguments(expected.argumentsJson)));
   } catch { return err(invalidOutput('The review requested malformed read arguments.')); }
   if (matching.some(i => i < 0) || new Set(matching).size !== plan.calls.length) return err(invalidOutput('The review requested different or duplicate reads.'));
   // Execute application-owned arguments only, after checking the whole batch.
