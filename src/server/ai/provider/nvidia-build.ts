@@ -29,6 +29,7 @@ import 'server-only';
  * and never returned in a result.
  */
 
+import { openRouterPolicy, OPENROUTER_PREFERENCES, validServingHost } from './openrouter-policy';
 import { err, ok, type Result } from '../../../lib/result';
 import { resolveRequestProfiles, requestProfileIdentity, type RequestProfiles } from '../config/request-profiles';
 import {
@@ -60,6 +61,7 @@ export type FetchLike = (
     headers: Record<string, string>;
     body?: string;
     signal?: AbortSignal;
+    redirect?: 'error';
   },
 ) => Promise<Response>;
 
@@ -91,6 +93,7 @@ interface WireChoice {
 }
 
 interface WireChatResponse {
+  provider?: unknown;
   choices?: unknown;
   usage?: { prompt_tokens?: unknown; completion_tokens?: unknown };
   model?: unknown;
@@ -161,6 +164,7 @@ function readTokens(raw: unknown): number {
 
 /** Construct the provider. Absent key is legal; it surfaces at call time. */
 export function createNvidiaProvider(config: NvidiaProviderConfig): AiProvider {
+  const measurementPolicy = openRouterPolicy(config.baseUrl);
   const profiles = config.requestProfiles ?? resolveRequestProfiles();
   const endpoint = (path: string) => `${config.baseUrl.replace(/\/+$/, '')}${path}`;
 
@@ -188,6 +192,7 @@ export function createNvidiaProvider(config: NvidiaProviderConfig): AiProvider {
         },
         ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
         signal: controller.signal,
+        ...(measurementPolicy ? { redirect: 'error' as const } : {}),
       });
 
       if (response.status === 401 || response.status === 403) {
@@ -218,7 +223,8 @@ export function createNvidiaProvider(config: NvidiaProviderConfig): AiProvider {
   }
 
   return {
-    key: NVIDIA_BUILD_KEY,
+    key: measurementPolicy ? 'openrouter' : NVIDIA_BUILD_KEY,
+    ...(measurementPolicy ? { measurementPolicy } : {}),
     isConfigured,
     requestProfileFor: (model) => requestProfileIdentity(profiles.forModel(model)),
 
@@ -230,6 +236,7 @@ export function createNvidiaProvider(config: NvidiaProviderConfig): AiProvider {
         messages: request.messages.map(toWireMessage),
         max_tokens: request.maxTokens,
       };
+      if (measurementPolicy) body['provider'] = { ...OPENROUTER_PREFERENCES, order: [...OPENROUTER_PREFERENCES.order] };
       if (profiles.forModel(request.model).reasoning === 'disabled') {
         body['chat_template_kwargs'] = { enable_thinking: false };
       }
@@ -270,11 +277,17 @@ export function createNvidiaProvider(config: NvidiaProviderConfig): AiProvider {
         return err(malformedResponse('the provider returned no choices'));
       }
 
+      // Preserve content-filter refusal semantics even if the host is absent:
+      // the orchestrator must never retry a filter on a different model.
+      if (measurementPolicy && !validServingHost(payload.provider) && choice.finish_reason !== 'content_filter') {
+        return err(malformedResponse('OpenRouter response did not identify a valid serving host'));
+      }
       const toolCalls = readToolCalls(choice.message?.tool_calls);
       const content = choice.message?.content;
       const reasoning = choice.message?.reasoning_content;
 
       return ok({
+        ...(measurementPolicy && validServingHost(payload.provider) ? { provenance: { providerIdentity: measurementPolicy.providerIdentity, requestPolicyFingerprint: measurementPolicy.requestPolicyFingerprint, servingHost: payload.provider } } : {}),
         content: typeof content === 'string' ? content : null,
         toolCalls,
         reasoning: typeof reasoning === 'string' ? reasoning : null,

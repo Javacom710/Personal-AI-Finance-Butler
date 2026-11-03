@@ -29,7 +29,7 @@ import { aiProviderSettings, env, loadDotEnv } from '../src/lib/env';
 import { resolveModelConfig } from '../src/server/ai/config/models';
 import { createNvidiaProvider } from '../src/server/ai/provider/nvidia-build';
 import { modelsFor, parseEvalArgs, renderEvalReport, runEvaluation } from '../src/server/ai/eval/runner';
-import { evaluationProviderIdentity, recordEvaluationRun } from '../src/server/ai-evaluations';
+import { assertEvaluationRecordingSupported, evaluationProviderIdentity, recordEvaluationRun } from '../src/server/ai-evaluations';
 import { closeDb } from '../src/server/db/client';
 
 async function main(): Promise<void> {
@@ -57,6 +57,7 @@ async function main(): Promise<void> {
     tier4: e.AI_TIER4_MODELS,
     requestProfiles: e.AI_REQUEST_PROFILES,
   });
+  if (args.record) assertEvaluationRecordingSupported(evaluationProviderIdentity(ai.baseUrl));
   const models = modelsFor(args.tier, config, args.models);
   console.log(`Tier ${args.tier}: ${models.length} model(s) × ${args.suites.join(', ')}${args.limit ? ` (first ${args.limit} case(s) each)` : ''}`);
 
