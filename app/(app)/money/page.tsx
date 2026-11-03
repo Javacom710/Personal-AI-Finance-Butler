@@ -48,7 +48,7 @@ export default async function MoneyPage() {
     return (
       <>
         <Link href="/money/proposals" className="text-sm text-accent underline">Review transaction drafts</Link>
-      <PageHeader title="Money" description="Accounts, transactions, budgets and recurring commitments." />
+        <PageHeader title="Money" description="Accounts, transactions, budgets and recurring commitments." />
         <div className="rounded-lg border border-dashed border-border-strong bg-surface-sunken px-6 py-10 text-center">
           <h2 className="text-sm font-medium">Add an account to begin</h2>
           <p className="mx-auto mt-2 max-w-prose text-sm text-ink-muted">
@@ -80,6 +80,7 @@ export default async function MoneyPage() {
             {[
               ['Accounts', '/money/accounts'],
               ['Transactions', '/money/transactions'],
+              ['Review drafts', '/money/proposals'],
               ['Categories', '/money/categories'],
               ['Budgets', '/money/budgets'],
               ['Recurring', '/money/recurring'],
