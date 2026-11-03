@@ -1,3 +1,4 @@
+import { pathToFileURL } from 'node:url';
 import { mkdtempSync, rmSync, existsSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -12,7 +13,7 @@ it('the real CLI refuses OpenRouter recording before any HTTP request', () => {
   try {
     let failure: { status?: number; stderr?: Buffer } | undefined;
     try {
-      execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', '--import', preload, 'scripts/ai-eval.ts', '--tier', '1'], {
+      execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', '--import', pathToFileURL(preload).href, 'scripts/ai-eval.ts', '--tier', '1'], {
         cwd: process.cwd(), env: { ...process.env, AI_API_KEY: 'fake-key-not-a-credential', AI_BASE_URL: 'https://openrouter.ai/api/v1' }, timeout: 10000, stdio: ['ignore', 'pipe', 'pipe'],
       });
     } catch (error) { failure = error as typeof failure; }

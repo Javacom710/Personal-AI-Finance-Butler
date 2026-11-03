@@ -259,3 +259,6 @@ export function resolveModelConfig(overrides: TierOverrides = {}): ModelConfig {
     allConfigured: () => [...new Set(Object.values(resolved).flat())],
   };
 }
+
+/** Owner-approved OpenRouter measurement targets only; never a routing order. */
+export const OPENROUTER_MEASUREMENT_MODELS = Object.freeze({ primary: 'openai/gpt-oss-120b', small: 'openai/gpt-oss-20b' });

@@ -27,6 +27,7 @@
     "ai:eval:fixtures:document": "node scripts/generate-ai-eval-document-fixtures.mjs",
     "ai:catalogue": "node --conditions=react-server --import tsx scripts/ai-smoke.ts --catalogue",
     "ai:reachability": "node --conditions=react-server --import tsx scripts/ai-smoke.ts --reachability",
+    "ai:measure:openrouter": "node --conditions=react-server --import tsx scripts/ai-measure-openrouter.ts",
     "ai:measure:groq": "node --conditions=react-server --import tsx scripts/ai-measure-groq.ts",
     "ai:eval:budgeted": "node --import tsx scripts/ai-eval-budgeted-run.ts",
     "ai:eval": "node --conditions=react-server --import tsx scripts/ai-eval.ts",
