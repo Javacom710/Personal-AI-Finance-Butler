@@ -85,6 +85,45 @@ it.each(['archive', 'delete'])('refuses to append after %s during a model call',
   expect((await askConversation(alice.ctx, c.id, 'Question?', orchestrator)).ok).toBe(false);
   expect(await database().select().from(aiMessages).where(eq(aiMessages.conversationId, c.id))).toHaveLength(0);
 });
+it.each(['archive/restore', 'rename/revert'])('refuses an old answer after %s even when visible values and timestamps return to their original state', async operation => {
+  const c = await create(); const fake = answer();
+  const orchestrator: Orchestrator = { ...fake.orchestrator, run: async input => {
+    // The fixture reuses ctx.now, so timestamp comparison alone cannot detect this.
+    if (operation === 'archive/restore') {
+      expect((await archiveConversation(alice.ctx, c.id, true)).ok).toBe(true);
+      expect((await archiveConversation(alice.ctx, c.id, false)).ok).toBe(true);
+    } else {
+      expect((await renameConversation(alice.ctx, c.id, 'Changed during answer')).ok).toBe(true);
+      expect((await renameConversation(alice.ctx, c.id, c.title)).ok).toBe(true);
+    }
+    return fake.orchestrator.run(input);
+  } };
+  const stale = await askConversation(alice.ctx, c.id, 'Old question?', orchestrator);
+  expect(stale.ok).toBe(false);
+  if (!stale.ok) expect(stale.error.code).toBe('conflict');
+  expect(fake.requests).toHaveLength(1);
+  const current = await getConversation(alice.ctx, c.id);
+  expect(current.ok && current.value).toMatchObject({ revision: 0, title: c.title, archivedAt: null, updatedAt: c.updatedAt });
+  expect(await database().select().from(aiMessages).where(eq(aiMessages.conversationId, c.id))).toHaveLength(0);
+  expect((await askConversation(alice.ctx, c.id, 'Fresh question?', answer().orchestrator)).ok).toBe(true);
+});
+it('does not invalidate a pending answer for a rolled-back edit or a change to another conversation', async () => {
+  const c = await create(); const other = await create('Other conversation'); const fake = answer();
+  const orchestrator: Orchestrator = { ...fake.orchestrator, run: async input => {
+    await expect(database().transaction(async tx => {
+      await tx.update(aiConversations).set({ title: 'Never committed' }).where(eq(aiConversations.id, c.id));
+      throw new Error('Rollback fixture edit');
+    })).rejects.toThrow('Rollback fixture edit');
+    expect((await archiveConversation(alice.ctx, other.id, true)).ok).toBe(true);
+    return fake.orchestrator.run(input);
+  } };
+  expect((await askConversation(alice.ctx, c.id, 'Still valid?', orchestrator)).ok).toBe(true);
+  expect(fake.requests).toHaveLength(1);
+  const rows = await conversationMessages(alice.ctx, c.id);
+  expect(rows.ok && rows.value.map(m => m.position)).toEqual([0, 1]);
+  const current = await getConversation(alice.ctx, c.id);
+  expect(current.ok && current.value.title).toBe(c.title);
+});
 it('rolls back revision and both messages if the final insert fails', async () => {
   const c = await create();
   await admin.query(`CREATE FUNCTION test_conversation_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.role = 'assistant' THEN RAISE EXCEPTION 'forced conversation failure'; END IF; RETURN NEW; END $$; CREATE TRIGGER test_conversation_failure BEFORE INSERT ON ai_messages FOR EACH ROW EXECUTE FUNCTION test_conversation_failure()`);
