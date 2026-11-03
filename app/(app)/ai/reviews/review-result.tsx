@@ -11,7 +11,7 @@ export function FinancialReviewResult({ review }: { review: FinancialReview }) {
       <h3 className="font-semibold">{category === 'fact' ? 'Facts' : 'Deterministic calculations'}</h3>
       {category === 'fact' && <dl>{Object.entries(review.scope).map(([key, value]) => <div key={key}><dt className="font-medium">{label(key)}</dt><dd>{value}</dd></div>)}</dl>}
       {review.sources.map(source => <details key={source.callId} className="rounded-md border border-border p-3">
-        <summary>{label(source.name).replace(/^get /, '')}{reviewSourceUnavailable(source) ? ' — unavailable' : ''}</summary>
+        <summary>{label(source.callId).replace(/^get /, '')}{reviewSourceUnavailable(source) ? ' — unavailable' : ''}</summary>
         <dl className="space-y-2">{reviewEvidence(source.result).filter(item => item.category === category).map(item => <div key={item.path}>
           <dt className="text-sm font-medium">{item.path === 'ok' ? 'Source status' : label(item.path)}</dt><dd>{item.path === 'ok' ? item.value ? 'Available' : 'Unavailable' : item.path === 'meta.truncated' ? item.value ? 'Some source rows were omitted.' : 'All source rows are included.' : <SourceValue value={item.value} />}</dd>
         </div>)}</dl>
