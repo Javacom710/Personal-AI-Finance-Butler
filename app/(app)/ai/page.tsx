@@ -1,32 +1,20 @@
 import type { Metadata } from 'next';
-
-import { EmptyState, PageHeader } from '../../_components/page-shell';
+import Link from 'next/link';
+import { PageHeader } from '../../_components/page-shell';
 import { requireSession } from '@/server/auth/guards';
 
 export const metadata: Metadata = { title: 'AI' };
-
 export default async function AiPage() {
   await requireSession('/ai');
-
-  return (
-    <>
-      <PageHeader
-        title="AI"
-        description="Ask about your finances, and record transactions in plain language."
-      />
-
-      <EmptyState title="Not connected" arriving="Phases 7–9 — AI infrastructure, evaluation, features">
-        <p>
-          The assistant reads through a restricted set of tools that call the same application
-          services the interface does, so it is subject to the same authorization. It has no write
-          path: model output becomes a proposal you confirm, and the confirmation runs the ordinary
-          code path with the ordinary validation.
-        </p>
-        <p className="mt-3">
-          Turning AI off in Settings removes every byte of egress and leaves every other feature
-          working.
-        </p>
-      </EmptyState>
-    </>
-  );
+  return <>
+    <PageHeader title="Financial assistant" description="Ask about your finances using read-only financial tools." />
+    <section className="space-y-3 rounded-lg border border-border p-4">
+      <h2 className="font-semibold">Awaiting setup approval</h2>
+      <p>The assistant will be available after the model lineup is reviewed and approved. No questions or financial data are being sent to a model here.</p>
+      <label className="block">Your question<textarea disabled placeholder="Where did most of my money go last month?" className="mt-1 w-full rounded-md border border-border bg-surface p-3" /></label>
+      <button disabled className="rounded-md bg-accent px-3 py-2 text-accent-ink opacity-50">Ask about my finances</button>
+      <p className="text-sm text-ink-muted">The assistant only reads. Its explanations will be shown separately from source facts and deterministic calculations. Missing metrics remain unavailable. Scenario projections are unavailable.</p>
+      <Link href="/money" className="inline-block underline">Open Money for manual entry</Link>
+    </section>
+  </>;
 }
