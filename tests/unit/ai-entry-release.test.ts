@@ -28,4 +28,16 @@ it('keeps confirmation amounts as decimal strings when translating FormData', as
   const result = await confirmTransactionProposalAction(EMPTY_ACTION_STATE, form);
   expect(mocks.apply.mock.calls[0]?.[1].values.amount).toBe('0.0001');
   expect(result.fieldErrors.amount).toEqual(['Review amount']);
+  expect(result.edits?.amount).toBe('0.0001');
+  expect(result.revision).toBe(1);
+});
+
+it('retains all raw corrections on context failure, without calling apply', async () => {
+  mocks.context.mockResolvedValue({ ok: false, error: { code: 'not_found', message: 'Settings unavailable' } });
+  const form = new FormData();
+  for (const [key, value] of Object.entries({ amount: '987.6500', accountId: 'other', description: 'Corrected dinner', notes: 'Keep my correction', tags: 'personal, dinner' })) form.set(key, value);
+  const result = await confirmTransactionProposalAction({ ...EMPTY_ACTION_STATE, revision: 1 }, form);
+  expect(result.status).toBe('error'); expect(result.revision).toBe(2);
+  expect(result.edits).toMatchObject({ amount: '987.6500', accountId: 'other', description: 'Corrected dinner', notes: 'Keep my correction', tags: 'personal, dinner' });
+  expect(mocks.apply).not.toHaveBeenCalled();
 });

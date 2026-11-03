@@ -409,7 +409,7 @@ The evaluation deliverable now has one finite coordinator: **`npm run ai:measure
 
 [PR #39](https://github.com/Javacom710/Personal-AI-Finance-Butler/pull/39) implements the authorized transaction-proposal slice. The complete CI pipeline passed on **PostgreSQL 17 and 18**, at code commit `0e3855f`: unit, property and integration suites; migration/seed and financial integrity checks; typecheck/lint; production build; client-secret scan; dependency audits. [CI evidence](https://github.com/Javacom710/Personal-AI-Finance-Butler/actions/runs/41487036592). The earlier full-suite-pending status is superseded by these completed checks. The prior local HTTP confirmation submission result was not retained across the environment restart and is not claimed as passing; concurrent/double confirmation is covered by PostgreSQL integration tests.
 
-Live draft generation remains hard-disabled, and this does **not** complete all of Phase 9. No other Phase 9 work is authorized. Phase 8 next needs confirmation of OpenRouter funding and a configured credential; the current environment exposes Groq/NVIDIA credentials but no OpenRouter credential. Do not spend Groq quota as a substitute, record measurements, or accept tier orders without the required owner approval.
+Live draft generation remains hard-disabled, and this does **not** complete all of Phase 9. The owner subsequently authorized the read-only assistant as the next separate slice on 2026-11-03, fake-provider tested and disabled pending lineup approval; scenarios remain blocked by OD-18. Phase 8 next needs confirmation of OpenRouter funding and a configured credential; the current environment exposes Groq/NVIDIA credentials but no OpenRouter credential. Do not spend Groq quota as a substitute, record measurements, or accept tier orders without the required owner approval.
 
 ## Working protocol — applies to every phase from 2 onward
 
@@ -1728,3 +1728,9 @@ Run on 2026-08-10.
 | What must be tested before a phase is done? | [docs/TESTING.md](docs/TESTING.md) and each phase's "Done when" |
 | What am I building next? | [docs/ROADMAP.md](docs/ROADMAP.md) — **Phase 8, Model Evaluation**. Start with the golden task corpora for `src/server/ai/eval/harness.ts`; run `npm run ai:catalogue` first to see the current catalogue (ADR-45) |
 
+
+### Transaction review follow-up — 2026-11-03
+
+PR #39 now preserves raw user corrections after rejected confirmation actions by returning edits and remounting the review form with those values. This avoids React action resets discarding decimal precision, account choices, descriptions and notes. Confirmation is unchecked again after a rejected submission. A client expiry timer updates the open review and disables confirmation at its deadline; the server remains authoritative. A local headless Chromium check using fake actions verified rejected-edit preservation and live expiry. Focused tests: 53 passed; typecheck, lint and production build verified. No model calls.
+
+**Next authorization:** build the read-only financial assistant separately, fake providers only and disabled until owner approval of the Phase 8 lineup. No tier/gate changes. OpenRouter funding is still pending today. Once ready, its adapter must require ZDR, deny data collection, prefer DeepInfra with price ordering and allow only ZDR fallback hosts. Measurements must include the actual serving host in provenance. OpenRouter handles host routing; do not build an application host router. Finish the remaining GPT-OSS-120B/20B and Qwen vision suites, then propose the lineup without `--record` pending approval.

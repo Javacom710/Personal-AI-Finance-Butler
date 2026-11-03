@@ -25,7 +25,7 @@ export default async function TransactionProposalsPage() {
       const amount = d?.amount && d.currency ? Money.parseUserInput(d.amount, currency(d.currency)) : null;
       const source = choices.find(a => a.id === d?.accountId)?.name;
       const preview = `${d?.kind ?? 'Transaction'} draft${amount?.ok ? ` · ${format.money(amount.value)}` : ''}${source ? ` · ${source}` : ''}`;
-      return <ProposalReview key={p.id} id={p.id} draft={d} errors={p.validationErrors ?? {}} expiresAt={new Intl.DateTimeFormat(ctx.locale, { dateStyle: 'medium', timeStyle: 'short', timeZone: ctx.timezone }).format(p.expiresAt)} expired={p.expiresAt.getTime() <= ctx.now.getTime()} preview={preview} accounts={choices} categories={categories.map(c => ({ id: c.id, path: c.path, kind: c.kind }))} />;
+      return <ProposalReview key={p.id} id={p.id} draft={d} errors={p.validationErrors ?? {}} expiresAt={new Intl.DateTimeFormat(ctx.locale, { dateStyle: 'medium', timeStyle: 'short', timeZone: ctx.timezone }).format(p.expiresAt)} expiresAtIso={p.expiresAt.toISOString()} expired={p.expiresAt.getTime() <= ctx.now.getTime()} preview={preview} accounts={choices} categories={categories.map(c => ({ id: c.id, path: c.path, kind: c.kind }))} />;
     })}</div>
   </>;
 }
