@@ -16,6 +16,7 @@ export default async function AiPage({ searchParams }: { searchParams?: Promise<
   const historyLink = (page: number) => `/ai?history=${archived ? 'archived' : 'active'}&page=${page}`;
   return <>
     <PageHeader title="Financial assistant" description="Ask about your finances using read-only financial tools." />
+    <Link href="/ai/reviews/monthly" className="underline">Monthly financial review</Link>
     <section className="space-y-3 rounded-lg border border-border p-4">
       <h2 className="font-semibold">Awaiting setup approval</h2>
       <p>The assistant will be available after the model lineup is reviewed and approved. No questions or financial data are being sent to a model here.</p>

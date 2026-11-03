@@ -22,7 +22,7 @@ export function AssistantAnswer({ answer }: { answer: QuestionAnswer }) {
 }
 
 /** Only projected tool payloads reach here. No metric arithmetic or null-to-zero coercion. */
-function SourceValue({ value }: { value: unknown }) {
+export function SourceValue({ value }: { value: unknown }) {
   if (value === null || value === undefined) return <span>Unavailable</span>;
   if (typeof value !== 'object') return <span className="whitespace-pre-wrap">{String(value)}</span>;
   if (Array.isArray(value)) return value.length ? <ul className="ml-4 list-disc">{value.map((item, index) => <li key={index}><SourceValue value={item} /></li>)}</ul> : <span>No rows</span>;
