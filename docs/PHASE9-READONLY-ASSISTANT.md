@@ -1,25 +1,37 @@
-# Phase 9 read-only financial assistant: first slice
+# Phase 9 read-only financial assistant
 
-The owner authorized this work on 3 November 2026 while OpenRouter funding delayed Phase 8. It is separate from transaction proposals in PR #39 and builds on main after PR #38. Tests use fake providers only. No provider configuration, model order, capability gate, existing prompt, scorer or evaluation suite changes.
+The owner authorized this work on 3 November 2026 while OpenRouter funding delayed Phase 8. PR #40 is stacked on transaction-entry PR #39 so conversation migration `0008` follows proposal migration `0007`. Neither feature enables a live model. Tests use fake providers only. No model order, capability gate, existing prompt, scorer or evaluation suite changes.
 
-## Implemented boundary
+## Bounded reads and follow-ups
 
-`answerReadOnlyQuestion` receives an already bound `AiReadCtx` and an injected orchestrator. It reuses the production finance-question prompt, capability and read-only tool registry. User identity is never a tool argument. The existing dispatcher validates names and strict arguments before invoking an owner-bound application-service projection; model text cannot obtain a write context. Financial facts use the same services as the UI.
+`answerReadOnlyQuestion` receives a bound `AiReadCtx` and an injected orchestrator. It reuses the production finance-question prompt, capability and frozen tool registry. User identity is never a tool argument. The existing dispatcher validates names and strict arguments before invoking an owner-bound application-service projection. Model code has no database or write capability.
 
-A question has at most four model turns, eight dispatched calls and 64 KiB of accumulated tool outcomes. The last turn must answer without another read. Entire oversized batches and duplicate/empty call identifiers are refused before dispatch. Tool failures return as generic data for bounded follow-up. Empty, incomplete or excessively long final answers are refused. There is no outer retry loop or payload logging.
+Each question permits at most four model turns, eight dispatched calls and 64 KiB of accumulated tool outcomes. Oversized batches and duplicate/empty call IDs are refused before dispatch. Failures return as generic data for bounded follow-up. Empty, incomplete or oversized final answers are refused. There is no outer retry loop or payload logging.
 
-The answer view renders model prose as **Interpretation**, separately from source facts and deterministic calculations. It preserves exact decimal projections, null/unavailable reasons, dates, currencies and clipping metadata. It escapes all text. It performs no financial arithmetic and never substitutes zero for missing data. No scenario engine or tool is introduced.
+Follow-up context contains at most eight complete prior exchanges and 16,000 characters. It includes prior questions and interpretation text, never a substituted system role or replayed historical tool results. New questions retain the same system prompt and read tools. Historical interpretations can be stale; actual approved-model follow-up grounding must be verified before activation.
 
-## Release boundary and unfinished scope
+The answer view separates **Interpretation** from source facts and deterministic calculations. It preserves exact decimal projections, null/unavailable reasons, dates, currency and clipping metadata, escapes all text, performs no financial arithmetic and never coerces missing data to zero. No scenario engine/tool is introduced.
 
-The `/ai` controls are disabled. `askFinanceQuestionAction` authenticates direct calls and returns unavailable without importing a runtime or financial service. A key or environment flag cannot enable the feature. There is no fake-provider production route. The answer component is exercised by tests and is not populated with fake financial data on the production page.
+## Persistence and concurrency
 
-This is the bounded single-question loop, including tool follow-ups. It is not persistent conversational memory: no `ai_messages`/conversation tables or retention policy are created here. Conversation persistence and its export/delete integration remain future work. Model prose is not a deterministic proof of semantic grounding; fake-provider transport tests do not certify actual model answer quality or complete the roadmap's question gate.
+`ai_conversations` and `ai_messages` are owner-scoped. An exchange revision and unique message positions keep chronology independent of equal timestamps. Conversations hold at most 100 complete question/answer pairs. Assistant messages preserve interpretation, projected source evidence, serving model and response-usage metadata. Cost stays null until billing is verified. Transcript content is stored here because the product needs it; it never enters application logs. Model-attempt/tool-call tables remain deferred.
 
-After owner approval, activation must use a reviewed composition root with `runAiCapability` on every model turn, so the kill switch, usage budgets, rate limits and measured capability gates apply to every call. Do not simply compose a raw provider/orchestrator from the UI. Actual-model grounding and quality evidence must accompany activation. All other Phase 9 surfaces remain outside this PR.
+`askConversation` loads the owner’s active conversation and bounded recent context, runs the question **outside any database transaction**, then claims the same owner/revision/active conversation and saves both messages in one transaction. Concurrent completions cannot both append from the same revision. Archive/delete during generation refuses the completed exchange. Failed output saves neither message. A failed final insert rolls back the question and revision as well.
+
+The service does not accept a client-supplied answer. Its orchestrator is injected by application code/tests. Only the future reviewed composition root may supply a live implementation.
+
+## History management and privacy
+
+`/ai` lists recent active/archived conversations. Authenticated services/actions create titles, rename, archive/restore, and explicitly delete conversations. These are content-management operations and do not call a model or change financial records. Detail pages show saved questions, answer sources and localized dates. Empty conversations contain no fake financial content.
+
+Per-conversation JSON export checks ownership and reads the conversation/messages in one SQL statement for a consistent snapshot. It preserves decimal strings and returns a private, no-store attachment with a UUID-based filename. Confirmed deletion cascades all messages. The users→conversations→messages foreign keys also cover future account deletion. Global Settings data export/delete remains in its scheduled phase; these routes do not claim to implement it.
+
+## Release boundary
+
+Question controls are disabled. `askFinanceQuestionAction` authenticates direct calls and returns unavailable without composing a runtime or opening a read capability. An environment key/flag cannot enable it. There is no fake-provider production route. History management remains usable independently of model readiness.
+
+Activation requires owner approval of the Phase 8 lineup and a reviewed composition root that uses `runAiCapability` on **every model turn**, preserving the kill switch, usage budget, rate limits and measured capability gates. Do not compose a raw provider/orchestrator in a page or action. Fake-provider exchanges do not certify real-model semantic grounding, recommendation quality or completion of the roadmap question gate. Scenarios remain blocked by OD-18.
 
 ## Verification
 
-Focused tests use fake providers with synthetic in-memory measured capabilities, never saved measurements. They exercise twelve question-shaped tool exchanges; concepts without data reads; existing unmeasured-gate refusal; invalid inputs; unknown/write/scenario tools; cross-user arguments; malformed arguments; handler failures; metric reasons and clipping; duplicate IDs; read/turn/context caps; incomplete answers; authenticated release blocking; source rendering and escaping. Three PostgreSQL integration tests exercise real owner isolation, an exact spending total and absence of ledger/audit changes after a write attempt.
-
-At code commit `dd12ed3`, the complete local suite passes: **2,639 tests across 103 files**, including property tests and PostgreSQL 17 integration tests. Typecheck, lint, production build, client-secret scan and whitespace checks pass. PostgreSQL 17/18 CI runs separately. All assistant model interactions in these tests use fake providers.
+Tests exercise the real frozen dispatcher with fake providers; unchanged baseline prompts/gates; bounds and invalid history; owner isolation; source rendering; release blocking; direct action/export authentication; exact strings and private export headers; atomic message pairs and chronology; competing questions; archive/delete during generation; forced final-insert rollback; bounded follow-ups; and conversation/user deletion cascades. Migration `0008` includes its reverse and is checked with the repository's all-down/all-up schema fingerprint test.

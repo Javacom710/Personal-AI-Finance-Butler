@@ -421,7 +421,7 @@ product/UI work item scheduled with the Phase 9 UX pass. It does not block Phase
 
 ## Phase 9 — AI Features
 
-**Early parallel authorization (2026-11-02/03):** transaction proposals (PR #39) and the next read-only financial-assistant slice are being implemented separately while Phase 8 waits for OpenRouter funding/evaluation. Both remain disabled pending owner approval of the measured lineup and use fake providers only. Scenarios remain blocked by OD-18. The assistant slice implements the bounded question loop and source presentation; persistent conversation history and real-model quality certification remain pending. No Phase 9 completion box is implied by this note.
+**Early parallel authorization (2026-11-02/03):** transaction proposals (PR #39) and the next read-only financial-assistant slice are being implemented separately while Phase 8 waits for OpenRouter funding/evaluation. Both remain disabled pending owner approval of the measured lineup and use fake providers only. Scenarios remain blocked by OD-18. The assistant slice implements the bounded question loop, source presentation and saved conversations with scoped export/deletion; real-model quality certification remains pending. PR #40 is stacked on transaction-entry PR #39 for migration ordering. No Phase 9 completion box is implied by this note.
 
 - Natural-language transaction entry (proposal flow, quick-add free-text path)
 - Financial assistant: the question set in `CLAUDE.md <ai_financial_assistant>`

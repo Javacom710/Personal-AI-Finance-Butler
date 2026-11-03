@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AssistantAnswer } from '@app/(app)/ai/answer';
 import type { QuestionAnswer } from '@/server/ai/assistant/question';
 const auth = vi.hoisted(() => vi.fn());
+vi.mock('@/server/services', () => ({ createReadCtx: async () => ({ ok: true, value: { userId: 'owner' } }), listConversations: async () => [], createConversation: vi.fn(), renameConversation: vi.fn(), archiveConversation: vi.fn(), deleteConversation: vi.fn() }));
+vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 vi.mock('@/server/auth/guards', () => ({ requireSession: auth }));
 import { askFinanceQuestionAction } from '@app/(app)/ai/actions';
 import AiPage from '@app/(app)/ai/page';

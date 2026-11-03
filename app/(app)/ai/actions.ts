@@ -1,8 +1,31 @@
 'use server';
+import { revalidatePath } from 'next/cache';
+import { createReadCtx, createConversation, renameConversation, archiveConversation, deleteConversation } from '@/server/services';
+import { failure, success, type ActionState } from '../money/form-state';
 import { requireSession } from '@/server/auth/guards';
 
 /** No runtime is composed before the owner accepts a measured lineup. */
 export async function askFinanceQuestionAction(): Promise<{ status: 'unavailable'; message: string }> {
   await requireSession('/ai');
   return { status: 'unavailable', message: 'The financial assistant is awaiting setup approval. Your question has not been sent to a model.' };
+}
+
+/** Conversation metadata/content management never invokes a model. */
+export async function manageConversationAction(_previous: ActionState, form: FormData): Promise<ActionState> {
+  const session = await requireSession('/ai');
+  const ctx = await createReadCtx(session.userId);
+  if (!ctx.ok) return failure(ctx.error);
+  const id = form.get('conversationId');
+  let result;
+  switch (form.get('operation')) {
+    case 'create': result = await createConversation(ctx.value, form.get('title')); break;
+    case 'rename': result = await renameConversation(ctx.value, id, form.get('title')); break;
+    case 'archive': result = await archiveConversation(ctx.value, id, true); break;
+    case 'restore': result = await archiveConversation(ctx.value, id, false); break;
+    case 'delete': result = await deleteConversation(ctx.value, id, form.get('confirmed') === 'true'); break;
+    default: return { status: 'error', message: 'Choose a valid conversation action.', fieldErrors: {} };
+  }
+  if (!result.ok) return failure(result.error);
+  revalidatePath('/ai', 'layout');
+  return success(form.get('operation') === 'delete' ? 'Conversation and messages deleted.' : 'Conversation updated.');
 }

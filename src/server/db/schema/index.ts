@@ -30,3 +30,4 @@ export * from './marketdata';
 export * from './ai';
 
 export * from './ai-proposals';
+export * from './ai-conversations';
