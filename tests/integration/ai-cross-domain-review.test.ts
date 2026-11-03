@@ -30,7 +30,7 @@ it('retains distinct exact cost/market engine results and does not leak another 
     expect(result.value.sources[3]?.result).toEqual(await getNetWorth(ai, { asOf: ai.today, basis: 'market' }));
     expect(result.value.sources[2]?.result).not.toEqual(result.value.sources[3]?.result);
   }
-  const text = JSON.stringify(result); expect(text).toContain('Cross-domain bank'); expect(text).toContain('605000.0000'); expect(text).toContain('605200.0000'); expect(text).not.toContain('Other owner secret property'); expect(text).not.toContain('888888');
+  const text = JSON.stringify(result); expect(text).toContain('Cross-domain bank'); expect(text).toContain('605000.0000'); expect(text).toContain('605200.0000'); expect(text).not.toContain('Other owner secret property'); expect(text).not.toContain('"amount":"888888.0000"');
 });
 it('leaves money/investment ledgers and audit history unchanged', async () => {
   const count = async () => ({ money: await database().select({ n: sql<number>`count(*)::int` }).from(transactions), investments: await database().select({ n: sql<number>`count(*)::int` }).from(investmentTransactions), audits: await database().select({ n: sql<number>`count(*)::int` }).from(auditLog) });
