@@ -38,3 +38,9 @@ describe('transaction review UI', () => {
     expect(html).toMatch(/<option(?=[^>]*value="")(?=[^>]*selected="")[^>]*>Choose an account/);
   });
 });
+
+it('keeps a missing document date blank while preserving the proposed decimal amount and field error', () => {
+  const html = renderToStaticMarkup(createElement(ProposalReview, { ...props, draft: { ...props.draft!, bookedOn: null }, errors: { bookedOn: ['Enter the missing transaction date before confirming.'] } }));
+  expect(html).toMatch(/<input(?=[^>]*name="bookedOn")(?=[^>]*value="")[^>]*>/);
+  expect(html).toContain('value="0.0001"'); expect(html).toContain('Enter the missing transaction date');
+});

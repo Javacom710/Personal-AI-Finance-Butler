@@ -1,6 +1,6 @@
 import type { z } from 'zod';
 import { reviewedTransactionSchema, type ProposalErrors, type TransactionDraft } from '../../lib/schemas/ai-entry';
-import type { TransactionProposal } from '../ai/proposals/schemas';
+import type { DocumentExtractionProposal } from '../ai/proposals/schemas';
 
 export interface ProposalAccount { id: string; name: string; currency: string; openingDate: string; isActive: boolean; }
 export interface ProposalCategory { id: string; name: string; path: string; kind: 'income' | 'expense'; isArchived: boolean; }
@@ -28,7 +28,7 @@ export function proposalFieldErrors(error: z.ZodError): ProposalErrors {
   for (const issue of error.issues) (errors[issue.path.join('.') || '_'] ??= []).push(issue.message);
   return errors;
 }
-export function resolveTransactionProposal(p: TransactionProposal, accounts: readonly ProposalAccount[], categories: readonly ProposalCategory[]): { draft: TransactionDraft; errors: ProposalErrors } {
+export function resolveTransactionProposal(p: DocumentExtractionProposal['transactions'][number], accounts: readonly ProposalAccount[], categories: readonly ProposalCategory[]): { draft: TransactionDraft; errors: ProposalErrors } {
   const active = accounts.filter(a => a.isActive);
   const draft: TransactionDraft = {
     kind: p.kind, bookedOn: p.bookedOn, description: p.description, amount: p.amount, currency: p.currency,
@@ -39,6 +39,7 @@ export function resolveTransactionProposal(p: TransactionProposal, accounts: rea
   };
   const parsed = reviewedTransactionSchema.safeParse(draft);
   const errors = parsed.success ? {} : proposalFieldErrors(parsed.error);
+  if (p.bookedOn === null) errors['bookedOn'] = ['Enter the missing transaction date before confirming.'];
   if (p.amount === null) errors['amount'] = ['Enter the missing amount before confirming.'];
   if (!draft.accountId) errors['accountId'] = ['Choose an account; the hint could not be resolved uniquely.'];
   if (p.kind !== 'transfer' && !draft.categoryId) errors['categoryId'] = ['Choose the transaction category.'];
@@ -46,8 +47,8 @@ export function resolveTransactionProposal(p: TransactionProposal, accounts: rea
   const account = active.find(a => a.id === draft.accountId);
   const destination = active.find(a => a.id === draft.toAccountId);
   if (account && account.currency !== p.currency) errors['currency'] = ['The stated currency differs from the account currency. Review the amount and account.'];
-  if (account && p.bookedOn < account.openingDate) errors['bookedOn'] = ['The date precedes the account opening date.'];
-  if (destination && p.bookedOn < destination.openingDate) errors['bookedOn'] = ['The date precedes the destination opening date.'];
+  if (account && p.bookedOn !== null && p.bookedOn < account.openingDate) errors['bookedOn'] = ['The date precedes the account opening date.'];
+  if (destination && p.bookedOn !== null && p.bookedOn < destination.openingDate) errors['bookedOn'] = ['The date precedes the destination opening date.'];
   if (destination && account && destination.currency !== account.currency) errors['toAmount'] = ['Enter the credited amount for this cross-currency transfer.'];
   if (p.kind !== 'transfer' && p.toAccountHint) errors['toAccountId'] = ['Only a transfer can have a destination.'];
   if (p.confidence === 'low') errors['reviewAcknowledged'] = ['Review the low-confidence interpretation.'];
