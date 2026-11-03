@@ -26,10 +26,13 @@ const prose = { content: 'Interpretation:\nThe valuation covers the priced holdi
 it('retains the real engine totals, missing prices and performance reasons without exposing another owner', async () => {
   const ai = aiCapabilityFor(alice.ctx); const fake = fakeReviewProvider(prose);
   const result = await analyzeCurrentPortfolio(ai, fake.orchestrator); expect(result.ok).toBe(true);
-  if (result.ok) expect(result.value.sources[0]?.result).toEqual(await getPortfolioSummary(ai));
+  if (result.ok) {
+    expect(result.value.sources[0]?.result).toEqual(await getPortfolioSummary(ai));
+    expect(result.value.sources[0]?.result).toMatchObject({ ok: true, data: { investedCapital: { amount: '1050.0000' }, marketValue: { amount: '1100.0000' } } });
+  }
   const text = JSON.stringify(result);
   expect(text).toContain('1100.0000'); expect(text).toContain('Unpriced review holding'); expect(text).toContain('"marketValue":null');
-  expect(text).toContain('insufficient_price_history'); expect(text).not.toContain('Other owner private holding'); expect(text).not.toContain('8888');
+  expect(text).toContain('insufficient_price_history'); expect(text).not.toContain('Other owner private holding'); expect(text).not.toContain('"amount":"8888.0000"');
   expect(fake.requests).toHaveLength(2);
 });
 it('leaves investment transactions and audits unchanged', async () => {

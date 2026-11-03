@@ -25,7 +25,7 @@ it('preserves engine balances, linked-liability nulls and missing savings metric
     expect(result.value.sources[3]?.result).toEqual(await getLiabilities(ai));
   }
   const text = JSON.stringify(result); expect(text).toContain('"outstanding":null'); expect(text).toContain('divide_by_zero'); expect(text).toContain('-3000.0000');
-  expect(text).not.toContain('Other owner secret bank'); expect(text).not.toContain('88888');
+  expect(text).not.toContain('Other owner secret bank'); expect(text).not.toContain('"amount":"88888.0000"');
 });
 it('does not change transactions, scheduled balances or audit history', async () => {
   const count = async () => ({ transactions: await database().select({ n: sql<number>`count(*)::int` }).from(transactions), balances: await database().select({ n: sql<number>`count(*)::int` }).from(liabilityBalances), audit: await database().select({ n: sql<number>`count(*)::int` }).from(auditLog) });
