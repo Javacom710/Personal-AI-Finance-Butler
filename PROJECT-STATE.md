@@ -4,7 +4,7 @@ Durable status record. Conversation history is temporary; this file is not. Read
 
 > **Read first — latest direction, 2026-11-02.** The owner explicitly authorized **Phase 9 natural-language transaction entry and confirmation to start early, in parallel with incomplete Phase 8**, on `codex/phase-9-nl-entry`. This is transaction entry only, fake-provider tested, with production draft generation hard-disabled until the owner approves a measured Phase 8 lineup. No assistant/analysis/scenario/document work is authorized here; OD-18 remains blocked. PR #38 is now merged (`3dd38f2`) by the owner's later explicit instruction, superseding the earlier keep-draft request. The owner plans to fund OpenRouter on 3 November, then switch provider and complete Phase 8 in one sustained run; readiness must be checked first, and Groq measurements must not authorize a new endpoint. Existing gates, prompts, scorers, suites and tier orders remain unchanged. See [Phase 9 transaction entry](docs/PHASE9-TRANSACTION-ENTRY.md).
 
-**Last updated:** 2026-11-02 · **Current phase:** **8 — Model Evaluation, in progress; 9 — transaction entry only, started early in parallel** ([Phase 8 log](#phase-8-log)). Phase 7 — AI Infrastructure COMPLETE (steps 7.0–7.7; blockers B-1 … B-4, H-1 and R-1 … R-4 closed). Phase 6 remains complete (steps 6.0–6.9 and 6.11 implemented and verified; 6.10 closed unbuilt).
+**Last updated:** 2026-11-03 · **Current phase:** **8 — Model Evaluation, in progress; 9 — transaction entry only, started early in parallel** ([Phase 8 log](#phase-8-log)). Phase 7 — AI Infrastructure COMPLETE (steps 7.0–7.7; blockers B-1 … B-4, H-1 and R-1 … R-4 closed). Phase 6 remains complete (steps 6.0–6.9 and 6.11 implemented and verified; 6.10 closed unbuilt).
 
 *The paragraphs from here to "Working protocol" are the 2026-08-30 record, kept as written.*
 
@@ -404,6 +404,12 @@ The evaluation deliverable now has one finite coordinator: **`npm run ai:measure
 - Baseline prompt, proposal schema, scorer, golden suites, capability gates and model orders were preserved. The existing prompt/schema are reused, with at most the existing single schema-repair round. Returned tool calls are rejected, not dispatched.
 - Migration `0007_phase9_transaction_proposals` and its reverse are included. Conversations, investment proposals, assistant/analysis/scenario/document work remain deferred. [Implementation/activation contract](docs/PHASE9-TRANSACTION-ENTRY.md).
 - PR #38 merged after PostgreSQL 17/18 CI passed. Remaining Phase 8 work needs a follow-up measurement PR once OpenRouter funding/credential readiness is confirmed; provider provenance must isolate its evidence. The one-time continuation's handover was updated; the former recurring automation remains paused. No provider switch or live call was made for Phase 9.
+
+### Verification checkpoint — 2026-11-03
+
+[PR #39](https://github.com/Javacom710/Personal-AI-Finance-Butler/pull/39) implements the authorized transaction-proposal slice. The complete CI pipeline passed on **PostgreSQL 17 and 18**, at code commit `0e3855f`: unit, property and integration suites; migration/seed and financial integrity checks; typecheck/lint; production build; client-secret scan; dependency audits. [CI evidence](https://github.com/Javacom710/Personal-AI-Finance-Butler/actions/runs/41487036592). The earlier full-suite-pending status is superseded by these completed checks. The prior local HTTP confirmation submission result was not retained across the environment restart and is not claimed as passing; concurrent/double confirmation is covered by PostgreSQL integration tests.
+
+Live draft generation remains hard-disabled, and this does **not** complete all of Phase 9. No other Phase 9 work is authorized. Phase 8 next needs confirmation of OpenRouter funding and a configured credential; the current environment exposes Groq/NVIDIA credentials but no OpenRouter credential. Do not spend Groq quota as a substitute, record measurements, or accept tier orders without the required owner approval.
 
 ## Working protocol — applies to every phase from 2 onward
 
