@@ -1,0 +1,11 @@
+# Cross-domain financial analysis
+
+Built under the standing Phase 9 approval, stacked on financial-health PR #45. Fake providers only; production generation remains hard-disabled pending lineup approval and reviewed runtime composition. Scenarios remain blocked by OD-18.
+
+Eight existing owner-bound reads supply recorded monthly cash flow, accounts, net worth at cost, net worth at market, portfolio totals/coverage, asset-class allocation, liabilities and upcoming commitments. The existing Tier 2 `analyzeFinancialHealth` capability gates the tool-calling and interpretation turns. The entire native read batch must match the application-owned plan before any read. Equivalent JSON property ordering is accepted; omitted valuation bases, extra reads, scenario calls and changed arguments are refused.
+
+Cost and market net worth have different source labels in both evidence sections; they are never presented as amounts to add together. Exact engine figures, unavailable metrics, coverage and schedules retain their source meaning. Unsupported investment/net-worth ratios, deployable-cash capacity and scenario projections remain unavailable, rather than being calculated by AI. Facts/calculations and qualitative interpretation/recommendation stay separate.
+
+The authenticated `/ai/reviews/cross-domain` page is linked in the grouped financial-review navigation. Both controls and the independently authenticated direct action remain unavailable without composing a model or reading finances. There is no new persistence, tool/database schema, existing gate/rule, tier order, baseline prompt, scorer or golden-suite change.
+
+Validation: **50 focused unit checks and two PostgreSQL integration checks pass**. The real-engine fixture verifies separate cost and market net-worth results, expected exact totals, owner isolation and unchanged money/investment/audit rows. Other checks cover complete read scope, property-order equivalence, refused scenario substitution, labeled rendering and direct-action/page blocking. Typecheck, lint, production Webpack build and client-secret scan pass. CI checks PostgreSQL 17/18 with the ordinary install/default build. Fake tests do not certify live-model semantic quality.
