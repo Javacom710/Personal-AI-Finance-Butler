@@ -1,5 +1,6 @@
 'use server';
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { createReadCtx, createConversation, renameConversation, archiveConversation, deleteConversation } from '@/server/services';
 import { failure, success, type ActionState } from '../money/form-state';
 import { requireSession } from '@/server/auth/guards';
@@ -27,5 +28,6 @@ export async function manageConversationAction(_previous: ActionState, form: For
   }
   if (!result.ok) return failure(result.error);
   revalidatePath('/ai', 'layout');
-  return success(form.get('operation') === 'delete' ? 'Conversation and messages deleted.' : 'Conversation updated.');
+  if (form.get('operation') === 'delete') redirect('/ai');
+  return success('Conversation updated.');
 }

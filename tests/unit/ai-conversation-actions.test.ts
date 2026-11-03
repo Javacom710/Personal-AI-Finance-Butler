@@ -1,10 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createElement } from 'react';
+import type * as React from 'react';
+import type { ActionState } from '@app/(app)/money/form-state';
+const ui = vi.hoisted(() => ({ state: undefined as ActionState | undefined }));
+vi.mock('react', async importOriginal => {
+  const actual = await importOriginal<typeof React>();
+  return { ...actual, useActionState: (_action: unknown, initial: unknown) => [ui.state ?? initial, () => {}, false] };
+});
 import { renderToStaticMarkup } from 'react-dom/server';
 const mocks = vi.hoisted(() => ({ auth: vi.fn(), context: vi.fn(), create: vi.fn(), rename: vi.fn(), archive: vi.fn(), remove: vi.fn(), export: vi.fn() }));
 vi.mock('@/server/auth/guards', () => ({ requireSession: mocks.auth }));
 vi.mock('@/server/services', () => ({ createReadCtx: mocks.context, createConversation: mocks.create, renameConversation: mocks.rename, archiveConversation: mocks.archive, deleteConversation: mocks.remove, exportConversation: mocks.export }));
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
+vi.mock('next/navigation', () => ({ redirect: (path: string) => { throw new Error(`redirect:${path}`); } }));
 import { askFinanceQuestionAction, manageConversationAction } from '@app/(app)/ai/actions';
 import { GET } from '@app/(app)/ai/conversations/[conversationId]/export/route';
 import { ConversationManagement } from '@app/(app)/ai/management';
@@ -12,8 +20,9 @@ import { EMPTY_ACTION_STATE } from '@app/(app)/money/form-state';
 const id = '00000000-0000-4000-8000-000000000001';
 const ctx = { userId: 'owner' };
 beforeEach(() => {
-  vi.clearAllMocks(); mocks.auth.mockResolvedValue({ userId: 'owner' }); mocks.context.mockResolvedValue({ ok: true, value: ctx });
-  for (const fn of [mocks.create, mocks.rename, mocks.archive, mocks.remove]) fn.mockResolvedValue({ ok: true, value: undefined });
+  ui.state = undefined; vi.clearAllMocks(); mocks.auth.mockResolvedValue({ userId: 'owner' }); mocks.context.mockResolvedValue({ ok: true, value: ctx });
+  for (const fn of [mocks.create, mocks.rename, mocks.archive]) fn.mockResolvedValue({ ok: true, value: undefined });
+  mocks.remove.mockImplementation(async (_ctx, _id, confirmed) => confirmed ? ({ ok: true, value: undefined }) : ({ ok: false, error: { code: 'validation_failed', fieldErrors: { confirmed: ['Confirm deletion.'] } } }));
 });
 function form(operation: string) { const f = new FormData(); f.set('operation', operation); f.set('conversationId', id); f.set('title', 'Review'); return f; }
 describe('conversation actions', () => {
@@ -28,7 +37,7 @@ describe('conversation actions', () => {
   it('uses session context, validates deletion acknowledgement and never trusts a form user identifier', async () => {
     const f = form('delete'); f.set('userId', 'other');
     await manageConversationAction(EMPTY_ACTION_STATE, f); expect(mocks.remove).toHaveBeenLastCalledWith(ctx, id, false);
-    f.set('confirmed', 'true'); await manageConversationAction(EMPTY_ACTION_STATE, f); expect(mocks.remove).toHaveBeenLastCalledWith(ctx, id, true);
+    f.set('confirmed', 'true'); await expect(manageConversationAction(EMPTY_ACTION_STATE, f)).rejects.toThrow('redirect:/ai'); expect(mocks.remove).toHaveBeenLastCalledWith(ctx, id, true);
     expect(mocks.context).toHaveBeenCalledWith('owner');
   });
   it.each(['create', 'rename', 'archive', 'restore'])('uses the ordinary owner-scoped %s service', async operation => {
@@ -42,6 +51,11 @@ describe('conversation actions', () => {
     expect(mocks.create).not.toHaveBeenCalled();
     mocks.rename.mockResolvedValueOnce({ ok: false, error: { code: 'not_found', message: 'Conversation unavailable' } });
     expect((await manageConversationAction(EMPTY_ACTION_STATE, form('rename'))).status).toBe('error');
+  });
+  it('shows field-level title errors returned by the service', () => {
+    ui.state = { status: 'error', message: 'Check the highlighted fields.', fieldErrors: { title: ['Enter a title of 1–120 characters.'] } };
+    const html = renderToStaticMarkup(createElement(ConversationManagement, {}));
+    expect(html).toContain('title: '); expect(html).toContain('Enter a title of 1–120 characters.');
   });
   it('requires explicit deletion in the rendered management form and escapes conversation titles', () => {
     const html = renderToStaticMarkup(createElement(ConversationManagement, { id, title: '<script>bad()</script>', archived: false }));
