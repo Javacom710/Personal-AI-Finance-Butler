@@ -1,7 +1,8 @@
 import 'server-only';
+import { isDeepStrictEqual } from 'node:util';
 import { err, ok, type Result } from '../../../lib/result';
 import { jsonBytes, type AiReadCtx } from '../../ai-read';
-import { invalidOutput, noCapableModel, type AiFailure } from '../errors';
+import { invalidOutput, type AiFailure } from '../errors';
 import type { Orchestrator } from '../orchestrator';
 import type { AiCapability } from '../orchestrator/requirements';
 import { answerFinanceQuestionMessages } from '../prompts/answer-finance-question';
@@ -40,29 +41,39 @@ export function reviewNarrative(content: string | null) {
   return { interpretation, recommendation };
 }
 
-/** One bounded interpretation, no writes, dynamic reads, repair or outer retry. */
+/** One gated tool turn and interpretation, no writes, dynamic reads or retry. */
 export async function runFinancialReview(ai: AiReadCtx, orchestrator: Orchestrator, plan: ReviewPlan): Promise<Result<FinancialReview, AiFailure>> {
-  const explain = orchestrator.explain(plan.capability);
-  if (!explain.candidates.length) return err(noCapableModel(plan.capability, 'No measured model satisfies the existing review capability.'));
   if (!plan.calls.length || plan.calls.length > REVIEW_LIMITS.calls || new Set(plan.calls.map(c => c.id)).size !== plan.calls.length) return err(invalidOutput('Invalid review read plan.'));
-  const sources = await dispatchToolCalls(ai, plan.calls);
-  if (sources.every(reviewSourceUnavailable)) return err(invalidOutput('The financial sources are unavailable. No interpretation was generated.'));
-  if (jsonBytes(sources) > REVIEW_LIMITS.bytes) return err(invalidOutput('Review sources exceed the context budget.'));
-  const question = [plan.title, JSON.stringify(plan.scope),
-    'Interpret the supplied read-only tool results. Do not request another tool.',
-    'Return exactly two sections, headed Interpretation: and Recommendations: on their own lines.',
+  const names = new Set(plan.calls.map(c => c.name));
+  const tools = toolDefinitions().filter(t => names.has(t.name));
+  const messages: ChatMessage[] = [...answerFinanceQuestionMessages({ today: ai.today, baseCurrency: ai.base }, [
+    plan.title, JSON.stringify(plan.scope),
+    'Request exactly the following reads, with these names and arguments. Do not add, omit or duplicate a read.',
+    `Read plan: ${JSON.stringify(plan.calls)}`,
+    'After receiving the results, return exactly two sections, headed Interpretation: and Recommendations: on their own lines.',
     'Write qualitative English only: no digits, amounts, percentages, numerical words, arithmetic or forecasts.',
     'The application displays all figures separately from the tool results. Do not repeat them in prose.',
     'Separate your interpretation from optional recommendations; say when no recommendation is supported.',
     'Respect unavailable metrics, incomplete coverage, stale prices, currency, period and additivity metadata.',
     'Recommendations are optional considerations, never instructions to trade, guarantees or scenarios.',
-  ].join('\n');
-  const messages: ChatMessage[] = [...answerFinanceQuestionMessages({ today: ai.today, baseCurrency: ai.base }, question),
-    { role: 'assistant', content: '', toolCalls: plan.calls },
-    ...sources.map(s => ({ role: 'tool' as const, content: JSON.stringify(s.result), toolCallId: s.callId })),
-  ];
-  const names = new Set(plan.calls.map(c => c.name));
-  const result = await orchestrator.run({ capability: plan.capability, messages, tools: toolDefinitions().filter(t => names.has(t.name)) });
+  ].join('\n'))];
+  // Use the actual orchestrator, not explain(): diagnostic selection can consume
+  // a half-open breaker probe. Every turn retains the existing capability gate.
+  const requested = await orchestrator.run({ capability: plan.capability, messages, tools });
+  if (!requested.ok) return requested;
+  const calls = requested.value.response.toolCalls;
+  if (requested.value.response.finishReason !== 'tool_calls' || calls.length !== plan.calls.length || new Set(calls.map(c => c.id)).size !== calls.length || calls.some(c => !c.id.trim() || c.id.length > 200)) return err(invalidOutput('The review did not request its exact bounded read plan.'));
+  let matching: number[];
+  try {
+    matching = plan.calls.map(expected => calls.findIndex(actual => actual.name === expected.name && isDeepStrictEqual(JSON.parse(actual.argumentsJson), JSON.parse(expected.argumentsJson))));
+  } catch { return err(invalidOutput('The review requested malformed read arguments.')); }
+  if (matching.some(i => i < 0) || new Set(matching).size !== plan.calls.length) return err(invalidOutput('The review requested different or duplicate reads.'));
+  // Execute application-owned arguments only, after checking the whole batch.
+  const sources = await dispatchToolCalls(ai, plan.calls);
+  if (sources.every(reviewSourceUnavailable)) return err(invalidOutput('The financial sources are unavailable. No interpretation was generated.'));
+  if (jsonBytes(sources) > REVIEW_LIMITS.bytes) return err(invalidOutput('Review sources exceed the context budget.'));
+  messages.push({ role: 'assistant', content: '', toolCalls: calls }, ...sources.map((s, i) => ({ role: 'tool' as const, content: JSON.stringify(s.result), toolCallId: calls[matching[i]!]!.id })));
+  const result = await orchestrator.run({ capability: plan.capability, messages, tools });
   if (!result.ok) return result;
   const response = result.value.response;
   if (response.finishReason !== 'stop' || response.toolCalls.length) return err(invalidOutput('Incomplete review or unexpected tool request.'));
