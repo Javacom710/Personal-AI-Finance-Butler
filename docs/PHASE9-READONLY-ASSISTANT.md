@@ -21,3 +21,5 @@ After owner approval, activation must use a reviewed composition root with `runA
 ## Verification
 
 Focused tests use fake providers with synthetic in-memory measured capabilities, never saved measurements. They exercise twelve question-shaped tool exchanges; concepts without data reads; existing unmeasured-gate refusal; invalid inputs; unknown/write/scenario tools; cross-user arguments; malformed arguments; handler failures; metric reasons and clipping; duplicate IDs; read/turn/context caps; incomplete answers; authenticated release blocking; source rendering and escaping. Three PostgreSQL integration tests exercise real owner isolation, an exact spending total and absence of ledger/audit changes after a write attempt.
+
+At code commit `dd12ed3`, the complete local suite passes: **2,639 tests across 103 files**, including property tests and PostgreSQL 17 integration tests. Typecheck, lint, production build, client-secret scan and whitespace checks pass. PostgreSQL 17/18 CI runs separately. All assistant model interactions in these tests use fake providers.
