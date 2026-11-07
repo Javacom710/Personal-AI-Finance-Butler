@@ -58,17 +58,21 @@ describe('B-3a — the daily budget is checked before the request, from a table'
     !result.ok && result.error.kind === 'refused' ? result.error.reason : result.ok ? 'ok' : result.error.kind;
 
   // The 'room left' cases rely on the next gate refusing for want of a key, so
-  // the key is removed for this block: with one configured (a developer's
+  // both credential names are removed for this block: with one configured (a developer's
   // .env), they would otherwise send a real request.
-  const savedKey = process.env['NVIDIA_API_KEY'];
+  const keyNames = ['AI_API_KEY', 'NVIDIA_API_KEY'] as const;
+  const savedKeys = keyNames.map(key => [key, process.env[key]] as const);
   beforeAll(async () => {
-    delete process.env['NVIDIA_API_KEY'];
+    for (const key of keyNames) delete process.env[key];
     resetEnvCache();
     resetAiRuntime();
     await setAiEnabled(alice.userId, true);
   });
   afterAll(async () => {
-    if (savedKey !== undefined) process.env['NVIDIA_API_KEY'] = savedKey;
+    for (const [key, value] of savedKeys) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
     resetEnvCache();
     resetAiRuntime();
     await database().delete(aiUsageDaily);
