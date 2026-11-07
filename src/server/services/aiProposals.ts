@@ -6,6 +6,9 @@ import { reviewedTransactionSchema, type ProposalErrors } from '../../lib/schema
 import { Money, currency } from '../../lib/decimal/money';
 import { aiProposals } from '../db/schema';
 import type { Orchestrator } from '../ai/orchestrator';
+import { interpretFinancialDocument } from '../ai/proposals/document-extraction';
+import type { DocumentExtractionProposal } from '../ai/proposals/schemas';
+import { validateDocumentImages } from './_document-images';
 import { interpretTransaction } from '../ai/proposals/transaction-entry';
 import { withWriteCtxResult, type ReadCtx, type RequestCtx } from './_ctx';
 import { listAccounts } from './accounts';
@@ -25,17 +28,45 @@ export async function draftTransactionProposal(ctx: RequestCtx, text: unknown, o
   if (!input.success) return err(validationFailed({ text: ['Describe one transaction in at most 4,000 characters.'] }));
   const interpreted = await interpretTransaction(orchestrator, { today: ctx.today, baseCurrency: ctx.base }, input.data);
   if (!interpreted.ok) return err(insufficientData('ai_unavailable', 'A transaction draft could not be generated. No financial record was changed.'));
+  const staged = await stageTransactionInterpretations(ctx, [interpreted.value]);
+  return staged.ok ? ok(staged.value[0]!) : staged;
+}
+/** Images become unconfirmed transaction proposals, never ledger records. */
+export async function draftDocumentTransactionProposals(ctx: RequestCtx, images: unknown, orchestrator: Orchestrator): Promise<Result<ProposalView[], DomainError>> {
+  const input = validateDocumentImages(images);
+  if (!input.ok) return err(validationFailed(input.error));
+  const interpreted = await interpretFinancialDocument(orchestrator, { today: ctx.today, baseCurrency: ctx.base }, input.value);
+  if (!interpreted.ok) return err(insufficientData('ai_unavailable', 'Document drafts could not be generated. No financial record was changed.'));
+  if (!interpreted.value.proposal) return err(validationFailed(interpreted.value.errors));
+  return stageTransactionInterpretations(ctx, interpreted.value.proposal.transactions.map(proposal => ({ raw: JSON.stringify(proposal), proposal, errors: {} })));
+}
+interface StageInterpretation { readonly raw: string; readonly proposal: DocumentExtractionProposal['transactions'][number] | null; readonly errors: ProposalErrors }
+/** Shared atomic staging for text and document drafts. No model runs in this transaction. */
+async function stageTransactionInterpretations(ctx: RequestCtx, interpretations: readonly StageInterpretation[]): Promise<Result<ProposalView[], DomainError>> {
   const [accounts, categories] = await Promise.all([listAccounts(ctx), listCategories(ctx)]);
-  const resolution = interpreted.value.proposal ? resolveTransactionProposal(interpreted.value.proposal, accounts, categories) : null;
-  const errors: ProposalErrors = resolution?.errors ?? interpreted.value.errors;
+  const staged = interpretations.map(interpreted => {
+    const resolution = interpreted.proposal ? resolveTransactionProposal(interpreted.proposal, accounts, categories) : null;
+    return { rawPayload: interpreted.raw, normalized: resolution?.draft ?? null, validationErrors: resolution?.errors ?? interpreted.errors, status: resolution ? 'pending' as const : 'invalid' as const };
+  });
   return withWriteCtxResult(ctx, async w => {
-    const [row] = await w.tx.insert(aiProposals).values({ userId: w.userId, rawPayload: interpreted.value.raw, normalized: resolution?.draft ?? null, validationErrors: errors, status: resolution ? 'pending' : 'invalid', createdAt: w.now, expiresAt: new Date(w.now.getTime() + 86_400_000) }).returning();
-    if (!row) throw new Error('Proposal insertion returned no row.');
-    return ok(row);
+    const rows = await w.tx.insert(aiProposals).values(staged.map(row => ({ ...row, userId: w.userId, createdAt: w.now, expiresAt: new Date(w.now.getTime() + 86_400_000) }))).returning();
+    if (rows.length !== interpretations.length) throw new Error('Proposal insertion returned an unexpected row count.');
+    return ok(rows);
   });
 }
+
+function editableTransactionProposals(ctx: ReadCtx) {
+  return ctx.db.select().from(aiProposals).where(and(eq(aiProposals.userId, ctx.userId), inArray(aiProposals.status, [...editable]))).orderBy(desc(aiProposals.createdAt), desc(aiProposals.id));
+}
 export async function listTransactionProposals(ctx: ReadCtx): Promise<ProposalView[]> {
-  return ctx.db.select().from(aiProposals).where(and(eq(aiProposals.userId, ctx.userId), inArray(aiProposals.status, [...editable]))).orderBy(desc(aiProposals.createdAt)).limit(50);
+  return editableTransactionProposals(ctx).limit(50);
+}
+const proposalPageSchema = z.union([z.number(), z.string().regex(/^[1-9]\d*$/).transform(Number)]).pipe(z.number().int().min(1).max(Math.floor(Number.MAX_SAFE_INTEGER / 50)));
+export async function listTransactionProposalPage(ctx: ReadCtx, page: unknown = 1): Promise<Result<{ items: ProposalView[]; page: number; hasMore: boolean }, DomainError>> {
+  const parsed = proposalPageSchema.safeParse(page);
+  if (!parsed.success) return err(validationFailed({ page: ['Choose a positive whole-number draft page.'] }));
+  const rows = await editableTransactionProposals(ctx).limit(51).offset((parsed.data - 1) * 50);
+  return ok({ items: rows.slice(0, 50), page: parsed.data, hasMore: rows.length > 50 });
 }
 export async function getTransactionProposal(ctx: ReadCtx, id: string): Promise<Result<ProposalView, DomainError>> {
   if (!idSchema.safeParse(id).success) return err(validationFailed({ proposalId: ['Invalid proposal identifier.'] }));

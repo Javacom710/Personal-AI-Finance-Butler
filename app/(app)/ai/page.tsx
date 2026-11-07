@@ -16,12 +16,13 @@ export default async function AiPage({ searchParams }: { searchParams?: Promise<
   const historyLink = (page: number) => `/ai?history=${archived ? 'archived' : 'active'}&page=${page}`;
   return <>
     <PageHeader title="Financial assistant" description="Ask about your finances using read-only financial tools." />
-    <nav aria-label="Financial reviews" className="flex flex-wrap gap-4 text-sm">
+    <nav aria-label="AI workflows" className="flex flex-wrap gap-4 text-sm">
       <Link href="/ai/reviews/monthly" className="underline">Monthly financial review</Link>
       <Link href="/ai/reviews/portfolio" className="underline">Portfolio analysis</Link>
       <Link href="/ai/reviews/health" className="underline">Financial-health analysis</Link>
       <Link href="/ai/reviews/summary" className="underline">Period summaries</Link>
       <Link href="/ai/reviews/cross-domain" className="underline">Cross-domain analysis</Link>
+      <Link href="/ai/documents" className="underline">Receipt and statement drafts</Link>
     </nav>
     <section className="space-y-3 rounded-lg border border-border p-4">
       <h2 className="font-semibold">Awaiting setup approval</h2>
