@@ -110,6 +110,21 @@ export const DECLARED_CAPABILITIES: Readonly<Record<string, ModelCapabilities>> 
     streaming: true,
     source: 'declared',
   },
+  // DeepInfra (owner-approved Tier 1 primary, ADR-53). Passed both Tier 1 gates
+  // on 2026-11-07: schema 1.00, tool-call 0.95, all cases answered. The model
+  // accepts images, but Tier 1 routes text only; Tier 4 owns vision. Declared
+  // until the measurement is recorded with `ai:eval --record`.
+  'zai-org/GLM-5.3-Flash': {
+    tier: 1,
+    toolCalling: 'native',
+    structuredOutput: 'json_schema',
+    vision: false,
+    embedding: false,
+    contextTokens: 131_072,
+    maxOutputTokens: 8_192,
+    streaming: true,
+    source: 'declared',
+  },
   'openai/gpt-oss-20b': {
     tier: 1,
     toolCalling: 'native',

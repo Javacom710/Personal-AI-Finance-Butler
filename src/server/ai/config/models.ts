@@ -196,7 +196,10 @@ const DEFAULT_ORDER: Readonly<Record<Tier, readonly string[]>> = {
   // Tier 1's tool-call gate. These are Groq identifiers. They are declared, not
   // measured: score-gated routes stay closed until `npm run ai:eval` measures
   // them and a human accepts the order.
-  1: ['openai/gpt-oss-120b', 'openai/gpt-oss-20b'],
+  // Owner-approved 2026-11-07 (ADR-53), measured on DeepInfra: GLM-5.3-Flash
+  // passed both Tier 1 gates; GPT-OSS-120B passed on its answered cases and is
+  // the fallback. GPT-OSS-20B failed schema and tool-call gates and is dropped.
+  1: ['zai-org/GLM-5.3-Flash', 'openai/gpt-oss-120b'],
   // **Empty until measured.** Measured capability eligibility is keyed to a
   // model's declared tier (`capabilitiesFromEvaluations` uses that tier's
   // suites), so listing a Tier 1 model here would let Tier 1 results authorise
