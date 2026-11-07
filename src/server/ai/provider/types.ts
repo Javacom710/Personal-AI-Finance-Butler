@@ -100,7 +100,20 @@ export interface TokenUsage {
   readonly completionTokens: number;
 }
 
+export interface MeasurementPolicy {
+  readonly providerIdentity: string;
+  readonly requestPolicyFingerprint: string;
+  readonly servingHostRequired: true;
+}
+export interface ServingProvenance {
+  readonly providerIdentity: string;
+  readonly requestPolicyFingerprint: string;
+  /** Exact host label from the provider response, not the configured preference. */
+  readonly servingHost: string;
+}
+
 export interface ChatResponse {
+  readonly provenance?: ServingProvenance;
   readonly content: string | null;
   readonly toolCalls: readonly ToolCall[];
   /** Reasoning models expose this separately; never treated as an answer. */
@@ -130,6 +143,7 @@ export interface ProviderModel {
  * — by the first adapter. They are added when a caller exists.
  */
 export interface AiProvider {
+  readonly measurementPolicy?: MeasurementPolicy;
   /** The configured request identity, bound to the adapter used for evaluation. */
   requestProfileFor?(model: string): RequestProfileIdentity;
   /** Stable identity for logs and observability. */

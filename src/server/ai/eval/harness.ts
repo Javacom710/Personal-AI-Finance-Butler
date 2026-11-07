@@ -21,7 +21,9 @@ import 'server-only';
  */
 
 import type { AiProvider, ChatMessage, ToolDefinition, FinishReason } from '../provider/types';
-import type { AiFailure } from '../errors';
+import { malformedResponse, type AiFailure } from '../errors';
+import { err } from '../../../lib/result';
+import { validServingHost } from '../provider/openrouter-policy';
 
 /** The suites `AI-SYSTEM.md` §14 names. Corpora live in `./tasks/`, one file per suite. */
 export type EvalSuite =
@@ -65,7 +67,14 @@ export interface EvalCase {
   readonly checkToolCalls?: (toolCalls: readonly { name: string; argumentsJson: string }[]) => boolean | null;
 }
 
+export interface CaseProvenance {
+  readonly providerIdentity: string;
+  readonly requestPolicyFingerprint: string;
+  readonly servingHost: string | null;
+  readonly servedModelId: string | null;
+}
 export interface CaseResult {
+  readonly provenance?: CaseProvenance;
   /** Absent in legacy results; null means there was no normalized provider response. */
   readonly finishReason?: FinishReason | null;
   readonly caseId: string;
@@ -125,7 +134,7 @@ export async function evaluateModel(
   for (const testCase of cases) {
     await schedule?.beforeCase();
     const startedAt = Date.now();
-    const response = await provider.chat({
+    let response = await provider.chat({
       model: modelId,
       messages: testCase.messages,
       maxTokens,
@@ -136,9 +145,23 @@ export async function evaluateModel(
         : {}),
     });
 
+    const policy = provider.measurementPolicy;
+    if (response.ok && policy) {
+      const provenance = response.value.provenance;
+      if (!provenance || !validServingHost(provenance.servingHost) || provenance.providerIdentity !== policy.providerIdentity || provenance.requestPolicyFingerprint !== policy.requestPolicyFingerprint) {
+        response = err(malformedResponse('Missing or mismatched serving-host measurement provenance'));
+      }
+    }
+    const provenance = policy ? { provenance: {
+      providerIdentity: policy.providerIdentity,
+      requestPolicyFingerprint: policy.requestPolicyFingerprint,
+      servingHost: response.ok ? response.value.provenance!.servingHost : null,
+      servedModelId: response.ok ? response.value.model : null,
+    } } : {};
     if (!response.ok) {
       if (response.error.kind === 'rate_limited') schedule?.rateLimited(response.error.retryAfterMs);
       results.push({
+        ...provenance,
         caseId: testCase.id,
         suite: testCase.suite,
         modelId,
@@ -157,6 +180,7 @@ export async function evaluateModel(
       : null;
 
     results.push({
+      ...provenance,
       caseId: testCase.id,
       suite: testCase.suite,
       modelId,
