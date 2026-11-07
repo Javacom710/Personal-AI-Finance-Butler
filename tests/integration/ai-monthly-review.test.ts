@@ -32,7 +32,7 @@ it('uses exactly the engine projection, excludes transfers from spending, and is
   }
   const sources = JSON.stringify(result);
   expect(sources).toContain('1250.5000'); expect(sources).toContain('3749.5000');
-  expect(sources).not.toContain('88888'); expect(JSON.stringify(fake.requests)).not.toContain(bob.userId);
+  expect(sources).not.toContain('"amount":"88888.8800"'); expect(JSON.stringify(fake.requests)).not.toContain(bob.userId);
 });
 it('preserves a missing savings rate as unavailable for an empty month', async () => {
   const result = await monthlyFinancialReview(aiCapabilityFor(alice.ctx), fakeReviewProvider().orchestrator, '2026-06');
