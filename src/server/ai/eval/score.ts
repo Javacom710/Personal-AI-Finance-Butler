@@ -11,11 +11,16 @@ import 'server-only';
  */
 
 /**
- * Render only numeric LaTeX punctuation. Digits, signs, decimal precision and
- * unit words remain untouched; this is not a general LaTeX/prose renderer.
+ * Render numeric LaTeX punctuation and typeset grouping/hyphens. Digits,
+ * decimal precision and units are preserved; minus signs stay minus signs.
  */
 export function normalizeNumericPresentation(text: string): string {
-  return text.replace(/(\d)\{,\}(?=\d)/g, '$1,').replace(/(\d)\\%/g, '$1%');
+  return text
+    .replace(/(?<=\d)[\u00a0\u2007\u2009\u202f](?=\d{2,3}(?!\d))/g, ',')
+    .replace(/[\u00a0\u2007\u2009\u202f]/g, ' ')
+    .replace(/[\u2010\u2011\u2012\u2212]/g, '-')
+    .replace(/(\d)\{,\}(?=\d)/g, '$1,')
+    .replace(/(\d)\\%/g, '$1%');
 }
 
 /** Canonical form of a non-negative decimal string: no leading or trailing zeros. */

@@ -23,7 +23,7 @@ describe('evaluation requests match production output budgets', () => {
     });
     expect(requests).toHaveLength(1);
     expect(requests[0]).toMatchObject({ maxTokens: expected, timeoutMs: 9000 });
-    expect(run.suiteVersions[suite]).toBe(suite === 'document' ? 2 : ['grounding', 'analysis', 'robustness'].includes(suite) ? 4 : suite === 'tool-select' ? 3 : 2);
+    expect(run.suiteVersions[suite]).toBe(suite === 'document' ? 2 : ['grounding', 'analysis', 'robustness'].includes(suite) ? 5 : suite === 'tool-select' ? 3 : 2);
     expect(run.models[0]?.suites[0]?.maxTokens).toBe(expected);
     expect(run.requestTimeoutMs).toBe(9000);
     expect(renderEvalReport(run)).toContain(`Output-token budgets: ${suite}: ${expected}`);

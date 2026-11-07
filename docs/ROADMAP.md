@@ -24,7 +24,7 @@ A phase is complete only when every box is ticked — including tests, type chec
 | 5 — Net Worth at Cost | ✅ complete, verified |
 | 6 — Market Data | ✅ complete, steps 6.0–6.11 (6.10 closed unbuilt); equities need `TWELVE_DATA_API_KEY` (OD-3) |
 | 7 — AI Infrastructure | ✅ complete, steps 7.0–7.7 |
-| 8 — Model Evaluation | 🔶 **in progress — blocked on the owner's lineup decision (OD-20).** All suites, the runner, storage and per-tier eligibility (ADR-53) are built. Archived DeepInfra campaigns ran on 2026-11-07 with no accepted lineup. Pending #54 reports a GLM candidate under different scorer contracts; source/version reconciliation and owner lineup approval remain outstanding. Nothing is recorded or activated |
+| 8 — Model Evaluation | 🔶 **in progress — blocked on the owner's lineup decision (OD-20).** All suites, the runner, storage and per-tier eligibility (ADR-53) are built. The Tier 1 selection recorded in #54 is GLM-5.3-Flash → GPT-OSS-120B (ADR-55). Current merged-contract measurements, fallback completeness, remaining tiers and release composition remain outstanding. Nothing is recorded or activated |
 | 9 — AI Features | 🔶 **built, disabled.** Every non-scenario slice is merged (PRs #39, #40, #43–#48) and tested with fake providers; live generation stays hard-disabled until a lineup is approved. Scenario analysis waits on OD-18 |
 | 10–15 | not started |
 
@@ -440,7 +440,7 @@ product/UI work item scheduled with the Phase 9 UX pass. It does not block Phase
     - [Qwen campaign](../eval/reports/deepinfra-2026-11-07-qwen-235b-v1/README.md), 420 cases, 419 answered. Qwen3-235B tools 0.8421 in every tier. Qwen3-VL-235B schema 19/19 and exact extraction 14/20, one timeout.
     - In these archived campaigns, strict `analysis` passes are 0–2/15. [Output-free diagnostics](../eval/reports/deepinfra-2026-11-07/diagnostics/README.md) record figure-traceability, required-figure and metric-binding failures. The tested layout comparisons did not explain most sampled failures; this is not a general conclusion about all formatting.
     - The owner's options are in OD-20: more candidates, a scorer review, or accepting a model below a gate.
-    - **Pending Claude PR #54:** a separate third round reports GLM-5.3-Flash schema 1.00/tools 0.95 with no unanswered cases under its revised scorer. No route is accepted here. Its grounding/analysis/robustness v3 identifiers conflict with this branch's v4, and its injection v3 has different semantics from this branch's v3. Reconcile source/version identities and external spending before accepting evidence or running another paid campaign.
+    - **Reconciled Claude PR #54 (ADR-55):** retain its recorded Tier 1 selection and both scorer corrections. The merged grounding/robustness/analysis contracts are v5 and injection v4, preserving the earlier prompt/LaTeX behavior too. Original third-round GLM schema 1.00/tools 0.95 results remain historical for their own contract; the GPT-OSS fallback retains two unanswered Tier 1 cases. No score is relabeled, recorded or treated as current measured eligibility. Reconcile external spending before fresh current-contract suites; recording and live composition remain pending.
 
 **Done when**
 - [ ] Every tier has at least one model meeting its thresholds (Tier 1 `schemaAdherence ≥ 0.95`; any tool-using route `toolCallCorrectness ≥ 0.90`)

@@ -52,7 +52,7 @@ import groundingResults from './grounding-results.json';
 import { scoreToolSelectCalls, type ExpectedCall } from './tool-select';
 import { normalizeNumericPresentation } from '../score';
 
-export const GROUNDING_SUITE_VERSION = 4;
+export const GROUNDING_SUITE_VERSION = 5;
 
 /**
  * A figure: an exact amount, or a rate stated as a fraction (`0.62` is 62%).

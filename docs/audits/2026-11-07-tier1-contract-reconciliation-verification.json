@@ -1,0 +1,314 @@
+{
+  "asOf": "2026-11-07T16:36:40.463000+00:00",
+  "branch": "codex/reconcile-approved-tier1",
+  "basePr": 56,
+  "baseCommit": "11d4f694f7678c0df4dfe580ae26e99ce7b5c368",
+  "incomingPr": 54,
+  "incomingCommit": "cd5e65e0d3d03035ce97e301a03fcae1696ec075",
+  "selectedTier1": [
+    "zai-org/GLM-5.3-Flash",
+    "openai/gpt-oss-120b"
+  ],
+  "selectionApprovalProvenance": "Owner pop-up approval recorded in incoming PR/ADR; preserved verbatim in separate audit.",
+  "modelEntriesRemainDeclared": true,
+  "streamingVerified": false,
+  "suiteVersions": {
+    "parse": 2,
+    "classify": 2,
+    "tool-select": 3,
+    "grounding": 5,
+    "robustness": 5,
+    "analysis": 5,
+    "injection": 4,
+    "document": 2
+  },
+  "mergedSourceFingerprint": "fcc0b7ce676ed04c9b3c253ad63cee07dc312345105764155e8787faee96d060",
+  "historicalActualGlmAndFallbackReportsRejectedForCurrentQualification": true,
+  "historyPreservation": {
+    "incomingReportsAndOriginalReadme": [
+      {
+        "sourcePath": "eval/reports/2026-11-07T14-10-16-tier1.json",
+        "preservedPath": "eval/reports/2026-11-07T14-10-16-tier1.json",
+        "sha256": "0058b249bbd63bea39d39dfde10457d82105d3acd5a81c0e971afe7b1c127f36"
+      },
+      {
+        "sourcePath": "eval/reports/2026-11-07T14-10-16-tier1.md",
+        "preservedPath": "eval/reports/2026-11-07T14-10-16-tier1.md",
+        "sha256": "6c89dae8e8358a5b2ed0a0b75ab614ad582248f4a841d979fecd1fcb66d8f6da"
+      },
+      {
+        "sourcePath": "eval/reports/2026-11-07T14-10-19-tier1.json",
+        "preservedPath": "eval/reports/2026-11-07T14-10-19-tier1.json",
+        "sha256": "011a93fe056cdf2e5181ef4ffff004af731da4f9bcde41c159ff26beb4df3aa7"
+      },
+      {
+        "sourcePath": "eval/reports/2026-11-07T14-10-19-tier1.md",
+        "preservedPath": "eval/reports/2026-11-07T14-10-19-tier1.md",
+        "sha256": "f2523e725cf971f578d32e54088912d99289387c9d5209d4964a016c4753cd55"
+      },
+      {
+        "sourcePath": "eval/reports/2026-11-07T14-10-22-tier1.json",
+        "preservedPath": "eval/reports/2026-11-07T14-10-22-tier1.json",
+        "sha256": "7334d41e2e89a33cceb34270621cc872824a52897519eb32d11cedbfb2eda7f7"
+      },
+      {
+        "sourcePath": "eval/reports/2026-11-07T14-10-22-tier1.md",
+        "preservedPath": "eval/reports/2026-11-07T14-10-22-tier1.md",
+        "sha256": "950d17534e35a29c2dc4e0f1c010a9addb66a2f62b87336afb579ab7677ed52f"
+      },
+      {
+        "sourcePath": "eval/reports/2026-11-07T14-10-25-tier1.json",
+        "preservedPath": "eval/reports/2026-11-07T14-10-25-tier1.json",
+        "sha256": "9119a322b8f547dadba17b0e5e4f7d0f91f2fca3bb0d2bc9772a073d715c92de"
+      },
+      {
+        "sourcePath": "eval/reports/2026-11-07T14-10-25-tier1.md",
+        "preservedPath": "eval/reports/2026-11-07T14-10-25-tier1.md",
+        "sha256": "00118ec982be0e6a6643ef71ec182427024a97a0b246e6bda5efbd2907cd34d4"
+      },
+      {
+        "sourcePath": "eval/reports/2026-11-07T14-10-28-tier2.json",
+        "preservedPath": "eval/reports/2026-11-07T14-10-28-tier2.json",
+        "sha256": "907c0f54e40bf82959e62ba92fe065fc31dd599656c6c985eaddb89de279830f"
+      },
+      {
+        "sourcePath": "eval/reports/2026-11-07T14-10-28-tier2.md",
+        "preservedPath": "eval/reports/2026-11-07T14-10-28-tier2.md",
+        "sha256": "488329e90491842b58aca3968dfd042fef7bac31e347343418eab60ae8d6eb3f"
+      },
+      {
+        "sourcePath": "eval/reports/2026-11-07T14-10-31-tier2.json",
+        "preservedPath": "eval/reports/2026-11-07T14-10-31-tier2.json",
+        "sha256": "cb16f7927fc3ac953d9b05fa2cb5daa411c568ca856ec2b04f6f4d765050af32"
+      },
+      {
+        "sourcePath": "eval/reports/2026-11-07T14-10-31-tier2.md",
+        "preservedPath": "eval/reports/2026-11-07T14-10-31-tier2.md",
+        "sha256": "03efdb54493152795106a16652237a4876699839ca166b335dcf0496b04f179f"
+      },
+      {
+        "sourcePath": "eval/reports/2026-11-07T14-10-35-tier2.json",
+        "preservedPath": "eval/reports/2026-11-07T14-10-35-tier2.json",
+        "sha256": "7b88a8aec292e8fb5eb0021c0c9469f05d63d037e28e273528dcab7ae8eb10db"
+      },
+      {
+        "sourcePath": "eval/reports/2026-11-07T14-10-35-tier2.md",
+        "preservedPath": "eval/reports/2026-11-07T14-10-35-tier2.md",
+        "sha256": "e9d6354e716fd93a5964e01fdef65e228fd9bf7c8e37ccc4b81df8511c549124"
+      },
+      {
+        "sourcePath": "eval/reports/2026-11-07T14-10-38-tier3.json",
+        "preservedPath": "eval/reports/2026-11-07T14-10-38-tier3.json",
+        "sha256": "3504a78a270a212c99da6c63f836da6b79e6d40df6a7ac174cfd505bf8db51db"
+      },
+      {
+        "sourcePath": "eval/reports/2026-11-07T14-10-38-tier3.md",
+        "preservedPath": "eval/reports/2026-11-07T14-10-38-tier3.md",
+        "sha256": "ccb6d5b1f9fec1ce194ed286c035dca323a6ce5f6ede3da0c3ac88a3c72a06a8"
+      },
+      {
+        "sourcePath": "eval/reports/2026-11-07T15-26-03-tier1.json",
+        "preservedPath": "eval/reports/2026-11-07T15-26-03-tier1.json",
+        "sha256": "481b76508d753ca8d22b7c1bec2b1d753a2a606bd4d699442ee8cf9cf6e44e1e"
+      },
+      {
+        "sourcePath": "eval/reports/2026-11-07T15-26-03-tier1.md",
+        "preservedPath": "eval/reports/2026-11-07T15-26-03-tier1.md",
+        "sha256": "3c7546f3c63260ed2522e8ecb5ded1e417214c3f24a46695b06f16f462d29af8"
+      },
+      {
+        "sourcePath": "eval/reports/2026-11-07T15-26-06-tier1.json",
+        "preservedPath": "eval/reports/2026-11-07T15-26-06-tier1.json",
+        "sha256": "2c7bb64d4af9d6febef73568b01ae7f1777e5372c08c93a60f1d41baabe61b08"
+      },
+      {
+        "sourcePath": "eval/reports/2026-11-07T15-26-06-tier1.md",
+        "preservedPath": "eval/reports/2026-11-07T15-26-06-tier1.md",
+        "sha256": "056df47d1da015e495a8e3e0d8e5394587e6b128fa78874f020b3d72789f0384"
+      },
+      {
+        "sourcePath": "eval/reports/2026-11-07T15-26-08-tier1.json",
+        "preservedPath": "eval/reports/2026-11-07T15-26-08-tier1.json",
+        "sha256": "998d995e6db7153f00d930b45fb14bc54f825dec2b2724f83a850ab24bf8d34d"
+      },
+      {
+        "sourcePath": "eval/reports/2026-11-07T15-26-08-tier1.md",
+        "preservedPath": "eval/reports/2026-11-07T15-26-08-tier1.md",
+        "sha256": "e471b165e64cab02d630538374388e8697322591946783d9a0bce34affd9fa1e"
+      },
+      {
+        "sourcePath": "eval/reports/2026-11-07T15-26-12-tier2.json",
+        "preservedPath": "eval/reports/2026-11-07T15-26-12-tier2.json",
+        "sha256": "9c88c97a87df7d961cbb6c0d2274f83346aadf7cebb623d42032ab5653c128cc"
+      },
+      {
+        "sourcePath": "eval/reports/2026-11-07T15-26-12-tier2.md",
+        "preservedPath": "eval/reports/2026-11-07T15-26-12-tier2.md",
+        "sha256": "7e0417809e90f1a8eafd2c091b3e7225d225162f9cfd2f85e88d45d037d8d220"
+      },
+      {
+        "sourcePath": "eval/reports/2026-11-07T15-26-15-tier2.json",
+        "preservedPath": "eval/reports/2026-11-07T15-26-15-tier2.json",
+        "sha256": "cf8002a2cd7bf4a75ab4013bd5cf2c25d19dcd479ddf202f58c2b40bb407aacc"
+      },
+      {
+        "sourcePath": "eval/reports/2026-11-07T15-26-15-tier2.md",
+        "preservedPath": "eval/reports/2026-11-07T15-26-15-tier2.md",
+        "sha256": "907320a906bf5165e00d44027fad781b5aaec39757d9bcd870b25d8418b458f0"
+      },
+      {
+        "sourcePath": "eval/reports/2026-11-07T15-26-18-tier2.json",
+        "preservedPath": "eval/reports/2026-11-07T15-26-18-tier2.json",
+        "sha256": "e8ecee5b34bb55a50a3fcf3e5bb52c8eb44a7a51b4cc64b51145ceda49b63e06"
+      },
+      {
+        "sourcePath": "eval/reports/2026-11-07T15-26-18-tier2.md",
+        "preservedPath": "eval/reports/2026-11-07T15-26-18-tier2.md",
+        "sha256": "278bccb78786bc18aa8c8d9fe34038783aba8cda126cf67b58d34a03ebfceadd"
+      },
+      {
+        "sourcePath": "eval/reports/2026-11-07T15-26-21-tier2.json",
+        "preservedPath": "eval/reports/2026-11-07T15-26-21-tier2.json",
+        "sha256": "fff2646cfd488e611c7a9ae0262002a16e22377becab79c03aa2b6a40e2f36ed"
+      },
+      {
+        "sourcePath": "eval/reports/2026-11-07T15-26-21-tier2.md",
+        "preservedPath": "eval/reports/2026-11-07T15-26-21-tier2.md",
+        "sha256": "8b782765c573f3279aa90c02f4f8e82f5e22b0aa1bcb704165d0498c4e25c712"
+      },
+      {
+        "sourcePath": "eval/reports/deepinfra-2026-11-07/README.md",
+        "preservedPath": "eval/reports/deepinfra-2026-11-07/claude-rounds2-3-original-README.md",
+        "sha256": "52497fa64d6f66e7ad9a06513e2a008d5f68b90e97b67e3655c6f3b772a0fbf8"
+      }
+    ],
+    "parentArchivedFilesUnchanged": 158,
+    "bothProjectHistoriesHeadingsPreserved": true,
+    "canonicalAdrNumbersUnique": true,
+    "agentsAndClaudeIdentical": true
+  },
+  "unitProperty": {
+    "filesPassed": 100,
+    "testsPassed": 2493,
+    "failed": 0,
+    "maxWorkers": 1
+  },
+  "focusedIntegration": {
+    "17": {
+      "filesPassed": 4,
+      "testsPassed": 65,
+      "failed": 0
+    },
+    "18": {
+      "filesPassed": 4,
+      "testsPassed": 65,
+      "failed": 0
+    }
+  },
+  "typecheck": "passed",
+  "lint": "passed",
+  "build": "passed",
+  "clientSecretScan": "passed",
+  "productionHttp": {
+    "httpSmokePassed": true,
+    "checks": [
+      {
+        "path": "/ai",
+        "unauthenticatedStatus": 307,
+        "authenticatedStatus": 200,
+        "disabledControl": "Ask about my finances"
+      },
+      {
+        "path": "/ai/reviews/monthly",
+        "unauthenticatedStatus": 307,
+        "authenticatedStatus": 200,
+        "disabledControl": "Generate monthly review"
+      },
+      {
+        "path": "/ai/reviews/portfolio",
+        "unauthenticatedStatus": 307,
+        "authenticatedStatus": 200,
+        "disabledControl": "Analyze portfolio"
+      },
+      {
+        "path": "/ai/reviews/health",
+        "unauthenticatedStatus": 307,
+        "authenticatedStatus": 200,
+        "disabledControl": "Review financial health"
+      },
+      {
+        "path": "/ai/reviews/summary",
+        "unauthenticatedStatus": 307,
+        "authenticatedStatus": 200,
+        "disabledControl": "Summarize month"
+      },
+      {
+        "path": "/ai/reviews/cross-domain",
+        "unauthenticatedStatus": 307,
+        "authenticatedStatus": 200,
+        "disabledControl": "Review across finances"
+      },
+      {
+        "path": "/ai/documents",
+        "unauthenticatedStatus": 307,
+        "authenticatedStatus": 200,
+        "disabledControl": "Extract transaction drafts"
+      }
+    ],
+    "health": 200,
+    "liveAiRequests": false,
+    "note": "Fake key and unreachable provider endpoint; authenticated GET workflow only."
+  },
+  "historicalCampaignResumeRefusedBeforeFetchOrReportUpdate": true,
+  "incomingScorerReportsRescored": false,
+  "liveProviderCalls": 0,
+  "liveMeasurementsRecorded": 0,
+  "featuresActivated": false,
+  "mainModified": false,
+  "externalPr54SpendReconciled": false,
+  "newPaidCampaignStarted": false,
+  "finiteMeasurementPlanChanged": false,
+  "logHashes": {
+    "unitProperty": {
+      "path": "/tmp/financeos-tier1-unit-property.log",
+      "sha256": "d1cd8b943add4ea28233e18b6f37888cc1021a966c536e1ee48bf874591a9391"
+    },
+    "focusedInitialVersionAssertion": {
+      "path": "/tmp/financeos-tier1-focused.log",
+      "sha256": "094424676116506da60b25534836bd7e61b2e3aea7ecc608207e9ebf93bccb23"
+    },
+    "postgres17": {
+      "path": "/tmp/financeos-tier1-pg17.log",
+      "sha256": "15a8836b6d91451ee01c77eb82e0c1687572418e5ac42d956297f3acd729055b"
+    },
+    "postgres18": {
+      "path": "/tmp/financeos-tier1-pg18.log",
+      "sha256": "b5d44e1d1a62ada8a28a22511f9dbee69785b810d476d27085d7638cb0caddbe"
+    },
+    "typecheck": {
+      "path": "/tmp/financeos-tier1-typecheck.log",
+      "sha256": "147a941a537e65632e28681b24e6c1e9e9085cd5baba9ccd14eef0d4b0b77574"
+    },
+    "lint": {
+      "path": "/tmp/financeos-tier1-lint.log",
+      "sha256": "46c0e5882ec3087ea673d0e4c56f0eb73b043fdf7f407fe1522b205235556fe5"
+    },
+    "build": {
+      "path": "/tmp/financeos-tier1-build.log",
+      "sha256": "6ad6a5f1f62b4d222eea5cda2f7b466670c593da2bd99ca7b3af07a397776096"
+    },
+    "clientSecrets": {
+      "path": "/tmp/financeos-tier1-secrets.log",
+      "sha256": "a8a8b7172aeca84ee271415c85bdbe23a2378fe0dca1feb410a10e83c5b33d8a"
+    },
+    "sourceGuard": {
+      "path": "/tmp/financeos-tier1-source-guard.log",
+      "sha256": "b6f2db87f71f7f25ae7e23c07c2caa2b3bab64ddb5e72d20d12fede1504e0031"
+    },
+    "productionHttp": {
+      "path": "/tmp/financeos-tier1-http-smoke.log",
+      "sha256": "55b005549222a7998830224929c5cdb38159bd8965472971037023fb00eab69f"
+    }
+  },
+  "newRelativeDocumentationLinksVerified": 27
+}

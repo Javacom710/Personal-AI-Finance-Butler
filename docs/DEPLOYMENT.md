@@ -72,9 +72,10 @@ AI_API_KEY=...                  # NVIDIA_API_KEY / NVIDIA_BASE_URL remain a lega
 # AI on/off is the `ai_enabled` user setting in the database, not an environment variable.
 
 # Tier candidate lists, in fallback order (ADR-17). Leave unset to use the
-# defaults in src/server/ai/config/models.ts: Tier 1 = openai/gpt-oss-120b,
-# openai/gpt-oss-20b; Tiers 2-4 empty (fail closed) until the owner accepts a
-# measured lineup (OD-20). Verify identifiers first: npm run ai:catalogue
+# defaults in src/server/ai/config/models.ts: Tier 1 = zai-org/GLM-5.3-Flash,
+# openai/gpt-oss-120b (selected policy, ADR-55; current measured eligibility
+# still required). Tiers 2-4 are empty and live features remain disabled.
+# Verify identifiers before a fresh measurement plan: npm run ai:catalogue
 # AI_TIER1_MODELS=
 # AI_TIER2_MODELS=
 # AI_TIER3_MODELS=

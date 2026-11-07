@@ -148,6 +148,20 @@ export const DECLARED_CAPABILITIES: Readonly<Record<string, ModelCapabilities>> 
     streaming: true,
     source: 'declared',
   },
+  // Selected Tier 1 primary in the owner decision recorded by PR #54 (ADR-55).
+  // Declared only: that branch's historical scores do not certify the merged
+  // prompt/scorer contract. Streaming has not been exercised by these suites.
+  'zai-org/GLM-5.3-Flash': {
+    tier: 1,
+    toolCalling: 'native',
+    structuredOutput: 'json_schema',
+    vision: false,
+    embedding: false,
+    contextTokens: 131_072,
+    maxOutputTokens: 8_192,
+    streaming: false,
+    source: 'declared',
+  },
   'openai/gpt-oss-20b': {
     tier: 1,
     toolCalling: 'native',

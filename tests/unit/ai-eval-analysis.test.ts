@@ -31,7 +31,7 @@ const ANSWERS: Readonly<Record<string, string>> = {
 
 describe('analysis corpus — coverage and replay shape', () => {
   it('contains 15 versioned cases across portfolio, health, period and cross-domain analysis', () => {
-    expect(ANALYSIS_SUITE_VERSION).toBe(4);
+    expect(ANALYSIS_SUITE_VERSION).toBe(5);
     expect(ANALYSIS_CASES).toHaveLength(15);
     expect(new Set(ANALYSIS_CASES.map((c) => c.id)).size).toBe(15);
     expect(new Set(ANALYSIS_CASES.map((c) => c.domain))).toEqual(new Set(['portfolio', 'health', 'period', 'cross-domain']));
@@ -152,6 +152,22 @@ describe('analysis scorer — deterministic factual rubric', () => {
   ])('%s: accepts the right figure for each metric in another wording — %s', (id, answer) => {
     const golden = ANALYSIS_CASES.find((c) => c.id === id)!;
     expect(scoreAnalysisOutput(answer, [], golden)).toBe(true);
+  });
+
+  // Typography seen from GPT-OSS on DeepInfra (2026-11-07): U+202F digit grouping, U+2011 hyphens, raw 4-place decimals.
+  it.each([
+    ['analysis-006', '| Income | 120 812.3700 |\n| Expenses | 45 319.5000 |\n| Savings | 75 492.87 (62.49 % savings rate) |'],
+    ['analysis-006', 'Income was ₹1 20 812.37, expenses were ₹45 319.50, savings were ₹75 492.87, a 62.49% savings rate.'],
+    ['analysis-005', 'Total return is ‑₹24 220. The time‑weighted return is unavailable (insufficient price history); XIRR is −21.06%.'],
+  ])('%s: reads typeset digit grouping and hyphens as the plain figure — %s', (id, answer) => {
+    const golden = ANALYSIS_CASES.find((c) => c.id === id)!;
+    expect(scoreAnalysisOutput(answer, [], golden)).toBe(true);
+  });
+
+  it('typeset figures given to the wrong metric are still rejected', () => {
+    const golden = ANALYSIS_CASES.find((c) => c.id === 'analysis-006')!;
+    const swapped = 'Income was ₹45 319.50, expenses were ₹120 812.37, savings were ₹75 492.87, a 62.49% savings rate.';
+    expect(scoreAnalysisOutput(swapped, [], golden)).toBe(false);
   });
 
   it('analysis-007: food within budget beside dining over budget is the right finding, not a reversal', () => {
