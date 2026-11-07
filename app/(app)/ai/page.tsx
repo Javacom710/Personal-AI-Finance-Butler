@@ -20,6 +20,7 @@ export default async function AiPage({ searchParams }: { searchParams?: Promise<
       <Link href="/ai/reviews/monthly" className="underline">Monthly financial review</Link>
       <Link href="/ai/reviews/portfolio" className="underline">Portfolio analysis</Link>
       <Link href="/ai/reviews/health" className="underline">Financial-health analysis</Link>
+      <Link href="/ai/reviews/summary" className="underline">Period summaries</Link>
       <Link href="/ai/reviews/cross-domain" className="underline">Cross-domain analysis</Link>
     </nav>
     <section className="space-y-3 rounded-lg border border-border p-4">
