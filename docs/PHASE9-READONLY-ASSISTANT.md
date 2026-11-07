@@ -1,5 +1,7 @@
 # Phase 9 read-only financial assistant
 
+> **Status 2026-11-07:** merged into `main` (PRs #39–#48). Live generation stays hard-disabled until the owner accepts a measured Phase 8 lineup ([OD-20](DECISIONS.md#open-decisions-requiring-the-user)). The PR-stacking notes below are the original build record.
+
 The owner authorized this work on 3 November 2026 while OpenRouter funding delayed Phase 8. PR #40 is stacked on transaction-entry PR #39 so conversation migration `0008` follows proposal migration `0007`. Neither feature enables a live model. Tests use fake providers only. No model order, capability gate, existing prompt, scorer or evaluation suite changes.
 
 ## Bounded reads and follow-ups

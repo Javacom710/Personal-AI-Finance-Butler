@@ -13,4 +13,16 @@ The previously uncommitted DeepInfra evaluation implementation and evidence were
 
 ## Verification
 
-Verification is in progress. The final machine-readable record will include the complete test results, build/static checks, disposable PostgreSQL 17/18 coverage and authenticated production HTTP smoke. No browser interaction or live model quality verification is implied by the HTTP smoke.
+Final verification of PR #51's head `b651867`, completed 2026-11-07 by Claude in a cloud session (PostgreSQL 16 locally; CI covers 17 and 18):
+
+| Check | Result |
+|---|---|
+| Typecheck, lint | pass |
+| Unit + property tests, isolated run | **2,476 / 2,476 pass** (99 files). The five timeouts from the earlier concurrent run did not recur |
+| Integration tests | **619 / 619 pass** (38 files) with the environment's `AI_*` variables removed, as CI runs. With them present, 2 cases in `ai-daily-budget.test.ts` fail identically on `main`: a test-isolation gap, not a regression (see TESTING.md) |
+| Production build | pass |
+| Client-secret scan | pass — no secret in 23 client files |
+| `verify:integrity` | 35 passed, 0 failed, 28 enforced by the engine |
+| GitHub CI, PostgreSQL 17 and 18 | both green on `b651867` |
+
+No live provider call, `--record`, routing change or feature activation was made during verification. No browser interaction or live model quality verification is implied.

@@ -1,5 +1,7 @@
 # Finite OpenRouter measurement campaign
 
+> **Status 2026-11-07:** merged into `main` (PRs #41, #42) and tested with fake providers. OpenRouter is **not** the selected provider: Phase 8 uses DeepInfra direct ([ADR-54](DECISIONS.md#adr-54--deepinfra-direct-is-the-phase-8-provider-google-and-anthropic-models-are-excluded)). Keep this runbook for a future switch.
+
 This is the owner's one-session Phase 8 workload, with durable progress if interrupted. It builds on PR #41's request privacy and host-qualified evidence. It does not activate Phase 9, write runtime capability records, select tier orders, route hosts or schedule future runs. All development tests use fake providers.
 
 ## Before live mode

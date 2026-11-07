@@ -1,5 +1,7 @@
 # Financial-health analysis
 
+> **Status 2026-11-07:** merged into `main` (PRs #39–#48). Live generation stays hard-disabled until the owner accepts a measured Phase 8 lineup ([OD-20](DECISIONS.md#open-decisions-requiring-the-user)). The PR-stacking notes below are the original build record.
+
 The owner's standing Phase 9 approval permits this feature in its own PR, stacked on portfolio PR #44. All providers used in development are fake. Production generation remains hard-disabled until lineup approval and a reviewed runtime composition.
 
 Five existing owner-bound tools supply current account balances, recorded monthly cash flow, budgets, liabilities and scheduled commitments over the next thirty days. The existing `analyzeFinancialHealth` route gates the initial native tool request before any read and the final interpretation turn. The model's complete read batch must match the application-owned plan; no widening, write, scenario or repair/retry loop is supported.

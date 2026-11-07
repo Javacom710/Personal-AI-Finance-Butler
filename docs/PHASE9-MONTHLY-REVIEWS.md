@@ -1,5 +1,7 @@
 # Monthly financial reviews
 
+> **Status 2026-11-07:** merged into `main` (PRs #39–#48). Live generation stays hard-disabled until the owner accepts a measured Phase 8 lineup ([OD-20](DECISIONS.md#open-decisions-requiring-the-user)). The PR-stacking notes below are the original build record.
+
 Authorized on 3 November 2026 as the next Phase 9 slice. This PR is stacked on #40. The standing approval also permits the remaining non-scenario Phase 9 features, each in a separate PR. OD-18 still blocks scenarios. All development providers are fake; production generation stays hard-disabled until the owner approves the Phase 8 lineup and a reviewed runtime composition.
 
 ## Read and interpretation flow

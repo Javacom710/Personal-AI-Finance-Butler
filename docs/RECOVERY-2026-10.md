@@ -81,7 +81,7 @@ On `0abc48d`, on the Windows PC (Node 26, npm 11.19), and again on Linux under N
 3. ~~R-2.~~ Done 2026-10-26.
 4. ~~B-4.~~ Done 2026-10-26.
 5. Full Phase 7 gate on `main` once these pull requests are merged, with and without `NVIDIA_API_KEY`: every test passing with 0 skips, plus every check in the entry contract (entry-gate audit §9). CI covers the run without a key.
-6. **Phase 8 — Model Evaluation.** Start by running `npm run ai:catalogue` (ADR-45); the first build dependency is the golden task corpora for the eval harness (`src/server/ai/eval/harness.ts`).
+6. ~~**Phase 8 — Model Evaluation.** Start by running `npm run ai:catalogue` (ADR-45); the first build dependency is the golden task corpora for the eval harness (`src/server/ai/eval/harness.ts`).~~ Corpora, runner and storage done; full DeepInfra campaigns ran 2026-11-07. Phase 8 now waits on the owner's lineup decision (OD-20). Current status: [ROADMAP.md](ROADMAP.md) "Where the project stands".
 
 ## How work happens now
 
@@ -93,7 +93,7 @@ The repository lives on GitHub. Claude, Codex and ChatGPT all work from it, and 
 - **The package manager is npm 11.** `package.json` declares `packageManager: npm@11.19.1` and CI pins it. Node 22 bundles npm 10, which rejects this lockfile (`Missing: esbuild@0.28.2`), so on such a machine run `npx -y npm@11.19.1 ci`. Never commit a lockfile written by npm 10: it drops the `libc` fields and adds optional-peer entries that npm 11 removes again.
 - **Cloud sessions are set up.** `.claude/settings.json` runs `scripts/cloud-session-setup.sh`, so a Claude Code cloud session starts with dependencies, PostgreSQL, both roles and both databases (see `docs/DEPLOYMENT.md` §1).
 - **CI is the authority for integration tests.** It runs every check on PostgreSQL 17, the version production targets, and on 18.4, the version the PC runs (D-23, ADR-47). A test that passes on only one of them is a defect, not a flake (R-3). A hosted database for running the app is a decision for the deployment phase.
-- **Secrets never enter git.** When a cloud agent needs `NVIDIA_API_KEY` (Phase 8 evaluation), it goes into that agent's environment settings or a GitHub Actions secret, never into a file.
+- **Secrets never enter git.** When a cloud agent needs the provider key (`AI_API_KEY`, Phase 8 evaluation), it goes into that agent's environment settings or a GitHub Actions secret, never into a file.
 - **Backups:** every branch on GitHub; the `C:\Dev` mirror; and a periodic `git bundle --all` copied off the machine. `.env` is backed up only offline or in a password manager.
 
 ## Switching agents
@@ -102,7 +102,7 @@ Work moves between Claude and Codex through the repository, not through chat his
 
 **Before switching.** The outgoing agent's open branches are finished as a PR or left alone; the incoming agent never pushes to them. Start the new agent with: *"Read AGENTS.md and PROJECT-STATE.md, then continue <task> on a `codex/<topic>` branch through a PR."*
 
-**Claude Code cloud** (claude.ai/code, environment "Default") is already configured: `.claude/settings.json` runs the setup script; network access is Limited with `integrate.api.nvidia.com` allowed; `NVIDIA_API_KEY` is a *network secret* the proxy injects, so the session sees only `NVIDIA_API_KEY=proxy-injected`; and `NODE_USE_ENV_PROXY=1` makes Node 22's `fetch` use that proxy.
+**Claude Code cloud** (claude.ai/code, environment "Default") is already configured: `.claude/settings.json` runs the setup script; network access is Limited; the provider credentials (DeepInfra, plus Groq and OpenRouter as alternatives; NVIDIA historically) are *network secrets* the proxy injects, so a session never sees a real key. As of 2026-11-07 the environment also exports `AI_BASE_URL=https://api.deepinfra.com/v1/openai` and an `AI_API_KEY` value, both of which the setup script copies into `.env` (see TESTING.md for the one integration test this affects); and `NODE_USE_ENV_PROXY=1` makes Node 22's `fetch` use that proxy.
 
 **Codex cloud** (chatgpt.com/codex) has its own environment, configured in Codex settings rather than in this repository. Its install script runs on Debian 13 with Node 24, puts npm 11.19.1 under `/workspace/.financeos-tools`, unpacks PostgreSQL **17** under `/workspace/.financeos-system/root` with its cluster at `/workspace/.financeos-postgres/data`, writes its own git-ignored `.env` with random development credentials, then migrates and seeds. It writes `/workspace/.financeos-onboarding/start-db.sh` and `install.sh`; each task starts the database with the first, and a dependency refresh reruns the second. `scripts/cloud-session-setup.sh` is not used there. CI on Node 22 stays the authority when the two Node versions disagree.
 

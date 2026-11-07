@@ -615,7 +615,7 @@ unless explicitly requested later.
 
 <ai_architecture>
 
-The AI system must use a multi-model architecture based primarily on open/open-weight models, served through one OpenAI-compatible provider chosen by configuration. Since 2026-11-02 that provider is Groq; NVIDIA Build's free tier proved unreliable (docs/DECISIONS.md ADR-52). The NVIDIA candidate list below is historical.
+The AI system must use a multi-model architecture based primarily on open/open-weight models, served through one OpenAI-compatible provider chosen by configuration. Since 2026-11-07 that provider is DeepInfra direct, with Google and Anthropic models excluded (docs/DECISIONS.md ADR-54). Before that it was Groq (2026-11-02, ADR-52), after NVIDIA Build's free tier proved unreliable. The NVIDIA candidate list below is historical; elsewhere in this specification, read "NVIDIA Build" as "the configured AI provider".
 
 Do NOT assume that one model should perform every task.
 

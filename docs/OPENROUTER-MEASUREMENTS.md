@@ -1,5 +1,7 @@
 # OpenRouter measurement handover
 
+> **Status 2026-11-07:** merged into `main` (PRs #41, #42) and tested with fake providers. OpenRouter is **not** the selected provider: Phase 8 uses DeepInfra direct ([ADR-54](DECISIONS.md#adr-54--deepinfra-direct-is-the-phase-8-provider-google-and-anthropic-models-are-excluded)). Keep this runbook for a future switch.
+
 The owner authorized OpenRouter setup and measurement on 3 November 2026, with ZDR, no data collection, price ordering and DeepInfra first. The implementation here prepares those controls with fake HTTP tests. It does not configure a live credential, select a lineup, record results or activate either Phase 9 feature. Groq remains the repository default until the authorized provider switch is configured.
 
 ## Readiness before live inference
