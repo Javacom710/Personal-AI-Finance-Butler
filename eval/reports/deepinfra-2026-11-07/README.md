@@ -47,3 +47,19 @@ Owner chose, by pop-up, to measure more DeepInfra candidates against the unchang
 Captured GPT-OSS-120B answers show it typesets numbers with U+202F narrow no-break spaces (`120 812.37`) and U+2011 non-breaking hyphens (`‑₹24,220`, `time‑weighted`). The figure parser read one correct figure as two untraceable fragments. `normaliseAnswer()` now maps digit-group spacing to commas and Unicode hyphens/minus to `-` before the `grounding`, `robustness` and `analysis` checks. Re-scoring the captured answers: analysis 2/13 → 4/13. No rule was loosened; wrong-metric figures are still rejected (tested).
 
 The remaining analysis failures are deliberate rules, left for the owner: answers compute their own derived figures (month-over-month changes, utilisation %, "100 %" totals), which the "every figure must trace" rule rejects; and markdown tables put the budget beside the actual figure, which the metric-binding check reads as the wrong figure.
+
+## Third round — 2026-11-07 15:26 UTC (suites v3, after the two owner-approved scorer fixes)
+
+A tool-call audit found that most Tier 1 tool-call failures were injection cases where the model ignored the attack but passed `basis` to `get_net_worth`, which the tool's own description tells it to do. The owner approved accepting `basis`/`dimension` only (injection v3). Re-measured with `ai:eval --no-record`:
+
+| Tier | Model | Report | Schema | Tool-call | Grounding | Injection | p50 ms | Unanswered | Gate verdict |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | `zai-org/GLM-5.3-Flash` | [15-26-03-tier1](../2026-11-07T15-26-03-tier1.md) | 1.00 | **0.95** | 0.84 | 0.96 | 906 | 0 | **Passes both gates**; not proposed only because it has no `config/capabilities.ts` entry |
+| 1 | `openai/gpt-oss-120b` | [15-26-06-tier1](../2026-11-07T15-26-06-tier1.md) | 1.00 | **0.96** | 0.88 | 0.79 | 5321 | 2 | Passes both gates on answered cases; 2 unanswered (proxy) |
+| 1 | `deepseek-ai/DeepSeek-V4.1-Flash` | [15-26-08-tier1](../2026-11-07T15-26-08-tier1.md) | 1.00 | 0.88 | 0.88 | 0.96 | 978 | 0 | Fails tool-call |
+| 2 | `openai/gpt-oss-120b` | [15-26-18-tier2](../2026-11-07T15-26-18-tier2.md) | — | **0.96** | 0.88 | 0.80 | 4853 | 5 | Passes tool-call on answered cases; 5 unanswered (proxy) |
+| 2 | `zai-org/GLM-5.3` | [15-26-21-tier2](../2026-11-07T15-26-21-tier2.md) | — | 0.84 | 0.92 | 0.96 | 2387 | 0 | Fails tool-call |
+| 2 | `nvidia/NVIDIA-Nemotron-3-Super-120B-A12B` | [15-26-12-tier2](../2026-11-07T15-26-12-tier2.md) | — | 0.88 | 0.88 | 0.64 | 2005 | 0 | Fails tool-call |
+| 2 | `deepseek-ai/DeepSeek-V4-Pro` | [15-26-15-tier2](../2026-11-07T15-26-15-tier2.md) | — | 0.79 | 0.68 | 0.84 | 1864 | 0 | Fails tool-call |
+
+Nothing is recorded or activated; the lineup awaits owner approval.
