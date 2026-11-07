@@ -24,3 +24,26 @@ Provider: `https://api.deepinfra.com/v1/openai` (owner's prepaid testing provide
 - Accept that no Tier 1–3 GPT-OSS lineup passes the unchanged gates on DeepInfra, or choose other DeepInfra candidates to measure (catalogue includes `deepseek-ai/DeepSeek-V4.1-Flash`, `zai-org/GLM-5.3`, `Qwen/Qwen3.8-Flash`, `nvidia/NVIDIA-Nemotron-3-Super-120B-A12B`, `Qwen/Qwen3-VL-235B-A22B-Instruct`).
 - Whether to review the `analysis` scorer (finding 2).
 - Re-run the unanswered cases from a host without the 30 s cut.
+
+## Second round — 2026-11-07 14:10 UTC (owner-selected candidates)
+
+Owner chose, by pop-up, to measure more DeepInfra candidates against the unchanged gates. Same command (`ai:eval --no-record`), same suite versions (v2), run in parallel from a Claude cloud session.
+
+| Tier | Model | Report | Schema | Tool-call | Grounding | Injection | p50 ms | Unanswered | Per-suite passes |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | `zai-org/GLM-5.3-Flash` | [14-10-22-tier1](../2026-11-07T14-10-22-tier1.md) | 1.00 | **0.86** | 0.84 | 0.76 | 687 | 0 | parse 37/40 · classify 60/60 · tool-select 29/30 · grounding 21/25 · robustness 7/10 · injection 19/25 |
+| 1 | `deepseek-ai/DeepSeek-V4.1-Flash` | [14-10-19-tier1](../2026-11-07T14-10-19-tier1.md) | 1.00 | 0.80 | 0.84 | 0.80 | 959 | 0 | parse 32/40 · classify 60/60 · tool-select 24/30 · grounding 21/25 · robustness 9/10 · injection 20/25 |
+| 1 | `Qwen/Qwen3.8-Flash` | [14-10-16-tier1](../2026-11-07T14-10-16-tier1.md) | 1.00 | 0.64 | 0.68 | 0.76 | 2922 | 4 | parse 33/40 · classify 60/60 · tool-select 23/30 · grounding 17/25 · robustness 4/10 · injection 19/25 |
+| 1 | `moonshotai/Kimi-K2.6` | [14-10-25-tier1](../2026-11-07T14-10-25-tier1.md) | 1.00 | 0.85 | 0.94 | 0.50 | 1816 | **83** | mostly unanswered (proxy cut) |
+| 2 | `nvidia/NVIDIA-Nemotron-3-Super-120B-A12B` | [14-10-35-tier2](../2026-11-07T14-10-35-tier2.md) | — | 0.81 | 0.76 | 0.52 | 1902 | 0 | tool-select 28/30 · grounding 19/25 · robustness 5/10 · injection 13/25 · analysis 2/15 |
+| 2 | `deepseek-ai/DeepSeek-V4-Pro` | [14-10-28-tier2](../2026-11-07T14-10-28-tier2.md) | — | 0.77 | 0.84 | 0.68 | 1994 | 0 | tool-select 24/30 · grounding 21/25 · robustness 6/10 · injection 17/25 · analysis 2/15 |
+| 2 | `zai-org/GLM-5.3` | [14-10-31-tier2](../2026-11-07T14-10-31-tier2.md) | — | 0.74 | 0.79 | 0.72 | 3689 | 3 | tool-select 26/30 · grounding 19/25 · robustness 6/10 · injection 18/25 · analysis 3/15 |
+| 3 | `moonshotai/Kimi-K3.1-Pro` | [14-10-38-tier3](../2026-11-07T14-10-38-tier3.md) | — | 0.86 | **1.00** | 0.76 | 6547 | 24 | tool-select 22/30 · grounding 24/25 · robustness 9/10 · injection 19/25 · analysis 0/15 |
+
+**Still nothing passes the 0.90 tool-call gate; nothing is proposed or recorded.** Best Tier 1: GLM-5.3-Flash (ties GPT-OSS-120B at 0.86, with better parse 37/40 and ~7× lower latency). Kimi models are heavily unanswered: their long responses hit the session's ~30 s egress cut, so their scores are not comparable.
+
+### `analysis` scorer finding (proposed fix in this PR, suite versions bumped to v3)
+
+Captured GPT-OSS-120B answers show it typesets numbers with U+202F narrow no-break spaces (`120 812.37`) and U+2011 non-breaking hyphens (`‑₹24,220`, `time‑weighted`). The figure parser read one correct figure as two untraceable fragments. `normaliseAnswer()` now maps digit-group spacing to commas and Unicode hyphens/minus to `-` before the `grounding`, `robustness` and `analysis` checks. Re-scoring the captured answers: analysis 2/13 → 4/13. No rule was loosened; wrong-metric figures are still rejected (tested).
+
+The remaining analysis failures are deliberate rules, left for the owner: answers compute their own derived figures (month-over-month changes, utilisation %, "100 %" totals), which the "every figure must trace" rule rejects; and markdown tables put the budget beside the actual figure, which the metric-binding check reads as the wrong figure.
