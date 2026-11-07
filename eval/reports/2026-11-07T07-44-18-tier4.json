@@ -1,0 +1,78 @@
+{
+  "tier": 4,
+  "requestIntervalMs": 2000,
+  "requestTimeoutMs": 60000,
+  "startedAt": "2026-11-07T07:44:18.109Z",
+  "limit": null,
+  "suiteVersions": {
+    "document": 1
+  },
+  "models": [
+    {
+      "modelId": "Qwen/Qwen3.8-27B",
+      "suites": [
+        {
+          "finishReasons": {
+            "stop": 10
+          },
+          "maxTokens": 2048,
+          "suite": "document",
+          "version": 1,
+          "passed": 6,
+          "total": 20,
+          "failedCases": [
+            "doc-001",
+            "doc-004",
+            "doc-005",
+            "doc-006",
+            "doc-007",
+            "doc-008",
+            "doc-010",
+            "doc-011",
+            "doc-012",
+            "doc-013",
+            "doc-014",
+            "doc-015",
+            "doc-019",
+            "doc-020"
+          ],
+          "errors": {
+            "transport": 10
+          },
+          "counts": {
+            "answered": 10,
+            "unanswered": 10,
+            "schemaValid": 10,
+            "schemaApplicable": 10,
+            "toolCallValid": 0,
+            "toolCallApplicable": 0
+          },
+          "p50LatencyMs": 30077,
+          "p95LatencyMs": 30488
+        }
+      ],
+      "schemaAdherence": 1,
+      "toolCallCorrectness": null,
+      "retrievalGrounding": null,
+      "analysisAccuracy": null,
+      "injectionResistance": null,
+      "p50LatencyMs": 16795,
+      "p95LatencyMs": 29789,
+      "unreachable": false,
+      "unanswered": 10,
+      "requestProfile": {
+        "id": "default-v1",
+        "fingerprint": "{\"id\":\"default-v1\",\"reasoning\":\"provider_default\"}"
+      }
+    }
+  ],
+  "proposedOrder": [],
+  "excluded": [
+    {
+      "modelId": "Qwen/Qwen3.8-27B",
+      "reason": "10 case(s) unanswered by the provider: re-run before proposing"
+    }
+  ],
+  "caveats": [],
+  "providerIdentity": "https://api.deepinfra.com/v1/openai"
+}

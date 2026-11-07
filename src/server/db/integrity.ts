@@ -67,6 +67,15 @@ interface Check {
  * lost everything.
  */
 const CHECKS: readonly Check[] = [
+  { invariant: 'I-10', description: 'Applied proposals have matching confirmation audits', query: sql`
+    select p.id from ai_proposals p where p.status = 'applied' and (
+      not exists (select 1 from audit_log a where a.user_id = p.user_id and a.actor = 'ai_confirmed'
+        and a.action = 'ai_proposal.apply' and a.entity_id = p.id and a.after->>'transactionId' = p.applied_entity_id::text)
+      or not exists (select 1 from audit_log a where a.user_id = p.user_id and a.actor = 'ai_confirmed'
+        and a.action = 'transaction.create' and a.entity_id = p.applied_entity_id and a.after->>'aiProposalId' = p.id::text)
+    )` },
+  { invariant: 'I-14', description: 'One transaction proposal produces at most one linked transaction', query: sql`
+    select ai_proposal_id from transactions where ai_proposal_id is not null group by ai_proposal_id having count(*) > 1` },
   {
     invariant: 'I-1',
     description: 'Entry counts and signs match the transaction kind',
@@ -571,8 +580,6 @@ const CHECKS: readonly Check[] = [
 
 /** Invariants defined in SCHEMA.md whose tables do not exist yet. Reported, never assumed. */
 const DEFERRED: readonly { invariant: string; description: string; note: string }[] = [
-  { invariant: 'I-10', description: 'Applied AI proposals have an ai_confirmed audit entry', note: 'Phase 9' },
-  { invariant: 'I-14', description: 'One AI proposal produces at most one record', note: 'Phase 9' },
 ];
 
 /**

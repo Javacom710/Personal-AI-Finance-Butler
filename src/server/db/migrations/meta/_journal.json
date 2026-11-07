@@ -50,6 +50,20 @@
       "when": 1793519000824,
       "tag": "0006_phase8_ai_model_evaluations",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793637525369,
+      "tag": "0007_phase9_transaction_proposals",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793691269118,
+      "tag": "0008_phase9_assistant_conversations",
+      "breakpoints": true
     }
   ]
 }
