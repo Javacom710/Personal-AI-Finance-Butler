@@ -68,3 +68,6 @@ export * from './reference';
 export * from './tags';
 export * from './transactions';
 export * from './transfers';
+
+export * from './aiProposals';
+export * from './aiConversations';

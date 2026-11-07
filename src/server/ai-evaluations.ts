@@ -23,6 +23,7 @@ import 'server-only';
  */
 
 import { sql } from 'drizzle-orm';
+import { isOpenRouterEndpoint } from './ai/provider/openrouter-policy';
 
 import { db } from './db/client';
 import { aiModelEvaluations } from './db/schema';
@@ -36,6 +37,11 @@ export function evaluationProviderIdentity(baseUrl: string): string {
   const url = new URL(baseUrl);
   if (!['https:', 'http:'].includes(url.protocol)) throw new Error('Invalid evaluation provider endpoint.');
   return `${url.origin}${url.pathname.replace(/\/+$/, '')}`;
+}
+
+/** Measurement is authorized; accepting host-scoped runtime evidence requires the owner's lineup decision. */
+export function assertEvaluationRecordingSupported(providerIdentity: string): void {
+  if (isOpenRouterEndpoint(providerIdentity)) throw new Error('OpenRouter measurements are review-only (--no-record). Host-scoped approval and runtime recording must be implemented after the owner accepts a lineup.');
 }
 
 /** What a stored row keeps beyond its columns: counts and case ids, never output. */
@@ -56,6 +62,7 @@ export interface EvaluationDetail extends SuiteCounts {
 export async function recordEvaluationRun(run: EvalRun): Promise<number> {
   if (run.limit !== null) throw new Error('A partial run (--limit) is a wire check and is never stored.');
   const providerIdentity = evaluationProviderIdentity(aiProviderSettings(env()).baseUrl);
+  assertEvaluationRecordingSupported(providerIdentity);
   if (run.providerIdentity !== providerIdentity) throw new Error('Missing or mismatched evaluation provider provenance.');
   const rows = run.models.flatMap((m) =>
     m.suites.map((s) => {
@@ -106,6 +113,7 @@ export interface StoredEvaluation {
 /** Latest rows for the active endpoint; foreign/legacy rows cannot shadow its profiles. */
 export async function latestEvaluations(): Promise<readonly StoredEvaluation[]> {
   const providerIdentity = evaluationProviderIdentity(aiProviderSettings(env()).baseUrl);
+  if (isOpenRouterEndpoint(providerIdentity)) return [];
   const { rows } = await db().execute<{
     model: string;
     suite: string;
@@ -152,7 +160,7 @@ export function capabilitiesFromEvaluations(
   providerIdentity?: string,
 ): Record<string, ModelCapabilities> {
   const byModel = new Map<string, StoredEvaluation[]>();
-  if (!providerIdentity) return {};
+  if (!providerIdentity || isOpenRouterEndpoint(providerIdentity)) return {};
   for (const row of rows) {
     if (row.detail.providerIdentity !== providerIdentity) continue;
     byModel.set(row.model, [...(byModel.get(row.model) ?? []), row]);

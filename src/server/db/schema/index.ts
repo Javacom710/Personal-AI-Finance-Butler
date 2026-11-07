@@ -28,3 +28,6 @@ export * from './investments';
 export * from './networth';
 export * from './marketdata';
 export * from './ai';
+
+export * from './ai-proposals';
+export * from './ai-conversations';
