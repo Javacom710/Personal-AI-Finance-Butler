@@ -28,7 +28,7 @@ import {
   type GroundingGoldenCase,
 } from './grounding';
 
-export const ANALYSIS_SUITE_VERSION = 4;
+export const ANALYSIS_SUITE_VERSION = 5;
 
 export type AnalysisDomain = 'portfolio' | 'health' | 'period' | 'cross-domain';
 

@@ -8,3 +8,5 @@ Two independent campaigns originally used this README path. Both original report
 These are historical measurements, not accepted routing evidence. Their scores, cases, latency and ledgers are not pooled. The [format-v3 campaign](../deepinfra-2026-11-07-format-v3/README.md) and [current Qwen review packet](../deepinfra-2026-11-07-qwen-235b-v1/README.md) remain separate. The source-bound runners intentionally refuse resuming old campaigns against changed code.
 
 No production lineup is qualified or approved, and no measurement has been recorded in the database. Recording and promotion still require the owner's approval. The [independent Claude spend reservation](../deepinfra-2026-11-07-external-pr50/README.md) contributes to budget accounting only; it imports no score.
+
+[Claude rounds 2–3 and its original decision context](claude-rounds2-3-original-README.md) are preserved separately from this index. These measurements used a different source/prompt/scorer contract; their scores are not imported or relabeled by reconciliation.

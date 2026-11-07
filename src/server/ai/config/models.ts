@@ -18,15 +18,12 @@ import { resolveRequestProfiles, type RequestProfiles } from './request-profiles
  * `src/server/ai-runtime.ts`. That constraint is the reason
  * {@link resolveModelConfig} takes overrides rather than reading them.
  *
- * ## Nothing here is a quality claim
+ * ## Selection and qualification are independent
  *
- * The order below is **not** a ranking. It is the smallest set that covers each
- * tier with a fallback, drawn only from identifiers a Phase 0 read found in the
- * catalogue. `CLAUDE.md` requires evaluation against real workloads before
- * routing is finalised, that evaluation needs a credential, and it has not run —
- * so no model in this file is asserted to be better than any other. The measured
- * matrix in `capabilities.ts` is what actually gates routing, and until it is
- * populated the gate is what stops a guess reaching production.
+ * Tier 1 retains the owner selection recorded by PR #54 (ADR-55). Its older
+ * branch measurements do not certify this merged source contract. Capability
+ * scores remain provider/profile/tier scoped, and absent current evidence
+ * keeps score-gated routes closed even when a model is named in this order.
  */
 
 /** Capability tiers. A tier is a class of task, never a size of model. */
@@ -217,18 +214,13 @@ export function unavailableCandidates(): readonly CandidateId[] {
  * an empty tier is not a gap, it is the decision.
  */
 const DEFAULT_ORDER: Readonly<Record<Tier, readonly string[]>> = {
-  // Provider switched to Groq on 2026-11-02 (ADR-52): NVIDIA's free hosted API
-  // answered for only 8 of the 50 chat models it listed, and none of the 8 met
-  // Tier 1's tool-call gate. These are Groq identifiers. They are declared, not
-  // measured: score-gated routes stay closed until `npm run ai:eval` measures
-  // them and a human accepts the order.
-  1: ['openai/gpt-oss-120b', 'openai/gpt-oss-20b'],
-  // **Empty until measured.** Measured capability eligibility is keyed to a
-  // model's declared tier (`capabilitiesFromEvaluations` uses that tier's
-  // suites), so listing a Tier 1 model here would let Tier 1 results authorise
-  // analysis routes without an analysis measurement. A Tier 2/3 model is added
-  // once measured on its own tier's suites, or once eligibility is made
-  // tier-specific. Until then these routes fail closed.
+  // Selected Tier 1 order recorded by PR #54 (ADR-55), served via DeepInfra.
+  // Policy selection is independent of measured eligibility: current full
+  // source-matched evidence is still required, including for the fallback.
+  1: ['zai-org/GLM-5.3-Flash', 'openai/gpt-oss-120b'],
+  // Advanced/vision orders remain empty. A selected Tier 1 policy does not
+  // grant another tier: every tier needs its own full measured eligibility
+  // and its own selected order before it can serve a capability.
   2: [],
   3: [],
   // **Empty until a vision model is measured on the document suite.** A vision

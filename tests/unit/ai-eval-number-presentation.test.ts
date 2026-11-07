@@ -20,6 +20,7 @@ describe('numeric presentation preserves financial meaning', () => {
     answer.replace('120,812.37', '1,20,812.37'),
     tex(answer),
     `$${tex(answer)}$`,
+    tex(answer).replace(/\{,\}/g, '\u202f'),
     `\\(${tex(answer)}\\)`,
   ])('accepts the same supported facts in plain, Indian, or LaTeX presentation: %s', text => {
     expect(scoreAnalysisOutput(text, [], case6)).toBe(true);
@@ -73,6 +74,6 @@ describe('numeric presentation preserves financial meaning', () => {
   });
 
   it('invalidates old scorer measurements for every affected suite', () => {
-    expect([GROUNDING_SUITE_VERSION, ROBUSTNESS_SUITE_VERSION, ANALYSIS_SUITE_VERSION]).toEqual([4, 4, 4]);
+    expect([GROUNDING_SUITE_VERSION, ROBUSTNESS_SUITE_VERSION, ANALYSIS_SUITE_VERSION]).toEqual([5, 5, 5]);
   });
 });

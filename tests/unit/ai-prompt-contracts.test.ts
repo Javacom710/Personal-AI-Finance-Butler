@@ -22,6 +22,6 @@ describe('shared production prompt contracts', () => {
   });
   it('versions all affected suites while preserving the unrelated parsing and category contracts', () => {
     expect(Object.fromEntries(Object.entries(MODEL_SUITES).map(([suite, definition]) => [suite, definition.version])))
-      .toEqual({ parse: 2, classify: 2, 'tool-select': 3, grounding: 4, robustness: 4, injection: 3, analysis: 4, document: 2 });
+      .toEqual({ parse: 2, classify: 2, 'tool-select': 3, grounding: 5, robustness: 5, injection: 4, analysis: 5, document: 2 });
   });
 });

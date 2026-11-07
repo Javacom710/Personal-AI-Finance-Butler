@@ -67,8 +67,8 @@ describe('independent tier measurements', () => {
   });
 
   it.each([
-    [1, 'tool-select', 2], [1, 'grounding', 3], [1, 'robustness', 3],
-    [1, 'injection', 2], [2, 'analysis', 3], [4, 'document', 1],
+    [1, 'tool-select', 2], [1, 'grounding', 3], [1, 'grounding', 4], [1, 'robustness', 3], [1, 'robustness', 4],
+    [1, 'injection', 2], [1, 'injection', 3], [2, 'analysis', 3], [2, 'analysis', 4], [4, 'document', 1],
   ] as const)('Tier %s cannot activate with the previous %s prompt contract (v%s)', (tier, suite, previous) => {
     const current = rows(tier);
     expect(load(current)[MODEL]?.[tier]?.source).toBe('measured');
