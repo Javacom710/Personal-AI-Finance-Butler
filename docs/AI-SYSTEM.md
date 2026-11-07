@@ -111,7 +111,7 @@ That list was read **without** an API key. `npm run ai:catalogue` has since re-r
 
 The standing rule when it drifts again: **report it, do not re-route.** A name that looks like a rename is not evidence of the same weights, and `CLAUDE.md` requires evaluation against real workloads before a route is finalised. Phase 8 resolves these with the eval harness; until then a dead identifier costs one failed attempt per circuit-breaker window and nothing else.
 
-Every tier still serves. Tier 1 falls through its dead primary to `openai/gpt-oss-20b`; Tiers 2, 3 and 4 route only to identifiers confirmed present on 2026-09-03. But **Tier 4 has exactly one model**, and vision cannot fall back to a text model. A Tier 4 request whose only model fails, fails.
+**Historical catalogue-era routing description; not the current measured runtime.** Current Tier 2–4 defaults are empty and no lineup has been approved; no source below authorizes a serving route. At the time of the original catalogue observation, Tier 1 fell through its dead primary to `openai/gpt-oss-20b`; Tiers 2, 3 and 4 route only to identifiers confirmed present on 2026-09-03. But **Tier 4 has exactly one model**, and vision cannot fall back to a text model. A Tier 4 request whose only model fails, fails.
 
 ---
 

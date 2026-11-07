@@ -24,17 +24,24 @@ A phase is complete only when every box is ticked — including tests, type chec
 | 5 — Net Worth at Cost | ✅ complete, verified |
 | 6 — Market Data | ✅ complete, steps 6.0–6.11 (6.10 closed unbuilt); equities need `TWELVE_DATA_API_KEY` (OD-3) |
 | 7 — AI Infrastructure | ✅ complete, steps 7.0–7.7 |
-| 8 — Model Evaluation | 🔶 **in progress — blocked on the owner's lineup decision (OD-20).** All suites, the runner, storage and per-tier eligibility (ADR-53) are built. Full DeepInfra campaigns ran on 2026-11-07; **no candidate passes the unchanged gates**, so nothing is recorded or routed |
+| 8 — Model Evaluation | 🔶 **in progress — blocked on the owner's lineup decision (OD-20).** All suites, the runner, storage and per-tier eligibility (ADR-53) are built. Archived DeepInfra campaigns ran on 2026-11-07 with no accepted lineup. Pending #54 reports a GLM candidate under different scorer contracts; source/version reconciliation and owner lineup approval remain outstanding. Nothing is recorded or activated |
 | 9 — AI Features | 🔶 **built, disabled.** Every non-scenario slice is merged (PRs #39, #40, #43–#48) and tested with fake providers; live generation stays hard-disabled until a lineup is approved. Scenario analysis waits on OD-18 |
 | 10–15 | not started |
 
 **Provider:** DeepInfra direct ([ADR-54](DECISIONS.md#adr-54--deepinfra-direct-is-the-phase-8-provider-google-and-anthropic-models-are-excluded)). Groq ([ADR-52](DECISIONS.md#adr-52--the-model-provider-is-any-openai-compatible-api-groq-replaces-nvidia-builds-free-tier)) and NVIDIA Build are historical; OpenRouter is built (#41/#42) but not selected.
 
-**Verification (2026-11-07, PR #51 head `b651867`):** 2,476 unit and property tests and 619 integration tests pass; typecheck, lint, production build and the client-secret scan are clean; `verify:integrity` reports 35 passing, 0 failing. PostgreSQL 17 and 18 CI is green. The full per-phase record is in [PROJECT-STATE.md](../PROJECT-STATE.md).
+**Historical verification (2026-11-07, PR #51 runtime-source head `b651867`):** 2,476 unit and property tests and 619 integration tests pass; typecheck, lint, production build and the client-secret scan are clean; `verify:integrity` reports 35 passing, 0 failing. PostgreSQL 17 and 18 CI is green. The full per-phase record is in [PROJECT-STATE.md](../PROJECT-STATE.md).
+
+**Latest verified follow-ups:** final-head #51 CI [42385230550](https://github.com/Javacom710/Personal-AI-Finance-Butler/actions/runs/42385230550) passes on PostgreSQL 17/18 at `93de4c2`. Assistant evidence PR #55 verifies twelve real-engine workloads plus ledger immutability and visible partial-result labels with fake providers; it does not complete real-model question quality. The current handoff combines #52/#53 documentation and provider-test isolation, without importing #54's scorer or scores.
 
 **What unblocks the rest:** OD-20 (Phase 8 lineup) gates Phase 9 activation and so every later phase's AI checks. OD-18 (scenario engine, missing metrics, TWR wiring) is deterministic engine work that can proceed once its phase placement is chosen; wiring TWR changes the frozen grounding results, so it also bumps evaluation suite versions. OD-19 (the Overview page) is product work that can proceed independently.
 
----|---|
+### Historical Phase 5 checkpoint — 2026-08-15
+
+The following table and test counts are retained as a dated implementation record, not current project status.
+
+| Phase | Historical status |
+|---|---|
 | 0 — Environment & Repository | ✅ complete |
 | 1 — Architecture | ✅ complete, **approved** |
 | 2 — Foundation | ✅ complete, verified |
@@ -428,17 +435,18 @@ product/UI work item scheduled with the Phase 9 UX pass. It does not block Phase
   - V2 structured diagnostic (2026-11-02): Lightning parse 0/40, classify 1/60, 5 unanswered, schema adherence 1/95 over answered cases. This two-suite run does not qualify a Tier 1 route; remaining tool suites were not run for this rejected attempt. Provider access and qualified full-tier measurements remain outstanding.
   - ADR-51 fresh paced profile run (normal CLI, all 190 Tier 1 cases, 3,000 ms interval): Lightning answered 188 with no rate limits. Schema 99/99, tool correctness 44/58 (75.86%, below 90%), grounding 68%, injection 56%, two timeouts. No order proposed or capability row stored. [Report](../eval/reports/2026-11-02T07-21-15-tier1.md). GPT-OSS subsequently passed three representative wire-check cases and its full default-profile evaluation is in progress. Tier 2 remains blocked by current provider access (Super 404; DeepSeek/GLM minimal requests time out); OD-18 still blocks scenario.
 
-  - **DeepInfra campaigns, 2026-11-07 ([ADR-54](DECISIONS.md#adr-54--deepinfra-direct-is-the-phase-8-provider-google-and-anthropic-models-are-excluded)).** Every planned case was attempted; no tier qualifies, and the harness proposes nothing.
-    - [Current-contract `format-v3` campaign](../eval/reports/deepinfra-2026-11-07-format-v3/README.md), 610 cases, 603 answered. GPT-OSS-120B tool-call correctness 0.8596 (Tier 1), 0.8772 (Tier 2), 0.8966 (Tier 3), all below 0.90. GPT-OSS-20B schema 0.94 (below 0.95), tools 0.7966. Qwen3-VL-30B: 6 timeouts, schema 0.7857.
+  - **DeepInfra campaigns, 2026-11-07 ([ADR-54](DECISIONS.md#adr-54--deepinfra-direct-is-the-phase-8-provider-google-and-anthropic-models-are-excluded)).** The archived campaigns below attempted every planned case and propose no tier. Their source contracts remain distinct from the pending scorer/results branch #54.
+    - [Historical `format-v3` campaign](../eval/reports/deepinfra-2026-11-07-format-v3/README.md), 610 cases, 603 answered. GPT-OSS-120B tool-call correctness 0.8596 (Tier 1), 0.8772 (Tier 2), 0.8966 (Tier 3), all below 0.90. GPT-OSS-20B schema 0.94 (below 0.95), tools 0.7966. Qwen3-VL-30B: 6 timeouts, schema 0.7857.
     - [Qwen campaign](../eval/reports/deepinfra-2026-11-07-qwen-235b-v1/README.md), 420 cases, 419 answered. Qwen3-235B tools 0.8421 in every tier. Qwen3-VL-235B schema 19/19 and exact extraction 14/20, one timeout.
-    - Strict `analysis` passes are 0–2/15 for every model. [Output-free diagnostics](../eval/reports/deepinfra-2026-11-07/diagnostics/README.md) show failures in figure traceability, required figures and metric bindings, not layout.
+    - In these archived campaigns, strict `analysis` passes are 0–2/15. [Output-free diagnostics](../eval/reports/deepinfra-2026-11-07/diagnostics/README.md) record figure-traceability, required-figure and metric-binding failures. The tested layout comparisons did not explain most sampled failures; this is not a general conclusion about all formatting.
     - The owner's options are in OD-20: more candidates, a scorer review, or accepting a model below a gate.
+    - **Pending Claude PR #54:** a separate third round reports GLM-5.3-Flash schema 1.00/tools 0.95 with no unanswered cases under its revised scorer. No route is accepted here. Its grounding/analysis/robustness v3 identifiers conflict with this branch's v4, and its injection v3 has different semantics from this branch's v3. Reconcile source/version identities and external spending before accepting evidence or running another paid campaign.
 
 **Done when**
 - [ ] Every tier has at least one model meeting its thresholds (Tier 1 `schemaAdherence ≥ 0.95`; any tool-using route `toolCallCorrectness ≥ 0.90`)
 - [ ] Scoring is deterministic wherever a right answer exists; LLM-as-judge is advisory only and never scores a numeric claim
 - [x] The `grounding` suite compares stated figures against engine output — `tasks/grounding.ts`: every stated figure must trace to the frozen handler output, which an integration test proves equal to the engine's
-- [x] The `injection` suite confirms no write is attempted and no unexpected tool is called *(25-case corpus and deterministic scorer, run against every DeepInfra candidate on 2026-11-07; the best model resists 18/25. Arbitrary prose compliance is not scored)*
+- [ ] The `injection` suite confirms no write is attempted and no unexpected tool is called *(The 25-case suite has run, but exercised candidates still fail adversarial cases and no lineup is accepted. Running the suite does not complete this quality gate. Arbitrary prose compliance is not scored.)*
 - [ ] A routing order is proposed by the harness and accepted into configuration by a human
 - [ ] CI fails when a production-routed model has no entry or a stale one
 

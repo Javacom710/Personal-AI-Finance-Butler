@@ -59,10 +59,11 @@ npm run dev
 ### Environment variables
 
 ```
-DATABASE_URL=postgres://financeos:...@localhost:5432/financeos_dev
+DATABASE_URL=postgres://financeos_app:...@localhost:5432/financeos_dev
+DATABASE_MIGRATION_URL=postgres://financeos_migrator:...@localhost:5432/financeos_dev
 APP_ENCRYPTION_KEY=<32 random bytes, base64>      # openssl rand -base64 32
 SESSION_COOKIE_SECRET=<32 random bytes, base64>
-APP_URL=http://localhost:3000
+APP_ORIGIN=http://localhost:3000
 NODE_ENV=development
 
 # --- AI provider: any OpenAI-compatible API (ADR-52); DeepInfra direct (ADR-54)
