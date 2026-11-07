@@ -28,4 +28,4 @@ Durable technical reference for the Personal Finance & Investment OS. Read in th
 - `ADR-nn` — cross-reference into [DECISIONS.md](DECISIONS.md).
 - Code identifiers are written as they will appear in the repository.
 
-Status (2026-11-07): **Phases 0–7 are built and verified; Phase 8 (model evaluation) awaits the owner's lineup decision; Phase 9 is built but disabled.** [ROADMAP.md](ROADMAP.md) "Where the project stands" is the current summary and [PROJECT-STATE.md](../PROJECT-STATE.md) the full record. A design document describes shipped behaviour only where ROADMAP marks that phase complete.
+Status (2026-11-07): **Phases 0–7 are built and verified; Phase 8 (model evaluation) has a selected Tier 1 lineup awaiting current-contract measurements; Phase 9 is built but disabled.** [ROADMAP.md](ROADMAP.md) "Where the project stands" is the current summary and [PROJECT-STATE.md](../PROJECT-STATE.md) the full record. A design document describes shipped behaviour only where ROADMAP marks that phase complete.

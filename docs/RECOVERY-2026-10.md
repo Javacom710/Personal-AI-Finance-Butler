@@ -81,7 +81,7 @@ On `0abc48d`, on the Windows PC (Node 26, npm 11.19), and again on Linux under N
 3. ~~R-2.~~ Done 2026-10-26.
 4. ~~B-4.~~ Done 2026-10-26.
 5. Full Phase 7 gate on `main` once these pull requests are merged, with and without `NVIDIA_API_KEY`: every test passing with 0 skips, plus every check in the entry contract (entry-gate audit §9). CI covers the run without a key.
-6. ~~**Phase 8 — Model Evaluation.** Start by running `npm run ai:catalogue` (ADR-45); the first build dependency is the golden task corpora for the eval harness (`src/server/ai/eval/harness.ts`).~~ Corpora, runner and storage done; full DeepInfra campaigns ran 2026-11-07. Phase 8 now waits on the owner's lineup decision (OD-20). Current status: [ROADMAP.md](ROADMAP.md) "Where the project stands".
+6. ~~**Phase 8 — Model Evaluation.** Start by running `npm run ai:catalogue` (ADR-45); the first build dependency is the golden task corpora for the eval harness (`src/server/ai/eval/harness.ts`).~~ Corpora, runner and storage done; full DeepInfra campaigns ran 2026-11-07. The owner selected a Tier 1 lineup the same day (ADR-55); it still needs current-contract measurements (OD-20). Current status: [ROADMAP.md](ROADMAP.md) "Where the project stands".
 
 ## How work happens now
 

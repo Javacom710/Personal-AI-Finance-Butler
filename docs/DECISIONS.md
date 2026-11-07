@@ -1121,7 +1121,7 @@ Fresh evaluations use the represented profile and explicit client pacing, with p
 **Consequences.**
 - Evidence is provider-qualified. Groq, NVIDIA and OpenRouter results are historical and are never pooled with DeepInfra results. Switching provider again requires fresh suites, even for identical model identifiers.
 - Workspace finite campaigns and diagnostics share a spending lock and US$4.50 accounting ceiling. Independently executed campaigns, including pending PR #54, must have their spending reconciled before another paid run; the local ledger alone is not a complete account billing statement.
-- No routing order changes and nothing is recorded until the owner accepts a measured lineup (OD-20).
+- No routing order changes and nothing is recorded without the owner. *(The owner's Tier 1 selection the same day is [ADR-55](#adr-55--retain-the-tier-1-selection-recorded-in-claude-pr-54-current-contract-eligibility-remains-independent).)*
 
 ---
 

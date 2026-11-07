@@ -1,6 +1,6 @@
 # Phase 9: transaction proposal entry
 
-> **Status 2026-11-07:** merged into `main` (PRs #39–#48). Live generation stays hard-disabled until the owner accepts a measured Phase 8 lineup ([OD-20](DECISIONS.md#open-decisions-requiring-the-user)). The PR-stacking notes below are the original build record.
+> **Status 2026-11-07:** merged into `main` (PRs #39–#48). Live generation stays hard-disabled. The owner has selected a Tier 1 lineup ([ADR-55](DECISIONS.md#adr-55--retain-the-tier-1-selection-recorded-in-claude-pr-54-current-contract-eligibility-remains-independent)), but activation still needs complete current-contract measurements and a reviewed release; features that need Tiers 2–4 also need those tiers selected ([OD-20](DECISIONS.md#open-decisions-requiring-the-user)). The PR-stacking notes below are the original build record.
 
 The owner authorized this slice on 2026-11-02 **in parallel with unfinished Phase 8** so application development can proceed while provider funding/evaluation waits. It includes natural-language money entry and human confirmation only. Assistant chat, analysis, scenarios, investments and documents are not implemented by this change; OD-18 remains blocked.
 
