@@ -29,7 +29,7 @@ import 'server-only';
 import type { EvalCase } from '../harness';
 import { amountFor, CURRENT_PRICE, money, rate, replayCase, replaySuite, type GroundingGoldenCase } from './grounding';
 
-export const ROBUSTNESS_SUITE_VERSION = 2;
+export const ROBUSTNESS_SUITE_VERSION = 3;
 
 const r = replayCase('robustness');
 

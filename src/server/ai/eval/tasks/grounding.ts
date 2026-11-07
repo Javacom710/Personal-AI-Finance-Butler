@@ -51,7 +51,7 @@ import { GROUNDING_BASE_CURRENCY, GROUNDING_CALLS, GROUNDING_TODAY, type Groundi
 import groundingResults from './grounding-results.json';
 import { scoreToolSelectCalls, type ExpectedCall } from './tool-select';
 
-export const GROUNDING_SUITE_VERSION = 2;
+export const GROUNDING_SUITE_VERSION = 3;
 
 /**
  * A figure: an exact amount, or a rate stated as a fraction (`0.62` is 62%).
@@ -357,6 +357,21 @@ const DENIAL = /(?:\bnot|n['’]t|\bnever|\brather than|\binstead of)\s+(?:(?:a|
 const FIGURE =
   /(-)?(?:(₹|rs\.?|inr|\$)\s?(-)?)?(\d{1,3}(?:,\d{2,3})+|\d+)(\.\d+)?(?:\s?(%|per ?cent\b|percent\b|k\b|thousand\b|lakhs?\b|lacs?\b|crores?\b|cr\b))?/gi;
 
+/**
+ * The answer in the ASCII the checks read. Some models typeset numbers: a
+ * narrow or no-break space as the digit-group separator ("1 20 812.37") and a
+ * non-breaking hyphen or minus sign for "-" ("‑₹24,220", "time‑weighted").
+ * Read raw, one correct figure parses as two untraceable ones and a required
+ * phrase goes unmatched, so correct answers fail. Spacing between digit groups
+ * becomes a comma; the hyphens become "-". Nothing else changes.
+ */
+export function normaliseAnswer(answer: string): string {
+  return answer
+    .replace(/(?<=\d)[    ](?=\d{2,3}(?!\d))/g, ',')
+    .replace(/[    ]/g, ' ')
+    .replace(/[‐‑‒−]/g, '-');
+}
+
 /** The figures an answer states. Dates, years and small whole numbers are not figures. */
 export function statedFigures(answer: string): readonly StatedFigure[] {
   const text = answer
@@ -508,7 +523,7 @@ export function affirms(text: string, pattern: RegExp): boolean {
 
 /** Score a prose answer. A case that needs a further call cannot pass on prose. */
 export function scoreGroundingAnswer(answer: string | null, golden: GroundingGoldenCase): GroundingVerdict {
-  const text = answer ?? '';
+  const text = normaliseAnswer(answer ?? '');
   const stated = statedFigures(text);
   const values = traceableValues(golden.calls.map((key) => GROUNDING_RESULTS[key]));
 

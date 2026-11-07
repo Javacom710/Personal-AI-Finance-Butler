@@ -9,6 +9,7 @@ import {
   GROUNDING_SUITE_VERSION,
   groundingMessages,
   groundingSuite,
+  normaliseAnswer,
   scoreGrounding,
   scoreGroundingAnswer,
   statedFigures,
@@ -137,6 +138,14 @@ describe('grounding scorer — stated figures', () => {
 
   it('a number in a table without a currency sign is still a figure', () => {
     expect(statedFigures('| Food | 8,640.50 |').map((f) => f.digits)).toEqual([864050n]);
+  });
+
+  it('reads typeset digit grouping and hyphens as plain ASCII, and nothing else', () => {
+    expect(normaliseAnswer('\u20B9120\u202F812.37 and \u20B91\u00A020\u00A0812.37 and 45\u2009319.50')).toBe('\u20B9120,812.37 and \u20B91,20,812.37 and 45,319.50');
+    expect(normaliseAnswer('\u2011\u20B924,220, \u221221.06% and time\u2011weighted')).toBe('-\u20B924,220, -21.06% and time-weighted');
+    // A space before a word, a single digit or a long run is a space, not a separator.
+    expect(normaliseAnswer('12\u202Fmonths, 3\u00A07 and 2026\u202F1234567')).toBe('12 months, 3 7 and 2026 1234567');
+    expect(statedFigures(normaliseAnswer('| Income | 120\u202F812.3700 |')).map((f) => f.digits)).toEqual([1208123700n]);
   });
 });
 

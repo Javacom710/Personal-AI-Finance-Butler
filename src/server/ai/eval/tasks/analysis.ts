@@ -18,6 +18,7 @@ import {
   CURRENT_PRICE,
   groundingMessages,
   money,
+  normaliseAnswer,
   rate,
   replayCase,
   scoreGroundingAnswer,
@@ -27,7 +28,7 @@ import {
   type GroundingGoldenCase,
 } from './grounding';
 
-export const ANALYSIS_SUITE_VERSION = 2;
+export const ANALYSIS_SUITE_VERSION = 3;
 
 export type AnalysisDomain = 'portfolio' | 'health' | 'period' | 'cross-domain';
 
@@ -321,7 +322,7 @@ export function scoreAnalysisOutput(
   return (
     toolCalls.length === 0 &&
     scoreGroundingAnswer(output, golden).passed &&
-    golden.bound.every((b) => bindingHolds(output ?? '', b))
+    golden.bound.every((b) => bindingHolds(normaliseAnswer(output ?? ''), b))
   );
 }
 
