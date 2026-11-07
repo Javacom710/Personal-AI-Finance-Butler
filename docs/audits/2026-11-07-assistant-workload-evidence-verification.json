@@ -105,5 +105,13 @@
       "path": "/tmp/financeos-assistant-lint-final.log",
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     }
-  }
+  },
+  "pullRequest": "https://github.com/Javacom710/Personal-AI-Finance-Butler/pull/55",
+  "otherOpenClaudePrs": [
+    52,
+    53,
+    54
+  ],
+  "externalPr54EvidenceImported": false,
+  "externalPr54SpendIncludedInEarlierLedger": false
 }
