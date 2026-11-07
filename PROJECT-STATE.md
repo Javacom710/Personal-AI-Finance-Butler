@@ -41,7 +41,7 @@ Durable status record. Conversation history is temporary; this file is not. Read
 
 > **Standing Phase 9 authorization — 2026-11-03:** the owner approved monthly reviews, portfolio analysis, financial-health analysis, period summaries, cross-domain analysis and document/receipt extraction, one feature per PR, fake providers only and disabled pending approval of the Phase 8 lineup. Scenarios remain blocked by OD-18. Every figure must come from the deterministic engine through existing read-only tools, with fact/calculation/interpretation/recommendation labels and unavailable data preserved. Documents must enter the existing proposal/confirmation pipeline. Ask before a new tool, schema change, gate/rule change or work outside Phase 9. This supersedes earlier notes limiting development to transaction entry and the assistant.
 
-**Last updated:** 2026-11-07 · **Current phase:** **8 — Model Evaluation, awaiting the owner's lineup decision (OD-20); 9 — all non-scenario slices merged and disabled** ([Phase 8 log](#phase-8-log)). Phase 7 — AI Infrastructure COMPLETE (steps 7.0–7.7; blockers B-1 … B-4, H-1 and R-1 … R-4 closed). Phase 6 remains complete (steps 6.0–6.9 and 6.11 implemented and verified; 6.10 closed unbuilt).
+**Last updated:** 2026-11-07 · **Current phase:** **8 — Model Evaluation: Tier 1 lineup selected (ADR-55), current-contract measurements outstanding; 9 — all non-scenario slices merged and disabled** ([Phase 8 log](#phase-8-log)). Phase 7 — AI Infrastructure COMPLETE (steps 7.0–7.7; blockers B-1 … B-4, H-1 and R-1 … R-4 closed). Phase 6 remains complete (steps 6.0–6.9 and 6.11 implemented and verified; 6.10 closed unbuilt).
 
 *The paragraphs from here to "Working protocol" are the 2026-08-30 record, kept as written.*
 

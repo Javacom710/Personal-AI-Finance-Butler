@@ -178,7 +178,7 @@ Documented because `CLAUDE.md <security_privacy>` requires it.
 | Tool results: financial figures, category and account **names**, descriptions, dates — within row/field/byte caps | Account numbers, IFSC/routing details, `notes` unless a tool's contract includes them |
 | Uploaded receipt/statement images (Tier 4 only, at the user's action) | Any data belonging to a request the user did not initiate |
 
-Egress is zero when `settings.ai_enabled = false`, and every other feature continues to work. Until the owner accepts a measured lineup (OD-20), every Phase 9 feature refuses to build a provider, so the application itself sends nothing. Phase 8 evaluation runs send only the synthetic golden fixtures, never the user's data.
+Egress is zero when `settings.ai_enabled = false`, and every other feature continues to work. Until the selected lineup has current-contract measured eligibility and a reviewed activation (ADR-55, OD-20), every Phase 9 feature refuses to build a provider, so the application itself sends nothing. Phase 8 evaluation runs send only the synthetic golden fixtures, never the user's data.
 
 The provider is DeepInfra direct, chosen by the owner, who also excluded Google and Anthropic models from it. Its data-retention terms are the owner's accepted risk (ADR-54). The endpoint is configuration, so a stricter provider is a key and URL change plus fresh measurements.
 

@@ -1,6 +1,6 @@
 # Receipt and statement transaction drafts
 
-> **Status 2026-11-07:** merged into `main` (PRs #39–#48). Live generation stays hard-disabled until the owner accepts a measured Phase 8 lineup ([OD-20](DECISIONS.md#open-decisions-requiring-the-user)). The PR-stacking notes below are the original build record.
+> **Status 2026-11-07:** merged into `main` (PRs #39–#48). Live generation stays hard-disabled. The owner has selected a Tier 1 lineup ([ADR-55](DECISIONS.md#adr-55--retain-the-tier-1-selection-recorded-in-claude-pr-54-current-contract-eligibility-remains-independent)), but activation still needs complete current-contract measurements and a reviewed release; features that need Tiers 2–4 also need those tiers selected ([OD-20](DECISIONS.md#open-decisions-requiring-the-user)). The PR-stacking notes below are the original build record.
 
 Built under the standing Phase 9 approval, stacked on monthly period-summary PR #47. This slice accepts receipt or short cash-transaction statement images through the existing Tier 4 `analyzeDocument` capability. Native PDFs and CAS investment trades remain unavailable. The separate owner question about investment-proposal storage/audit linkage is unanswered; the transaction-only database constraint is unchanged.
 
