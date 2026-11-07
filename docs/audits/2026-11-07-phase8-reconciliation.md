@@ -13,6 +13,8 @@ The previously uncommitted DeepInfra evaluation implementation and evidence were
 
 ## Verification
 
+### Codex verification record (reconciliation and corrected fixture)
+
 - **2,476 unit/property tests across 99 files pass** in an isolated run. The first concurrent run had five timeout failures across four files while the production build and both database suites competed for the workspace's two CPUs. No assertions or production limits were relaxed; the isolated run and CI both pass.
 - **All 619 integration cases are verified on both PostgreSQL 17 and 18 across the initial run and targeted rerun.** Each initial run passed 617 cases and exposed the same two daily-budget fixture failures (`no_capable_model` instead of the expected no-key refusal). After removing/restoring both credential names, all nine cases in that file pass on each version with both fake keys configured. Disposable databases use distinct application/migrator roles; no production database is involved.
 - **CI run [42367558374](https://github.com/Javacom710/Personal-AI-Finance-Butler/actions/runs/42367558374) passes every step on both PostgreSQL versions** at runtime-source commit `b651867`. The follow-up changes only test credential isolation and this verification documentation; the updated PR head receives a fresh CI run.
@@ -21,3 +23,19 @@ The previously uncommitted DeepInfra evaluation implementation and evidence were
 - Authenticated **production HTTP** checks pass for the assistant, monthly review, portfolio analysis, financial-health analysis, period summaries, cross-domain review and documents. Each unauthenticated request redirects to login; each authenticated page returns 200 and its generation control is disabled. Health returns 200. A synthetic account, fake key and unreachable provider endpoint were used. This is an HTTP check, not a browser interaction or live model quality test.
 
 The original checkout and all archived measurement artifacts were checked again after the source-fingerprint refusal and remain intact. [Machine-readable verification](2026-11-07-phase8-reconciliation-verification.json) retains the initial failures, corrected results and log hashes. PR [#51](https://github.com/Javacom710/Personal-AI-Finance-Butler/pull/51) contains the reconciled work; Phase 8 stays open with no qualifying lineup and all model-generation workflows disabled.
+
+### Independent Claude verification record (earlier head; retained separately)
+
+Final verification of PR #51's head `b651867`, completed 2026-11-07 by Claude in a cloud session (PostgreSQL 16 locally; CI covers 17 and 18):
+
+| Check | Result |
+|---|---|
+| Typecheck, lint | pass |
+| Unit + property tests, isolated run | **2,476 / 2,476 pass** (99 files). The five timeouts from the earlier concurrent run did not recur |
+| Integration tests | **619 / 619 pass** (38 files) with the environment's `AI_*` variables removed, as CI runs. With them present, 2 cases in `ai-daily-budget.test.ts` fail identically on `main`: a test-isolation gap, not a regression (see TESTING.md) |
+| Production build | pass |
+| Client-secret scan | pass — no secret in 23 client files |
+| `verify:integrity` | 35 passed, 0 failed, 28 enforced by the engine |
+| GitHub CI, PostgreSQL 17 and 18 | both green on `b651867` |
+
+No live provider call, `--record`, routing change or feature activation was made during verification. No browser interaction or live model quality verification is implied.

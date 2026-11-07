@@ -1,5 +1,7 @@
 # Portfolio analysis
 
+> **Status 2026-11-07:** merged into `main` (PRs #39–#48). Live generation stays hard-disabled until the owner accepts a measured Phase 8 lineup ([OD-20](DECISIONS.md#open-decisions-requiring-the-user)). The PR-stacking notes below are the original build record.
+
 Built under the owner's standing Phase 9 approval, stacked on monthly-review PR #43 to reuse its bounded read/interpretation runner and separated evidence view. No live provider is used; generation remains hard-disabled pending lineup approval and reviewed runtime composition.
 
 The existing `analyzePortfolio` capability receives current portfolio totals, holdings with price status, instrument currencies, and allocation by asset class, instrument and currency through existing owner-bound tools. These are six bounded reads, requested through the existing gated tool-calling route, followed by a final gated interpretation turn. Source labels retain each allocation dimension. Source rows use their human-readable names; internal identifiers stay out of the rendered evidence. Unit prices retain their own units and are not assumed to be in the base currency. No write, scenario, benchmark estimate, speculative return or AI calculation is added.

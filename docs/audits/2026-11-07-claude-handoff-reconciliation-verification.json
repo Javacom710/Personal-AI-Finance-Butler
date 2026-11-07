@@ -1,0 +1,93 @@
+{
+  "asOf": "2026-11-07T16:10:28.071551+00:00",
+  "branch": "codex/claude-handoff-reconcile",
+  "worktree": "/workspace/financeos-claude-handoff",
+  "basePr": 55,
+  "baseCommit": "fa62ca2a05140bfeb2137b72eb5596fd0c608f48",
+  "inputs": {
+    "claudeDocs52": "f932d7f6415e76aee409c4d6353aac6f1271b9e1",
+    "claudeTest53": "ae472e479c71a617d624e328590d975fd49debee"
+  },
+  "integrationMergeCommits": [
+    "6496d85",
+    "60249fc"
+  ],
+  "inputProjectHeadingsPreserved": {
+    "assistant55": 69,
+    "claude52": 69
+  },
+  "agentsAndClaudeByteIdentical": true,
+  "runtimePromptsScorersOrdersArchivesDependenciesUnchangedFrom55": true,
+  "budgetMatrix": {
+    "providerFetches": 0,
+    "runs": [
+      {
+        "postgres": "17",
+        "scenario": "shell_both_keys",
+        "passed": 9,
+        "failed": 0,
+        "logSha256": "648f8c7f64547424430854f1e44e546a4e54705fce670fb96631138b1b61cecc"
+      },
+      {
+        "postgres": "17",
+        "scenario": "dotenv_both_keys",
+        "passed": 9,
+        "failed": 0,
+        "logSha256": "545af5a6706ed50286052948ca8852dfd0ee5253eb02dac50dd22852d98df5b6"
+      },
+      {
+        "postgres": "17",
+        "scenario": "no_keys",
+        "passed": 9,
+        "failed": 0,
+        "logSha256": "b9bb9c1057969d358ca8f8685a6fd0ecb6e62a99cd15746b086064f54315c3ec"
+      },
+      {
+        "postgres": "18",
+        "scenario": "shell_both_keys",
+        "passed": 9,
+        "failed": 0,
+        "logSha256": "3615e9a644517284e349fb3a9fc124da965dbc3816b49c5bae9c384a525686ac"
+      },
+      {
+        "postgres": "18",
+        "scenario": "dotenv_both_keys",
+        "passed": 9,
+        "failed": 0,
+        "logSha256": "4bce0e3efbb36d61edf0384604bb48c27f034d1fbaf74a036ed9be5d0a2938f7"
+      },
+      {
+        "postgres": "18",
+        "scenario": "no_keys",
+        "passed": 9,
+        "failed": 0,
+        "logSha256": "de7c3972fabd7d225cc69665cccc728e4892a54dcf09863b41862e1e752df2f9"
+      }
+    ]
+  },
+  "typecheck": "passed",
+  "changedFixtureLint": "passed",
+  "parent55Ci": {
+    "id": 42388730630,
+    "postgres17": "success",
+    "postgres18": "success"
+  },
+  "buildNotRepeated": "Runtime/build inputs are identical to fully CI-verified #55. This continuation changes docs and test environment isolation only.",
+  "logHashes": {
+    "typecheck": {
+      "path": "/tmp/financeos-handoff-typecheck.log",
+      "sha256": "147a941a537e65632e28681b24e6c1e9e9085cd5baba9ccd14eef0d4b0b77574"
+    },
+    "lint": {
+      "path": "/tmp/financeos-handoff-lint.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "claudeBranchesModified": false,
+  "productionBranchModified": false,
+  "importedPr54Evidence": false,
+  "liveProviderCalls": 0,
+  "liveMeasurementsRecorded": 0,
+  "featuresActivated": false,
+  "addedRelativeDocumentationLinksVerified": 51
+}

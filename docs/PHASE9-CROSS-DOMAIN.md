@@ -1,5 +1,7 @@
 # Cross-domain financial analysis
 
+> **Status 2026-11-07:** merged into `main` (PRs #39–#48). Live generation stays hard-disabled until the owner accepts a measured Phase 8 lineup ([OD-20](DECISIONS.md#open-decisions-requiring-the-user)). The PR-stacking notes below are the original build record.
+
 Built under the standing Phase 9 approval, stacked on financial-health PR #45. Fake providers only; production generation remains hard-disabled pending lineup approval and reviewed runtime composition. Scenarios remain blocked by OD-18.
 
 Eight existing owner-bound reads supply recorded monthly cash flow, accounts, net worth at cost, net worth at market, portfolio totals/coverage, holdings with engine price status, liabilities and upcoming commitments. The existing Tier 2 `analyzeFinancialHealth` capability gates the tool-calling and interpretation turns. The entire native read batch must match the application-owned plan before any read. Equivalent JSON property ordering is accepted; omitted valuation bases, extra reads, scenario calls and changed arguments are refused.

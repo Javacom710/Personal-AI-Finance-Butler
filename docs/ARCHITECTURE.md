@@ -63,9 +63,9 @@ flowchart TB
 
   DB[("PostgreSQL 17 — the only source of financial truth<br/>Ledger transactions are source. Balances are derived.<br/>no stored balance column · positions are a rebuildable replay cache, not a record<br/>invariants I-1 to I-20 · append-only audit")]
 
-  MD["Market data — via MarketDataProvider<br/>manual (always registered) · AMFI · FX<br/>PriceResult: live / cached / stale / missing"]
+  MD["Market data — via MarketDataProvider<br/>manual (always registered) · AMFI · FX · Twelve Data<br/>PriceResult: live / cached / stale / missing"]
   JB["Jobs and backup — Postgres queue, SKIP LOCKED<br/>recurring · prices · fx · snapshot · verify<br/>pg_dump → age → off-site"]
-  NV["NVIDIA Build — via AiProvider<br/>T1 routine · T2 reasoning · T3 max<br/>T4 multimodal · T5 embeddings (deferred)"]
+  NV["AI provider (DeepInfra direct, ADR-54) — via AiProvider<br/>T1 routine · T2 reasoning · T3 max<br/>T4 multimodal · T5 embeddings (deferred)"]
 
   B -->|https| E
   E --> P
@@ -158,8 +158,8 @@ A consequence worth stating plainly: **the financial engine has no dependency on
 | Database | PostgreSQL | 17 |
 | Data access | Drizzle ORM + drizzle-kit | 0.45 / 0.31 |
 | Validation | Zod | 4.x |
-| AI provider | **NVIDIA Build** (`integrate.api.nvidia.com/v1`), OpenAI-compatible | — |
-| AI client | `openai` npm package with `baseURL` override — a wire-format client for an OpenAI-compatible API, imported by exactly one file ([ADR-09](DECISIONS.md#adr-09--nvidia-build-as-the-model-provider-behind-a-provider-abstraction)) | 4.x |
+| AI provider | Any OpenAI-compatible API chosen by `AI_BASE_URL` ([ADR-52](DECISIONS.md#adr-52--the-model-provider-is-any-openai-compatible-api-groq-replaces-nvidia-builds-free-tier)); currently **DeepInfra direct** (`api.deepinfra.com/v1/openai`, [ADR-54](DECISIONS.md#adr-54--deepinfra-direct-is-the-phase-8-provider-google-and-anthropic-models-are-excluded)). NVIDIA Build and Groq are historical | — |
+| AI client | Plain injected `fetch` against the OpenAI-compatible wire format, in one adapter file (`src/server/ai/provider/nvidia-build.ts`, name kept for history); the `openai` package is not a dependency ([ADR-40](DECISIONS.md#adr-40--the-nvidia-adapter-is-written-over-fetch-the-openai-client-is-deferred-to-the-phase-that-needs-streaming)) | — |
 | Testing | Vitest, Playwright, fast-check | 4.x / latest / latest |
 | Charts | A single small charting module (see §8) | — |
 
@@ -230,7 +230,7 @@ src/
       index.ts                      public surface
       providers/                    manual.ts, amfi.ts, frankfurter.ts, <equity-provider>.ts
                                     ONLY these files may name a provider or read its credential
-    ai-runtime.ts                   COMPOSITION ROOT. The only file that reads NVIDIA_API_KEY,
+    ai-runtime.ts                   COMPOSITION ROOT. The only file that reads the provider key (AI_API_KEY),
                                     checks settings.ai_enabled and applies the AI rate limit.
                                     Outside the AI zone, so the AI layer never holds a credential.
     ai-read/                        THE AI LAYER'S READ CAPABILITY — outside src/server/ai/**

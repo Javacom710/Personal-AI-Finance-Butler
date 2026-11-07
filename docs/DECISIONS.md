@@ -1063,6 +1063,8 @@ Fresh evaluations use the represented profile and explicit client pacing, with p
 
 ## ADR-52 — The model provider is any OpenAI-compatible API; Groq replaces NVIDIA Build's free tier
 
+> **Provider superseded by [ADR-54](#adr-54--deepinfra-direct-is-the-phase-8-provider-google-and-anthropic-models-are-excluded) (2026-11-07).** The provider-agnostic mechanism below still holds; Groq is no longer the configured provider.
+
 **Decision.** Owner, 2026-11-02. The owner chose NVIDIA Build for having many models in one place, not as a requirement, and asked for the best overall setup, free where possible.
 
 > **The AI layer talks to one OpenAI-compatible chat-completions provider, chosen by configuration (`AI_API_KEY`, `AI_BASE_URL`). The current provider is Groq's free tier, with zero data retention enabled on the account. Tier orders hold Groq identifiers, declared until `npm run ai:eval` measures them under the unchanged gates. The selection rules (tiers, thresholds, ADR-18, ADR-41, ADR-44, ADR-48, ADR-51) are unchanged.**
@@ -1105,6 +1107,24 @@ Fresh evaluations use the represented profile and explicit client pacing, with p
 
 ---
 
+## ADR-54 — DeepInfra direct is the Phase 8 provider; Google and Anthropic models are excluded
+
+**Decision.** Owner, 2026-11-07 (recorded in PR #49; applied in `AI-SYSTEM.md` and the Phase 8 campaigns). This supersedes ADR-52's choice of **provider** only. ADR-52's mechanism stays: one OpenAI-compatible endpoint chosen by `AI_API_KEY` / `AI_BASE_URL`.
+
+> **Phase 8 measures through DeepInfra direct: `https://api.deepinfra.com/v1/openai`, paid from the owner's initial US$5 prepaid credit. Serving and lineup approval remain separate release decisions. Google and Anthropic models are not sent through it. OpenRouter is built and tested (#41/#42) but not selected.**
+
+**Why.**
+- Groq's free tier capped a full campaign at roughly one suite per day (8,000 tokens/minute, 200K tokens/day). DeepInfra ran each full campaign (up to 610 cases) in one sitting, for well under US$1 each.
+- It serves both GPT-OSS models, Qwen text and vision models, DeepSeek, GLM and Nemotron under one key, so candidates can be compared on one endpoint.
+- Direct is simpler than a router. Measurements are bound to the normalised endpoint, so the serving host is known without per-response host provenance.
+
+**Consequences.**
+- Evidence is provider-qualified. Groq, NVIDIA and OpenRouter results are historical and are never pooled with DeepInfra results. Switching provider again requires fresh suites, even for identical model identifiers.
+- Workspace finite campaigns and diagnostics share a spending lock and US$4.50 accounting ceiling. Independently executed campaigns, including pending PR #54, must have their spending reconciled before another paid run; the local ledger alone is not a complete account billing statement.
+- No routing order changes and nothing is recorded until the owner accepts a measured lineup (OD-20).
+
+---
+
 ## Open decisions requiring the user
 
 | # | Decision | Why it cannot be defaulted | Blocks |
@@ -1115,6 +1135,7 @@ Fresh evaluations use the represented profile and explicit client pacing, with p
 | **OD-12** | **Dedicated gold market data** | **Deferred 2026-08-18.** Gold is represented through supported instruments (gold ETFs and gold mutual funds price through the ordinary adapters) or through a `manual_assets` valuation series. No bullion adapter, no purity/unit-conversion model. | Nothing |
 | **OD-18** | **Where the missing deterministic financial capabilities belong** | **Deferred 2026-08-30, and removed from the Phase 7 tool registry.** Three tools the conceptual list names have no deterministic backing: `run_financial_scenario` (no projection function, no contribution model, no service, no schema — nothing at all), `calculate_financial_metrics` (savings rate exists; expense ratio, runway and commitment coverage do not), and `get_portfolio_performance`'s TWR (`twr()` and `growthSeries()` are implemented and unit-tested but have **no production caller** — `portfolio.ts` hardcodes `twr: unavailable('insufficient_price_history')`). All three are **financial-engine work, not AI work**: shipping them as AI features would put projection arithmetic inside a model, which `CLAUDE.md` forbids outright. The governing rule is now normative — see [ADR-35](#adr-35--ai-infrastructure-is-strictly-read-only-a-mutation-needs-a-separate-approved-proposal-workflow) and `AI-SYSTEM.md` §8: **an AI capability exists only where a deterministic application capability already exists or has an explicitly approved implementation path.** | Nothing in Phase 7. The tools are absent from the registry rather than stubbed |
 | **OD-19** | **The Overview page is still a Phase-2 placeholder** | **Deferred 2026-08-30 as a product/UI work item.** Out of AI scope and explicitly **not** a Phase 7 blocker. It matters because it is the screen the AI's answers will be compared against, and `CLAUDE.md <overview>` makes it a MUST-BUILD; every figure it describes is now computable from Phases 3 – 6.11. Scheduled with the Phase 9 UX work, not before. | Nothing. Phase 7 proceeds without it |
+| **OD-20** | **Phase 8 production lineup** | **Open, 2026-11-07.** No lineup is accepted or recorded. The archived GPT-OSS/Qwen campaigns fail their unchanged gates or retain unanswered cases. Pending [PR #54](https://github.com/Javacom710/Personal-AI-Finance-Butler/pull/54) reports a third-round GLM-5.3-Flash candidate at schema 1.00/tools 0.95 with no unanswered cases, under different scorer contracts; its versions and source identity must be reconciled with the current branch before evidence is accepted. GPT-OSS answered-only passes with unanswered cases do not qualify a complete tier. Review source-matched evidence and lineup candidates; any scorer, gate or provider-policy change requires explicit owner approval, and no campaign is rerun automatically. | Lineup recording and live Phase 9 activation; fake-provider Phase 9 development may continue under the standing approval |
 | **OD-13** | **AMFI reuse terms** | **Open, and documented rather than assumed.** AMFI publishes `NAVAll.txt` and the NAV-history report publicly and without authentication, and the Indian fintech industry consumes both; **no machine-readable licence or explicit reuse grant was located**, so none is asserted. The adapter is built for personal, non-redistributing use and says so in its header. Confirm with AMFI before any non-personal use or redistribution. | Nothing for personal use; would block redistribution |
 
 ### Resolved

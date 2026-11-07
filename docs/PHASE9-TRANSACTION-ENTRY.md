@@ -1,5 +1,7 @@
 # Phase 9: transaction proposal entry
 
+> **Status 2026-11-07:** merged into `main` (PRs #39–#48). Live generation stays hard-disabled until the owner accepts a measured Phase 8 lineup ([OD-20](DECISIONS.md#open-decisions-requiring-the-user)). The PR-stacking notes below are the original build record.
+
 The owner authorized this slice on 2026-11-02 **in parallel with unfinished Phase 8** so application development can proceed while provider funding/evaluation waits. It includes natural-language money entry and human confirmation only. Assistant chat, analysis, scenarios, investments and documents are not implemented by this change; OD-18 remains blocked.
 
 ## Release boundary

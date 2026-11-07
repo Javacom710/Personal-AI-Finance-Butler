@@ -1,5 +1,7 @@
 # Period summaries
 
+> **Status 2026-11-07:** merged into `main` (PRs #39–#48). Live generation stays hard-disabled until the owner accepts a measured Phase 8 lineup ([OD-20](DECISIONS.md#open-decisions-requiring-the-user)). The PR-stacking notes below are the original build record.
+
 Built under the standing Phase 9 approval, stacked on cross-domain PR #46. This slice supports recorded calendar months using existing tools. Quarterly/yearly summaries remain explicitly unavailable pending the owner's answer about a bounded deterministic period-summary tool. Unsupported period inputs are rejected, never silently treated as a month.
 
 The existing Tier 1 `summarizeFinancialData` capability gates a native tool request and final qualitative summary, preserving its production output budget. Four existing owner-bound reads supply monthly cash flow, previous-month comparison and income/expense category totals. Calendar boundaries and every figure come from existing engine/tool behavior. The shared review runner checks the complete read batch before executing application-owned arguments; it cannot add a tool, write records or retry an invalid answer.

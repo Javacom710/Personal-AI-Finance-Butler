@@ -300,7 +300,9 @@ Two notes where the suite differs from the sketch above:
 
 ## 7. AI tests — all offline
 
-**No test in CI calls NVIDIA Build.** The model is not the system under test; our handling of it is. Model quality is measured separately by the evaluation harness (§7a), which is online, manual, and never gates a merge.
+**No test in CI calls the AI provider.** The model is not the system under test; our handling of it is. Model quality is measured separately by the evaluation harness (§7a), which is online, manual, and never gates a merge.
+
+**Provider isolation gap closed (2026-11-07).** The daily-budget fixture clears both generic and legacy provider keys/URLs after integration setup has loaded `.env`, resets the environment/runtime caches, asserts that no provider is configured, and restores every variable to its exact prior state (including absence). Tests run without modifying a developer's `.env` or making a live provider request. See the provider-variable rule below.
 
 - **Schema generation:** every tool's `z.toJSONSchema()` output has `additionalProperties: false` and a complete `required` array.
 - **Tool handlers:** each tested directly, including the row cap, the `truncated` flag, and the projected field set. A test asserts no handler's output contains a field outside its declared contract — the data-minimisation guarantee.
@@ -330,10 +332,11 @@ Two notes where the suite differs from the sketch above:
   - Tier 3 is unreachable without an explicit user action.
 - **Fallback behaviour** against recorded provider responses: each failure class (`unavailable`, `rate_limited`, `timeout`, `invalid_schema`, `tool_call_failed`, `content_filter`, `transport`) routes as specified; `content_filter` is **not** retried on another model; the circuit breaker opens after 3 consecutive failures and half-opens after the cool-down; `ai_model_attempts` records every attempt with its class.
 - **Loop policy:** tool-use iteration, the 8-iteration cap, the 150 KB byte budget, the daily budget check firing **before** the request, every `tool_call_id` being answered, and error results being returned rather than dropped.
+- **Provider variables never leak into a test's expectations.** A test whose outcome depends on whether a provider key is configured removes every provider variable (`AI_API_KEY`, `AI_BASE_URL`, `NVIDIA_API_KEY`, `NVIDIA_BASE_URL`) from `process.env` for its block, calls `resetEnvCache()` and `resetAiRuntime()`, asserts `aiRuntime().isConfigured()` is false, and restores them afterwards. The integration setup loads `.env` into `process.env`, so this covers a key exported by the shell (a cloud session) and one in `.env` alike. `tests/integration/ai-daily-budget.test.ts` is the reference: it passes with or without a key.
 - **Structured-output strategies:** `json_schema`, `json_object`, and prompted-JSON paths each tested; exactly **one** repair attempt is made; a second failure rejects rather than retrying forever.
 - **Proposal validation:** a corpus of ~40 model outputs — good, malformed, ambiguous, adversarial — each with an expected outcome. Includes: amount as a JSON number instead of a string, negative amount for income, category-kind mismatch, non-existent account name, date before the account opened, amount with 6 decimal places.
 - **Injection corpus:** transaction descriptions and notes containing instruction-shaped text. Assertion: no write occurs, no unexpected tool call is made, no tier escalation happens, and the loop completes normally.
-- **Prompt size budget:** the rendered system prompt plus tool schemas is asserted under a token ceiling. Because NVIDIA Build has no prompt caching, prompt size is a linear per-request cost — this test replaces the cache-hit test that a caching provider would have needed, and guards the same property (nobody silently grows the prefix).
+- **Prompt size budget:** the rendered system prompt plus tool schemas is asserted under a token ceiling. Because no provider prompt caching is assumed, prompt size is a linear per-request cost — this test replaces the cache-hit test that a caching provider would have needed, and guards the same property (nobody silently grows the prefix).
 
 ### 7a. Model evaluation harness — online, manual, not CI
 
