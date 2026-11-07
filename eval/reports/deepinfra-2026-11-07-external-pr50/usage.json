@@ -1,0 +1,16 @@
+{
+  "provider": "DeepInfra",
+  "providerIdentity": "https://api.deepinfra.com/v1/openai",
+  "externalReference": "https://github.com/Javacom710/Personal-AI-Finance-Butler/pull/50",
+  "reservationOnly": true,
+  "requestsMadeByThisEntry": 0,
+  "note": "Independent Claude batch reports cost well under $1; reserve $1 until its exact cost is reconciled. No model measurement is imported.",
+  "events": [
+    {
+      "at": "2026-11-07T10:51:19.162Z",
+      "kind": "external_campaign_upper_bound_reservation",
+      "reservedUsd": 1,
+      "accountedUsd": 1
+    }
+  ]
+}

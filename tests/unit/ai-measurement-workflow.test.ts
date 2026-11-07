@@ -18,6 +18,19 @@ function report() {
 const progress = (suite: Entry['suite'], status: Progress['status'], retained = 0): Progress => ({ ...entry, suite, status, total: 10, retained, passed: retained, answered: retained, unanswered: 0, remainingCaseIds: [] });
 
 describe('source-bound measurement evidence', () => {
+  it('validates diagnostic associations without using comparison verdicts as scores', () => {
+    const e: Entry = { tier: 2, model: entry.model, suite: 'analysis' };
+    const cp = { ...checkpoint(1), tier: 2, suite: 'analysis', version: MODEL_SUITES.analysis.version, maxTokens: maxTokensFor(2, 'analysis'),
+      cases: [{ ...checkpoint(1).cases[0]!, caseId: 'analysis-001', suite: 'analysis', passed: false }],
+      diagnostics: { 'analysis-001': { passed: false, reasons: ['missing_mentions'], counts: { missing_mentions: 1 },
+        layoutComparison: { lineBreaks: 1, markdownSpans: 0, whitespace: { passed: true, missingMentions: 0, missingMetricBindings: 0 },
+          inlineMarkdown: { passed: false, missingMentions: 1, missingMetricBindings: 0 }, combined: { passed: true, missingMentions: 0, missingMetricBindings: 0 } } } } };
+    expect(assessEntry(e, context, cp)).toMatchObject({ retained: 1, passed: 0 });
+    expect(() => assessEntry(e, context, { ...cp, diagnostics: { 'analysis-002': cp.diagnostics['analysis-001'] } })).toThrow(/case\/verdict/);
+    expect(() => assessEntry(e, context, { ...cp, diagnostics: { 'analysis-001': { ...cp.diagnostics['analysis-001'], passed: true } } })).toThrow(/case\/verdict/);
+    expect(() => assessEntry(e, context, { ...cp, cases: [{ ...cp.cases[0], errorClass: 'timeout' }] })).toThrow(/case\/verdict/);
+    expect(() => assessEntry(entry, context, { ...checkpoint(1), diagnostics: {} })).toThrow(/Unexpected diagnostics/);
+  });
   it('retains partial cases, requires final report emission, and then marks full coverage', () => {
     expect(assessEntry(entry, context)).toMatchObject({ status: 'pending', retained: 0, total: ids.length });
     expect(assessEntry(entry, context, checkpoint(3))).toMatchObject({ status: 'partial', retained: 3, remainingCaseIds: ids.slice(3) });

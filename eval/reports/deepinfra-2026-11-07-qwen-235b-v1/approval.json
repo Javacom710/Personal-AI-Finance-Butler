@@ -1,0 +1,237 @@
+{
+  "provider": "DeepInfra",
+  "providerIdentity": "https://api.deepinfra.com/v1/openai",
+  "campaign": "qwen-235b-v1",
+  "sourceFingerprint": "8ded21b0a124f5862d3162b3fc9848337063ce961589b30e552d1ec2890155b2",
+  "coverageComplete": true,
+  "attempted": 420,
+  "answered": 419,
+  "timeouts": 1,
+  "ownerApprovalRequired": true,
+  "recorded": false,
+  "productionOrdersChanged": false,
+  "harnessProposedOrders": {
+    "1": [],
+    "2": [],
+    "3": [],
+    "4": []
+  },
+  "recommendedProductionOrders": {
+    "1": [],
+    "2": [],
+    "3": [],
+    "4": [],
+    "5": []
+  },
+  "recommendation": "Hold all promotions. Text-model aggregate tool correctness is 48/57 (84.21%) in every measured tier, below 90%. Vision has one unanswered case and 14/20 exact extraction passes. Layout comparison passes never replace authoritative scores.",
+  "tiers": [
+    {
+      "tier": 1,
+      "model": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "attempted": 190,
+      "answered": 190,
+      "unanswered": 0,
+      "schema": {
+        "valid": 100,
+        "applicable": 100
+      },
+      "tools": {
+        "valid": 48,
+        "applicable": 57
+      },
+      "suitePasses": {
+        "parse": {
+          "passed": 34,
+          "attempted": 40,
+          "answered": 40
+        },
+        "classify": {
+          "passed": 60,
+          "attempted": 60,
+          "answered": 60
+        },
+        "tool-select": {
+          "passed": 28,
+          "attempted": 30,
+          "answered": 30
+        },
+        "grounding": {
+          "passed": 22,
+          "attempted": 25,
+          "answered": 25
+        },
+        "robustness": {
+          "passed": 6,
+          "attempted": 10,
+          "answered": 10
+        },
+        "injection": {
+          "passed": 15,
+          "attempted": 25,
+          "answered": 25
+        }
+      },
+      "harnessProposed": false,
+      "recommendation": "hold"
+    },
+    {
+      "tier": 2,
+      "model": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "attempted": 105,
+      "answered": 105,
+      "unanswered": 0,
+      "schema": {
+        "valid": 0,
+        "applicable": 0
+      },
+      "tools": {
+        "valid": 48,
+        "applicable": 57
+      },
+      "suitePasses": {
+        "tool-select": {
+          "passed": 28,
+          "attempted": 30,
+          "answered": 30
+        },
+        "grounding": {
+          "passed": 23,
+          "attempted": 25,
+          "answered": 25
+        },
+        "robustness": {
+          "passed": 5,
+          "attempted": 10,
+          "answered": 10
+        },
+        "injection": {
+          "passed": 13,
+          "attempted": 25,
+          "answered": 25
+        },
+        "analysis": {
+          "passed": 2,
+          "attempted": 15,
+          "answered": 15,
+          "diagnostics": {
+            "captured": 15,
+            "passed": 2,
+            "failed": 13,
+            "reasons": {
+              "untraceable_figures": 1,
+              "missing_figures": 7,
+              "missing_mentions": 10,
+              "missing_metric_bindings": 9,
+              "contradictions": 1,
+              "empty_output": 4,
+              "unexpected_tool_calls": 4
+            },
+            "failedWithPassingLayoutComparison": 1
+          }
+        }
+      },
+      "harnessProposed": false,
+      "recommendation": "hold"
+    },
+    {
+      "tier": 3,
+      "model": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "attempted": 105,
+      "answered": 105,
+      "unanswered": 0,
+      "schema": {
+        "valid": 0,
+        "applicable": 0
+      },
+      "tools": {
+        "valid": 48,
+        "applicable": 57
+      },
+      "suitePasses": {
+        "tool-select": {
+          "passed": 28,
+          "attempted": 30,
+          "answered": 30
+        },
+        "grounding": {
+          "passed": 21,
+          "attempted": 25,
+          "answered": 25
+        },
+        "robustness": {
+          "passed": 7,
+          "attempted": 10,
+          "answered": 10
+        },
+        "injection": {
+          "passed": 15,
+          "attempted": 25,
+          "answered": 25
+        },
+        "analysis": {
+          "passed": 2,
+          "attempted": 15,
+          "answered": 15,
+          "diagnostics": {
+            "captured": 15,
+            "passed": 2,
+            "failed": 13,
+            "reasons": {
+              "empty_output": 4,
+              "unexpected_tool_calls": 4,
+              "missing_figures": 6,
+              "missing_mentions": 9,
+              "missing_metric_bindings": 8,
+              "untraceable_figures": 2
+            },
+            "failedWithPassingLayoutComparison": 0
+          }
+        }
+      },
+      "harnessProposed": false,
+      "recommendation": "hold"
+    },
+    {
+      "tier": 4,
+      "model": "Qwen/Qwen3-VL-235B-A22B-Instruct",
+      "attempted": 20,
+      "answered": 19,
+      "unanswered": 1,
+      "schema": {
+        "valid": 19,
+        "applicable": 19
+      },
+      "tools": {
+        "valid": 0,
+        "applicable": 0
+      },
+      "suitePasses": {
+        "document": {
+          "passed": 14,
+          "attempted": 20,
+          "answered": 19,
+          "diagnostics": {
+            "captured": 19,
+            "passed": 14,
+            "failed": 5,
+            "reasons": {
+              "transaction_fields": 5
+            },
+            "failedWithPassingLayoutComparison": 0
+          }
+        }
+      },
+      "harnessProposed": false,
+      "recommendation": "hold"
+    }
+  ],
+  "completeQueueAccountedUsd": 0.13540621999999997,
+  "combinedKnownAccountedUsd": 1.32725718,
+  "failedCasesRetried": false,
+  "scenarioDeferred": "OD-18",
+  "tier5Deferred": "ADR-19",
+  "accountingCaveat": "Catalogue-price estimates and unknown-usage reservations, plus a $1 reservation for the independent Claude batch reported in PR #50. Not a billing statement or claimed account balance.",
+  "priorWorkspaceAccountedUsd": 0.19185096,
+  "externalCampaignReservationUsd": 1,
+  "externalReservationEvidence": "https://github.com/Javacom710/Personal-AI-Finance-Butler/pull/50"
+}

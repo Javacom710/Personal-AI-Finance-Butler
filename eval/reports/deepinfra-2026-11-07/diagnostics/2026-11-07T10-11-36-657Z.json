@@ -1,0 +1,205 @@
+{
+  "diagnosticOnly": true,
+  "completeMeasurement": false,
+  "recorded": false,
+  "productionEligible": false,
+  "provider": "DeepInfra",
+  "providerIdentity": "https://api.deepinfra.com/v1/openai",
+  "startedAt": "2026-11-07T10:11:36.657Z",
+  "sourceFingerprint": "3cdd3436c6766aa6ea728cb71dda114033ec1f5ab2b3976365f73a0f1f09d575",
+  "timeoutMs": 60000,
+  "stop": "complete; diagnostics only; no recording or promotion",
+  "rows": [
+    {
+      "tier": 2,
+      "model": "openai/gpt-oss-120b",
+      "suite": "analysis",
+      "suiteVersion": 4,
+      "maxTokens": 4096,
+      "requestProfile": {
+        "id": "default-v1",
+        "fingerprint": "{\"id\":\"default-v1\",\"reasoning\":\"provider_default\"}"
+      },
+      "result": {
+        "caseId": "analysis-001",
+        "suite": "analysis",
+        "modelId": "openai/gpt-oss-120b",
+        "passed": false,
+        "latencyMs": 38397,
+        "schemaValid": null,
+        "toolCallValid": null,
+        "errorClass": null,
+        "finishReason": "stop"
+      },
+      "shape": {
+        "contentCharacters": 3806,
+        "reasoningCharacters": 2096,
+        "toolCalls": 0
+      },
+      "diagnostics": {
+        "passed": false,
+        "counts": {
+          "empty_output": 0,
+          "unexpected_tool_calls": 0,
+          "untraceable_figures": 29,
+          "missing_figures": 3,
+          "forbidden_figures": 0,
+          "missing_mentions": 1,
+          "contradictions": 0,
+          "missing_metric_bindings": 2
+        },
+        "reasons": [
+          "untraceable_figures",
+          "missing_figures",
+          "missing_mentions",
+          "missing_metric_bindings"
+        ],
+        "layoutComparison": {
+          "lineBreaks": 42,
+          "markdownSpans": 14,
+          "whitespace": {
+            "passed": false,
+            "missingMentions": 1,
+            "missingMetricBindings": 2
+          },
+          "inlineMarkdown": {
+            "passed": false,
+            "missingMentions": 1,
+            "missingMetricBindings": 2
+          },
+          "combined": {
+            "passed": false,
+            "missingMentions": 1,
+            "missingMetricBindings": 2
+          }
+        }
+      }
+    },
+    {
+      "tier": 2,
+      "model": "openai/gpt-oss-120b",
+      "suite": "analysis",
+      "suiteVersion": 4,
+      "maxTokens": 4096,
+      "requestProfile": {
+        "id": "default-v1",
+        "fingerprint": "{\"id\":\"default-v1\",\"reasoning\":\"provider_default\"}"
+      },
+      "result": {
+        "caseId": "analysis-006",
+        "suite": "analysis",
+        "modelId": "openai/gpt-oss-120b",
+        "passed": false,
+        "latencyMs": 11083,
+        "schemaValid": null,
+        "toolCallValid": null,
+        "errorClass": null,
+        "finishReason": "stop"
+      },
+      "shape": {
+        "contentCharacters": 458,
+        "reasoningCharacters": 365,
+        "toolCalls": 0
+      },
+      "diagnostics": {
+        "passed": false,
+        "counts": {
+          "empty_output": 0,
+          "unexpected_tool_calls": 0,
+          "untraceable_figures": 8,
+          "missing_figures": 3,
+          "forbidden_figures": 0,
+          "missing_mentions": 0,
+          "contradictions": 0,
+          "missing_metric_bindings": 3
+        },
+        "reasons": [
+          "untraceable_figures",
+          "missing_figures",
+          "missing_metric_bindings"
+        ],
+        "layoutComparison": {
+          "lineBreaks": 9,
+          "markdownSpans": 7,
+          "whitespace": {
+            "passed": false,
+            "missingMentions": 0,
+            "missingMetricBindings": 3
+          },
+          "inlineMarkdown": {
+            "passed": false,
+            "missingMentions": 0,
+            "missingMetricBindings": 3
+          },
+          "combined": {
+            "passed": false,
+            "missingMentions": 0,
+            "missingMetricBindings": 3
+          }
+        }
+      }
+    },
+    {
+      "tier": 2,
+      "model": "openai/gpt-oss-120b",
+      "suite": "analysis",
+      "suiteVersion": 4,
+      "maxTokens": 4096,
+      "requestProfile": {
+        "id": "default-v1",
+        "fingerprint": "{\"id\":\"default-v1\",\"reasoning\":\"provider_default\"}"
+      },
+      "result": {
+        "caseId": "analysis-015",
+        "suite": "analysis",
+        "modelId": "openai/gpt-oss-120b",
+        "passed": false,
+        "latencyMs": 31573,
+        "schemaValid": null,
+        "toolCallValid": null,
+        "errorClass": null,
+        "finishReason": "stop"
+      },
+      "shape": {
+        "contentCharacters": 2084,
+        "reasoningCharacters": 1969,
+        "toolCalls": 0
+      },
+      "diagnostics": {
+        "passed": false,
+        "counts": {
+          "empty_output": 0,
+          "unexpected_tool_calls": 0,
+          "untraceable_figures": 0,
+          "missing_figures": 0,
+          "forbidden_figures": 0,
+          "missing_mentions": 3,
+          "contradictions": 0,
+          "missing_metric_bindings": 0
+        },
+        "reasons": [
+          "missing_mentions"
+        ],
+        "layoutComparison": {
+          "lineBreaks": 37,
+          "markdownSpans": 22,
+          "whitespace": {
+            "passed": false,
+            "missingMentions": 3,
+            "missingMetricBindings": 0
+          },
+          "inlineMarkdown": {
+            "passed": false,
+            "missingMentions": 3,
+            "missingMetricBindings": 0
+          },
+          "combined": {
+            "passed": false,
+            "missingMentions": 3,
+            "missingMetricBindings": 0
+          }
+        }
+      }
+    }
+  ]
+}

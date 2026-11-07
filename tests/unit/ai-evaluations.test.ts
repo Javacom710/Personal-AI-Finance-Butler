@@ -21,6 +21,7 @@ function row(model: string, suite: ModelSuite, over: Partial<StoredEvaluation> &
   const { counts, ...rest } = over;
   return {
     model,
+    tier: DECLARED_CAPABILITIES[model]?.tier ?? 2,
     suite,
     evalVersion: MODEL_SUITES[suite].version,
     casesPassed: 9,
@@ -43,6 +44,27 @@ function row(model: string, suite: ModelSuite, over: Partial<StoredEvaluation> &
 }
 
 const fullTier2 = (over: Partial<StoredEvaluation> = {}) => TIER_SUITES[2].map((s) => row(TIER2, s, over));
+
+describe('stored tier provenance', () => {
+  it.each([1, 3, 4, 0, 99])('cannot use tier %s rows to certify a declared Tier 2 model', tier => {
+    expect(capabilitiesFromEvaluations(fullTier2({ tier }))).toEqual({});
+  });
+
+  it('rejects rows with no tier rather than guessing the declared tier', () => {
+    const missing = fullTier2();
+    missing.forEach(r => Reflect.deleteProperty(r, 'tier'));
+    expect(capabilitiesFromEvaluations(missing)).toEqual({});
+  });
+
+  it('keeps newer other-tier results from shadowing the declared tier or completing its missing suite', () => {
+    const own = fullTier2();
+    const foreign = fullTier2({ tier: 3, runAt: new Date('2026-11-07') }).map(r => ({ ...r, casesPassed: 10, detail: { ...r.detail, toolCallValid: 10 } }));
+    const measured = capabilitiesFromEvaluations([...foreign, ...own])[TIER2]!;
+    expect(measured.verifiedAt).toBe('2026-11-01T10:00:00.000Z');
+    expect(measured.scores?.toolCallCorrectness).toBe(0.9);
+    expect(capabilitiesFromEvaluations([...own.slice(1), foreign[0]!])).toEqual({});
+  });
+});
 
 describe('measured capability entries', () => {
   it('requires analysis for advanced tiers and loads document schema measurements for vision', () => {
@@ -90,6 +112,11 @@ describe('measured capability entries', () => {
     expect(capabilitiesFromEvaluations(partial)).toEqual({});
   });
 
+  it.each(['grounding', 'robustness', 'analysis'] as const)('does not authorize v3 routes using the old %s scorer', suite => {
+    const old = fullTier2().map(r => r.suite === suite ? { ...r, evalVersion: 2 } : r);
+    expect(capabilitiesFromEvaluations(old)).toEqual({});
+  });
+
   it('a model with no declared entry is not routable on a measurement alone', () => {
     const rows = TIER_SUITES[2].map((s) => row('z-ai/glm-5.3-flash', s));
     expect(capabilitiesFromEvaluations(rows)).toEqual({});
@@ -106,6 +133,16 @@ describe('measured capability entries', () => {
 });
 
 describe('provider provenance', () => {
+  it('keeps DeepInfra and Groq evidence separate even for identical model ids', () => {
+    const endpoint = 'https://api.deepinfra.com/v1/openai';
+    const groq = TIER_SUITES[1].map(s => row(TIER1, s));
+    const deepinfra = groq.map(r => ({ ...r, detail: { ...r.detail, providerIdentity: endpoint } }));
+    expect(convertEvaluations(groq, undefined, undefined, endpoint)).toEqual({});
+    expect(convertEvaluations([...deepinfra.slice(1), groq[0]!], undefined, undefined, endpoint)).toEqual({});
+    expect(convertEvaluations([...groq, ...deepinfra], undefined, undefined, endpoint)[TIER1]?.source).toBe('measured');
+    expect(convertEvaluations(deepinfra, undefined, undefined, PROVIDER)).toEqual({});
+    expect(evaluationProviderIdentity(endpoint + '/')).toBe(endpoint);
+  });
   it('never authorizes missing, foreign or mixed-provider results', () => {
     const current = fullTier2();
     const foreign = current.map(r => ({ ...r, runAt: new Date('2026-11-02'), detail: { ...r.detail, providerIdentity: 'https://integrate.api.nvidia.com/v1' } }));

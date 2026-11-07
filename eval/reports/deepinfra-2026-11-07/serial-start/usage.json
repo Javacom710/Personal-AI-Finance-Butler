@@ -1,0 +1,75 @@
+{
+  "providerIdentity": "https://api.deepinfra.com/v1/openai",
+  "budgetUsd": 4.75,
+  "events": [
+    {
+      "at": "2026-11-07T05:43:09.526Z",
+      "model": "openai/gpt-oss-120b",
+      "tier": 1,
+      "suite": "parse",
+      "caseId": "parse-001",
+      "reservedUsd": 0.0010871499999999998,
+      "accountedUsd": 0.000134601,
+      "status": 200,
+      "promptTokens": 463,
+      "completionTokens": 691
+    },
+    {
+      "at": "2026-11-07T05:43:25.595Z",
+      "model": "openai/gpt-oss-120b",
+      "tier": 1,
+      "suite": "parse",
+      "caseId": "parse-002",
+      "reservedUsd": 0.00108732,
+      "accountedUsd": 0.00012219099999999998,
+      "status": 200,
+      "promptTokens": 463,
+      "completionTokens": 618
+    },
+    {
+      "at": "2026-11-07T05:43:37.973Z",
+      "model": "openai/gpt-oss-120b",
+      "tier": 1,
+      "suite": "parse",
+      "caseId": "parse-003",
+      "reservedUsd": 0.0010871499999999998,
+      "accountedUsd": 0.000100616,
+      "status": 200,
+      "promptTokens": 468,
+      "completionTokens": 490
+    },
+    {
+      "at": "2026-11-07T05:43:54.531Z",
+      "model": "openai/gpt-oss-120b",
+      "tier": 1,
+      "suite": "parse",
+      "caseId": "parse-004",
+      "reservedUsd": 0.0010856199999999998,
+      "accountedUsd": 0.00013054299999999997,
+      "status": 200,
+      "promptTokens": 459,
+      "completionTokens": 668
+    },
+    {
+      "at": "2026-11-07T05:44:18.733Z",
+      "model": "openai/gpt-oss-120b",
+      "tier": 1,
+      "suite": "parse",
+      "caseId": "parse-005",
+      "reservedUsd": 0.00108324,
+      "accountedUsd": 0.00011639599999999999,
+      "status": 200,
+      "promptTokens": 458,
+      "completionTokens": 585
+    },
+    {
+      "at": "2026-11-07T05:44:36.040Z",
+      "model": "openai/gpt-oss-120b",
+      "tier": 1,
+      "suite": "parse",
+      "caseId": "parse-006",
+      "reservedUsd": 0.00108749,
+      "accountedUsd": 0.00108749
+    }
+  ]
+}

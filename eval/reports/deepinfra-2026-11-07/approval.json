@@ -1,0 +1,29 @@
+{
+  "provider": "DeepInfra",
+  "providerIdentity": "https://api.deepinfra.com/v1/openai",
+  "coverageComplete": true,
+  "attempted": 610,
+  "answered": 607,
+  "timeouts": 3,
+  "ownerApprovalRequired": true,
+  "recorded": false,
+  "harnessProposedOrders": {
+    "1": [],
+    "2": [
+      "openai/gpt-oss-120b"
+    ],
+    "3": [],
+    "4": []
+  },
+  "recommendedProductionOrders": {
+    "1": [],
+    "2": [],
+    "3": [],
+    "4": [],
+    "5": []
+  },
+  "recommendation": "Hold all promotions. Tier 2 clears the numeric tool gate but has 0/15 strict analysis passes and unresolved tier-specific measured eligibility. Other tiers have numeric-gate failures or unanswered cases.",
+  "completeQueueAccountedUsd": 0.06847072999999997,
+  "archivedSerialStartAccountedUsd": 0.0016918369999999999,
+  "probeUsage": "Not included in token ledger; covered by the $0.25 margin below the $5 credit allocation."
+}

@@ -23,7 +23,7 @@ import { toJsonSchema, validateAgainst } from '../../structured/validate';
 import type { EvalCase } from '../harness';
 import { sameDecimal } from '../score';
 
-export const DOCUMENT_SUITE_VERSION = 1;
+export const DOCUMENT_SUITE_VERSION = 2;
 export const DOCUMENT_TODAY = isoDate('2026-10-15');
 export const DOCUMENT_BASE_CURRENCY = 'INR';
 

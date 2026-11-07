@@ -39,7 +39,7 @@ const byId = (id: string) => DOCUMENT_CASES.find((c) => c.id === id)!;
 
 describe('document corpus — shape and coverage', () => {
   it('contains 20 versioned cases with unique sequential ids', () => {
-    expect(DOCUMENT_SUITE_VERSION).toBe(1);
+    expect(DOCUMENT_SUITE_VERSION).toBe(2);
     expect(DOCUMENT_CASES).toHaveLength(20);
     expect(DOCUMENT_CASES.map((c) => c.id)).toEqual(DOCUMENT_CASES.map((_, n) => `doc-${String(n + 1).padStart(3, '0')}`));
   });

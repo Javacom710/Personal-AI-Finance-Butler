@@ -31,7 +31,7 @@ const ANSWERS: Readonly<Record<string, string>> = {
 
 describe('analysis corpus — coverage and replay shape', () => {
   it('contains 15 versioned cases across portfolio, health, period and cross-domain analysis', () => {
-    expect(ANALYSIS_SUITE_VERSION).toBe(2);
+    expect(ANALYSIS_SUITE_VERSION).toBe(4);
     expect(ANALYSIS_CASES).toHaveLength(15);
     expect(new Set(ANALYSIS_CASES.map((c) => c.id)).size).toBe(15);
     expect(new Set(ANALYSIS_CASES.map((c) => c.domain))).toEqual(new Set(['portfolio', 'health', 'period', 'cross-domain']));

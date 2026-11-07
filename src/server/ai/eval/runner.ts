@@ -313,15 +313,30 @@ export function disqualification(result: ModelResult, tier: Tier): string | null
 const declaredEntry = (modelId: string): ModelCapabilities | undefined =>
   Object.hasOwn(DECLARED_CAPABILITIES, modelId) ? DECLARED_CAPABILITIES[modelId] : undefined;
 
-/** The capabilities of the tier this declared entry can never serve in production, and why. */
+/** Physical support for prospective tier measurements; not a routing authorization. */
 export function unservedCapabilities(entry: ModelCapabilities, tier: Tier): Caveat['unserved'] {
   return allCapabilities()
     .map(requirementFor)
     .filter((r) => r.tier === tier)
     .flatMap((r) => {
-      const reason = unsupportedBy(entry, r);
+      const reason = unsupportedBy({ ...entry, tier }, r);
       return reason ? [{ capability: r.capability, reason }] : [];
     });
+}
+
+/** A cross-tier proposal requires its own full current corpus and request budget. */
+function completeTierMeasurement(model: ModelResult, tier: Tier): boolean {
+  return TIER_SUITES[tier].length > 0 && TIER_SUITES[tier].every(suite => {
+    const matches = model.suites.filter(s => s.suite === suite);
+    if (matches.length !== 1) return false;
+    const result = matches[0]!;
+    const expected = new Set(MODEL_SUITES[suite].build().map(c => c.id));
+    const cases = result.report.cases;
+    return result.version === MODEL_SUITES[suite].version && result.maxTokens === maxTokensFor(tier, suite) &&
+      result.total === expected.size && result.counts.answered === expected.size && result.counts.unanswered === 0 &&
+      cases.length === expected.size && new Set(cases.map(c => c.caseId)).size === expected.size &&
+      cases.every(c => expected.has(c.caseId) && c.modelId === model.modelId && c.suite === suite && c.errorClass === null);
+  });
 }
 
 /**
@@ -359,6 +374,8 @@ export function proposeOrder(
       disqualification(r, tier) ??
       (!entry
         ? 'no declared capability entry (config/capabilities.ts): add one before routing it, or startup rejects it'
+        : entry.tier !== tier && !completeTierMeasurement(r, tier)
+          ? `Tier ${tier} needs its own complete current measurement at production budgets; another tier's scores cannot authorize it`
         : unserved.length === tierCapabilities
           ? `its declared capabilities serve no Tier ${tier} capability (${unserved
               .map((u) => `${u.capability}: ${u.reason}`)

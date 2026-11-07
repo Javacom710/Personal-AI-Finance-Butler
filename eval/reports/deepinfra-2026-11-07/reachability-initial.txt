@@ -1,0 +1,28 @@
+
+> finance-os@0.1.0 ai:reachability
+> node --conditions=react-server --import tsx scripts/ai-smoke.ts --reachability
+
+
+Configuration
+-------------
+AI_API_KEY : configured (65 chars)
+AI_BASE_URL: https://api.deepinfra.com/v1/openai
+
+Reachability (one tiny request per model)
+-----------------------------------------
+  ok   1185 ms             openai/gpt-oss-120b  (routed: Tier 1)
+  ok    635 ms             openai/gpt-oss-20b  (routed: Tier 1)
+  FAIL transport           nvidia/nemotron-nano-3-30b-a3b  (candidate: Tier 1)
+  FAIL transport           nvidia/nemotron-3.5-lightning-30b-a3b  (candidate: Tier 1)
+  ok   1481 ms             deepseek-ai/deepseek-v4.1-flash  (candidate: Tier 2)
+  FAIL transport           z-ai/glm-5.3-flash  (candidate: Tier 2)
+  FAIL transport           nvidia/nemotron-3.5-super-vl-120b-a12b  (candidate: Tier 4)
+
+Result
+------
+Every routed model answered. No financial data was sent.
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.2
+npm notice To update run: npm install -g npm@12.2.2
+npm notice

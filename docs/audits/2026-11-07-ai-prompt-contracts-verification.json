@@ -1,0 +1,111 @@
+{
+  "checkedAt": "2026-11-07T09:58:20.466Z",
+  "change": "shared finance/document prompt clarification",
+  "provider": "DeepInfra",
+  "providerIdentity": "https://api.deepinfra.com/v1/openai",
+  "sourceFingerprint": "06f5647b72b27aa150a7a5d139621455f76611f806b7f83c80dec0ab46c5e4b5",
+  "unitTestsPassed": 2110,
+  "typecheckPassed": true,
+  "lintPassed": true,
+  "buildPassed": true,
+  "clientSecretScanPassed": true,
+  "whitespaceCheckPassed": true,
+  "diagnosticReport": "eval/reports/deepinfra-2026-11-07/diagnostics/2026-11-07T09-54-35-719Z.json",
+  "diagnosticRequests": 6,
+  "diagnosticAnswered": 4,
+  "diagnosticPassed": 1,
+  "diagnosticTimeouts": 2,
+  "diagnosticAccountedUsd": 0.013182536999999998,
+  "combinedKnownAccountedUsd": 0.191050683,
+  "historicalOriginalArtifactsUnchanged": 34,
+  "historicalV3ArtifactsUnchanged": 35,
+  "oldCheckpointResumeRejected": true,
+  "productionEvaluationsRecorded": false,
+  "productionOrdersChanged": false,
+  "fullCampaignRerun": false,
+  "accountLockReleased": true,
+  "results": [
+    {
+      "caseId": "analysis-001",
+      "passed": false,
+      "errorClass": null,
+      "reasons": [
+        "untraceable_figures",
+        "missing_figures",
+        "missing_mentions",
+        "missing_metric_bindings"
+      ],
+      "counts": {
+        "empty_output": 0,
+        "unexpected_tool_calls": 0,
+        "untraceable_figures": 23,
+        "missing_figures": 3,
+        "forbidden_figures": 0,
+        "missing_mentions": 1,
+        "contradictions": 0,
+        "missing_metric_bindings": 2
+      }
+    },
+    {
+      "caseId": "analysis-006",
+      "passed": false,
+      "errorClass": null,
+      "reasons": [
+        "missing_figures",
+        "missing_metric_bindings"
+      ],
+      "counts": {
+        "empty_output": 0,
+        "unexpected_tool_calls": 0,
+        "untraceable_figures": 0,
+        "missing_figures": 1,
+        "forbidden_figures": 0,
+        "missing_mentions": 0,
+        "contradictions": 0,
+        "missing_metric_bindings": 1
+      }
+    },
+    {
+      "caseId": "analysis-015",
+      "passed": false,
+      "errorClass": null,
+      "reasons": [
+        "missing_mentions"
+      ],
+      "counts": {
+        "empty_output": 0,
+        "unexpected_tool_calls": 0,
+        "untraceable_figures": 0,
+        "missing_figures": 0,
+        "forbidden_figures": 0,
+        "missing_mentions": 2,
+        "contradictions": 0,
+        "missing_metric_bindings": 0
+      }
+    },
+    {
+      "caseId": "doc-001",
+      "passed": false,
+      "errorClass": "timeout",
+      "reasons": [],
+      "counts": null
+    },
+    {
+      "caseId": "doc-002",
+      "passed": true,
+      "errorClass": null,
+      "reasons": [],
+      "counts": {
+        "expected_transactions": 2,
+        "actual_transactions": 2
+      }
+    },
+    {
+      "caseId": "doc-018",
+      "passed": false,
+      "errorClass": "timeout",
+      "reasons": [],
+      "counts": null
+    }
+  ]
+}

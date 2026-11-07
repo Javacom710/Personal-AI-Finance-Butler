@@ -34,6 +34,7 @@ import type { HealthRegistry } from './breaker';
 
 /** Why a model was excluded. Diagnostics — never shown to a model. */
 export type ExclusionReason =
+  | 'tier_mismatch'
   | 'request_profile_mismatch'
   | 'no_capability_entry'
   | 'tool_calling_unsupported'
@@ -71,6 +72,7 @@ function excludeReason(
   capabilities: ModelCapabilities,
   requirement: CapabilityRequirement,
 ): ExclusionReason | null {
+  if (capabilities.tier !== requirement.tier) return 'tier_mismatch';
   if (requirement.needsTools && capabilities.toolCalling !== 'native') {
     return 'tool_calling_unsupported';
   }
@@ -107,7 +109,7 @@ function excludeReason(
  * measures: tool calling, structured-output mode and vision. Scores are left
  * out — a measurement supplies those. `null` when only scores could stand in
  * the way. The evaluator uses it so it never proposes a model that selection
- * would refuse.
+ * would refuse. Tier eligibility is retained even when score gates are ignored.
  */
 export function unsupportedBy(
   capabilities: ModelCapabilities,
@@ -129,7 +131,7 @@ export function selectCandidates(
   // Only this tier. Cross-tier downgrade is forbidden, so a lower tier's models
   // are not even considered — the list they would join is never built.
   for (const modelId of config.candidates(requirement.tier)) {
-    const capabilities = matrix.get(modelId);
+    const capabilities = matrix.get(modelId, requirement.tier);
     if (!capabilities) {
       excluded.push({ modelId, reason: 'no_capability_entry' });
       continue;

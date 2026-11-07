@@ -1,0 +1,24 @@
+
+> finance-os@0.1.0 ai:reachability
+> node --conditions=react-server --import tsx scripts/ai-smoke.ts --reachability
+
+
+Configuration
+-------------
+AI_API_KEY : configured (65 chars)
+AI_BASE_URL: https://api.deepinfra.com/v1/openai
+
+Reachability (one tiny request per model)
+-----------------------------------------
+  ok    749 ms             openai/gpt-oss-120b  (routed: Tier 1)
+  ok    330 ms             openai/gpt-oss-20b  (routed: Tier 1)
+  ok    144 ms             Qwen/Qwen3-VL-30B-A3B-Instruct  (routed: Tier 4)
+  FAIL transport           nvidia/nemotron-nano-3-30b-a3b  (candidate: Tier 1)
+  FAIL transport           nvidia/nemotron-3.5-lightning-30b-a3b  (candidate: Tier 1)
+  ok    310 ms             deepseek-ai/deepseek-v4.1-flash  (candidate: Tier 2)
+  FAIL transport           z-ai/glm-5.3-flash  (candidate: Tier 2)
+  FAIL transport           nvidia/nemotron-3.5-super-vl-120b-a12b  (candidate: Tier 4)
+
+Result
+------
+Every routed model answered. No financial data was sent.

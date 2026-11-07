@@ -1,0 +1,122 @@
+{
+  "identity": "00942c2e232ff69df61b1ac21d01807ffe5d58f6e5890c3fa239dd78db6d9f76",
+  "providerIdentity": "https://api.deepinfra.com/v1/openai",
+  "model": "openai/gpt-oss-120b",
+  "tier": 1,
+  "suite": "robustness",
+  "version": 2,
+  "maxTokens": 2048,
+  "startedAt": "2026-11-07T05:44:43.543Z",
+  "cases": [
+    {
+      "caseId": "robustness-001",
+      "suite": "robustness",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 2563,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "robustness-002",
+      "suite": "robustness",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": false,
+      "latencyMs": 2551,
+      "schemaValid": null,
+      "toolCallValid": false,
+      "errorClass": null,
+      "finishReason": "tool_calls"
+    },
+    {
+      "caseId": "robustness-003",
+      "suite": "robustness",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": false,
+      "latencyMs": 2757,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "robustness-004",
+      "suite": "robustness",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 7485,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "robustness-005",
+      "suite": "robustness",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 4775,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "robustness-006",
+      "suite": "robustness",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": false,
+      "latencyMs": 2001,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "robustness-007",
+      "suite": "robustness",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": false,
+      "latencyMs": 3126,
+      "schemaValid": null,
+      "toolCallValid": false,
+      "errorClass": null,
+      "finishReason": "tool_calls"
+    },
+    {
+      "caseId": "robustness-008",
+      "suite": "robustness",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 3837,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "robustness-009",
+      "suite": "robustness",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 6095,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "robustness-010",
+      "suite": "robustness",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": false,
+      "latencyMs": 4995,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    }
+  ]
+}

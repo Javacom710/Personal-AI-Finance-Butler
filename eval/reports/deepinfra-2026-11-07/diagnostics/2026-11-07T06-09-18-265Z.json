@@ -1,0 +1,238 @@
+{
+  "diagnosticOnly": true,
+  "completeMeasurement": false,
+  "recorded": false,
+  "productionEligible": false,
+  "provider": "DeepInfra",
+  "providerIdentity": "https://api.deepinfra.com/v1/openai",
+  "startedAt": "2026-11-07T06:09:18.265Z",
+  "sourceFingerprint": "92aaedc89a42245b62b15401c7ea6c0ccddae4bdd0102d4790afa564bb0efbe4",
+  "timeoutMs": 60000,
+  "stop": "complete; diagnostics only; no recording or promotion",
+  "rows": [
+    {
+      "tier": 2,
+      "model": "openai/gpt-oss-120b",
+      "suite": "analysis",
+      "suiteVersion": 2,
+      "maxTokens": 4096,
+      "requestProfile": {
+        "id": "default-v1",
+        "fingerprint": "{\"id\":\"default-v1\",\"reasoning\":\"provider_default\"}"
+      },
+      "result": {
+        "caseId": "analysis-001",
+        "suite": "analysis",
+        "modelId": "openai/gpt-oss-120b",
+        "passed": false,
+        "latencyMs": 33254,
+        "schemaValid": null,
+        "toolCallValid": null,
+        "errorClass": null,
+        "finishReason": "stop"
+      },
+      "shape": {
+        "contentCharacters": 3844,
+        "reasoningCharacters": 1091,
+        "toolCalls": 0
+      },
+      "diagnostics": {
+        "passed": false,
+        "counts": {
+          "empty_output": 0,
+          "unexpected_tool_calls": 0,
+          "untraceable_figures": 24,
+          "missing_figures": 3,
+          "forbidden_figures": 0,
+          "missing_mentions": 1,
+          "contradictions": 0,
+          "missing_metric_bindings": 2
+        },
+        "reasons": [
+          "untraceable_figures",
+          "missing_figures",
+          "missing_mentions",
+          "missing_metric_bindings"
+        ]
+      }
+    },
+    {
+      "tier": 2,
+      "model": "openai/gpt-oss-120b",
+      "suite": "analysis",
+      "suiteVersion": 2,
+      "maxTokens": 4096,
+      "requestProfile": {
+        "id": "default-v1",
+        "fingerprint": "{\"id\":\"default-v1\",\"reasoning\":\"provider_default\"}"
+      },
+      "result": {
+        "caseId": "analysis-006",
+        "suite": "analysis",
+        "modelId": "openai/gpt-oss-120b",
+        "passed": false,
+        "latencyMs": 6452,
+        "schemaValid": null,
+        "toolCallValid": null,
+        "errorClass": null,
+        "finishReason": "stop"
+      },
+      "shape": {
+        "contentCharacters": 410,
+        "reasoningCharacters": 370,
+        "toolCalls": 0
+      },
+      "diagnostics": {
+        "passed": false,
+        "counts": {
+          "empty_output": 0,
+          "unexpected_tool_calls": 0,
+          "untraceable_figures": 8,
+          "missing_figures": 3,
+          "forbidden_figures": 0,
+          "missing_mentions": 0,
+          "contradictions": 0,
+          "missing_metric_bindings": 3
+        },
+        "reasons": [
+          "untraceable_figures",
+          "missing_figures",
+          "missing_metric_bindings"
+        ]
+      }
+    },
+    {
+      "tier": 2,
+      "model": "openai/gpt-oss-120b",
+      "suite": "analysis",
+      "suiteVersion": 2,
+      "maxTokens": 4096,
+      "requestProfile": {
+        "id": "default-v1",
+        "fingerprint": "{\"id\":\"default-v1\",\"reasoning\":\"provider_default\"}"
+      },
+      "result": {
+        "caseId": "analysis-015",
+        "suite": "analysis",
+        "modelId": "openai/gpt-oss-120b",
+        "passed": false,
+        "latencyMs": 39439,
+        "schemaValid": null,
+        "toolCallValid": null,
+        "errorClass": null,
+        "finishReason": "stop"
+      },
+      "shape": {
+        "contentCharacters": 3484,
+        "reasoningCharacters": 2274,
+        "toolCalls": 0
+      },
+      "diagnostics": {
+        "passed": false,
+        "counts": {
+          "empty_output": 0,
+          "unexpected_tool_calls": 0,
+          "untraceable_figures": 53,
+          "missing_figures": 4,
+          "forbidden_figures": 0,
+          "missing_mentions": 3,
+          "contradictions": 0,
+          "missing_metric_bindings": 4
+        },
+        "reasons": [
+          "untraceable_figures",
+          "missing_figures",
+          "missing_mentions",
+          "missing_metric_bindings"
+        ]
+      }
+    },
+    {
+      "tier": 4,
+      "model": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "suite": "document",
+      "suiteVersion": 1,
+      "maxTokens": 2048,
+      "requestProfile": {
+        "id": "default-v1",
+        "fingerprint": "{\"id\":\"default-v1\",\"reasoning\":\"provider_default\"}"
+      },
+      "result": {
+        "caseId": "doc-001",
+        "suite": "document",
+        "modelId": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+        "passed": false,
+        "latencyMs": 60003,
+        "schemaValid": false,
+        "toolCallValid": null,
+        "errorClass": "timeout",
+        "finishReason": null
+      },
+      "shape": null,
+      "diagnostics": null
+    },
+    {
+      "tier": 4,
+      "model": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "suite": "document",
+      "suiteVersion": 1,
+      "maxTokens": 2048,
+      "requestProfile": {
+        "id": "default-v1",
+        "fingerprint": "{\"id\":\"default-v1\",\"reasoning\":\"provider_default\"}"
+      },
+      "result": {
+        "caseId": "doc-002",
+        "suite": "document",
+        "modelId": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+        "passed": false,
+        "latencyMs": 12816,
+        "schemaValid": true,
+        "toolCallValid": null,
+        "errorClass": null,
+        "finishReason": "stop"
+      },
+      "shape": {
+        "contentCharacters": 709,
+        "reasoningCharacters": 0,
+        "toolCalls": 0
+      },
+      "diagnostics": {
+        "passed": false,
+        "counts": {
+          "expected_transactions": 2,
+          "actual_transactions": 2,
+          "accountHint": 2,
+          "notes": 2
+        },
+        "reasons": [
+          "transaction_fields"
+        ]
+      }
+    },
+    {
+      "tier": 4,
+      "model": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "suite": "document",
+      "suiteVersion": 1,
+      "maxTokens": 2048,
+      "requestProfile": {
+        "id": "default-v1",
+        "fingerprint": "{\"id\":\"default-v1\",\"reasoning\":\"provider_default\"}"
+      },
+      "result": {
+        "caseId": "doc-018",
+        "suite": "document",
+        "modelId": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+        "passed": false,
+        "latencyMs": 60002,
+        "schemaValid": false,
+        "toolCallValid": null,
+        "errorClass": "timeout",
+        "finishReason": null
+      },
+      "shape": null,
+      "diagnostics": null
+    }
+  ]
+}

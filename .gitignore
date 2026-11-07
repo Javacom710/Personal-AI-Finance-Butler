@@ -56,3 +56,7 @@ Thumbs.db
 eval/reports/.groq-measurement.lock
 eval/reports/*.tmp
 eval/reports/.groq-workflow.lock
+eval/reports/deepinfra-*/.measurement.lock
+eval/reports/deepinfra-*/*.tmp
+eval/reports/deepinfra-*/diagnostics/*.tmp
+eval/reports/.deepinfra-account.lock

@@ -1,0 +1,67 @@
+{
+  "identity": "4421223d8fc619fda931bdb5b0992b7fd7ceee530593f38a569d6892dcb7784c",
+  "providerIdentity": "https://api.deepinfra.com/v1/openai",
+  "model": "openai/gpt-oss-120b",
+  "tier": 1,
+  "suite": "parse",
+  "version": 2,
+  "maxTokens": 1024,
+  "startedAt": "2026-11-07T05:43:09.525Z",
+  "cases": [
+    {
+      "caseId": "parse-001",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 16063,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-002",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 12374,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-003",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 16553,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-004",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": false,
+      "latencyMs": 24200,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-005",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 17306,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    }
+  ]
+}

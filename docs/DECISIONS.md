@@ -1091,6 +1091,20 @@ Fresh evaluations use the represented profile and explicit client pacing, with p
 
 ---
 
+## ADR-53 — Eligibility is measured independently for each model and tier
+
+**Decision.** 2026-11-07, Phase 8 continuation. Keep shared declared model capabilities and a default tier, and represent measured eligibility separately by model and requested tier. This extends ADR-18/ADR-44 and the tier-provenance correction without a database migration or changing production orders.
+
+**Why.** Phase 8 measures the same GPT-OSS model in several tiers with different output budgets. One shared measured score cannot certify those different request contracts. An exclusive default-tier representation also cannot express independently qualified additional tiers.
+
+**Contract.** Storage histories retain provider, model, tier, suite and profile isolation. Runtime snapshots require each tier's complete current golden corpus, zero unanswered cases, exact production budgets and valid full applicability counts. Missing or invalid latest evidence blocks that tier; another tier's scores cannot complete it. Routing asks `matrix.get(model, tier)` and retains the physical capability, profile, threshold, health, usage-budget and explicit Tier 3 request guards. Default lookup remains the model's default tier.
+
+**Approval boundary.** Measuring or loading an independently qualified tier does not choose its routing order. The model must be explicitly configured for that tier after the owner accepts the production lineup; the current empty advanced/vision defaults stay unchanged. Cross-tier harness proposals require the full independent current suite results and exact case coverage. No experimental or historical case is rescored to obtain eligibility.
+
+**Verification and tradeoffs.** [Design and verification](audits/2026-11-07-ai-tiered-eligibility.md). One database read supplies both default and tier-specific views. Startup aggregation does a small amount of per-tier validation; it adds no provider request, service, dependency or financial-engine behavior.
+
+---
+
 ## Open decisions requiring the user
 
 | # | Decision | Why it cannot be defaulted | Blocks |

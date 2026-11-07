@@ -1,0 +1,151 @@
+{
+  "diagnosticOnly": true,
+  "completeMeasurement": false,
+  "recorded": false,
+  "productionEligible": false,
+  "provider": "DeepInfra",
+  "providerIdentity": "https://api.deepinfra.com/v1/openai",
+  "startedAt": "2026-11-07T06:18:35.469Z",
+  "sourceFingerprint": "a3d12ac4377be86929e0512332ce2fe1c1a67aea15c0e30212988f7608707d88",
+  "timeoutMs": 60000,
+  "stop": "complete; diagnostics only; no recording or promotion",
+  "rows": [
+    {
+      "tier": 2,
+      "model": "openai/gpt-oss-120b",
+      "suite": "analysis",
+      "suiteVersion": 2,
+      "maxTokens": 4096,
+      "requestProfile": {
+        "id": "default-v1",
+        "fingerprint": "{\"id\":\"default-v1\",\"reasoning\":\"provider_default\"}"
+      },
+      "result": {
+        "caseId": "analysis-001",
+        "suite": "analysis",
+        "modelId": "openai/gpt-oss-120b",
+        "passed": false,
+        "latencyMs": 42660,
+        "schemaValid": null,
+        "toolCallValid": null,
+        "errorClass": null,
+        "finishReason": "stop"
+      },
+      "shape": {
+        "contentCharacters": 3844,
+        "reasoningCharacters": 1091,
+        "toolCalls": 0
+      },
+      "diagnostics": {
+        "passed": false,
+        "counts": {
+          "empty_output": 0,
+          "unexpected_tool_calls": 0,
+          "untraceable_figures": 24,
+          "missing_figures": 3,
+          "forbidden_figures": 0,
+          "missing_mentions": 1,
+          "contradictions": 0,
+          "missing_metric_bindings": 2
+        },
+        "reasons": [
+          "untraceable_figures",
+          "missing_figures",
+          "missing_mentions",
+          "missing_metric_bindings"
+        ]
+      }
+    },
+    {
+      "tier": 2,
+      "model": "openai/gpt-oss-120b",
+      "suite": "analysis",
+      "suiteVersion": 2,
+      "maxTokens": 4096,
+      "requestProfile": {
+        "id": "default-v1",
+        "fingerprint": "{\"id\":\"default-v1\",\"reasoning\":\"provider_default\"}"
+      },
+      "result": {
+        "caseId": "analysis-006",
+        "suite": "analysis",
+        "modelId": "openai/gpt-oss-120b",
+        "passed": false,
+        "latencyMs": 7708,
+        "schemaValid": null,
+        "toolCallValid": null,
+        "errorClass": null,
+        "finishReason": "stop"
+      },
+      "shape": {
+        "contentCharacters": 410,
+        "reasoningCharacters": 370,
+        "toolCalls": 0
+      },
+      "diagnostics": {
+        "passed": false,
+        "counts": {
+          "empty_output": 0,
+          "unexpected_tool_calls": 0,
+          "untraceable_figures": 8,
+          "missing_figures": 3,
+          "forbidden_figures": 0,
+          "missing_mentions": 0,
+          "contradictions": 0,
+          "missing_metric_bindings": 3
+        },
+        "reasons": [
+          "untraceable_figures",
+          "missing_figures",
+          "missing_metric_bindings"
+        ]
+      }
+    },
+    {
+      "tier": 2,
+      "model": "openai/gpt-oss-120b",
+      "suite": "analysis",
+      "suiteVersion": 2,
+      "maxTokens": 4096,
+      "requestProfile": {
+        "id": "default-v1",
+        "fingerprint": "{\"id\":\"default-v1\",\"reasoning\":\"provider_default\"}"
+      },
+      "result": {
+        "caseId": "analysis-015",
+        "suite": "analysis",
+        "modelId": "openai/gpt-oss-120b",
+        "passed": false,
+        "latencyMs": 31170,
+        "schemaValid": null,
+        "toolCallValid": null,
+        "errorClass": null,
+        "finishReason": "stop"
+      },
+      "shape": {
+        "contentCharacters": 2642,
+        "reasoningCharacters": 2292,
+        "toolCalls": 0
+      },
+      "diagnostics": {
+        "passed": false,
+        "counts": {
+          "empty_output": 0,
+          "unexpected_tool_calls": 0,
+          "untraceable_figures": 1,
+          "missing_figures": 1,
+          "forbidden_figures": 0,
+          "missing_mentions": 3,
+          "contradictions": 0,
+          "missing_metric_bindings": 1
+        },
+        "reasons": [
+          "untraceable_figures",
+          "missing_figures",
+          "missing_mentions",
+          "missing_metric_bindings"
+        ]
+      }
+    }
+  ]
+}

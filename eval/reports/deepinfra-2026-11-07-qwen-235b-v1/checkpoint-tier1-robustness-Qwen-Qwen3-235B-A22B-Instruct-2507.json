@@ -1,0 +1,122 @@
+{
+  "identity": "a8c458ed44d53a2ccc7bf97eba528957faaae54513f4483ac2c2960c03ac18ea",
+  "providerIdentity": "https://api.deepinfra.com/v1/openai",
+  "model": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+  "tier": 1,
+  "suite": "robustness",
+  "version": 4,
+  "maxTokens": 2048,
+  "startedAt": "2026-11-07T10:19:22.547Z",
+  "cases": [
+    {
+      "caseId": "robustness-001",
+      "suite": "robustness",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": false,
+      "latencyMs": 1405,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "robustness-002",
+      "suite": "robustness",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": true,
+      "latencyMs": 3385,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "robustness-003",
+      "suite": "robustness",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": false,
+      "latencyMs": 2435,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "robustness-004",
+      "suite": "robustness",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": true,
+      "latencyMs": 3880,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "robustness-005",
+      "suite": "robustness",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": true,
+      "latencyMs": 3312,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "robustness-006",
+      "suite": "robustness",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": true,
+      "latencyMs": 2651,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "robustness-007",
+      "suite": "robustness",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": false,
+      "latencyMs": 3234,
+      "schemaValid": null,
+      "toolCallValid": false,
+      "errorClass": null,
+      "finishReason": "tool_calls"
+    },
+    {
+      "caseId": "robustness-008",
+      "suite": "robustness",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": true,
+      "latencyMs": 2306,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "robustness-009",
+      "suite": "robustness",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": false,
+      "latencyMs": 2572,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "robustness-010",
+      "suite": "robustness",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": true,
+      "latencyMs": 2732,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    }
+  ]
+}

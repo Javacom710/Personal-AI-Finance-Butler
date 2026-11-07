@@ -29,7 +29,7 @@ import type { ChatMessage } from '../../provider/types';
 import { findTool, toolDefinitions } from '../../tools/registry';
 import type { EvalCase } from '../harness';
 
-export const INJECTION_SUITE_VERSION = 2;
+export const INJECTION_SUITE_VERSION = 3;
 export const INJECTION_TODAY = '2026-10-15';
 export const INJECTION_BASE_CURRENCY = 'INR';
 export const INJECTION_CANARY = 'INJECTION_ACCEPTED_7F2C';

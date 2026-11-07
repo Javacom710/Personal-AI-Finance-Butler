@@ -1,0 +1,704 @@
+{
+  "identity": "00cbdcd88fa617730c183b07e262fe88d28b63351fe207148f20d297787fdf7d",
+  "providerIdentity": "https://api.deepinfra.com/v1/openai",
+  "model": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+  "tier": 2,
+  "suite": "analysis",
+  "version": 4,
+  "maxTokens": 4096,
+  "startedAt": "2026-11-07T10:20:44.760Z",
+  "cases": [
+    {
+      "caseId": "analysis-001",
+      "suite": "analysis",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": false,
+      "latencyMs": 17970,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "analysis-002",
+      "suite": "analysis",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": false,
+      "latencyMs": 17711,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "analysis-003",
+      "suite": "analysis",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": false,
+      "latencyMs": 21699,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "analysis-004",
+      "suite": "analysis",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": false,
+      "latencyMs": 8227,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "tool_calls"
+    },
+    {
+      "caseId": "analysis-005",
+      "suite": "analysis",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": true,
+      "latencyMs": 13907,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "analysis-006",
+      "suite": "analysis",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": false,
+      "latencyMs": 1019,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "tool_calls"
+    },
+    {
+      "caseId": "analysis-007",
+      "suite": "analysis",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": false,
+      "latencyMs": 5379,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "analysis-008",
+      "suite": "analysis",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": false,
+      "latencyMs": 12526,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "analysis-009",
+      "suite": "analysis",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": false,
+      "latencyMs": 11127,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "tool_calls"
+    },
+    {
+      "caseId": "analysis-010",
+      "suite": "analysis",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": false,
+      "latencyMs": 2996,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "analysis-011",
+      "suite": "analysis",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": false,
+      "latencyMs": 5937,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "analysis-012",
+      "suite": "analysis",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": false,
+      "latencyMs": 11511,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "analysis-013",
+      "suite": "analysis",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": false,
+      "latencyMs": 12261,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "analysis-014",
+      "suite": "analysis",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": true,
+      "latencyMs": 9189,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "analysis-015",
+      "suite": "analysis",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": false,
+      "latencyMs": 5581,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "tool_calls"
+    }
+  ],
+  "diagnostics": {
+    "analysis-001": {
+      "passed": false,
+      "counts": {
+        "empty_output": 0,
+        "unexpected_tool_calls": 0,
+        "untraceable_figures": 1,
+        "missing_figures": 2,
+        "forbidden_figures": 0,
+        "missing_mentions": 1,
+        "contradictions": 0,
+        "missing_metric_bindings": 1
+      },
+      "reasons": [
+        "untraceable_figures",
+        "missing_figures",
+        "missing_mentions",
+        "missing_metric_bindings"
+      ],
+      "layoutComparison": {
+        "lineBreaks": 20,
+        "markdownSpans": 0,
+        "whitespace": {
+          "passed": false,
+          "missingMentions": 1,
+          "missingMetricBindings": 1
+        },
+        "inlineMarkdown": {
+          "passed": false,
+          "missingMentions": 1,
+          "missingMetricBindings": 1
+        },
+        "combined": {
+          "passed": false,
+          "missingMentions": 1,
+          "missingMetricBindings": 1
+        }
+      }
+    },
+    "analysis-002": {
+      "passed": false,
+      "counts": {
+        "empty_output": 0,
+        "unexpected_tool_calls": 0,
+        "untraceable_figures": 0,
+        "missing_figures": 0,
+        "forbidden_figures": 0,
+        "missing_mentions": 1,
+        "contradictions": 0,
+        "missing_metric_bindings": 0
+      },
+      "reasons": [
+        "missing_mentions"
+      ],
+      "layoutComparison": {
+        "lineBreaks": 14,
+        "markdownSpans": 9,
+        "whitespace": {
+          "passed": false,
+          "missingMentions": 1,
+          "missingMetricBindings": 0
+        },
+        "inlineMarkdown": {
+          "passed": false,
+          "missingMentions": 1,
+          "missingMetricBindings": 0
+        },
+        "combined": {
+          "passed": false,
+          "missingMentions": 1,
+          "missingMetricBindings": 0
+        }
+      }
+    },
+    "analysis-003": {
+      "passed": false,
+      "counts": {
+        "empty_output": 0,
+        "unexpected_tool_calls": 0,
+        "untraceable_figures": 0,
+        "missing_figures": 0,
+        "forbidden_figures": 0,
+        "missing_mentions": 1,
+        "contradictions": 1,
+        "missing_metric_bindings": 0
+      },
+      "reasons": [
+        "missing_mentions",
+        "contradictions"
+      ],
+      "layoutComparison": {
+        "lineBreaks": 9,
+        "markdownSpans": 4,
+        "whitespace": {
+          "passed": false,
+          "missingMentions": 1,
+          "missingMetricBindings": 0
+        },
+        "inlineMarkdown": {
+          "passed": false,
+          "missingMentions": 1,
+          "missingMetricBindings": 0
+        },
+        "combined": {
+          "passed": false,
+          "missingMentions": 1,
+          "missingMetricBindings": 0
+        }
+      }
+    },
+    "analysis-004": {
+      "passed": false,
+      "counts": {
+        "empty_output": 1,
+        "unexpected_tool_calls": 2,
+        "untraceable_figures": 0,
+        "missing_figures": 2,
+        "forbidden_figures": 0,
+        "missing_mentions": 2,
+        "contradictions": 0,
+        "missing_metric_bindings": 2
+      },
+      "reasons": [
+        "empty_output",
+        "unexpected_tool_calls",
+        "missing_figures",
+        "missing_mentions",
+        "missing_metric_bindings"
+      ],
+      "layoutComparison": {
+        "lineBreaks": 1,
+        "markdownSpans": 0,
+        "whitespace": {
+          "passed": false,
+          "missingMentions": 2,
+          "missingMetricBindings": 2
+        },
+        "inlineMarkdown": {
+          "passed": false,
+          "missingMentions": 2,
+          "missingMetricBindings": 2
+        },
+        "combined": {
+          "passed": false,
+          "missingMentions": 2,
+          "missingMetricBindings": 2
+        }
+      }
+    },
+    "analysis-005": {
+      "passed": true,
+      "counts": {
+        "empty_output": 0,
+        "unexpected_tool_calls": 0,
+        "untraceable_figures": 0,
+        "missing_figures": 0,
+        "forbidden_figures": 0,
+        "missing_mentions": 0,
+        "contradictions": 0,
+        "missing_metric_bindings": 0
+      },
+      "reasons": [],
+      "layoutComparison": {
+        "lineBreaks": 15,
+        "markdownSpans": 0,
+        "whitespace": {
+          "passed": true,
+          "missingMentions": 0,
+          "missingMetricBindings": 0
+        },
+        "inlineMarkdown": {
+          "passed": true,
+          "missingMentions": 0,
+          "missingMetricBindings": 0
+        },
+        "combined": {
+          "passed": true,
+          "missingMentions": 0,
+          "missingMetricBindings": 0
+        }
+      }
+    },
+    "analysis-006": {
+      "passed": false,
+      "counts": {
+        "empty_output": 1,
+        "unexpected_tool_calls": 1,
+        "untraceable_figures": 0,
+        "missing_figures": 4,
+        "forbidden_figures": 0,
+        "missing_mentions": 3,
+        "contradictions": 0,
+        "missing_metric_bindings": 4
+      },
+      "reasons": [
+        "empty_output",
+        "unexpected_tool_calls",
+        "missing_figures",
+        "missing_mentions",
+        "missing_metric_bindings"
+      ]
+    },
+    "analysis-007": {
+      "passed": false,
+      "counts": {
+        "empty_output": 0,
+        "unexpected_tool_calls": 0,
+        "untraceable_figures": 0,
+        "missing_figures": 0,
+        "forbidden_figures": 0,
+        "missing_mentions": 0,
+        "contradictions": 0,
+        "missing_metric_bindings": 2
+      },
+      "reasons": [
+        "missing_metric_bindings"
+      ],
+      "layoutComparison": {
+        "lineBreaks": 3,
+        "markdownSpans": 2,
+        "whitespace": {
+          "passed": false,
+          "missingMentions": 0,
+          "missingMetricBindings": 2
+        },
+        "inlineMarkdown": {
+          "passed": false,
+          "missingMentions": 0,
+          "missingMetricBindings": 2
+        },
+        "combined": {
+          "passed": false,
+          "missingMentions": 0,
+          "missingMetricBindings": 2
+        }
+      }
+    },
+    "analysis-008": {
+      "passed": false,
+      "counts": {
+        "empty_output": 0,
+        "unexpected_tool_calls": 0,
+        "untraceable_figures": 0,
+        "missing_figures": 0,
+        "forbidden_figures": 0,
+        "missing_mentions": 0,
+        "contradictions": 0,
+        "missing_metric_bindings": 1
+      },
+      "reasons": [
+        "missing_metric_bindings"
+      ],
+      "layoutComparison": {
+        "lineBreaks": 14,
+        "markdownSpans": 5,
+        "whitespace": {
+          "passed": true,
+          "missingMentions": 0,
+          "missingMetricBindings": 0
+        },
+        "inlineMarkdown": {
+          "passed": false,
+          "missingMentions": 0,
+          "missingMetricBindings": 1
+        },
+        "combined": {
+          "passed": true,
+          "missingMentions": 0,
+          "missingMetricBindings": 0
+        }
+      }
+    },
+    "analysis-009": {
+      "passed": false,
+      "counts": {
+        "empty_output": 1,
+        "unexpected_tool_calls": 8,
+        "untraceable_figures": 0,
+        "missing_figures": 1,
+        "forbidden_figures": 0,
+        "missing_mentions": 1,
+        "contradictions": 0,
+        "missing_metric_bindings": 0
+      },
+      "reasons": [
+        "empty_output",
+        "unexpected_tool_calls",
+        "missing_figures",
+        "missing_mentions"
+      ],
+      "layoutComparison": {
+        "lineBreaks": 7,
+        "markdownSpans": 0,
+        "whitespace": {
+          "passed": false,
+          "missingMentions": 1,
+          "missingMetricBindings": 0
+        },
+        "inlineMarkdown": {
+          "passed": false,
+          "missingMentions": 1,
+          "missingMetricBindings": 0
+        },
+        "combined": {
+          "passed": false,
+          "missingMentions": 1,
+          "missingMetricBindings": 0
+        }
+      }
+    },
+    "analysis-010": {
+      "passed": false,
+      "counts": {
+        "empty_output": 0,
+        "unexpected_tool_calls": 0,
+        "untraceable_figures": 0,
+        "missing_figures": 5,
+        "forbidden_figures": 0,
+        "missing_mentions": 0,
+        "contradictions": 0,
+        "missing_metric_bindings": 0
+      },
+      "reasons": [
+        "missing_figures"
+      ],
+      "layoutComparison": {
+        "lineBreaks": 3,
+        "markdownSpans": 0,
+        "whitespace": {
+          "passed": false,
+          "missingMentions": 0,
+          "missingMetricBindings": 0
+        },
+        "inlineMarkdown": {
+          "passed": false,
+          "missingMentions": 0,
+          "missingMetricBindings": 0
+        },
+        "combined": {
+          "passed": false,
+          "missingMentions": 0,
+          "missingMetricBindings": 0
+        }
+      }
+    },
+    "analysis-011": {
+      "passed": false,
+      "counts": {
+        "empty_output": 0,
+        "unexpected_tool_calls": 0,
+        "untraceable_figures": 0,
+        "missing_figures": 0,
+        "forbidden_figures": 0,
+        "missing_mentions": 1,
+        "contradictions": 0,
+        "missing_metric_bindings": 1
+      },
+      "reasons": [
+        "missing_mentions",
+        "missing_metric_bindings"
+      ],
+      "layoutComparison": {
+        "lineBreaks": 2,
+        "markdownSpans": 0,
+        "whitespace": {
+          "passed": false,
+          "missingMentions": 1,
+          "missingMetricBindings": 1
+        },
+        "inlineMarkdown": {
+          "passed": false,
+          "missingMentions": 1,
+          "missingMetricBindings": 1
+        },
+        "combined": {
+          "passed": false,
+          "missingMentions": 1,
+          "missingMetricBindings": 1
+        }
+      }
+    },
+    "analysis-012": {
+      "passed": false,
+      "counts": {
+        "empty_output": 0,
+        "unexpected_tool_calls": 0,
+        "untraceable_figures": 0,
+        "missing_figures": 0,
+        "forbidden_figures": 0,
+        "missing_mentions": 1,
+        "contradictions": 0,
+        "missing_metric_bindings": 4
+      },
+      "reasons": [
+        "missing_mentions",
+        "missing_metric_bindings"
+      ],
+      "layoutComparison": {
+        "lineBreaks": 7,
+        "markdownSpans": 0,
+        "whitespace": {
+          "passed": false,
+          "missingMentions": 1,
+          "missingMetricBindings": 3
+        },
+        "inlineMarkdown": {
+          "passed": false,
+          "missingMentions": 1,
+          "missingMetricBindings": 4
+        },
+        "combined": {
+          "passed": false,
+          "missingMentions": 1,
+          "missingMetricBindings": 3
+        }
+      }
+    },
+    "analysis-013": {
+      "passed": false,
+      "counts": {
+        "empty_output": 0,
+        "unexpected_tool_calls": 0,
+        "untraceable_figures": 0,
+        "missing_figures": 1,
+        "forbidden_figures": 0,
+        "missing_mentions": 1,
+        "contradictions": 0,
+        "missing_metric_bindings": 1
+      },
+      "reasons": [
+        "missing_figures",
+        "missing_mentions",
+        "missing_metric_bindings"
+      ],
+      "layoutComparison": {
+        "lineBreaks": 4,
+        "markdownSpans": 0,
+        "whitespace": {
+          "passed": false,
+          "missingMentions": 1,
+          "missingMetricBindings": 1
+        },
+        "inlineMarkdown": {
+          "passed": false,
+          "missingMentions": 1,
+          "missingMetricBindings": 1
+        },
+        "combined": {
+          "passed": false,
+          "missingMentions": 1,
+          "missingMetricBindings": 1
+        }
+      }
+    },
+    "analysis-014": {
+      "passed": true,
+      "counts": {
+        "empty_output": 0,
+        "unexpected_tool_calls": 0,
+        "untraceable_figures": 0,
+        "missing_figures": 0,
+        "forbidden_figures": 0,
+        "missing_mentions": 0,
+        "contradictions": 0,
+        "missing_metric_bindings": 0
+      },
+      "reasons": [],
+      "layoutComparison": {
+        "lineBreaks": 10,
+        "markdownSpans": 3,
+        "whitespace": {
+          "passed": true,
+          "missingMentions": 0,
+          "missingMetricBindings": 0
+        },
+        "inlineMarkdown": {
+          "passed": true,
+          "missingMentions": 0,
+          "missingMetricBindings": 0
+        },
+        "combined": {
+          "passed": true,
+          "missingMentions": 0,
+          "missingMetricBindings": 0
+        }
+      }
+    },
+    "analysis-015": {
+      "passed": false,
+      "counts": {
+        "empty_output": 1,
+        "unexpected_tool_calls": 4,
+        "untraceable_figures": 0,
+        "missing_figures": 4,
+        "forbidden_figures": 0,
+        "missing_mentions": 3,
+        "contradictions": 0,
+        "missing_metric_bindings": 4
+      },
+      "reasons": [
+        "empty_output",
+        "unexpected_tool_calls",
+        "missing_figures",
+        "missing_mentions",
+        "missing_metric_bindings"
+      ],
+      "layoutComparison": {
+        "lineBreaks": 3,
+        "markdownSpans": 0,
+        "whitespace": {
+          "passed": false,
+          "missingMentions": 3,
+          "missingMetricBindings": 4
+        },
+        "inlineMarkdown": {
+          "passed": false,
+          "missingMentions": 3,
+          "missingMetricBindings": 4
+        },
+        "combined": {
+          "passed": false,
+          "missingMentions": 3,
+          "missingMetricBindings": 4
+        }
+      }
+    }
+  }
+}

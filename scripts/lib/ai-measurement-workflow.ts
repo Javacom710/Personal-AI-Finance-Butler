@@ -4,6 +4,7 @@ import type { Tier } from '../../src/server/ai/config/models';
 import { countsOf, disqualification, unservedCapabilities, partialRunReason, proposeOrder, summarise, maxTokensFor, MODEL_SUITES, TIER_SUITES, type ModelSuite, type SuiteCounts, type ModelResult, type SuiteResult, type EvalRun } from '../../src/server/ai/eval/runner';
 import { DECLARED_CAPABILITIES } from '../../src/server/ai/config/capabilities';
 import { reportFromCases, type CaseResult } from '../../src/server/ai/eval/harness';
+import { FailureDiagnosticsSchema } from './ai-failure-diagnostics';
 
 export interface Entry { tier: Tier; model: string; suite: ModelSuite; legacyEvidence?: string; }
 export interface Context { providerIdentity: string; identity: string; profile: { id: string; fingerprint: string }; }
@@ -19,7 +20,7 @@ const caseSchema = z.object({
   errorClass: z.enum(['not_configured', 'unauthorized', 'rate_limited', 'transport', 'timeout', 'invalid_output', 'no_capable_model', 'refused', 'malformed_response']).nullable(),
   finishReason: z.enum(['stop', 'length', 'tool_calls', 'content_filter', 'error']).nullable().optional(),
 }).strict();
-const checkpointSchema = z.object({ identity: z.string(), providerIdentity: z.string(), model: z.string(), tier: z.number(), suite: z.string(), version: count, maxTokens: count, startedAt: z.iso.datetime(), cases: z.array(caseSchema) });
+const checkpointSchema = z.object({ identity: z.string(), providerIdentity: z.string(), model: z.string(), tier: z.number(), suite: z.string(), version: count, maxTokens: count, startedAt: z.iso.datetime(), cases: z.array(caseSchema), diagnostics: z.record(z.string(), FailureDiagnosticsSchema).optional() });
 const suiteReportSchema = z.object({ suite: z.string(), version: count, maxTokens: count, passed: count, total: count, failedCases: z.array(z.string()), counts: countsSchema });
 const reportSchema = z.object({ providerIdentity: z.string(), tier: z.number(), limit: z.null(), suiteVersions: z.record(z.string(), count), models: z.array(z.object({ modelId: z.string(), requestProfile: z.object({ id: z.string(), fingerprint: z.string() }), suites: z.array(suiteReportSchema) })) });
 
@@ -44,9 +45,20 @@ export function assessEntry(entry: Entry, context: Context, checkpointInput?: un
   const row: Progress = { ...entry, total: ids.length, retained: 0, answered: 0, unanswered: 0, passed: 0, status: 'pending', remainingCaseIds: ids };
   let scored: CaseResult[] | undefined;
   if (checkpointInput !== undefined) {
-    const c = checkpointSchema.parse(checkpointInput);
+    const parsed = checkpointSchema.safeParse(checkpointInput);
+    // Validation paths can contain an arbitrary key from a modified file. Keep
+    // that text out of CLI logs as well as out of retained diagnostic payloads.
+    if (!parsed.success) throw new Error('Invalid checkpoint structure or diagnostic metadata.');
+    const c = parsed.data;
     if (c.identity !== context.identity || c.providerIdentity !== context.providerIdentity || c.model !== entry.model || c.tier !== entry.tier || c.suite !== entry.suite || c.version !== golden.version || c.maxTokens !== budget) throw new Error('Checkpoint provenance differs from the active measurement.');
     if (new Set(c.cases.map(r => r.caseId)).size !== c.cases.length || c.cases.some(r => !expectedIds.has(r.caseId) || r.modelId !== entry.model || r.suite !== entry.suite)) throw new Error('Invalid checkpoint case coverage.');
+    if (c.diagnostics) {
+      if (!['analysis', 'document'].includes(entry.suite)) throw new Error('Unexpected diagnostics for this suite.');
+      for (const [id, diagnostic] of Object.entries(c.diagnostics)) {
+        const result = c.cases.find(test => test.caseId === id);
+        if (!result || result.errorClass !== null || diagnostic.passed !== result.passed) throw new Error('Diagnostic case/verdict differs from retained measurement.');
+      }
+    }
     scored = c.cases as CaseResult[];
     const counts = countsOf(reportFromCases(entry.model, scored));
     const finished = new Set(scored.map(r => r.caseId));
@@ -120,7 +132,6 @@ export function candidateReadiness(rows: readonly Progress[]) {
     };
     const base = Object.hasOwn(DECLARED_CAPABILITIES, first.model) ? DECLARED_CAPABILITIES[first.model] : undefined;
     const declarationBlockers = !base ? ['No declared capability entry.'] : [
-      ...(base.tier === first.tier ? [] : ['Tier-specific measured eligibility must be reconciled before routing this model in this tier.']),
       ...unservedCapabilities(base, first.tier).map(u => `${u.capability}: ${u.reason}`),
     ];
     const { suites: _suites, ...quality } = result;
