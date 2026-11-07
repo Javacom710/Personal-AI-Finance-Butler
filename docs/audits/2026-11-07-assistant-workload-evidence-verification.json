@@ -1,0 +1,109 @@
+{
+  "asOf": "2026-11-07T15:52:19.944020+00:00",
+  "baseCommit": "93de4c22cbea3e04a8beefbf04e6533cf3f6fc3c",
+  "branch": "codex/assistant-workload-evidence",
+  "parentPr": 51,
+  "parentFinalCi": {
+    "run": 42385230550,
+    "postgres17": "success",
+    "postgres18": "success"
+  },
+  "reproduction": {
+    "failedTests": 1,
+    "passedTests": 13,
+    "reason": "Clipped sources had no visible partial-results summary"
+  },
+  "focusedUnit": {
+    "files": 3,
+    "passed": 68,
+    "failed": 0
+  },
+  "finalPresentationUnit": {
+    "passed": 14,
+    "failed": 0
+  },
+  "integration": {
+    "postgres17": {
+      "initialFocusedPassed": 16,
+      "tightenedWorkloadRerunPassed": 13,
+      "failed": 0
+    },
+    "postgres18": {
+      "focusedPassed": 16,
+      "failed": 0
+    },
+    "workloadCases": 12,
+    "fullLedgerReadOnlyCheck": 1
+  },
+  "build": "passed",
+  "typecheck": "passed",
+  "lint": "passed",
+  "clientSecretScan": "passed",
+  "productionHttp": {
+    "productionHttpPassed": true,
+    "unauthenticatedStatus": 307,
+    "conversationStatus": 200,
+    "partialLabelVisible": true,
+    "partialWarningVisible": true,
+    "exactAmountPreserved": "20.5000",
+    "exportStatus": 200,
+    "privateNoStoreExport": true,
+    "exportPreservesClippingMetadata": true,
+    "generationRemainsDisabled": true,
+    "fakeProviderTurns": 2,
+    "liveAiRequests": 0
+  },
+  "modelSemanticQualityMeasured": false,
+  "roadmapQuestionGateCompleted": false,
+  "liveProviderCalls": 0,
+  "liveMeasurementsRecorded": 0,
+  "featuresActivated": false,
+  "changedToolOrDatabaseSchemas": false,
+  "changedPromptsOrScoringGates": false,
+  "logHashes": {
+    "reproduction": {
+      "path": "/tmp/financeos-assistant-partial-before.log",
+      "sha256": "ea30806a8bf765181beb4a64b70a83dd40fb46d6a33c6b222946b1d0c2354d2a"
+    },
+    "focusedUnit": {
+      "path": "/tmp/financeos-assistant-unit.log",
+      "sha256": "6012b4d0137e51cd4b8d0096adefb062f535b3f67274bf12e62aa67308c855c5"
+    },
+    "finalPresentationUnit": {
+      "path": "/tmp/financeos-assistant-unit-final.log",
+      "sha256": "1b5ffc90258979cd28193c2998254dbeb4864492ed0367a78ea98bf3ceef7ebd"
+    },
+    "postgres17": {
+      "path": "/tmp/financeos-assistant-workloads-pg17.log",
+      "sha256": "df4ddac7636c78bf879102cafbfcebaa351805e52316664ec4986baa6305fbde"
+    },
+    "postgres17TightenedWorkloads": {
+      "path": "/tmp/financeos-assistant-workloads-pg17-final.log",
+      "sha256": "069efa2d0f018cb85255c8c9aa106970485385397debe1d80041faccfd9953d9"
+    },
+    "postgres18": {
+      "path": "/tmp/financeos-assistant-workloads-pg18.log",
+      "sha256": "dac380178fda7ab13640054271cbe24e56c65eb4fa35fdf01677103e76c84538"
+    },
+    "build": {
+      "path": "/tmp/financeos-assistant-build.log",
+      "sha256": "324fd9376b399ce0f50c49595597de44187254ea034dd271799d3ac01b6339f5"
+    },
+    "secrets": {
+      "path": "/tmp/financeos-assistant-secrets.log",
+      "sha256": "a8a8b7172aeca84ee271415c85bdbe23a2378fe0dca1feb410a10e83c5b33d8a"
+    },
+    "productionHttp": {
+      "path": "/tmp/financeos-assistant-partial-http.log",
+      "sha256": "c53c0ddc392c1dba3c3802d74045825ea1d87740eed25d6e45fde8da850887aa"
+    },
+    "finalTypecheck": {
+      "path": "/tmp/financeos-assistant-typecheck-final.log",
+      "sha256": "147a941a537e65632e28681b24e6c1e9e9085cd5baba9ccd14eef0d4b0b77574"
+    },
+    "finalLint": {
+      "path": "/tmp/financeos-assistant-lint-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  }
+}

@@ -11,14 +11,24 @@ export function AssistantAnswer({ answer }: { answer: QuestionAnswer }) {
     <section aria-label="Financial source results" className="space-y-3">
       <h2 className="font-semibold">Facts and deterministic calculations</h2>
       {!answer.sources.length && <p>No financial data was read for this answer.</p>}
-      {answer.sources.map((source, index) => <details key={source.callId} className="rounded-lg border border-border p-3">
-        <summary>Source {index + 1}: {source.name.replaceAll('_', ' ')}{source.failed ? ' — unavailable' : ''}</summary>
-        <SourceValue value={source.result} />
-      </details>)}
+      {answer.sources.map((source, index) => {
+        const partial = !source.failed && hasPartialRows(source.result);
+        return <details key={source.callId} className="rounded-lg border border-border p-3">
+          <summary>Source {index + 1}: {source.name.replaceAll('_', ' ')}{source.failed ? ' — unavailable' : partial ? ' — partial results' : ''}</summary>
+          {partial && <p className="mt-2 text-sm text-ink-muted">Some rows were omitted. Comparisons or rankings based on these rows may be incomplete. Authoritative totals, where supplied, still apply.</p>}
+          <SourceValue value={source.result} />
+        </details>;
+      })}
     </section>
     <p className="text-sm text-ink-muted">This assistant only reads. Record changes through manual entry or a separately confirmed transaction draft. Scenario projections are unavailable.</p>
     <p className="text-xs text-ink-muted">Serving model: {answer.modelId}{answer.fallbackDepth ? ' · Fallback used' : ''}</p>
   </article>;
+}
+
+function hasPartialRows(value: unknown): boolean {
+  if (value === null || typeof value !== 'object' || !('meta' in value)) return false;
+  const meta = value.meta;
+  return meta !== null && typeof meta === 'object' && 'truncated' in meta && meta.truncated === true;
 }
 
 /** Only projected tool payloads reach here. No metric arithmetic or null-to-zero coercion. */

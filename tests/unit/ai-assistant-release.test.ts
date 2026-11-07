@@ -64,6 +64,9 @@ describe('assistant answer presentation', () => {
     expect(html).toContain('1250.5000'); expect(html).toContain('INR');
     expect(html).toContain('Unavailable:'); expect(html).toContain('insufficient history'); expect(html).not.toContain('0%');
     expect(html).toContain('truncated'); expect(html).toContain('true'); expect(html).toContain('2026-10-31');
+    expect(html).toContain('— partial results</summary>');
+    expect(html).toContain('Some rows were omitted');
+    expect(html).toContain('Authoritative totals, where supplied, still apply');
     expect(html).toContain('Fallback used'); expect(html).toContain('Scenario projections are unavailable');
     expect(html).not.toContain('<script>alert(1)</script>'); expect(html).toContain('&lt;script&gt;');
   });
@@ -72,7 +75,13 @@ describe('assistant answer presentation', () => {
     expect(html).toContain('No financial data was read');
   });
   it('keeps real zero separate from a missing metric and renders failed reads as unavailable', () => {
-    const html = renderToStaticMarkup(createElement(AssistantAnswer, { answer: { ...answer, sources: [{ callId: 'zero', name: 'get_accounts', failed: true, result: { balance: 0, metric: null, reason: 'missing price' } }] } }));
+    const html = renderToStaticMarkup(createElement(AssistantAnswer, { answer: { ...answer, sources: [{ callId: 'zero', name: 'get_accounts', failed: true, result: { balance: 0, metric: null, reason: 'missing price', meta: { truncated: true } } }] } }));
     expect(html).toContain('— unavailable'); expect(html).toContain('>0</span>'); expect(html).toContain('Unavailable'); expect(html).toContain('missing price');
+    expect(html).not.toContain('— partial results');
+  });
+  it.each([undefined, null, { truncated: false }, { truncated: 'true' }])('does not label a complete or unmarked source as partial (%j)', meta => {
+    const html = renderToStaticMarkup(createElement(AssistantAnswer, { answer: { ...answer, sources: [{ callId: 'one', name: 'get_accounts', failed: false, result: { ok: true, data: {}, meta } }] } }));
+    expect(html).not.toContain('— partial results');
+    expect(html).not.toContain('Some rows were omitted');
   });
 });
