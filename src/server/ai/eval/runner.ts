@@ -1,4 +1,6 @@
 import 'server-only';
+import type { CaseProvenance } from './harness';
+import type { MeasurementPolicy } from '../provider/types';
 
 /**
  * The `ai:eval` runner — which models, which suites, and what the measurement
@@ -32,7 +34,7 @@ import { DEFAULT_REQUEST_PROFILE, matchesRequestProfile, requestProfileById, req
 import { allCapabilities, requirementFor, type AiCapability } from '../orchestrator/requirements';
 import { unsupportedBy } from '../orchestrator/select';
 import type { AiProvider } from '../provider/types';
-import { evaluateModel, type EvalCase, type EvalSuite, type ModelReport } from './harness';
+import { evaluateModel, reportFromCases, type EvalCase, type EvalSuite, type ModelReport } from './harness';
 import { ANALYSIS_SUITE_VERSION, analysisSuite } from './tasks/analysis';
 import { DOCUMENT_SUITE_VERSION, documentSuite } from './tasks/document';
 import { CLASSIFY_SUITE_VERSION, classifySuite } from './tasks/classify';
@@ -167,6 +169,7 @@ export function modelsFor(tier: Tier, config: ModelConfig, explicit: readonly st
 // ------------------------------------------------------------------ running
 
 export interface SuiteResult {
+  readonly caseProvenance?: readonly ({ readonly caseId: string } & CaseProvenance)[];
   /** Completion reasons of answered requests; absent in legacy reports. */
   readonly finishReasons?: Readonly<Record<string, number>>;
   /** Absent only in reports written before production budgets were recorded. */
@@ -211,6 +214,9 @@ export interface ModelResult {
 }
 
 export interface EvalRun {
+  readonly measurementPolicy?: MeasurementPolicy;
+  readonly hostEvidence?: readonly HostEvidence[];
+  readonly hostProposals?: readonly HostProposal[];
   /** Endpoint used by the live script; missing legacy provenance cannot be stored. */
   readonly providerIdentity?: string;
   readonly requestIntervalMs?: number;
@@ -446,6 +452,7 @@ export async function runEvaluation(options: RunOptions): Promise<EvalRun> {
         suite,
         version: MODEL_SUITES[suite].version,
         report,
+        ...(provider.measurementPolicy ? { caseProvenance: report.cases.map(c => ({ caseId: c.caseId, ...c.provenance! })) } : {}),
         passed,
         total: report.cases.length,
         failedCases: report.cases.filter((c) => c.passed !== true).map((c) => c.caseId),
@@ -460,11 +467,13 @@ export async function runEvaluation(options: RunOptions): Promise<EvalRun> {
 
   // A wire check or a subset of the tier's suites is not a measurement of the
   // tier: its scores are reported, and nothing is proposed from them.
-  const partial = partialRunReason(args);
+  const hostEvidence = provider.measurementPolicy ? hostEvidenceFor(models, provider.measurementPolicy, args) : undefined;
+  const partial = provider.measurementPolicy ? 'Serving-host evidence must be reviewed separately; no provider-wide model order is proposed.' : partialRunReason(args);
   const { order, excluded, caveats } = partial
     ? { order: [], excluded: models.map((m) => ({ modelId: m.modelId, reason: partial })), caveats: [] }
     : proposeOrder(models, args.tier);
   return {
+    ...(provider.measurementPolicy ? { providerIdentity: provider.measurementPolicy.providerIdentity, measurementPolicy: provider.measurementPolicy, hostEvidence, hostProposals: hostProposalsFor(hostEvidence!, args) } : {}),
     tier: args.tier,
     requestIntervalMs: intervalMs,
     requestTimeoutMs: options.timeoutMs ?? 60_000,
@@ -495,6 +504,16 @@ export function renderEvalReport(run: EvalRun): string {
   lines.push('', `Minimum request interval: ${run.requestIntervalMs ?? 'not recorded'} ms (evaluation scheduling only).`, '', 'Request profiles:');
   for (const m of run.models) {
     lines.push(`- ${m.modelId}: ${m.requestProfile ? `${m.requestProfile.id}; fingerprint \`${m.requestProfile.fingerprint}\`` : 'legacy default profile (identity not recorded)'}`);
+  }
+  if (run.measurementPolicy) {
+    lines.push('', `Request policy fingerprint: \`${run.measurementPolicy.requestPolicyFingerprint}\``, '',
+      'Aggregate scores below are diagnostic only. Different serving hosts never fill each other’s coverage gaps.',
+      '', '## Serving-host measurements', '', '| Host | Model | Complete coverage | Missing cases | Schema | Tools | Grounding | Analysis | Injection | p50 ms | p95 ms |', '|---|---|---|---|---|---|---|---|---|---|---|');
+    for (const e of run.hostEvidence ?? []) lines.push(`| ${e.servingHost} | ${e.model.modelId} | ${e.complete ? 'yes' : 'no'} | ${Object.values(e.missingCases).reduce((n, ids) => n + ids.length, 0)} | ${cell(e.model.schemaAdherence)} | ${cell(e.model.toolCallCorrectness)} | ${cell(e.model.retrievalGrounding)} | ${cell(e.model.analysisAccuracy)} | ${cell(e.model.injectionResistance)} | ${cell(e.model.p50LatencyMs, 0)} | ${cell(e.model.p95LatencyMs, 0)} |`);
+    if (!run.hostEvidence?.length) lines.push('No host-qualified responses were retained.');
+    for (const p of run.hostProposals ?? []) {
+      lines.push('', `### Host proposal: ${p.servingHost}`, p.proposedOrder.length ? p.proposedOrder.join(' → ') : 'Nothing proposed for this host.', ...p.excluded.map(e => `- ${e.modelId}: ${e.reason}`), ...p.caveats.map(c => `- Capability gaps for ${c.modelId}: ${c.unserved.map(u => `${u.capability} (${u.reason})`).join(', ')}`));
+    }
   }
   if (run.limit !== null) {
     lines.push(
@@ -533,7 +552,9 @@ export function renderEvalReport(run: EvalRun): string {
     '',
     '## Proposed order',
     '',
-    run.proposedOrder.length > 0
+    run.measurementPolicy
+      ? '**No provider-wide order is proposed.** Review the host-qualified proposals above; each requires owner approval.'
+      : run.proposedOrder.length > 0
       ? `\`AI_TIER${run.tier}_MODELS=${run.proposedOrder.join(',')}\``
       : '**Nothing is proposed.** The tier keeps its current configuration; see "Not proposed" for why.',
     '',
@@ -575,4 +596,61 @@ export function renderEvalReport(run: EvalRun): string {
     }
   }
   return `${lines.join('\n')}\n`;
+}
+
+export interface HostEvidence {
+  readonly servingHost: string;
+  readonly model: ModelResult;
+  readonly complete: boolean;
+  readonly missingCases: Readonly<Record<string, readonly string[]>>;
+}
+export interface HostProposal {
+  readonly servingHost: string;
+  readonly caveats: readonly Caveat[];
+  readonly proposedOrder: readonly string[];
+  readonly excluded: readonly { readonly modelId: string; readonly reason: string }[];
+}
+
+/** Post-process scores only. Never choose a host, send a request, or retry a case. */
+export function hostEvidenceFor(models: readonly ModelResult[], policy: MeasurementPolicy, args: EvalArgs): HostEvidence[] {
+  const evidence: HostEvidence[] = [];
+  for (const model of models) {
+    const matches = (p: CaseProvenance | undefined) => p?.providerIdentity === policy.providerIdentity && p.requestPolicyFingerprint === policy.requestPolicyFingerprint;
+    const hosts = [...new Set(model.suites.flatMap(s => s.report.cases.flatMap(c => matches(c.provenance) && c.provenance?.servingHost ? [c.provenance.servingHost] : [])))].sort();
+    for (const servingHost of hosts) {
+      const missingCases: Record<string, string[]> = {};
+      const suites: SuiteResult[] = model.suites.map(s => {
+        const cases = s.report.cases.filter(c => matches(c.provenance) && c.provenance?.servingHost === servingHost);
+        const present = new Set(cases.map(c => c.caseId));
+        missingCases[s.suite] = MODEL_SUITES[s.suite].build().filter(c => !present.has(c.id)).map(c => c.id);
+        const report = reportFromCases(model.modelId, cases);
+        const errors: Record<string, number> = {};
+        const finishReasons: Record<string, number> = {};
+        for (const c of cases) {
+          if (c.errorClass) errors[c.errorClass] = (errors[c.errorClass] ?? 0) + 1;
+          if (c.finishReason) finishReasons[c.finishReason] = (finishReasons[c.finishReason] ?? 0) + 1;
+        }
+        return { ...s, report, total: cases.length, passed: cases.filter(c => c.passed === true).length,
+          failedCases: cases.filter(c => c.passed !== true).map(c => c.caseId), counts: countsOf(report), errors, finishReasons,
+          caseProvenance: cases.map(c => ({ caseId: c.caseId, ...c.provenance! })),
+        };
+      });
+      evidence.push({ servingHost, model: { ...summarise(model.modelId, suites), requestProfile: model.requestProfile }, complete: !partialRunReason(args) && Object.values(missingCases).every(ids => !ids.length), missingCases });
+    }
+  }
+  return evidence;
+}
+
+/** Only complete coverage for one host can satisfy the unchanged tier gates. */
+export function hostProposalsFor(evidence: readonly HostEvidence[], args: EvalArgs): HostProposal[] {
+  const partial = partialRunReason(args);
+  return [...new Set(evidence.map(e => e.servingHost))].sort().map(servingHost => {
+    const group = evidence.filter(e => e.servingHost === servingHost);
+    const eligible = group.filter(e => e.complete && !partial).map(e => e.model);
+    const proposal = proposeOrder(eligible, args.tier);
+    return { servingHost, proposedOrder: proposal.order, caveats: proposal.caveats, excluded: [
+      ...group.filter(e => !e.complete || partial).map(e => ({ modelId: e.model.modelId, reason: partial ?? 'Incomplete case coverage for this serving host; other hosts cannot fill its gaps.' })),
+      ...proposal.excluded,
+    ] };
+  });
 }

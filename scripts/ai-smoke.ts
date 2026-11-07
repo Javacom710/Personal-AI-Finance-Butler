@@ -147,6 +147,7 @@ async function main(): Promise<void> {
   }
   console.log(`ok  ${text.value.latencyMs} ms, ${text.value.usage.completionTokens} completion tokens`);
   console.log(`    served by: ${text.value.model}`);
+  if (text.value.provenance) console.log(`    host: ${text.value.provenance.servingHost}; policy: ${text.value.provenance.requestPolicyFingerprint}`);
 
   // 3 — structured output, validated by the same Zod boundary the tools use.
   heading('3. Structured output');
@@ -164,6 +165,7 @@ async function main(): Promise<void> {
   } else {
     const outcome = validateAgainst(schema, structured.value.content ?? '');
     console.log(`  validation: ${outcome.status}`);
+    if (structured.value.provenance) console.log(`  host: ${structured.value.provenance.servingHost}; policy: ${structured.value.provenance.requestPolicyFingerprint}`);
     if (outcome.status === 'invalid') console.log(`  errors: ${Object.keys(outcome.errors).join(', ')}`);
   }
 
@@ -207,7 +209,7 @@ async function reachability(
       maxTokens: 16,
       timeoutMs,
     });
-    return result.ok ? `ok ${String(result.value.latencyMs).padStart(6)} ms` : `FAIL ${result.error.kind}`;
+    return result.ok ? `ok ${String(result.value.latencyMs).padStart(6)} ms${result.value.provenance ? `; host=${result.value.provenance.servingHost}; model=${result.value.model}; policy=${result.value.provenance.requestPolicyFingerprint}` : ''}` : `FAIL ${result.error.kind}`;
   };
   for (const [id, tiers] of routed) {
     const outcome = await probe(id);

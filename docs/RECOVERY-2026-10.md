@@ -108,16 +108,28 @@ Work moves between Claude and Codex through the repository, not through chat his
 
 Two Codex rules differ from Claude's, and both matter for Phase 8 evaluation runs:
 
-- **Secrets are removed before the agent phase.** A key stored as a Codex *secret* reaches the evaluation scripts only if the install script copies it into `.env`, so the install script ends with:
+- **Secrets are removed before the agent phase.** A key stored as a Codex *secret* reaches the evaluation scripts only if the install script copies it into `.env`, so the install script **and** the maintenance (start) script end with this block (the maintenance copy picks up a changed key in a cached container):
   ```bash
-  for k in NVIDIA_API_KEY TWELVE_DATA_API_KEY; do
-    if [ -n "${!k:-}" ]; then
-      grep -v "^$k=" .env > .env.tmp || true; printf '%s=%s\n' "$k" "${!k}" >> .env.tmp; mv .env.tmp .env
-    fi
+  cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+  touch .env
+  for k in AI_API_KEY AI_BASE_URL TWELVE_DATA_API_KEY NVIDIA_API_KEY; do
+    v="${!k:-}"
+    v="${v#"${v%%[![:space:]]*}"}"; v="${v%"${v##*[![:space:]]}"}"   # trim stray spaces
+    [ -n "$v" ] || continue
+    { grep -v "^${k}=" .env || true; } > .env.tmp && mv .env.tmp .env
+    printf '%s=%s\n' "$k" "$v" >> .env
   done
+  chmod 600 .env
+  grep -q '^AI_API_KEY=' .env && echo "[setup] AI_API_KEY: set" || echo "[setup] AI_API_KEY: MISSING"
+  grep '^AI_BASE_URL=' .env || echo "[setup] AI_BASE_URL: MISSING"
   ```
   The key then exists in plain text in that container's `.env`, as it does on the PC. Codex has no equivalent of Claude's proxy-injected network secret: `NVIDIA_API_KEY=proxy-injected` is a Claude-only placeholder and must never be a Codex value.
-- **Agent internet access is off by default.** Turn it on, limited to `integrate.api.nvidia.com` (plus `api.twelvedata.com`, `www.amfiindia.com` and `api.frankfurter.dev` for market-data checks).
+- **Agent internet access is off by default.** Turn it on, limited to the AI provider's host (`api.deepinfra.com` now; `api.groq.com` and `openrouter.ai` as alternatives; `integrate.api.nvidia.com` historically) (plus `api.twelvedata.com`, `www.amfiindia.com` and `api.frankfurter.dev` for market-data checks).
+
+**If Codex Cloud chats fail to start** (*"Could not start this chat"*, *"Error submitting message"* with a request ID; seen 2026-11-07):
+1. Send a one-line test chat with the **Default** environment. If that fails too, it is Codex-wide: check status.openai.com and wait, or work locally ("On your computer").
+2. If only the project environment fails, and its **Edit** screen also fails, the environment record is broken on OpenAI's side. Create a new environment for the same repo, paste the same install script, maintenance script, variables and secrets (the owner pastes keys; agents never do), confirm a test chat shows `[setup] AI_API_KEY: set`, then delete the old one.
+3. Report the request ID through Help → Report a problem.
 
 **Codex CLI on the PC** needs nothing extra: it uses `C:\Dev\AIEPF\.env` and the local PostgreSQL 18. Work on a branch and push; the `C:\Dev` clone stays a mirror of GitHub.
 
