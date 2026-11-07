@@ -109,7 +109,8 @@ describe('a healthy database', () => {
     // A checker that silently covers less than it claims is worse than none.
     // Phase 4 moved I-5, I-6, I-7 and I-12 out of this list; Phase 5 moved I-8
     // out of it by building the tables it describes. Only AI (Phase 9) remains.
-    expect(skipped).toEqual(expect.arrayContaining(['I-10', 'I-14']));
+    expect(skipped).not.toContain('I-10');
+    expect(skipped).not.toContain('I-14');
     for (const nowChecked of ['I-5', 'I-6', 'I-7', 'I-12', 'I-8']) {
       expect(skipped, `${nowChecked} is implemented and must no longer be skipped`).not.toContain(
         nowChecked,
