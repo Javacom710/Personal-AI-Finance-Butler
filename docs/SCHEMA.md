@@ -829,6 +829,8 @@ CREATE TABLE net_worth_snapshots (
 
 ## 10. AI
 
+**Implemented Phase 9 conversation slice (2026-11-03):** migration `0008_phase9_assistant_conversations` adds the conversations/messages below after `0007` transaction proposals. Conversations additionally have an exchange `revision` (0–100); messages have a unique per-conversation `position` (0–199), with even positions for user questions and odd positions for assistant answers. These fields enforce stable ordering and support an optimistic claim after generation, without holding a database lock during a model call. Message content stores either `{text}` or `{answer}` with interpretation and projected source evidence. Actual billing cost remains NULL when unverified. Owner/conversation deletion cascades message content. The model-attempt/tool-call tables below remain future schema, not part of this migration.
+
 ```sql
 CREATE TYPE ai_role          AS ENUM ('user','assistant');
 CREATE TYPE proposal_kind    AS ENUM

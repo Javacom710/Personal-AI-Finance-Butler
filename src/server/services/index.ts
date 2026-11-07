@@ -70,3 +70,4 @@ export * from './transactions';
 export * from './transfers';
 
 export * from './aiProposals';
+export * from './aiConversations';

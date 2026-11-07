@@ -4,7 +4,7 @@ import { users } from './identity';
 import type { ProposalErrors, TransactionDraft } from '../../../lib/schemas/ai-entry';
 
 export const proposalStatus = pgEnum('proposal_status', ['pending', 'applied', 'rejected', 'expired', 'invalid']);
-/** Phase 9 transaction proposals only; conversations and other proposal kinds are deferred. */
+/** Phase 9 transaction proposals only; other proposal kinds remain deferred. */
 export const aiProposals = pgTable('ai_proposals', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),

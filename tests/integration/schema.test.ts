@@ -58,6 +58,8 @@ describe('migration', () => {
         // Phase 8 — model measurements; not user-owned (SCHEMA.md §10)
         'ai_model_evaluations',
         'ai_proposals',
+        'ai_conversations',
+        'ai_messages',
       ]),
     );
 
@@ -70,7 +72,6 @@ describe('migration', () => {
     // scope boundary had been crossed.
     for (const later of [
       'net_worth_snapshots',
-      'ai_conversations',
     ]) {
       expect(tables, `${later} belongs to a later phase`).not.toContain(later);
     }
