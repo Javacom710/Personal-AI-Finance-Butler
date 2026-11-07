@@ -26,7 +26,7 @@ These are constraints on the code, not aspirations. Each maps to a test.
 
 ### 2.1 Provider abstraction
 
-The application talks to an `AiProvider`, never to NVIDIA Build directly. This is what makes the provider replaceable.
+The application talks to an `AiProvider`, never to a provider directly. This is what makes the provider replaceable: NVIDIA Build, then Groq ([ADR-52](DECISIONS.md#adr-52--the-model-provider-is-any-openai-compatible-api-groq-replaces-nvidia-builds-free-tier)), then DeepInfra direct ([ADR-54](DECISIONS.md#adr-54--deepinfra-direct-is-the-phase-8-provider-google-and-anthropic-models-are-excluded)) were each a configuration change.
 
 ```ts
 // src/server/ai/provider/types.ts
@@ -62,9 +62,11 @@ export interface ChatResponse {
 }
 ```
 
-`src/server/ai/provider/nvidia-build.ts` implements this over the OpenAI-compatible wire format. It is the only file that knows about `Authorization: Bearer nvapi-…`, `/chat/completions`, or NVIDIA's error shapes.
+`src/server/ai/provider/nvidia-build.ts` implements this over the OpenAI-compatible wire format. It is the only file that knows about `Authorization: Bearer …`, `/chat/completions`, or a provider's error shapes. Its name is historical: it serves any OpenAI-compatible endpoint, DeepInfra included.
 
 ### 2.2 What NVIDIA Build gives us, and what it does not
+
+*Historical: this section describes the original provider. The current provider is DeepInfra direct (ADR-54); the constraints that matter (no assumed prompt caching, OpenAI-compatible tools and JSON schema, per-model support measured rather than assumed) still apply.*
 
 Measured against the Anthropic-style feature set assumed in the previous draft:
 
@@ -119,7 +121,7 @@ Every tier still serves. Tier 1 falls through its dead primary to `openai/gpt-os
 src/server/ai/
   provider/
     types.ts              AiProvider interface, wire-agnostic request/response types
-    nvidia-build.ts       the only NVIDIA-aware file
+    nvidia-build.ts       the only provider-aware file (name historical; any OpenAI-compatible API)
     registry.ts           active provider resolution
   config/
     models.ts             tier → ordered candidate list, from env (ADR-17)
@@ -692,7 +694,7 @@ Detail in [SECURITY.md](SECURITY.md). The AI-specific controls:
 5. **No execution capability** — no code execution, no shell, no filesystem, no network tool, no MCP server.
 6. **Confirmation is out-of-band** — a UI action against a `pending` row, not a message the model can emit.
 7. **Data minimisation** — aggregates before records, projected fields, capped results.
-8. **Documented egress.** What is sent to NVIDIA Build: the system prompt, tool schemas, the user's message, and tool results (financial figures and descriptions within the caps above). Not sent: credentials, full table dumps, IDs of unrelated entities, or anything from a user who did not initiate the request. Recorded in [SECURITY.md §12](SECURITY.md#12-known-accepted-risks).
+8. **Documented egress.** What is sent to the provider (DeepInfra direct, ADR-54): the system prompt, tool schemas, the user's message, and tool results (financial figures and descriptions within the caps above). Not sent: credentials, full table dumps, IDs of unrelated entities, or anything from a user who did not initiate the request. Recorded in [SECURITY.md §12](SECURITY.md#12-known-accepted-risks).
 9. **`ai_enabled = false`** removes the entire egress surface, and every other feature keeps working.
 
 ---

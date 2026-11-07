@@ -15,7 +15,11 @@ Durable technical reference for the Personal Finance & Investment OS. Read in th
 | [DEPLOYMENT.md](DEPLOYMENT.md) | Environments, hosting, TLS, backup/restore, operations |
 | [ROADMAP.md](ROADMAP.md) | Phased delivery plan with per-phase definition of done |
 | [RECOVERY-2026-10.md](RECOVERY-2026-10.md) | The October 2026 disk-failure recovery: what was rebuilt, the current blocker register, the order of remaining work, and how agents work from GitHub |
-| [audits/](audits/) | Dated audit reports kept as historical records, such as the 2026-09-24 Phase 8 entry-gate audit |
+| [AI-INFRASTRUCTURE-DESIGN.md](AI-INFRASTRUCTURE-DESIGN.md) | The Phase 7 design review: read-only AI boundary, routing, budgets, open decisions OD-17/OD-18 |
+| [INVESTMENT-ENGINE-DESIGN.md](INVESTMENT-ENGINE-DESIGN.md), [NET-WORTH-DESIGN.md](NET-WORTH-DESIGN.md), [MARKET-DATA-DESIGN.md](MARKET-DATA-DESIGN.md), [MARKET-VALUE-NET-WORTH-DESIGN.md](MARKET-VALUE-NET-WORTH-DESIGN.md) | Phase 4–6 design reviews, applied to the canonical documents above |
+| `PHASE9-*.md` | One activation contract per Phase 9 feature: [transaction entry](PHASE9-TRANSACTION-ENTRY.md), [read-only assistant](PHASE9-READONLY-ASSISTANT.md), [monthly reviews](PHASE9-MONTHLY-REVIEWS.md), [portfolio analysis](PHASE9-PORTFOLIO-ANALYSIS.md), [financial health](PHASE9-FINANCIAL-HEALTH.md), [period summaries](PHASE9-PERIOD-SUMMARIES.md), [cross-domain analysis](PHASE9-CROSS-DOMAIN.md), [document extraction](PHASE9-DOCUMENT-EXTRACTION.md). All are built and disabled until the Phase 8 lineup is approved |
+| [OPENROUTER-MEASUREMENTS.md](OPENROUTER-MEASUREMENTS.md), [OPENROUTER-CAMPAIGN.md](OPENROUTER-CAMPAIGN.md) | OpenRouter privacy controls and measurement runbook — built, not the selected provider (ADR-54) |
+| [audits/](audits/) | Dated audit reports kept as historical records, such as the 2026-09-24 Phase 8 entry-gate audit and the 2026-11-07 Phase 8 reconciliation and tier-eligibility audits |
 
 ## Conventions used in these documents
 
@@ -24,4 +28,4 @@ Durable technical reference for the Personal Finance & Investment OS. Read in th
 - `ADR-nn` — cross-reference into [DECISIONS.md](DECISIONS.md).
 - Code identifiers are written as they will appear in the repository.
 
-Status: **architecture only — no application code written yet.** Nothing in `docs/` describes shipped behaviour until [ROADMAP.md](ROADMAP.md) marks the relevant phase complete.
+Status (2026-11-07): **Phases 0–7 are built and verified; Phase 8 (model evaluation) awaits the owner's lineup decision; Phase 9 is built but disabled.** [ROADMAP.md](ROADMAP.md) "Where the project stands" is the current summary and [PROJECT-STATE.md](../PROJECT-STATE.md) the full record. A design document describes shipped behaviour only where ROADMAP marks that phase complete.

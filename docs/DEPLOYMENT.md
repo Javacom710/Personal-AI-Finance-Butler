@@ -24,8 +24,8 @@ There is deliberately no staging environment. For a single-user application it w
 | git | ✅ 2.55.0 | **`git init` — the project directory is not yet a repository** |
 | PostgreSQL | ✅ **18.4**, `postgresql-x64-18` service, `Automatic` | none |
 | Docker Desktop | ❌ not installed | **not required** — see D-4 below |
-| `NVIDIA_API_KEY` | ❌ not set | decision **OD-1** — blocks Phase 7 onward |
-| NVIDIA Build reachable | ✅ `HTTP 200`, 0.67 s | none |
+| AI provider key (`AI_API_KEY`) | ✅ set for DeepInfra direct ([ADR-54](DECISIONS.md#adr-54--deepinfra-direct-is-the-phase-8-provider-google-and-anthropic-models-are-excluded)); OD-1 closed | none |
+| Provider reachable | ✅ `api.deepinfra.com` (2026-11-07). NVIDIA Build and Groq are historical providers | none |
 | `ANTHROPIC_BASE_URL` | ⚠️ set in this shell | Claude Code's own config — the application must **not** read it |
 
 ### D-4: local database — settled
@@ -65,19 +65,20 @@ SESSION_COOKIE_SECRET=<32 random bytes, base64>
 APP_URL=http://localhost:3000
 NODE_ENV=development
 
-# --- AI provider (NVIDIA Build) -------------------------------------------
-AI_PROVIDER=nvidia-build
-AI_BASE_URL=https://integrate.api.nvidia.com/v1
-NVIDIA_API_KEY=nvapi-...
-AI_ENABLED=true
+# --- AI provider: any OpenAI-compatible API (ADR-52); DeepInfra direct (ADR-54)
+AI_BASE_URL=https://api.deepinfra.com/v1/openai
+AI_API_KEY=...                  # NVIDIA_API_KEY / NVIDIA_BASE_URL remain a legacy fallback
+# AI on/off is the `ai_enabled` user setting in the database, not an environment variable.
 
-# Tier candidate lists, in fallback order (ADR-17).
-# Verify against the authenticated catalogue before setting: npm run ai:catalogue
-AI_TIER1_MODELS=nvidia/nemotron-3-nano-30b-a3b,openai/gpt-oss-20b,google/gemma-4-31b-it
-AI_TIER2_MODELS=nvidia/nemotron-3-super-120b-a12b,deepseek-ai/deepseek-v4-flash-0731
-AI_TIER3_MODELS=nvidia/nemotron-3-ultra-550b-a55b
-AI_TIER4_MODELS=nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
-AI_TIER5_MODELS=                                  # empty — embeddings deferred (ADR-19)
+# Tier candidate lists, in fallback order (ADR-17). Leave unset to use the
+# defaults in src/server/ai/config/models.ts: Tier 1 = openai/gpt-oss-120b,
+# openai/gpt-oss-20b; Tiers 2-4 empty (fail closed) until the owner accepts a
+# measured lineup (OD-20). Verify identifiers first: npm run ai:catalogue
+# AI_TIER1_MODELS=
+# AI_TIER2_MODELS=
+# AI_TIER3_MODELS=
+# AI_TIER4_MODELS=
+# Tier 5 has no variable — embeddings are deferred (ADR-19).
 
 # --- Market data -----------------------------------------------------------
 # Added per provider as adapters are built. AMFI and manual need no key.
@@ -106,7 +107,7 @@ AI_TIER5_MODELS=                                  # empty — embeddings deferre
                        │               │  pg_dump →   │
                        │ outbound      │  age encrypt │
                        ▼ 443           │  → off-site  │
-        integrate.api.nvidia.com       └──────────────┘
+        api.deepinfra.com (AI)         └──────────────┘
               market-data providers
 ```
 
@@ -210,17 +211,17 @@ Minimal and self-hosted — no third-party telemetry ([SECURITY.md §11](SECURIT
 | Database won't start | Check disk space first — it is the usual cause. Then Postgres logs. Restore from backup if corrupted. |
 | Migration failed mid-deploy | The previous version is still running (migrations run before the switch). Fix forward; never edit an applied migration. |
 | Prices all stale | Check provider status and the `jobs` table for failures; `ManualProvider` remains available so the app is still usable |
-| AI unavailable | Check `ai_usage_daily` against the budget, then `ai_model_attempts` for the failure class per model (an open circuit breaker looks like an outage), then NVIDIA Build status. The rest of the app is unaffected by design. |
+| AI unavailable | Check `ai_usage_daily` against the budget, then `ai_model_attempts` for the failure class per model (an open circuit breaker looks like an outage), then the AI provider's status (DeepInfra, ADR-54). The rest of the app is unaffected by design. |
 | One model degrading | `ai_model_attempts` grouped by model and outcome shows it before users do. Reorder the tier list in the environment and restart — no code change ([ADR-17](DECISIONS.md#adr-17--model-identifiers-are-configuration-not-code)). |
 | Suspected data corruption | `npm run verify:integrity`; if invariants fail, `npm run rebuild:positions`; if still failing, restore from the last verified backup |
-| Suspected compromise | Revoke all sessions, rotate `NVIDIA_API_KEY`, `APP_ENCRYPTION_KEY`, `SESSION_COOKIE_SECRET`, and the database password; force a password change; review `auth_events` and `audit_log` |
+| Suspected compromise | Revoke all sessions, rotate `AI_API_KEY`, `APP_ENCRYPTION_KEY`, `SESSION_COOKIE_SECRET`, and the database password; force a password change; review `auth_events` and `audit_log` |
 | Certificate expiry | Caddy renews automatically; if it fails, check port 80 reachability for the ACME challenge |
 
 ## 8. Secret rotation
 
 | Secret | Frequency | Procedure |
 |---|---|---|
-| `NVIDIA_API_KEY` | on suspicion | Create a new key in NVIDIA Build, update the environment, restart, revoke the old key |
+| `AI_API_KEY` | on suspicion | Create a new key in the provider's console (DeepInfra), update the environment, restart, revoke the old key. Check the prepaid balance at the same time |
 | Market-data keys | on suspicion | Same |
 | `SESSION_COOKIE_SECRET` | on suspicion | Update and restart; all sessions invalidate |
 | `APP_ENCRYPTION_KEY` | on suspicion | `npm run rotate:encryption-key` re-encrypts TOTP secrets under the new key inside one transaction; **take a backup first** |

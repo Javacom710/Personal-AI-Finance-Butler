@@ -77,7 +77,7 @@ Authorization lives in `src/server/services/**` — one layer, one place ([ADR-2
 | Secret | Where | Never |
 |---|---|---|
 | `DATABASE_URL` | environment | in the repo, in a client bundle, in a log line |
-| `NVIDIA_API_KEY` (`nvapi-…`) | environment, read only inside `src/server/ai/provider/nvidia-build.ts` | in `NEXT_PUBLIC_*`, in the browser, in an error message |
+| `AI_API_KEY` (legacy fallback `NVIDIA_API_KEY`) | environment, resolved by `aiProviderSettings()` in `src/lib/env.ts` and read only by the composition root `src/server/ai-runtime.ts`, which passes it to the provider client | in `NEXT_PUBLIC_*`, in the browser, in an error message |
 | `AI_TIER*_MODELS` | environment ([ADR-17](DECISIONS.md#adr-17--model-identifiers-are-configuration-not-code)) | hard-coded at a call site |
 | Market-data API keys | environment, read only inside `src/server/market-data/providers/` | in the browser |
 | `APP_ENCRYPTION_KEY` | environment (32 random bytes, base64) | in the database, in a backup that also holds ciphertext |
@@ -151,7 +151,7 @@ Covered in detail in [AI-SYSTEM.md §15](AI-SYSTEM.md#15-security-boundary). The
 
 - **The kill switch is real.** `settings.ai_enabled` is read by `src/server/ai-runtime.ts` before any request is constructed, and **fails closed** — a settings row that cannot be read disables AI rather than defaulting to on. `ai_enabled = false` produces **zero egress**: not a request attempted and discarded, but one never built (**I-58**). Until Phase 7 this column had no reader anywhere while this document twice named it as the mitigation.
 - **AI requests are rate limited per user**, in-process, fixed-window (`AI_RATE_LIMIT_PER_MINUTE`, default 10). A refusal is typed and no provider call is made. A single-user application needs no shared store, and `CLAUDE.md` rules one out.
-- **`NVIDIA_API_KEY` is read in exactly one file** — `src/server/ai-runtime.ts` — and passed into the provider. `src/server/ai/**` cannot import `@/lib/env` at all, so the AI layer holds a configured client and never a credential it could place in a prompt. The key appears only in an `Authorization` header, never in a request body, an error, or a log (**I-55**).
+- **The provider key (`AI_API_KEY`, legacy `NVIDIA_API_KEY`) is read in exactly one application file** — `src/server/ai-runtime.ts` — and passed into the provider. `src/server/ai/**` cannot import `@/lib/env` at all, so the AI layer holds a configured client and never a credential it could place in a prompt. The key appears only in an `Authorization` header, never in a request body, an error, or a log (**I-55**).
 - **AI infrastructure is strictly read-only** ([ADR-35](DECISIONS.md#adr-35--ai-infrastructure-is-strictly-read-only-a-mutation-needs-a-separate-approved-proposal-workflow)). No write tool exists, and none can be written: the AI layer holds an `AiReadCtx` with no database handle and no transaction capability, so `withWriteCtx(ai, …)`, `ai.db` and `createTransaction(ai, …)` are each a **compile error** (**I-50**). The model's maximum impact is a proposal the user must confirm, and even that row is persisted by an application service rather than by AI code. **Any future AI-assisted mutation requires a separate, explicitly approved proposal/confirmation workflow** and is outside Phase 7 and Phase 8.
 - **The AI zone's import surface is an allowlist**: `@/server/ai-read`, `@/server/log` and `@/lib/**` except `@/lib/env` — nothing else under `src/server/`, `app/`, or the environment ([ADR-38](DECISIONS.md#adr-38--the-ai-zone-is-an-allowlist-a-new-directory-is-closed-on-the-day-it-is-created), **I-51**, **I-52**). A directory added tomorrow is closed by default. The adversarial review of 2026-08-30 attacked the previous denylist with fourteen probes and found **seven open routes**, two of them complete defeats of the write boundary: a `'use server'` action takes a *form*, not a context, and builds a `WriteCtx` internally, so importing one mutates the ledger with the session's own authority and no capability ever passes through AI code; `@/server/jobs` does the same one indirection further away. Enforced by any import style — aliased, relative, or dynamic.
 - **Credentials are outside the AI layer's reach.** `@/lib/env` — which returns `DATABASE_URL`, `APP_ENCRYPTION_KEY`, `SESSION_COOKIE_SECRET` and every provider key — is banned from the zone, as is `@/server/auth/**` (sessions, password verification, and decryption of TOTP secrets and recovery codes). Tier lists reach `config/` by being **passed in**, never read (`AI-SYSTEM.md` §12). Three mechanisms enforce this, because none alone is sufficient: the capability types, the ESLint AI zone, and a source scan. The scan exists specifically because `no-restricted-imports` registers no `ImportExpression` listener, so `await import('@/server/db/client')` is invisible to it ([ADR-34](DECISIONS.md#adr-34--the-ai-import-boundary-is-enforced-three-ways-and-covers-relative-paths)).
@@ -159,7 +159,7 @@ Covered in detail in [AI-SYSTEM.md §15](AI-SYSTEM.md#15-security-boundary). The
 - **`userId` comes from the session**, never from tool input. No tool accepts a user identifier — asserted by test.
 - **Tool results are data, not instructions**, and the system prompt says so; instructions found inside user data are to be reported, not obeyed.
 - **No execution capability**: no code execution, no shell, no filesystem, no network tool, no MCP server.
-- **Minimum necessary data** is sent to the provider — aggregates before records, projected fields, row and byte caps (`CLAUDE.md <ai_data_access>`). With no prompt caching on NVIDIA Build, minimisation is a cost control as well as a privacy control, so the two incentives point the same way.
+- **Minimum necessary data** is sent to the provider — aggregates before records, projected fields, row and byte caps (`CLAUDE.md <ai_data_access>`). With no prompt caching assumed from the provider, minimisation is a cost control as well as a privacy control, so the two incentives point the same way.
 - **Model selection cannot be influenced by content.** Tier and capability requirements are computed by application code, never from tool output, and the user does not choose the model: an instruction in a message to use a particular model or tier is ignored for routing and flagged ([ADR-48](DECISIONS.md#adr-48--the-users-question-sets-the-tier-the-user-does-not-choose-the-model)). The one input from the user's text is the deterministic Tier 1 → Tier 2 classification of the *question* (`AI-SYSTEM.md` §6.2), which reaches at most Tier 2 with the same read-only tools — so injection cannot escalate a request to a more permissive path.
 - Prompt injection cannot escalate privilege because there is no privilege to escalate to: every capability the model has is a read the user could perform themselves.
 
@@ -167,7 +167,7 @@ Covered in detail in [AI-SYSTEM.md §15](AI-SYSTEM.md#15-security-boundary). The
 
 One nuance worth stating precisely, because it is a property of the *matrix* rather than of the catalogue: the effective allowlist at request time is `config/capabilities.ts`, not the provider's catalogue. An operator who points `AI_TIER2_MODELS` at an identifier with no capability entry gets a clean fail-closed refusal (`no_capable_model`) on the first request — never a blind call — but the process still **boots without complaint**, so the misconfiguration surfaces on use rather than at startup. That is safe, and it is not self-announcing.
 
-### Egress inventory — what leaves for NVIDIA Build
+### Egress inventory — what leaves for the AI provider (DeepInfra direct, [ADR-54](DECISIONS.md#adr-54--deepinfra-direct-is-the-phase-8-provider-google-and-anthropic-models-are-excluded))
 
 Documented because `CLAUDE.md <security_privacy>` requires it.
 
@@ -178,7 +178,9 @@ Documented because `CLAUDE.md <security_privacy>` requires it.
 | Tool results: financial figures, category and account **names**, descriptions, dates — within row/field/byte caps | Account numbers, IFSC/routing details, `notes` unless a tool's contract includes them |
 | Uploaded receipt/statement images (Tier 4 only, at the user's action) | Any data belonging to a request the user did not initiate |
 
-Egress is zero when `settings.ai_enabled = false`, and every other feature continues to work.
+Egress is zero when `settings.ai_enabled = false`, and every other feature continues to work. Until the owner accepts a measured lineup (OD-20), every Phase 9 feature refuses to build a provider, so the application itself sends nothing. Phase 8 evaluation runs send only the synthetic golden fixtures, never the user's data.
+
+The provider is DeepInfra direct, chosen by the owner, who also excluded Google and Anthropic models from it. Its data-retention terms are the owner's accepted risk (ADR-54). The endpoint is configuration, so a stricter provider is a key and URL change plus fresh measurements.
 
 ## 9. Data export, backup, and deletion
 
@@ -219,7 +221,7 @@ Recorded rather than hidden.
 
 | Risk | Mitigation | Residual |
 |---|---|---|
-| Financial content is sent to NVIDIA Build for AI features | Data minimisation, aggregates first, field projection, row/byte caps, documented egress inventory (§8), AI fully disableable | Accepted — inherent to the feature. `ai_enabled = false` removes it entirely and the rest of the app is unaffected. |
+| Financial content is sent to the AI provider (DeepInfra, ADR-54) for AI features | Data minimisation, aggregates first, field projection, row/byte caps, documented egress inventory (§8), AI fully disableable | Accepted — inherent to the feature. `ai_enabled = false` removes it entirely and the rest of the app is unaffected. |
 | Open-weight models vary in structured-output and tool-calling reliability; an unreliable model could mis-parse a transaction | Measured capability matrix gates routing ([ADR-18](DECISIONS.md#adr-18--a-measured-capability-matrix-gates-routing-and-fallback)); Tier 1 requires ≥0.95 schema adherence; every proposal is user-confirmed before it writes | Accepted — the confirmation step means a parse error is a visible wrong draft, not a wrong record |
 | A compromised host exposes the database | Disk encryption, no inbound access except 443, no shared credentials, encrypted off-site backups | Accepted for a single-user self-hosted deployment |
 | Market-data providers learn which instruments are queried | Server-side only; no user identifier sent; batched queries | Accepted |
