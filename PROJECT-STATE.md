@@ -3,6 +3,9 @@
 Durable status record. Conversation history is temporary; this file is not. Read this first after any context reset, then verify it against `docs/`, the source tree, and the tests before trusting it.
 
 > **Current provider and merge checkpoint — 2026-11-07:** DeepInfra direct is the selected Phase 8 testing provider; OpenRouter remains future, unactivated support. Do not send Google/Anthropic models through DeepInfra. PRs #39, #40 and #43–48 have merged with live AI generation hard-disabled. The owner still must approve a measured lineup before recording or activation. The dated OpenRouter preparation and Phase 9 handovers below are preserved as historical records.
+> **Historical measurement snapshot — 2026-11-07 (Claude, before the merge pass).** `main` lags the open Codex PRs #39–#49 (Phase 9 slices, all model-disabled; OpenRouter runner #41/#42; #49 records the owner's switch to **DeepInfra** as the Phase 8 testing provider). Phase 8 measurements were run on DeepInfra with the unchanged `ai:eval --no-record`: see [DeepInfra measurements](eval/reports/deepinfra-2026-11-07/README.md). **No tier passes the unchanged gates; nothing is proposed or recorded.** GPT-OSS-120B completes Tier 1 but fails tool-call correctness (0.86 < 0.90); other runs have proxy-caused unanswered cases. The Groq queue is superseded (no further Groq calls). Owner decisions are listed in that README.
+
+> **Historical provider direction — 2026-11-02.** PR #37 is merged (`faa20f9`, 13:12 UTC); ADR-52 makes Groq the configured provider. Work continues on `codex/groq-measurements`: no accepted routing lineup and no saved live results. The recurring automation is paused; the current finite workflow overview is [here](eval/reports/groq-workflow-progress.md), and `npm run ai:measure:groq -- --run` carries the queue through a quota window. The pre-record provider-provenance P1 is fixed on this branch and covered by unit/integration tests. Live measurements are incomplete and quota paced; read [Groq measurement checkpoint](eval/reports/groq-2026-11-02/README.md) and the new log below. Do not resume NVIDIA benchmarks, change gates/prompts/scorers/suites, set tier orders, or use `--record` without owner approval.
 
 > **Historical direction, 2026-11-03.** The owner explicitly authorized **Phase 9 natural-language transaction entry and confirmation to start early, in parallel with incomplete Phase 8**, on `codex/phase-9-nl-entry`. This is transaction entry only, fake-provider tested, with production draft generation hard-disabled until the owner approves a measured Phase 8 lineup. The owner additionally authorized the read-only financial assistant on 2026-11-03, on its own branch `codex/phase-9-readonly-assistant`, also fake-provider tested with model calls disabled pending lineup approval. Saved conversation management, export and deletion are now implemented; PR #40 is stacked on PR #39 to keep migrations ordered. Analysis/scenario/document work remains outside this slice; OD-18 stays blocked. PR #38 is now merged (`3dd38f2`) by the owner's later explicit instruction, superseding the earlier keep-draft request. The owner plans to fund OpenRouter on 3 November, then switch provider and complete Phase 8 in one sustained run; readiness must be checked first, and Groq measurements must not authorize a new endpoint. Existing gates, prompts, scorers, suites and tier orders remain unchanged. See [Phase 9 transaction entry](https://github.com/Javacom710/Personal-AI-Finance-Butler/blob/ccc9879/docs/PHASE9-TRANSACTION-ENTRY.md).
 
@@ -47,7 +50,6 @@ This file also remains the **Phase 5 completion checkpoint** and carries the **P
 **Infrastructure verified:** PostgreSQL **18.4** as the Windows service `postgresql-x64-18` (`Automatic` start, runs as `NT AUTHORITY\NetworkService`), independent of any shell or tool lifetime. Databases `financeos` and `financeos_test`, two least-privilege roles, connectivity confirmed by the 376 integration tests, `verify:integrity` against `financeos`, and a live signed-in browser session.
 
 Sequence approved 2026-08-11: **Phase 3 — Money Management → Phase 4 — Investment Engine.**
-
 
 ---
 
@@ -193,7 +195,6 @@ Next (as of #24): the first full measurement (PC); `ai_model_evaluations` storag
 - **Limits:** this measures whether the model states supported financial findings, not the quality or novelty of open-ended reasoning. No model was called and no key was needed. The `ai:eval` runner PR #24 predates the document/analysis suites and will need follow-up wiring before these suites can be run from the CLI.
 - **Verification:** `npm run typecheck`, `npm run lint`, `npm run test:unit` (**1,844 passed**) and `npm run build` all pass. The 20 focused analysis tests pass too. No model or API key was used.
 - **Review fix:** a fabricated runway duration ("Your runway is 12 months") passed `analysis-009` beside its disclaimer, because `amountFor` reads only money and percentages. `durationFor` now rejects a runway stated in days, weeks, months or years. A second finding (a TWR of -21.06% passed `analysis-005`; the figure traces to XIRR) led to a sweep: every case that reads the portfolio result rejects a TWR figure, and every case covering unpriced HDFC Bank rejects a market value for it. A third round (Dining "under budget", a stale price called current) led to reversal checks on every case with a directional finding: realised/unrealised sign, stale vs current price, Dining over budget, expense and savings direction, October vs September, net-worth trend. Later rounds: a figure beside a disclaimer is not assigned to the missing metric (`assignedTo` stops at a bracket or denial); analysis no longer counts toward tool-call correctness (its calls are replayed); and key figures are **bound to their metric** (`bound`, `bindingHolds`), so an answer that swaps income and expenses, or equity and ETF, fails even though every figure traces.
-
 
 **2026-11-01 — `document` and `analysis` wired into `ai:eval`** (#28, on #26/#27; main already had #24/#25).
 - Tiers 2–3 also run `analysis`; Tier 4 runs `document`. A Tier 4 proposal needs schema adherence ≥ 0.95 and no tool-call score. A stored measurement needs every current tier suite, so a Tier 2 model now needs an `analysis` row too.
@@ -1187,7 +1188,6 @@ is met — see *What step 6.11 delivered* below.
 `TWELVE_DATA_API_KEY` is configured and the live smoke test passes, so 6.9 carries no outstanding
 verification either.
 
-
 Superseded pointer, kept for the record: the earlier instruction here was to *perform* this review by
 reading `docs/ARCHITECTURE.md`, `docs/INVESTMENT-DOMAIN.md` §5 and
 §8.1, [ADR-11](docs/DECISIONS.md#adr-11--market-data-behind-a-provider-abstraction-with-an-always-available-manual-provider),
@@ -1738,7 +1738,6 @@ Run on 2026-08-10.
 | How does the AI layer work and what can't it do? | [docs/AI-SYSTEM.md](docs/AI-SYSTEM.md) |
 | What must be tested before a phase is done? | [docs/TESTING.md](docs/TESTING.md) and each phase's "Done when" |
 | What am I building next? | [docs/ROADMAP.md](docs/ROADMAP.md) — **Phase 8, Model Evaluation**. Start with the golden task corpora for `src/server/ai/eval/harness.ts`; run `npm run ai:catalogue` first to see the current catalogue (ADR-45) |
-
 
 ### Transaction review follow-up — 2026-11-03
 
