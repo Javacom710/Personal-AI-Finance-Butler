@@ -57,6 +57,7 @@ import { users } from './identity';
 // and a recurring occurrence may have produced one. Both directions are behind
 // drizzle's lazy `references(() => …)` thunks, so neither module dereferences
 // the other while it is still evaluating.
+import { aiProposals } from './ai-proposals';
 import { investmentTransactions } from './investments';
 
 /** `numeric(20,4)` — the money column shape fixed by ADR-04. Read as a string, never a float. */
@@ -225,6 +226,7 @@ export const transactions = pgTable(
 
     notes: text('notes'),
     source: recordSource('source').notNull().default('manual'),
+    aiProposalId: uuid('ai_proposal_id').references(() => aiProposals.id, { onDelete: 'set null' }),
 
     recurringRuleId: uuid('recurring_rule_id').references(() => recurringRules.id, {
       onDelete: 'set null',
@@ -234,6 +236,7 @@ export const transactions = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
+    uniqueIndex('transactions_ai_proposal_uniq').on(t.aiProposalId).where(sql`${t.aiProposalId} is not null`),
     index('transactions_user_date_idx').on(t.userId, t.bookedOn.desc(), t.id.desc()),
     index('transactions_category_idx').on(t.userId, t.categoryId, t.bookedOn),
     // I-2. Structural, not conventional: a transfer has no category column value

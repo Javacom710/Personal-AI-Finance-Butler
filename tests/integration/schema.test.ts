@@ -57,6 +57,7 @@ describe('migration', () => {
         'ai_usage_daily',
         // Phase 8 — model measurements; not user-owned (SCHEMA.md §10)
         'ai_model_evaluations',
+        'ai_proposals',
       ]),
     );
 
@@ -69,7 +70,6 @@ describe('migration', () => {
     // scope boundary had been crossed.
     for (const later of [
       'net_worth_snapshots',
-      'ai_proposals',
       'ai_conversations',
     ]) {
       expect(tables, `${later} belongs to a later phase`).not.toContain(later);
@@ -100,13 +100,15 @@ describe('migration', () => {
     );
   });
 
-  it('created the shape triggers that enforce I-1 to I-3 below the application', async () => {
+  it('created shape and proposal audit/linkage triggers below the application', async () => {
     const result = await db().execute<{ tgname: string }>(
       sql`select tgname from pg_trigger where not tgisinternal order by tgname`,
     );
     expect(result.rows.map((r) => r.tgname)).toEqual([
+      'ai_proposals_confirmation_audit',
       'categories_shape_check',
       'transaction_entries_shape_check',
+      'transactions_proposal_link',
       'transactions_shape_check',
     ]);
   });
