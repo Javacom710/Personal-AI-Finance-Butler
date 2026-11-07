@@ -415,6 +415,13 @@ The evaluation deliverable now has one finite coordinator: **`npm run ai:measure
 
 Live draft generation remains hard-disabled, and this does **not** complete all of Phase 9. The owner subsequently authorized the read-only assistant as the next separate slice on 2026-11-03, fake-provider tested and disabled pending lineup approval; scenarios remain blocked by OD-18. Phase 8 next needs confirmation of OpenRouter funding and a configured credential; the current environment exposes Groq/NVIDIA credentials but no OpenRouter credential. Do not spend Groq quota as a substitute, record measurements, or accept tier orders without the required owner approval.
 
+## Codex Cloud environment failure and DeepInfra credit — 2026-11-07
+
+- **Incident (10:20–11:00 IST).** Every Codex Cloud chat in the environment `Personal-AI-Finance-Butler` failed at start with *"Could not start this chat"* / *"Error submitting message"* (request ID `06deb3f9-3259-4c2c-9995-fa04bcc02d8c`), from the desktop app and chatgpt.com/codex alike. Opening that environment's **Edit** also failed (*"Couldn't confirm whether the editing chat was created"*).
+- **Diagnosis.** A one-line test chat in the **Default** environment (no repo) answered at once; the same chat in `Personal-AI-Finance-Butler` failed. Ruled out: the prompt, GitHub access (repo public and listed in Codex's repo picker), sign-in, the desktop app (local logs clean, local threads start), and a published outage (status.openai.com listed only an unrelated code-review incident). Cause: that one environment's record broke on OpenAI's side; not fixable from the repository.
+- **Fix.** The owner created a **new environment** for the same repo with the same scripts, variables and secrets; its install and maintenance scripts now end with the `.env` block in [RECOVERY-2026-10.md](docs/RECOVERY-2026-10.md#switching-agents) (now including `AI_API_KEY` and `AI_BASE_URL`). Cloud chats work again. The old environment can be deleted. If it recurs, follow the runbook there.
+- **DeepInfra prepaid credit.** On 2026-11-07 the owner bought **US$5 of prepaid DeepInfra credit for ₹488.80** (including the card's currency-conversion fee). It is the testing provider for Phase 8 measurements (`AI_BASE_URL=https://api.deepinfra.com/v1/openai`). Track spend against this balance; no auto-recharge is set.
+
 ## Working protocol — applies to every phase from 2 onward
 
 Approved by the user on 2026-08-09. The architecture documents in `docs/` are the **implementation baseline**.
