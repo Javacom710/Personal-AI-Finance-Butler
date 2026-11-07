@@ -135,6 +135,24 @@ export interface EvaluationCandidate {
 
 export const EVALUATION_CANDIDATES: readonly EvaluationCandidate[] = [
   {
+    id: 'Qwen/Qwen3-235B-A22B-Instruct-2507',
+    tier: 2,
+    confirmedOn: '2026-11-07',
+    reason: 'DeepInfra direct catalogue: non-thinking text candidate after the GPT-OSS evaluation hold; measured independently in Tiers 1–3, never an accepted route.',
+  },
+  {
+    id: 'Qwen/Qwen3-VL-235B-A22B-Instruct',
+    tier: 4,
+    confirmedOn: '2026-11-07',
+    reason: 'DeepInfra direct catalogue: larger vision candidate after the 30B extraction/timeouts hold; not an accepted route.',
+  },
+  {
+    id: 'Qwen/Qwen3-VL-30B-A3B-Instruct',
+    tier: 4,
+    confirmedOn: '2026-11-07',
+    reason: 'DeepInfra direct catalogue: non-thinking vision candidate for document extraction; not an accepted route.',
+  },
+  {
     id: 'nvidia/nemotron-nano-3-30b-a3b',
     tier: 1,
     confirmedOn: '2026-10-31',
@@ -171,6 +189,14 @@ export const EVALUATION_CANDIDATES: readonly EvaluationCandidate[] = [
       '`nvidia/nemotron-nano-12b-v2-vl` does not exist.',
   },
 ];
+
+/** Current finite DeepInfra candidate plan. Historical GPT-OSS campaigns stay intact. */
+export const DEEPINFRA_MEASUREMENT_MODELS: Readonly<Record<Exclude<Tier, 5>, readonly string[]>> = {
+  1: ['Qwen/Qwen3-235B-A22B-Instruct-2507'],
+  2: ['Qwen/Qwen3-235B-A22B-Instruct-2507'],
+  3: ['Qwen/Qwen3-235B-A22B-Instruct-2507'],
+  4: ['Qwen/Qwen3-VL-235B-A22B-Instruct'],
+};
 
 /** `CLAUDE.md`'s name → the catalogue's name. Returns the input when unknown. */
 export function normaliseModelId(declared: string): string {

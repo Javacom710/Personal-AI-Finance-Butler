@@ -1,0 +1,200 @@
+{
+  "asOf": "2026-11-07T15:11:43.029372+00:00",
+  "baseCommit": "44e53ce86aaeb1a4178a25a3efaff0b83866809c",
+  "runtimeSourceCommit": "b6518674c13e267597749c92f1c7084a6473cdec",
+  "branch": "codex/reconcile-phase8-deepinfra",
+  "pullRequest": "https://github.com/Javacom710/Personal-AI-Finance-Butler/pull/51",
+  "originalCheckoutPreservedFiles": 169,
+  "localReportFilesPreserved": 117,
+  "mainProjectHeadingsPreserved": 61,
+  "localProjectHeadingsPreserved": 55,
+  "mainProtocolSuffixPreserved": true,
+  "unitProperty": {
+    "initial": {
+      "passed": 2471,
+      "failed": 5,
+      "failureKind": "timeouts during concurrent build and PostgreSQL suites"
+    },
+    "isolated": {
+      "filesPassed": 99,
+      "testsPassed": 2476,
+      "testsFailed": 0,
+      "maxWorkers": 1
+    }
+  },
+  "integration": {
+    "17": {
+      "initial": {
+        "files": 38,
+        "tests": 619,
+        "passed": 617,
+        "failed": 2,
+        "failure": "daily-budget no-key fixture removed NVIDIA_API_KEY only"
+      },
+      "fixedFileRerun": {
+        "testsPassed": 9,
+        "testsFailed": 0,
+        "bothCredentialNamesConfigured": true
+      },
+      "all619CasesVerifiedAcrossRuns": true
+    },
+    "18": {
+      "initial": {
+        "files": 38,
+        "tests": 619,
+        "passed": 617,
+        "failed": 2,
+        "failure": "daily-budget no-key fixture removed NVIDIA_API_KEY only"
+      },
+      "fixedFileRerun": {
+        "testsPassed": 9,
+        "testsFailed": 0,
+        "bothCredentialNamesConfigured": true
+      },
+      "all619CasesVerifiedAcrossRuns": true
+    }
+  },
+  "ci": {
+    "runId": 42367558374,
+    "url": "https://github.com/Javacom710/Personal-AI-Finance-Butler/actions/runs/42367558374",
+    "commit": "b6518674c13e267597749c92f1c7084a6473cdec",
+    "postgres17": "success",
+    "postgres18": "success",
+    "note": "All steps passed before the follow-up test-fixture/documentation-only commit. The updated PR head gets a fresh CI run."
+  },
+  "typecheck": "passed",
+  "lint": "passed; changed budget fixture also linted after correction",
+  "productionBuild": "passed",
+  "clientSecretScan": "passed",
+  "integrity": {
+    "passed": 35,
+    "failed": 0,
+    "warnings": 0,
+    "engineEnforced": 28
+  },
+  "dependencyAudit": {
+    "productionVulnerabilities": 0,
+    "allDependencyModerateAdvisories": 12,
+    "productionHighGate": "passed",
+    "allCriticalGate": "passed",
+    "affectedDevelopmentTools": [
+      "esbuild through drizzle-kit",
+      "minimatch through typescript-eslint"
+    ],
+    "lockfileChanged": false
+  },
+  "httpSmoke": {
+    "httpSmokePassed": true,
+    "checks": [
+      {
+        "path": "/ai",
+        "unauthenticatedStatus": 307,
+        "authenticatedStatus": 200,
+        "disabledControl": "Ask about my finances"
+      },
+      {
+        "path": "/ai/reviews/monthly",
+        "unauthenticatedStatus": 307,
+        "authenticatedStatus": 200,
+        "disabledControl": "Generate monthly review"
+      },
+      {
+        "path": "/ai/reviews/portfolio",
+        "unauthenticatedStatus": 307,
+        "authenticatedStatus": 200,
+        "disabledControl": "Analyze portfolio"
+      },
+      {
+        "path": "/ai/reviews/health",
+        "unauthenticatedStatus": 307,
+        "authenticatedStatus": 200,
+        "disabledControl": "Review financial health"
+      },
+      {
+        "path": "/ai/reviews/summary",
+        "unauthenticatedStatus": 307,
+        "authenticatedStatus": 200,
+        "disabledControl": "Summarize month"
+      },
+      {
+        "path": "/ai/reviews/cross-domain",
+        "unauthenticatedStatus": 307,
+        "authenticatedStatus": 200,
+        "disabledControl": "Review across finances"
+      },
+      {
+        "path": "/ai/documents",
+        "unauthenticatedStatus": 307,
+        "authenticatedStatus": 200,
+        "disabledControl": "Extract transaction drafts"
+      }
+    ],
+    "health": 200,
+    "liveAiRequests": false,
+    "note": "Fake key and unreachable provider endpoint; authenticated GET workflow only."
+  },
+  "historicalCampaignResume": {
+    "networkDenied": true,
+    "refusedForChangedSource": true,
+    "artifactsUnchanged": true
+  },
+  "liveProviderRequests": 0,
+  "liveMeasurementsRecorded": 0,
+  "productionOrdersChanged": false,
+  "featuresActivated": false,
+  "logHashes": {
+    "unitPropertyInitial": {
+      "localPath": "/tmp/financeos-reconcile-unit-property.log",
+      "sha256": "02763baccaed61900536e86d3a0188ddf688b7ac342da7d7bc32628f423f3eb8"
+    },
+    "unitPropertyIsolated": {
+      "localPath": "/tmp/financeos-reconcile-unit-property-isolated.log",
+      "sha256": "63c6f1298008667fbde276770aad9a872f1240882d1c0f09c5993dcf7cf263fe"
+    },
+    "postgres17Initial": {
+      "localPath": "/tmp/financeos-reconcile-pg17.log",
+      "sha256": "49f155a950b45ed89229dca9fbf6e9982f5ce43772565b8abad7a0734bf4f122"
+    },
+    "postgres18Initial": {
+      "localPath": "/tmp/financeos-reconcile-pg18.log",
+      "sha256": "b09944f1d8ed9e6033a6d11e678e06f239e2e0c3e9ff6c0ee3c2ed7bcb4613b4"
+    },
+    "postgres17BudgetRerun": {
+      "localPath": "/tmp/financeos-reconcile-pg17-budget-rerun.log",
+      "sha256": "1cdf13dcd467b3ec4843a525e83b417f4a7aa873aa74b7182b68a04e794a23de"
+    },
+    "postgres18BudgetRerun": {
+      "localPath": "/tmp/financeos-reconcile-pg18-budget-rerun.log",
+      "sha256": "eae7c49a721e0f2dcb8b448542e5eed56137de52879d7a366a2a0c37a28a10a0"
+    },
+    "httpSmoke": {
+      "localPath": "/tmp/financeos-reconcile-http-smoke.log",
+      "sha256": "55b005549222a7998830224929c5cdb38159bd8965472971037023fb00eab69f"
+    },
+    "fingerprintRejection": {
+      "localPath": "/tmp/financeos-reconcile-fingerprint.log",
+      "sha256": "b6f2db87f71f7f25ae7e23c07c2caa2b3bab64ddb5e72d20d12fede1504e0031"
+    },
+    "integrity": {
+      "localPath": "/tmp/financeos-reconcile-integrity.log",
+      "sha256": "ce5a9e33fd551017c11c20ed1777ea4b60bcc8fba8129004f7def9235f368070"
+    },
+    "productionAudit": {
+      "localPath": "/tmp/financeos-reconcile-audit-production.log",
+      "sha256": "6d8c5c8f3d7684adb070417bd608d01ae90aa3dc26a65af03ffda4955f38d9a3"
+    },
+    "fullAudit": {
+      "localPath": "/tmp/financeos-reconcile-audit-all.log",
+      "sha256": "4039ebd55733564460136727cc0edd484a9b337849249ff6238c6d6ad4cfedae"
+    },
+    "typecheck": {
+      "localPath": "/tmp/financeos-reconcile-typecheck-final.log",
+      "sha256": "147a941a537e65632e28681b24e6c1e9e9085cd5baba9ccd14eef0d4b0b77574"
+    },
+    "clientSecrets": {
+      "localPath": "/tmp/financeos-reconcile-secrets.log",
+      "sha256": "a8a8b7172aeca84ee271415c85bdbe23a2378fe0dca1feb410a10e83c5b33d8a"
+    }
+  },
+  "backupManifestSha256": "7802e3709f33db7c1b1e3f3c99d043d3e1d12f23519f486d07d7551869efdabe"
+}

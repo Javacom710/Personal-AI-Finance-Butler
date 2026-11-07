@@ -1,0 +1,177 @@
+{
+  "identity": "1de8e6b6cb9c12d7fee535363582ce54ad5b2b2a5945b2c74de487e007ea1750",
+  "providerIdentity": "https://api.deepinfra.com/v1/openai",
+  "model": "openai/gpt-oss-120b",
+  "tier": 3,
+  "suite": "analysis",
+  "version": 2,
+  "maxTokens": 8192,
+  "startedAt": "2026-11-07T05:52:03.032Z",
+  "cases": [
+    {
+      "caseId": "analysis-001",
+      "suite": "analysis",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": false,
+      "latencyMs": 28891,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "analysis-002",
+      "suite": "analysis",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": false,
+      "latencyMs": 24348,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "analysis-003",
+      "suite": "analysis",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": false,
+      "latencyMs": 24442,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "analysis-004",
+      "suite": "analysis",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": false,
+      "latencyMs": 11929,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "analysis-005",
+      "suite": "analysis",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": false,
+      "latencyMs": 9623,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "analysis-006",
+      "suite": "analysis",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": false,
+      "latencyMs": 4115,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "analysis-007",
+      "suite": "analysis",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": false,
+      "latencyMs": 8309,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "analysis-008",
+      "suite": "analysis",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": false,
+      "latencyMs": 7793,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "analysis-009",
+      "suite": "analysis",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": false,
+      "latencyMs": 4105,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "tool_calls"
+    },
+    {
+      "caseId": "analysis-010",
+      "suite": "analysis",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": false,
+      "latencyMs": 6472,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "analysis-011",
+      "suite": "analysis",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": false,
+      "latencyMs": 2930,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "tool_calls"
+    },
+    {
+      "caseId": "analysis-012",
+      "suite": "analysis",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": false,
+      "latencyMs": 8650,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "analysis-013",
+      "suite": "analysis",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": false,
+      "latencyMs": 20897,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "analysis-014",
+      "suite": "analysis",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": false,
+      "latencyMs": 13086,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "analysis-015",
+      "suite": "analysis",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": false,
+      "latencyMs": 50955,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    }
+  ]
+}

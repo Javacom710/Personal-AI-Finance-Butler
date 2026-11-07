@@ -1,0 +1,88 @@
+{
+  "tier": 4,
+  "providerIdentity": "https://api.deepinfra.com/v1/openai",
+  "startedAt": "2026-11-07T05:52:27.090Z",
+  "limit": null,
+  "requestIntervalMs": 0,
+  "requestTimeoutMs": 60000,
+  "suiteVersions": {
+    "document": 1
+  },
+  "models": [
+    {
+      "modelId": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "suites": [
+        {
+          "suite": "document",
+          "version": 1,
+          "maxTokens": 2048,
+          "counts": {
+            "answered": 18,
+            "unanswered": 2,
+            "schemaValid": 15,
+            "schemaApplicable": 18,
+            "toolCallValid": 0,
+            "toolCallApplicable": 0
+          },
+          "total": 20,
+          "passed": 1,
+          "failedCases": [
+            "doc-001",
+            "doc-002",
+            "doc-003",
+            "doc-004",
+            "doc-005",
+            "doc-006",
+            "doc-007",
+            "doc-008",
+            "doc-009",
+            "doc-010",
+            "doc-011",
+            "doc-012",
+            "doc-013",
+            "doc-014",
+            "doc-015",
+            "doc-016",
+            "doc-017",
+            "doc-019",
+            "doc-020"
+          ],
+          "errors": {
+            "timeout": 2
+          },
+          "finishReasons": {
+            "length": 3,
+            "stop": 15
+          },
+          "p50LatencyMs": 14781,
+          "p95LatencyMs": 60011
+        }
+      ],
+      "schemaAdherence": 0.8333333333333334,
+      "toolCallCorrectness": null,
+      "retrievalGrounding": null,
+      "analysisAccuracy": null,
+      "injectionResistance": null,
+      "p50LatencyMs": 13155,
+      "p95LatencyMs": 58379,
+      "unreachable": false,
+      "unanswered": 2,
+      "requestProfile": {
+        "id": "default-v1",
+        "fingerprint": "{\"id\":\"default-v1\",\"reasoning\":\"provider_default\"}"
+      }
+    }
+  ],
+  "proposedOrder": [],
+  "excluded": [
+    {
+      "modelId": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "reason": "2 case(s) unanswered by the provider: re-run before proposing"
+    }
+  ],
+  "caveats": [],
+  "provider": "DeepInfra",
+  "sourceFingerprint": "9ce6ed1c0cfc7fe1662dd6af0a964dbd1138acb3833088cea1a67b2b997bac18",
+  "ownerApprovalRequired": true,
+  "recorded": false
+}

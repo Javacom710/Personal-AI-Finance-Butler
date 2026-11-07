@@ -1,0 +1,98 @@
+{
+  "checkedAt": "2026-11-07T10:54:11.110Z",
+  "repository": "Javacom710/Personal-AI-Finance-Butler",
+  "mergedPullRequests": [
+    {
+      "number": 39,
+      "state": "closed",
+      "merged": true,
+      "sha": "056b5ede95e73dc8a70ecf850b8eff6403c8c86a"
+    },
+    {
+      "number": 40,
+      "state": "closed",
+      "merged": true,
+      "sha": "a8d4d2df28c5b4d5cdb8e0231547538e1b0d9b52"
+    },
+    {
+      "number": 41,
+      "state": "closed",
+      "merged": true,
+      "sha": "e4f8a1e614b9cffdbb8281027cdc93b85de02a07"
+    },
+    {
+      "number": 42,
+      "state": "closed",
+      "merged": true,
+      "sha": "44e53ce86aaeb1a4178a25a3efaff0b83866809c"
+    },
+    {
+      "number": 43,
+      "state": "closed",
+      "merged": true,
+      "sha": "868fe9187786c1b1d7712b6dbe69ce8da152ebfd"
+    },
+    {
+      "number": 44,
+      "state": "closed",
+      "merged": true,
+      "sha": "3f03c561c8b773b84aede31d8fb297697bbf72e0"
+    },
+    {
+      "number": 45,
+      "state": "closed",
+      "merged": true,
+      "sha": "26ad720a6c41b0b57209205a726e355d556d8c58"
+    },
+    {
+      "number": 46,
+      "state": "closed",
+      "merged": true,
+      "sha": "57d16b89d0afd4a3a2a7b4a892c97515c6af4dcc"
+    },
+    {
+      "number": 47,
+      "state": "closed",
+      "merged": true,
+      "sha": "76fa7fb1b9acfd32d95dc45f4f076c5d963b8c10"
+    },
+    {
+      "number": 48,
+      "state": "closed",
+      "merged": true,
+      "sha": "76f3455a7b45f4a399e5ab4aa731a79ff6801a95"
+    },
+    {
+      "number": 49,
+      "state": "closed",
+      "merged": true,
+      "sha": "c0699d9f37d9417b96a1583d994ab6097a97f0b3"
+    },
+    {
+      "number": 50,
+      "state": "closed",
+      "merged": true,
+      "sha": "6a815dde0c40c72ca91a6ef6a922defcb26c5d89"
+    }
+  ],
+  "openPullRequestsRemaining": 0,
+  "finalMainSha": "44e53ce86aaeb1a4178a25a3efaff0b83866809c",
+  "finalTreeMatchesTestedHead": "930e3fcd49ef13390f091e577743fcb45827860f",
+  "postgres17And18CiPassed": true,
+  "reviewFindingsVerifiedAndResolved": [
+    39,
+    46
+  ],
+  "mainHistoryPreserved": true,
+  "pr50MergeProof": {
+    "main": "c0699d9f37d9417b96a1583d994ab6097a97f0b3",
+    "head": "0e79d3f2156b9ec2da57384b9899890cf15ba4fc",
+    "tree": "f5e0bf3b444e56b988df711d9c6c753d650862ad",
+    "files": 12,
+    "allHistoricalNonblankLinesPreserved": true
+  },
+  "liveAiGenerationActivated": false,
+  "providerSwitched": false,
+  "productionMeasurementsRecorded": false,
+  "localMeasurementCheckoutLeftIntact": true
+}

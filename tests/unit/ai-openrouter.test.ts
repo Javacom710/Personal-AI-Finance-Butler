@@ -130,7 +130,7 @@ describe('recording remains blocked pending host-scoped owner approval', () => {
     expect(() => assertEvaluationRecordingSupported('https://api.groq.com/openai/v1')).not.toThrow();
   });
   it('does not turn endpoint-only or forged host rows into OpenRouter capabilities', () => {
-    const rows = measured(() => 'DeepInfra').suites.map(s => ({ model, suite: s.suite, evalVersion: s.version, casesPassed: s.passed, p50LatencyMs: 1, p95LatencyMs: 1, detail: { ...s.counts, providerIdentity: BASE, servingHost: 'DeepInfra', requestPolicyFingerprint: OPENROUTER_POLICY_FINGERPRINT, failedCases: [], errors: {} }, runAt: new Date('2026-11-03T08:00:00Z') }));
+    const rows = measured(() => 'DeepInfra').suites.map(s => ({ model, tier: 1, suite: s.suite, evalVersion: s.version, casesPassed: s.passed, p50LatencyMs: 1, p95LatencyMs: 1, detail: { ...s.counts, providerIdentity: BASE, servingHost: 'DeepInfra', requestPolicyFingerprint: OPENROUTER_POLICY_FINGERPRINT, failedCases: [], errors: {} }, runAt: new Date('2026-11-03T08:00:00Z') }));
     expect(capabilitiesFromEvaluations(rows, undefined, undefined, BASE)).toEqual({});
     const legacyControl = rows.map(r => ({ ...r, detail: { ...r.detail, providerIdentity: 'https://api.groq.com/openai/v1' } }));
     expect(capabilitiesFromEvaluations(legacyControl, undefined, undefined, 'https://api.groq.com/openai/v1')[model]?.source).toBe('measured');

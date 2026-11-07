@@ -1,0 +1,19 @@
+{
+  "checkedAt": "2026-11-07T06:44:10.360Z",
+  "change": "preserve and enforce declared-tier provenance",
+  "unitTestsPassed": 2072,
+  "postgres17IntegrationTestsPassed": 10,
+  "typecheckPassed": true,
+  "lintPassed": true,
+  "buildPassed": true,
+  "clientSecretScanPassed": true,
+  "historicalArtifactsUnchanged": 34,
+  "freshCampaign": "format-v3",
+  "freshCampaignRetainedCases": 0,
+  "freshCampaignSourceFingerprint": "9575109566ffd1fff3a10947e92f9e3da1658898aa85c94d1b129eaddeb1829c",
+  "knownDeepinfraAccountedUsd": 0.08354500099999997,
+  "liveProviderRequestsThisChange": 0,
+  "productionEvaluationsRecorded": false,
+  "productionOrdersChanged": false,
+  "multiTierEligibilityEnabled": false
+}

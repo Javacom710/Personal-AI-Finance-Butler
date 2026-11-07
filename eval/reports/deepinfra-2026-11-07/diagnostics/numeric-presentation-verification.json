@@ -1,0 +1,38 @@
+{
+  "checkedAt": "2026-11-07T06:33:08.537Z",
+  "originalArtifactsUnchanged": 34,
+  "oldCheckpointResumeRefused": true,
+  "oldResultsRescored": false,
+  "changedSuites": {
+    "grounding": {
+      "from": 2,
+      "to": 3
+    },
+    "robustness": {
+      "from": 2,
+      "to": 3
+    },
+    "analysis": {
+      "from": 2,
+      "to": 3
+    }
+  },
+  "liveAudit": "2026-11-07T06-18-35-469Z.json",
+  "liveAuditAnswerCount": 3,
+  "liveAuditPassCount": 0,
+  "liveAuditLatexMarkerCount": 0,
+  "diagnosticAccountedUsd": 0.013382434,
+  "recorded": false,
+  "promoted": false,
+  "freshCampaignPrepared": "format-v3",
+  "freshCampaignCases": 610,
+  "freshCampaignProviderRequests": 0,
+  "freshSourceFingerprint": "d68fb11120da232bfa701d1e187a4ee4f01e171d87944ff2115df115550b925c",
+  "knownDeepinfraAccountedUsd": 0.08354500099999997,
+  "accountCapUsd": 4.5,
+  "unitTestsPassed": 2058,
+  "typecheckPassed": true,
+  "lintPassed": true,
+  "buildPassed": true,
+  "clientSecretScanPassed": true
+}

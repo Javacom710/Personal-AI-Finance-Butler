@@ -31,7 +31,7 @@ function rows(identity = requestProfileIdentity(DISABLED)): StoredEvaluation[] {
     const schema = suite === 'parse' || suite === 'classify';
     const tools = suite === 'tool-select' || suite === 'injection';
     return {
-      model: MODEL, suite, evalVersion: MODEL_SUITES[suite].version, casesPassed: total,
+      model: MODEL, tier: 1, suite, evalVersion: MODEL_SUITES[suite].version, casesPassed: total,
       p50LatencyMs: 7, p95LatencyMs: 9, runAt: NOW,
       detail: { providerIdentity: PROVIDER, requestProfile: identity, answered: total, unanswered: 0, schemaValid: schema ? total : 0,
         schemaApplicable: schema ? total : 0, toolCallValid: tools ? total : 0, toolCallApplicable: tools ? total : 0, failedCases: [], errors: {} },

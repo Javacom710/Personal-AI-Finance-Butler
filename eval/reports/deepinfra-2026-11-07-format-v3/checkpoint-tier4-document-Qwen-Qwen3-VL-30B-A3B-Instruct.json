@@ -1,0 +1,232 @@
+{
+  "identity": "4292b10b1463d871fa5b585b7abb81def333bfac057792d7e395b80170d75660",
+  "providerIdentity": "https://api.deepinfra.com/v1/openai",
+  "model": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+  "tier": 4,
+  "suite": "document",
+  "version": 1,
+  "maxTokens": 2048,
+  "startedAt": "2026-11-07T07:18:59.698Z",
+  "cases": [
+    {
+      "caseId": "doc-001",
+      "suite": "document",
+      "modelId": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "passed": false,
+      "latencyMs": 60002,
+      "schemaValid": false,
+      "toolCallValid": null,
+      "errorClass": "timeout",
+      "finishReason": null
+    },
+    {
+      "caseId": "doc-002",
+      "suite": "document",
+      "modelId": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "passed": false,
+      "latencyMs": 13242,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "doc-003",
+      "suite": "document",
+      "modelId": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "passed": false,
+      "latencyMs": 19191,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "doc-004",
+      "suite": "document",
+      "modelId": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "passed": false,
+      "latencyMs": 11285,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "doc-005",
+      "suite": "document",
+      "modelId": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "passed": false,
+      "latencyMs": 60001,
+      "schemaValid": false,
+      "toolCallValid": null,
+      "errorClass": "timeout",
+      "finishReason": null
+    },
+    {
+      "caseId": "doc-006",
+      "suite": "document",
+      "modelId": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "passed": false,
+      "latencyMs": 11557,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "doc-007",
+      "suite": "document",
+      "modelId": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "passed": false,
+      "latencyMs": 12727,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "doc-008",
+      "suite": "document",
+      "modelId": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "passed": false,
+      "latencyMs": 22541,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "doc-009",
+      "suite": "document",
+      "modelId": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "passed": false,
+      "latencyMs": 18442,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "doc-010",
+      "suite": "document",
+      "modelId": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "passed": false,
+      "latencyMs": 60001,
+      "schemaValid": false,
+      "toolCallValid": null,
+      "errorClass": "timeout",
+      "finishReason": null
+    },
+    {
+      "caseId": "doc-011",
+      "suite": "document",
+      "modelId": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "passed": false,
+      "latencyMs": 13162,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "doc-012",
+      "suite": "document",
+      "modelId": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "passed": false,
+      "latencyMs": 53875,
+      "schemaValid": false,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "length"
+    },
+    {
+      "caseId": "doc-013",
+      "suite": "document",
+      "modelId": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "passed": false,
+      "latencyMs": 60001,
+      "schemaValid": false,
+      "toolCallValid": null,
+      "errorClass": "timeout",
+      "finishReason": null
+    },
+    {
+      "caseId": "doc-014",
+      "suite": "document",
+      "modelId": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "passed": false,
+      "latencyMs": 60001,
+      "schemaValid": false,
+      "toolCallValid": null,
+      "errorClass": "timeout",
+      "finishReason": null
+    },
+    {
+      "caseId": "doc-015",
+      "suite": "document",
+      "modelId": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "passed": false,
+      "latencyMs": 11085,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "doc-016",
+      "suite": "document",
+      "modelId": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "passed": false,
+      "latencyMs": 18272,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "doc-017",
+      "suite": "document",
+      "modelId": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "passed": false,
+      "latencyMs": 60003,
+      "schemaValid": false,
+      "toolCallValid": null,
+      "errorClass": "timeout",
+      "finishReason": null
+    },
+    {
+      "caseId": "doc-018",
+      "suite": "document",
+      "modelId": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "passed": false,
+      "latencyMs": 56793,
+      "schemaValid": false,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "length"
+    },
+    {
+      "caseId": "doc-019",
+      "suite": "document",
+      "modelId": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "passed": false,
+      "latencyMs": 13139,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "doc-020",
+      "suite": "document",
+      "modelId": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "passed": false,
+      "latencyMs": 54734,
+      "schemaValid": false,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "length"
+    }
+  ]
+}

@@ -15,6 +15,7 @@ import { createHealthRegistry, CONSECUTIVE_FAILURES_TO_OPEN, OPEN_MS } from '@/s
 import { selectCandidates } from '@/server/ai/orchestrator/select';
 import { requirementFor, escalated, allCapabilities } from '@/server/ai/orchestrator/requirements';
 import { runChain, MAX_ATTEMPTS } from '@/server/ai/orchestrator/fallback';
+import type { Tier } from '@/server/ai/config/models';
 import { noCapableModel, transport, unauthorized, timeout } from '@/server/ai/errors';
 
 /**
@@ -242,6 +243,15 @@ describe('I-56 — the capability gate', () => {
 });
 
 describe('I-56 — cross-tier downgrade is impossible', () => {
+  it.each<[Tier, Tier]>([[1, 2], [2, 1], [1, 3], [3, 2], [2, 4], [4, 1]])('rejects tier %s evidence configured into tier %s even with perfect scores', (measuredTier, requestedTier) => {
+    const capability = { 1: 'answerFinanceQuestion', 2: 'analyzePortfolio', 3: 'deepInvestigation', 4: 'extractReceiptData', 5: 'answerFinanceQuestion' } as const;
+    const config = resolveModelConfig({ tier1: 'm/perfect', tier2: 'm/perfect', tier3: 'm/perfect', tier4: 'm/perfect' });
+    const selection = selectCandidates(requirementFor(capability[requestedTier]), config,
+      createCapabilityMatrix({ 'm/perfect': measured({ tier: measuredTier, vision: true }) }), createHealthRegistry(), NOW);
+    expect(selection.candidates).toEqual([]);
+    expect(selection.excluded).toEqual([{ modelId: 'm/perfect', reason: 'tier_mismatch' }]);
+  });
+
   it('does not consider a lower tier when its own tier is empty', () => {
     const selection = selectCandidates(
       requirementFor('analyzePortfolio'),

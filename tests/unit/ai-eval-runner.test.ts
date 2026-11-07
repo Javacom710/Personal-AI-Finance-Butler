@@ -12,12 +12,15 @@ import {
   parseEvalArgs,
   partialRunReason,
   proposeOrder,
+  countsOf,
+  maxTokensFor,
   renderEvalReport,
   runEvaluation,
   type EvalArgs,
   type ModelResult,
 } from '@/server/ai/eval/runner';
 import type { AiProvider, ChatRequest } from '@/server/ai/provider/types';
+import { reportFromCases, type CaseResult } from '@/server/ai/eval/harness';
 
 /**
  * The `ai:eval` runner. No network: a fake provider stands in, so these tests
@@ -25,7 +28,7 @@ import type { AiProvider, ChatRequest } from '@/server/ai/provider/types';
  * propose — not how any real model performs.
  */
 
-/** A capability entry that serves every requirement, for ranking tests over fake ids. */
+/** Full modality support; each ranking test must still supply its target tier. */
 const FULL: ModelCapabilities = {
   tier: 1,
   toolCalling: 'native',
@@ -138,7 +141,7 @@ describe('ai:eval proposals', () => {
         result({ modelId: 'failing', toolCallCorrectness: 0.5 }),
       ],
       2,
-      () => FULL,
+      () => ({ ...FULL, tier: 2 }),
     );
     expect(order).toEqual(['fast', 'slow', 'ungrounded']);
     expect(excluded.map((e) => e.modelId)).toEqual(['failing']);
@@ -152,7 +155,7 @@ describe('ai:eval proposals', () => {
         result({ modelId: 'injectable-right', analysisAccuracy: 1, injectionResistance: 0.5, p50LatencyMs: 100 }),
       ],
       2,
-      () => FULL,
+      () => ({ ...FULL, tier: 2 }),
     );
     expect(order).toEqual(['slow-right', 'injectable-right', 'fast-wrong']);
   });
@@ -167,6 +170,40 @@ describe('ai:eval proposals', () => {
     // With verified json_schema support declared, the same scores are proposed.
     const verified = { ...DECLARED_CAPABILITIES[omni]!, structuredOutput: 'json_schema' as const };
     expect(proposeOrder([vision], 4, () => verified).order).toEqual([omni]);
+  });
+
+  it('does not propose another tier merely because a model passed its numeric gates', () => {
+    const { order, excluded } = proposeOrder([result({ modelId: 'cross-tier' })], 2, () => FULL);
+    expect(order).toEqual([]);
+    expect(excluded[0]?.reason).toMatch(/own complete current measurement at production budgets/);
+  });
+
+  function completeCrossTierResult(): ModelResult {
+    const modelId = 'openai/gpt-oss-120b';
+    const suites = TIER_SUITES[2].map(suite => {
+      const cases: CaseResult[] = MODEL_SUITES[suite].build().map(c => ({ caseId: c.id, suite, modelId, passed: true, latencyMs: 1,
+        schemaValid: c.schema ? true : null, toolCallValid: suite === 'analysis' ? null : c.tools ? true : null, errorClass: null, finishReason: 'stop' }));
+      const report = reportFromCases(modelId, cases);
+      return { suite, report, counts: countsOf(report), version: MODEL_SUITES[suite].version, maxTokens: maxTokensFor(2, suite), total: cases.length, passed: cases.length, failedCases: [], errors: {} };
+    });
+    return result({ modelId, suites });
+  }
+
+  it('can propose another tier after a complete independent measurement', () => {
+    expect(proposeOrder([completeCrossTierResult()], 2).order).toEqual(['openai/gpt-oss-120b']);
+  });
+
+  it.each(['wrong budget', 'old version', 'missing case', 'duplicate case', 'foreign case model', 'duplicate suite'] as const)('refuses a cross-tier proposal with %s', invalid => {
+    const model = completeCrossTierResult();
+    const first = model.suites[0]!;
+    let changed = first;
+    if (invalid === 'wrong budget') changed = { ...first, maxTokens: 2048 };
+    if (invalid === 'old version') changed = { ...first, version: first.version - 1 };
+    if (invalid === 'missing case') changed = { ...first, report: { ...first.report, cases: first.report.cases.slice(1) } };
+    if (invalid === 'duplicate case') changed = { ...first, report: { ...first.report, cases: first.report.cases.map((c, i) => i === 1 ? first.report.cases[0]! : c) } };
+    if (invalid === 'foreign case model') changed = { ...first, report: { ...first.report, cases: first.report.cases.map((c, i) => i === 0 ? { ...c, modelId: 'other-model' } : c) } };
+    const suites = [changed, ...model.suites.slice(1), ...(invalid === 'duplicate suite' ? [first] : [])];
+    expect(proposeOrder([{ ...model, suites }], 2).order).toEqual([]);
   });
 
   it('proposes a model that serves some of its tier with a caveat naming what routing refuses it', () => {

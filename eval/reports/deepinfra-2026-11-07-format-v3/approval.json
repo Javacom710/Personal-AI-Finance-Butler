@@ -1,0 +1,246 @@
+{
+  "provider": "DeepInfra",
+  "providerIdentity": "https://api.deepinfra.com/v1/openai",
+  "campaign": "format-v3",
+  "sourceFingerprint": "ee4983f405e6d414240c32ae2922d99b5f23a76e479308a9466e00c980439c2f",
+  "coverageComplete": true,
+  "attempted": 610,
+  "answered": 603,
+  "timeouts": 7,
+  "ownerApprovalRequired": true,
+  "recorded": false,
+  "harnessProposedOrders": {
+    "1": [],
+    "2": [],
+    "3": [],
+    "4": []
+  },
+  "recommendedProductionOrders": {
+    "1": [],
+    "2": [],
+    "3": [],
+    "4": [],
+    "5": []
+  },
+  "recommendation": "Hold all promotions. Every candidate fails an existing numeric gate or has unanswered cases. Tier 2 and Tier 3 each pass only one of fifteen strict analysis cases; Tier 4 passes no exact extraction case. No threshold or rubric was relaxed.",
+  "tiers": [
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-120b",
+      "attempted": 190,
+      "answered": 190,
+      "unanswered": 0,
+      "schema": {
+        "valid": 100,
+        "applicable": 100
+      },
+      "tools": {
+        "valid": 49,
+        "applicable": 57
+      },
+      "suitePasses": {
+        "parse": {
+          "passed": 32,
+          "attempted": 40,
+          "answered": 40
+        },
+        "classify": {
+          "passed": 60,
+          "attempted": 60,
+          "answered": 60
+        },
+        "tool-select": {
+          "passed": 29,
+          "attempted": 30,
+          "answered": 30
+        },
+        "grounding": {
+          "passed": 20,
+          "attempted": 25,
+          "answered": 25
+        },
+        "robustness": {
+          "passed": 4,
+          "attempted": 10,
+          "answered": 10
+        },
+        "injection": {
+          "passed": 14,
+          "attempted": 25,
+          "answered": 25
+        }
+      },
+      "harnessProposed": false,
+      "recommendation": "hold"
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-20b",
+      "attempted": 190,
+      "answered": 190,
+      "unanswered": 0,
+      "schema": {
+        "valid": 94,
+        "applicable": 100
+      },
+      "tools": {
+        "valid": 47,
+        "applicable": 59
+      },
+      "suitePasses": {
+        "parse": {
+          "passed": 28,
+          "attempted": 40,
+          "answered": 40
+        },
+        "classify": {
+          "passed": 60,
+          "attempted": 60,
+          "answered": 60
+        },
+        "tool-select": {
+          "passed": 26,
+          "attempted": 30,
+          "answered": 30
+        },
+        "grounding": {
+          "passed": 17,
+          "attempted": 25,
+          "answered": 25
+        },
+        "robustness": {
+          "passed": 3,
+          "attempted": 10,
+          "answered": 10
+        },
+        "injection": {
+          "passed": 18,
+          "attempted": 25,
+          "answered": 25
+        }
+      },
+      "harnessProposed": false,
+      "recommendation": "hold"
+    },
+    {
+      "tier": 2,
+      "model": "openai/gpt-oss-120b",
+      "attempted": 105,
+      "answered": 104,
+      "unanswered": 1,
+      "schema": {
+        "valid": 0,
+        "applicable": 0
+      },
+      "tools": {
+        "valid": 50,
+        "applicable": 57
+      },
+      "suitePasses": {
+        "tool-select": {
+          "passed": 29,
+          "attempted": 30,
+          "answered": 30
+        },
+        "grounding": {
+          "passed": 19,
+          "attempted": 25,
+          "answered": 25
+        },
+        "robustness": {
+          "passed": 3,
+          "attempted": 10,
+          "answered": 10
+        },
+        "injection": {
+          "passed": 14,
+          "attempted": 25,
+          "answered": 25
+        },
+        "analysis": {
+          "passed": 1,
+          "attempted": 15,
+          "answered": 14
+        }
+      },
+      "harnessProposed": false,
+      "recommendation": "hold"
+    },
+    {
+      "tier": 3,
+      "model": "openai/gpt-oss-120b",
+      "attempted": 105,
+      "answered": 105,
+      "unanswered": 0,
+      "schema": {
+        "valid": 0,
+        "applicable": 0
+      },
+      "tools": {
+        "valid": 52,
+        "applicable": 58
+      },
+      "suitePasses": {
+        "tool-select": {
+          "passed": 29,
+          "attempted": 30,
+          "answered": 30
+        },
+        "grounding": {
+          "passed": 21,
+          "attempted": 25,
+          "answered": 25
+        },
+        "robustness": {
+          "passed": 3,
+          "attempted": 10,
+          "answered": 10
+        },
+        "injection": {
+          "passed": 16,
+          "attempted": 25,
+          "answered": 25
+        },
+        "analysis": {
+          "passed": 1,
+          "attempted": 15,
+          "answered": 15
+        }
+      },
+      "harnessProposed": false,
+      "recommendation": "hold"
+    },
+    {
+      "tier": 4,
+      "model": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "attempted": 20,
+      "answered": 14,
+      "unanswered": 6,
+      "schema": {
+        "valid": 11,
+        "applicable": 14
+      },
+      "tools": {
+        "valid": 0,
+        "applicable": 0
+      },
+      "suitePasses": {
+        "document": {
+          "passed": 0,
+          "attempted": 20,
+          "answered": 14
+        }
+      },
+      "harnessProposed": false,
+      "recommendation": "hold"
+    }
+  ],
+  "completeQueueAccountedUsd": 0.09432314500000002,
+  "priorKnownAccountedUsd": 0.08354500099999997,
+  "combinedKnownAccountedUsd": 0.177868146,
+  "accountingCaveat": "Catalogue-price estimates and unknown-usage reservations, not a provider billing statement. Reachability probes are outside these token ledgers and covered by the margin below the $5 allocation.",
+  "failedCasesRetried": false,
+  "productionOrdersChanged": false,
+  "scenarioDeferred": "OD-18",
+  "tier5Deferred": "ADR-19"
+}

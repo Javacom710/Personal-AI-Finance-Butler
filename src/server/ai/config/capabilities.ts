@@ -59,6 +59,7 @@ export interface CapabilityScores {
 export interface ModelCapabilities {
   /** Missing on legacy measurements: default profile only. */
   readonly requestProfile?: RequestProfileIdentity;
+  /** The tier certified by this entry; a declaration supplies only its default tier. */
   readonly tier: Tier;
   readonly toolCalling: ToolCallingSupport;
   readonly structuredOutput: StructuredOutputSupport;
@@ -86,6 +87,43 @@ export interface ModelCapabilities {
  * replaces these with measured entries.
  */
 export const DECLARED_CAPABILITIES: Readonly<Record<string, ModelCapabilities>> = {
+  // Catalogue-confirmed DeepInfra evaluation candidates. These conservative
+  // declarations carry no scores and do not add either model to a route.
+  'Qwen/Qwen3-235B-A22B-Instruct-2507': {
+    tier: 2,
+    toolCalling: 'native',
+    structuredOutput: 'json_schema',
+    vision: false,
+    embedding: false,
+    contextTokens: 262_144,
+    maxOutputTokens: 8_192,
+    streaming: false,
+    source: 'declared',
+  },
+  'Qwen/Qwen3-VL-235B-A22B-Instruct': {
+    tier: 4,
+    toolCalling: 'native',
+    structuredOutput: 'json_schema',
+    vision: true,
+    embedding: false,
+    contextTokens: 262_144,
+    maxOutputTokens: 8_192,
+    streaming: false,
+    source: 'declared',
+  },
+  // DeepInfra catalogue, 2026-11-07. Wire support is checked by the document
+  // evaluation; this declaration carries no measured score or accepted route.
+  'Qwen/Qwen3-VL-30B-A3B-Instruct': {
+    tier: 4,
+    toolCalling: 'native',
+    structuredOutput: 'json_schema',
+    vision: true,
+    embedding: false,
+    contextTokens: 262_144,
+    maxOutputTokens: 8_192,
+    streaming: true,
+    source: 'declared',
+  },
   'nvidia/nemotron-3-nano-30b-a3b': {
     tier: 1,
     toolCalling: 'native',
@@ -183,9 +221,12 @@ export const DECLARED_CAPABILITIES: Readonly<Record<string, ModelCapabilities>> 
 /** How old a measured entry may be before it is flagged stale. */
 export const STALE_AFTER_DAYS = 30;
 
+/** Independent measurements, never an inherited score from another tier. */
+export type TierMeasuredCapabilities = Readonly<Record<string, Readonly<Partial<Record<Tier, ModelCapabilities>>>>>;
+
 export interface CapabilityMatrix {
   /** `undefined` means no entry, which means unusable. */
-  get(modelId: string): ModelCapabilities | undefined;
+  get(modelId: string, tier?: Tier): ModelCapabilities | undefined;
   has(modelId: string): boolean;
   /** Measured entries older than {@link STALE_AFTER_DAYS}. */
   staleEntries(now: Date): readonly string[];
@@ -201,22 +242,27 @@ export interface CapabilityMatrix {
  */
 export function createCapabilityMatrix(
   measured: Readonly<Record<string, ModelCapabilities>> = {},
+  byTier: TierMeasuredCapabilities = {},
 ): CapabilityMatrix {
   const entries: Record<string, ModelCapabilities> = { ...DECLARED_CAPABILITIES, ...measured };
 
   return {
-    get: (modelId) => entries[modelId],
+    get: (modelId, tier) => {
+      const base = entries[modelId];
+      if (!base) return undefined;
+      const scoped = tier === undefined ? undefined : byTier[modelId]?.[tier];
+      return scoped?.source === 'measured' && scoped.tier === tier ? scoped : base;
+    },
     has: (modelId) => modelId in entries,
 
     staleEntries: (now) => {
       const cutoff = now.getTime() - STALE_AFTER_DAYS * 24 * 60 * 60 * 1000;
-      return Object.entries(entries)
-        .filter(([, c]) => {
-          if (c.source !== 'measured' || !c.verifiedAt) return false;
+      return Object.keys(entries)
+        .filter((id) => [entries[id]!, ...Object.values(byTier[id] ?? {})].some(c => {
+          if (c?.source !== 'measured' || !c.verifiedAt) return false;
           const at = Date.parse(c.verifiedAt);
           return Number.isFinite(at) && at < cutoff;
-        })
-        .map(([id]) => id);
+        }));
     },
 
     unknownModels: (configured) => configured.filter((id) => !(id in entries)),

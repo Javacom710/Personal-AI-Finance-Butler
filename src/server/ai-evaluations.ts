@@ -5,7 +5,7 @@ import 'server-only';
  * ([ADR-44](../../docs/DECISIONS.md#adr-44--the-capability-matrix-stays-capabilitiests-checked-at-startup),
  * AI-SYSTEM.md §5, §14).
  *
- * `npm run ai:eval` writes one `ai_model_evaluations` row per model and suite.
+ * `npm run ai:eval` writes one row per model, tier and suite.
  * At server start, {@link measuredCapabilities} turns the latest rows into
  * `source: 'measured'` entries, which `createCapabilityMatrix(measured)` layers
  * over the declared matrix. A score-gated route can then serve a model, which a
@@ -27,8 +27,9 @@ import { isOpenRouterEndpoint } from './ai/provider/openrouter-policy';
 
 import { db } from './db/client';
 import { aiModelEvaluations } from './db/schema';
-import { DECLARED_CAPABILITIES, type ModelCapabilities } from './ai/config/capabilities';
-import { MODEL_SUITES, TIER_SUITES, type EvalRun, type ModelSuite, type SuiteCounts } from './ai/eval/runner';
+import { DECLARED_CAPABILITIES, type ModelCapabilities, type TierMeasuredCapabilities } from './ai/config/capabilities';
+import { maxTokensFor, MODEL_SUITES, TIER_SUITES, type EvalRun, type ModelSuite, type SuiteCounts } from './ai/eval/runner';
+import type { Tier } from './ai/config/models';
 import { aiProviderSettings, env } from '../lib/env';
 import { DEFAULT_REQUEST_PROFILE, matchesRequestProfile, requestProfileById, requestProfileIdentity, resolveRequestProfiles, type RequestProfileIdentity, type RequestProfiles } from './ai/config/request-profiles';
 
@@ -101,6 +102,7 @@ export async function recordEvaluationRun(run: EvalRun): Promise<number> {
 
 export interface StoredEvaluation {
   readonly model: string;
+  readonly tier: number;
   readonly suite: string;
   readonly evalVersion: number;
   readonly casesPassed: number;
@@ -110,12 +112,13 @@ export interface StoredEvaluation {
   readonly runAt: Date;
 }
 
-/** Latest rows for the active endpoint; foreign/legacy rows cannot shadow its profiles. */
+/** Latest rows per model/tier/suite/profile at the active endpoint. */
 export async function latestEvaluations(): Promise<readonly StoredEvaluation[]> {
   const providerIdentity = evaluationProviderIdentity(aiProviderSettings(env()).baseUrl);
   if (isOpenRouterEndpoint(providerIdentity)) return [];
   const { rows } = await db().execute<{
     model: string;
+    tier: number;
     suite: string;
     eval_version: number;
     cases_passed: number;
@@ -124,14 +127,15 @@ export async function latestEvaluations(): Promise<readonly StoredEvaluation[]> 
     detail: EvaluationDetail;
     run_at: string | Date;
   }>(sql`
-    select distinct on (model, suite, detail->'requestProfile')
-           model, suite, eval_version, cases_passed, p50_latency_ms, p95_latency_ms, detail, run_at
+    select distinct on (model, tier, suite, detail->'requestProfile')
+           model, tier, suite, eval_version, cases_passed, p50_latency_ms, p95_latency_ms, detail, run_at
       from ${aiModelEvaluations}
      where detail->>'providerIdentity' = ${providerIdentity}
-     order by model, suite, detail->'requestProfile', run_at desc
+     order by model, tier, suite, detail->'requestProfile', run_at desc
   `);
   return rows.map((r) => ({
     model: r.model,
+    tier: r.tier,
     suite: r.suite,
     evalVersion: r.eval_version,
     casesPassed: r.cases_passed,
@@ -145,8 +149,9 @@ export async function latestEvaluations(): Promise<readonly StoredEvaluation[]> 
 const ratio = (num: number, den: number): number => (den === 0 ? 0 : num / den);
 
 /**
- * Turn stored rows into measured capability entries. Pure, so the rules are
- * testable without a database.
+ * Turn stored rows from each model's declared tier into measured entries.
+ * Other-tier and unlabelled rows cannot complete, replace or certify a suite.
+ * Pure, so the rules are testable without a database.
  *
  * Scores combine exact counts across suites. A score with nothing to measure —
  * schema adherence for a tier measured only on tool suites — is **0**, which
@@ -174,7 +179,7 @@ export function capabilitiesFromEvaluations(
     if (required.length === 0) continue;
     const profile = profiles.forModel(model);
     const matching = modelRows
-      .filter((r) => matchesRequestProfile(r.detail.requestProfile, profile))
+      .filter((r) => r.tier === base.tier && matchesRequestProfile(r.detail.requestProfile, profile))
       .sort((a, b) => b.runAt.getTime() - a.runAt.getTime());
     const current = required.map((suite) =>
       matching.find((r) => r.suite === suite),
@@ -211,7 +216,60 @@ export function capabilitiesFromEvaluations(
   return measured;
 }
 
-/** The measured entries from the database. */
-export async function measuredCapabilities(): Promise<Record<string, ModelCapabilities>> {
-  return capabilitiesFromEvaluations(await latestEvaluations(), DECLARED_CAPABILITIES, resolveRequestProfiles(env().AI_REQUEST_PROFILES), evaluationProviderIdentity(aiProviderSettings(env()).baseUrl));
+/** Strict full-corpus, production-budget evidence, independently for every tier. */
+export function tierCapabilitiesFromEvaluations(
+  rows: readonly StoredEvaluation[],
+  declared: Readonly<Record<string, ModelCapabilities>> = DECLARED_CAPABILITIES,
+  profiles: RequestProfiles = resolveRequestProfiles(),
+  providerIdentity?: string,
+): TierMeasuredCapabilities {
+  const measured: Record<string, Partial<Record<Tier, ModelCapabilities>>> = {};
+  for (const tier of [1, 2, 3, 4] as const) {
+    // Retarget metadata only inside this independent aggregation. No declaration
+    // is mutated and no score is copied from another tier.
+    const metadata = Object.fromEntries(Object.entries(declared).map(([model, base]) => [model, { ...base, tier }]));
+    // Validate the latest matching row, rather than filtering invalid newer rows
+    // and accidentally reviving older passing evidence.
+    const entries = capabilitiesFromEvaluations(rows, metadata, profiles, providerIdentity);
+    for (const [model, entry] of Object.entries(entries)) {
+      const required = TIER_SUITES[tier];
+      const matching = rows.filter(r => r.model === model && r.tier === tier && r.detail.providerIdentity === providerIdentity && matchesRequestProfile(r.detail.requestProfile, profiles.forModel(model)))
+        .sort((a, b) => b.runAt.getTime() - a.runAt.getTime());
+      const current = required.map(suite => matching.find(r => r.suite === suite)!);
+      if (current.some(r => {
+        const suite = r.suite as ModelSuite;
+        const c = r.detail;
+        const corpus = MODEL_SUITES[suite].build();
+        const fixedTools = ['tool-select', 'injection'].includes(suite) ? corpus.filter(test => test.tools !== undefined).length
+          : suite === 'analysis' || corpus.every(test => test.tools === undefined) ? 0 : null;
+        return c.maxTokens !== maxTokensFor(tier, suite) || c.answered !== corpus.length ||
+          c.schemaApplicable !== corpus.filter(test => test.schema !== undefined).length || (fixedTools !== null && c.toolCallApplicable !== fixedTools) ||
+          ![r.casesPassed, c.answered, c.unanswered, c.schemaValid, c.schemaApplicable, c.toolCallValid, c.toolCallApplicable].every(n => Number.isSafeInteger(n) && n >= 0) ||
+          r.casesPassed > c.answered || c.schemaValid > c.schemaApplicable || c.schemaApplicable > c.answered || c.toolCallValid > c.toolCallApplicable || c.toolCallApplicable > c.answered;
+      })) continue;
+      (measured[model] ??= {})[tier] = entry;
+    }
+  }
+  return measured;
+}
+
+export interface MeasuredCapabilitySnapshot {
+  readonly declaredTier: Readonly<Record<string, ModelCapabilities>>;
+  readonly byTier: TierMeasuredCapabilities;
+}
+
+/** One database read supplies both legacy/default lookup and tier-aware lookup. */
+export async function measuredCapabilitySnapshot(): Promise<MeasuredCapabilitySnapshot> {
+  const byTier = tierCapabilitiesFromEvaluations(await latestEvaluations(), DECLARED_CAPABILITIES,
+    resolveRequestProfiles(env().AI_REQUEST_PROFILES), evaluationProviderIdentity(aiProviderSettings(env()).baseUrl));
+  const declaredTier = Object.fromEntries(Object.entries(DECLARED_CAPABILITIES).flatMap(([model, base]) => {
+    const entry = byTier[model]?.[base.tier];
+    return entry ? [[model, entry]] : [];
+  }));
+  return { declaredTier, byTier };
+}
+
+/** Default-tier entries retained for callers that do not request a tier. */
+export async function measuredCapabilities(): Promise<Readonly<Record<string, ModelCapabilities>>> {
+  return (await measuredCapabilitySnapshot()).declaredTier;
 }

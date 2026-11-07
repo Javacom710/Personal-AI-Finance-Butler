@@ -10,6 +10,14 @@ import 'server-only';
  * scoring the very error the suite exists to detect.
  */
 
+/**
+ * Render only numeric LaTeX punctuation. Digits, signs, decimal precision and
+ * unit words remain untouched; this is not a general LaTeX/prose renderer.
+ */
+export function normalizeNumericPresentation(text: string): string {
+  return text.replace(/(\d)\{,\}(?=\d)/g, '$1,').replace(/(\d)\\%/g, '$1%');
+}
+
 /** Canonical form of a non-negative decimal string: no leading or trailing zeros. */
 export function canonicalDecimal(value: string): string | null {
   const match = /^(\d+)(?:\.(\d+))?$/.exec(value);

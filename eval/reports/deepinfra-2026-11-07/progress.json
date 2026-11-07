@@ -1,0 +1,573 @@
+{
+  "provider": "DeepInfra",
+  "providerIdentity": "https://api.deepinfra.com/v1/openai",
+  "sourceFingerprint": "9ce6ed1c0cfc7fe1662dd6af0a964dbd1138acb3833088cea1a67b2b997bac18",
+  "asOf": "2026-11-07T06:02:03.101Z",
+  "stop": "offline status",
+  "ownerApprovalRequired": true,
+  "recorded": false,
+  "coverageComplete": true,
+  "accountedUsd": 0.06847072999999997,
+  "budgetUsd": 4.75,
+  "candidates": [
+    {
+      "tier": 1,
+      "modelId": "openai/gpt-oss-120b",
+      "schemaAdherence": 1,
+      "toolCallCorrectness": 0.8275862068965517,
+      "retrievalGrounding": 0.84,
+      "analysisAccuracy": null,
+      "injectionResistance": 0.6,
+      "p50LatencyMs": null,
+      "p95LatencyMs": null,
+      "unanswered": 0,
+      "unreachable": false,
+      "missingSuites": [],
+      "gateFailure": "tool-call correctness 0.83 < 0.9",
+      "declarationBlockers": [],
+      "latencyNote": "Not pooled or ranked: earlier fetch-guard timings include quota waits.",
+      "ownerApprovalRequired": true
+    },
+    {
+      "tier": 1,
+      "modelId": "openai/gpt-oss-20b",
+      "schemaAdherence": 0.9292929292929293,
+      "toolCallCorrectness": 0.8620689655172413,
+      "retrievalGrounding": 0.8,
+      "analysisAccuracy": null,
+      "injectionResistance": 0.76,
+      "p50LatencyMs": null,
+      "p95LatencyMs": null,
+      "unanswered": 1,
+      "unreachable": false,
+      "missingSuites": [],
+      "gateFailure": "1 case(s) unanswered by the provider: re-run before proposing",
+      "declarationBlockers": [
+        "parseTransaction: structured_output_unsupported",
+        "classifyTransaction: structured_output_unsupported"
+      ],
+      "latencyNote": "Not pooled or ranked: earlier fetch-guard timings include quota waits.",
+      "ownerApprovalRequired": true
+    },
+    {
+      "tier": 2,
+      "modelId": "openai/gpt-oss-120b",
+      "schemaAdherence": null,
+      "toolCallCorrectness": 0.9137931034482759,
+      "retrievalGrounding": 0.84,
+      "analysisAccuracy": 0,
+      "injectionResistance": 0.8,
+      "p50LatencyMs": null,
+      "p95LatencyMs": null,
+      "unanswered": 0,
+      "unreachable": false,
+      "missingSuites": [],
+      "gateFailure": null,
+      "declarationBlockers": [
+        "Tier-specific measured eligibility must be reconciled before routing this model in this tier."
+      ],
+      "latencyNote": "Not pooled or ranked: earlier fetch-guard timings include quota waits.",
+      "ownerApprovalRequired": true
+    },
+    {
+      "tier": 3,
+      "modelId": "openai/gpt-oss-120b",
+      "schemaAdherence": null,
+      "toolCallCorrectness": 0.8813559322033898,
+      "retrievalGrounding": 0.88,
+      "analysisAccuracy": 0,
+      "injectionResistance": 0.68,
+      "p50LatencyMs": null,
+      "p95LatencyMs": null,
+      "unanswered": 0,
+      "unreachable": false,
+      "missingSuites": [],
+      "gateFailure": "tool-call correctness 0.88 < 0.9",
+      "declarationBlockers": [
+        "Tier-specific measured eligibility must be reconciled before routing this model in this tier."
+      ],
+      "latencyNote": "Not pooled or ranked: earlier fetch-guard timings include quota waits.",
+      "ownerApprovalRequired": true
+    },
+    {
+      "tier": 4,
+      "modelId": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "schemaAdherence": 0.8333333333333334,
+      "toolCallCorrectness": null,
+      "retrievalGrounding": null,
+      "analysisAccuracy": null,
+      "injectionResistance": null,
+      "p50LatencyMs": null,
+      "p95LatencyMs": null,
+      "unanswered": 2,
+      "unreachable": false,
+      "missingSuites": [],
+      "gateFailure": "2 case(s) unanswered by the provider: re-run before proposing",
+      "declarationBlockers": [],
+      "latencyNote": "Not pooled or ranked: earlier fetch-guard timings include quota waits.",
+      "ownerApprovalRequired": true
+    }
+  ],
+  "rows": [
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-120b",
+      "suite": "parse",
+      "total": 40,
+      "retained": 40,
+      "answered": 40,
+      "unanswered": 0,
+      "passed": 32,
+      "status": "complete",
+      "remainingCaseIds": [],
+      "counts": {
+        "answered": 40,
+        "unanswered": 0,
+        "schemaValid": 40,
+        "schemaApplicable": 40,
+        "toolCallValid": 0,
+        "toolCallApplicable": 0
+      }
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-120b",
+      "suite": "classify",
+      "total": 60,
+      "retained": 60,
+      "answered": 60,
+      "unanswered": 0,
+      "passed": 60,
+      "status": "complete",
+      "remainingCaseIds": [],
+      "counts": {
+        "answered": 60,
+        "unanswered": 0,
+        "schemaValid": 60,
+        "schemaApplicable": 60,
+        "toolCallValid": 0,
+        "toolCallApplicable": 0
+      }
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-120b",
+      "suite": "tool-select",
+      "total": 30,
+      "retained": 30,
+      "answered": 30,
+      "unanswered": 0,
+      "passed": 27,
+      "status": "complete",
+      "remainingCaseIds": [],
+      "counts": {
+        "answered": 30,
+        "unanswered": 0,
+        "schemaValid": 0,
+        "schemaApplicable": 0,
+        "toolCallValid": 27,
+        "toolCallApplicable": 30
+      }
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-120b",
+      "suite": "grounding",
+      "total": 25,
+      "retained": 25,
+      "answered": 25,
+      "unanswered": 0,
+      "passed": 21,
+      "status": "complete",
+      "remainingCaseIds": [],
+      "counts": {
+        "answered": 25,
+        "unanswered": 0,
+        "schemaValid": 0,
+        "schemaApplicable": 0,
+        "toolCallValid": 1,
+        "toolCallApplicable": 1
+      }
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-120b",
+      "suite": "robustness",
+      "total": 10,
+      "retained": 10,
+      "answered": 10,
+      "unanswered": 0,
+      "passed": 5,
+      "status": "complete",
+      "remainingCaseIds": [],
+      "counts": {
+        "answered": 10,
+        "unanswered": 0,
+        "schemaValid": 0,
+        "schemaApplicable": 0,
+        "toolCallValid": 0,
+        "toolCallApplicable": 2
+      }
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-120b",
+      "suite": "injection",
+      "total": 25,
+      "retained": 25,
+      "answered": 25,
+      "unanswered": 0,
+      "passed": 15,
+      "status": "complete",
+      "remainingCaseIds": [],
+      "counts": {
+        "answered": 25,
+        "unanswered": 0,
+        "schemaValid": 0,
+        "schemaApplicable": 0,
+        "toolCallValid": 20,
+        "toolCallApplicable": 25
+      }
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-20b",
+      "suite": "parse",
+      "total": 40,
+      "retained": 40,
+      "answered": 39,
+      "unanswered": 1,
+      "passed": 25,
+      "status": "complete",
+      "remainingCaseIds": [],
+      "counts": {
+        "answered": 39,
+        "unanswered": 1,
+        "schemaValid": 32,
+        "schemaApplicable": 39,
+        "toolCallValid": 0,
+        "toolCallApplicable": 0
+      }
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-20b",
+      "suite": "classify",
+      "total": 60,
+      "retained": 60,
+      "answered": 60,
+      "unanswered": 0,
+      "passed": 59,
+      "status": "complete",
+      "remainingCaseIds": [],
+      "counts": {
+        "answered": 60,
+        "unanswered": 0,
+        "schemaValid": 60,
+        "schemaApplicable": 60,
+        "toolCallValid": 0,
+        "toolCallApplicable": 0
+      }
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-20b",
+      "suite": "tool-select",
+      "total": 30,
+      "retained": 30,
+      "answered": 30,
+      "unanswered": 0,
+      "passed": 27,
+      "status": "complete",
+      "remainingCaseIds": [],
+      "counts": {
+        "answered": 30,
+        "unanswered": 0,
+        "schemaValid": 0,
+        "schemaApplicable": 0,
+        "toolCallValid": 27,
+        "toolCallApplicable": 30
+      }
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-20b",
+      "suite": "grounding",
+      "total": 25,
+      "retained": 25,
+      "answered": 25,
+      "unanswered": 0,
+      "passed": 20,
+      "status": "complete",
+      "remainingCaseIds": [],
+      "counts": {
+        "answered": 25,
+        "unanswered": 0,
+        "schemaValid": 0,
+        "schemaApplicable": 0,
+        "toolCallValid": 1,
+        "toolCallApplicable": 1
+      }
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-20b",
+      "suite": "robustness",
+      "total": 10,
+      "retained": 10,
+      "answered": 10,
+      "unanswered": 0,
+      "passed": 3,
+      "status": "complete",
+      "remainingCaseIds": [],
+      "counts": {
+        "answered": 10,
+        "unanswered": 0,
+        "schemaValid": 0,
+        "schemaApplicable": 0,
+        "toolCallValid": 0,
+        "toolCallApplicable": 2
+      }
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-20b",
+      "suite": "injection",
+      "total": 25,
+      "retained": 25,
+      "answered": 25,
+      "unanswered": 0,
+      "passed": 19,
+      "status": "complete",
+      "remainingCaseIds": [],
+      "counts": {
+        "answered": 25,
+        "unanswered": 0,
+        "schemaValid": 0,
+        "schemaApplicable": 0,
+        "toolCallValid": 22,
+        "toolCallApplicable": 25
+      }
+    },
+    {
+      "tier": 2,
+      "model": "openai/gpt-oss-120b",
+      "suite": "tool-select",
+      "total": 30,
+      "retained": 30,
+      "answered": 30,
+      "unanswered": 0,
+      "passed": 29,
+      "status": "complete",
+      "remainingCaseIds": [],
+      "counts": {
+        "answered": 30,
+        "unanswered": 0,
+        "schemaValid": 0,
+        "schemaApplicable": 0,
+        "toolCallValid": 29,
+        "toolCallApplicable": 30
+      }
+    },
+    {
+      "tier": 2,
+      "model": "openai/gpt-oss-120b",
+      "suite": "grounding",
+      "total": 25,
+      "retained": 25,
+      "answered": 25,
+      "unanswered": 0,
+      "passed": 21,
+      "status": "complete",
+      "remainingCaseIds": [],
+      "counts": {
+        "answered": 25,
+        "unanswered": 0,
+        "schemaValid": 0,
+        "schemaApplicable": 0,
+        "toolCallValid": 1,
+        "toolCallApplicable": 1
+      }
+    },
+    {
+      "tier": 2,
+      "model": "openai/gpt-oss-120b",
+      "suite": "robustness",
+      "total": 10,
+      "retained": 10,
+      "answered": 10,
+      "unanswered": 0,
+      "passed": 5,
+      "status": "complete",
+      "remainingCaseIds": [],
+      "counts": {
+        "answered": 10,
+        "unanswered": 0,
+        "schemaValid": 0,
+        "schemaApplicable": 0,
+        "toolCallValid": 0,
+        "toolCallApplicable": 2
+      }
+    },
+    {
+      "tier": 2,
+      "model": "openai/gpt-oss-120b",
+      "suite": "injection",
+      "total": 25,
+      "retained": 25,
+      "answered": 25,
+      "unanswered": 0,
+      "passed": 20,
+      "status": "complete",
+      "remainingCaseIds": [],
+      "counts": {
+        "answered": 25,
+        "unanswered": 0,
+        "schemaValid": 0,
+        "schemaApplicable": 0,
+        "toolCallValid": 23,
+        "toolCallApplicable": 25
+      }
+    },
+    {
+      "tier": 2,
+      "model": "openai/gpt-oss-120b",
+      "suite": "analysis",
+      "total": 15,
+      "retained": 15,
+      "answered": 15,
+      "unanswered": 0,
+      "passed": 0,
+      "status": "complete",
+      "remainingCaseIds": [],
+      "counts": {
+        "answered": 15,
+        "unanswered": 0,
+        "schemaValid": 0,
+        "schemaApplicable": 0,
+        "toolCallValid": 0,
+        "toolCallApplicable": 0
+      }
+    },
+    {
+      "tier": 3,
+      "model": "openai/gpt-oss-120b",
+      "suite": "tool-select",
+      "total": 30,
+      "retained": 30,
+      "answered": 30,
+      "unanswered": 0,
+      "passed": 29,
+      "status": "complete",
+      "remainingCaseIds": [],
+      "counts": {
+        "answered": 30,
+        "unanswered": 0,
+        "schemaValid": 0,
+        "schemaApplicable": 0,
+        "toolCallValid": 29,
+        "toolCallApplicable": 30
+      }
+    },
+    {
+      "tier": 3,
+      "model": "openai/gpt-oss-120b",
+      "suite": "grounding",
+      "total": 25,
+      "retained": 25,
+      "answered": 25,
+      "unanswered": 0,
+      "passed": 22,
+      "status": "complete",
+      "remainingCaseIds": [],
+      "counts": {
+        "answered": 25,
+        "unanswered": 0,
+        "schemaValid": 0,
+        "schemaApplicable": 0,
+        "toolCallValid": 2,
+        "toolCallApplicable": 2
+      }
+    },
+    {
+      "tier": 3,
+      "model": "openai/gpt-oss-120b",
+      "suite": "robustness",
+      "total": 10,
+      "retained": 10,
+      "answered": 10,
+      "unanswered": 0,
+      "passed": 5,
+      "status": "complete",
+      "remainingCaseIds": [],
+      "counts": {
+        "answered": 10,
+        "unanswered": 0,
+        "schemaValid": 0,
+        "schemaApplicable": 0,
+        "toolCallValid": 0,
+        "toolCallApplicable": 2
+      }
+    },
+    {
+      "tier": 3,
+      "model": "openai/gpt-oss-120b",
+      "suite": "injection",
+      "total": 25,
+      "retained": 25,
+      "answered": 25,
+      "unanswered": 0,
+      "passed": 17,
+      "status": "complete",
+      "remainingCaseIds": [],
+      "counts": {
+        "answered": 25,
+        "unanswered": 0,
+        "schemaValid": 0,
+        "schemaApplicable": 0,
+        "toolCallValid": 21,
+        "toolCallApplicable": 25
+      }
+    },
+    {
+      "tier": 3,
+      "model": "openai/gpt-oss-120b",
+      "suite": "analysis",
+      "total": 15,
+      "retained": 15,
+      "answered": 15,
+      "unanswered": 0,
+      "passed": 0,
+      "status": "complete",
+      "remainingCaseIds": [],
+      "counts": {
+        "answered": 15,
+        "unanswered": 0,
+        "schemaValid": 0,
+        "schemaApplicable": 0,
+        "toolCallValid": 0,
+        "toolCallApplicable": 0
+      }
+    },
+    {
+      "tier": 4,
+      "model": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "suite": "document",
+      "total": 20,
+      "retained": 20,
+      "answered": 18,
+      "unanswered": 2,
+      "passed": 1,
+      "status": "complete",
+      "remainingCaseIds": [],
+      "counts": {
+        "answered": 18,
+        "unanswered": 2,
+        "schemaValid": 15,
+        "schemaApplicable": 18,
+        "toolCallValid": 0,
+        "toolCallApplicable": 0
+      }
+    }
+  ]
+}

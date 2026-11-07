@@ -50,8 +50,9 @@ import type { EvalCase } from '../harness';
 import { GROUNDING_BASE_CURRENCY, GROUNDING_CALLS, GROUNDING_TODAY, type GroundingCallKey } from './grounding-calls';
 import groundingResults from './grounding-results.json';
 import { scoreToolSelectCalls, type ExpectedCall } from './tool-select';
+import { normalizeNumericPresentation } from '../score';
 
-export const GROUNDING_SUITE_VERSION = 2;
+export const GROUNDING_SUITE_VERSION = 4;
 
 /**
  * A figure: an exact amount, or a rate stated as a fraction (`0.62` is 62%).
@@ -359,7 +360,7 @@ const FIGURE =
 
 /** The figures an answer states. Dates, years and small whole numbers are not figures. */
 export function statedFigures(answer: string): readonly StatedFigure[] {
-  const text = answer
+  const text = normalizeNumericPresentation(answer)
     .replace(/\d{4}-\d{2}-\d{2}/g, ' ')
     // A minus sign, however typed.
     .replace(/[−–]/g, '-');
@@ -508,7 +509,7 @@ export function affirms(text: string, pattern: RegExp): boolean {
 
 /** Score a prose answer. A case that needs a further call cannot pass on prose. */
 export function scoreGroundingAnswer(answer: string | null, golden: GroundingGoldenCase): GroundingVerdict {
-  const text = answer ?? '';
+  const text = normalizeNumericPresentation(answer ?? '');
   const stated = statedFigures(text);
   const values = traceableValues(golden.calls.map((key) => GROUNDING_RESULTS[key]));
 

@@ -13,6 +13,7 @@ import 'server-only';
 
 import type { EvalCase } from '../harness';
 import { toolDefinitions } from '../../tools/registry';
+import { normalizeNumericPresentation } from '../score';
 import {
   amountFor,
   CURRENT_PRICE,
@@ -27,7 +28,7 @@ import {
   type GroundingGoldenCase,
 } from './grounding';
 
-export const ANALYSIS_SUITE_VERSION = 2;
+export const ANALYSIS_SUITE_VERSION = 4;
 
 export type AnalysisDomain = 'portfolio' | 'health' | 'period' | 'cross-domain';
 
@@ -61,6 +62,7 @@ const bind = (subject: RegExp, figure: Figure | readonly Figure[]): Binding => (
  * pass when figures and words are checked apart.
  */
 export function bindingHolds(text: string, binding: Binding): boolean {
+  text = normalizeNumericPresentation(text);
   const kind = binding.figures.some((f) => 'rate' in f) ? 'percent' : 'money';
   const subject = new RegExp(binding.subject.source, binding.subject.flags.replace('g', '') + 'g');
   for (const match of text.matchAll(subject)) {

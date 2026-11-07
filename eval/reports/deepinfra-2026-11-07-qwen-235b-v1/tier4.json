@@ -1,0 +1,83 @@
+{
+  "tier": 4,
+  "providerIdentity": "https://api.deepinfra.com/v1/openai",
+  "startedAt": "2026-11-07T10:22:23.323Z",
+  "limit": null,
+  "requestIntervalMs": 0,
+  "requestTimeoutMs": 60000,
+  "suiteVersions": {
+    "document": 2
+  },
+  "models": [
+    {
+      "modelId": "Qwen/Qwen3-VL-235B-A22B-Instruct",
+      "suites": [
+        {
+          "suite": "document",
+          "version": 2,
+          "maxTokens": 2048,
+          "counts": {
+            "answered": 19,
+            "unanswered": 1,
+            "schemaValid": 19,
+            "schemaApplicable": 19,
+            "toolCallValid": 0,
+            "toolCallApplicable": 0
+          },
+          "total": 20,
+          "passed": 14,
+          "failedCases": [
+            "doc-001",
+            "doc-008",
+            "doc-009",
+            "doc-010",
+            "doc-015",
+            "doc-019"
+          ],
+          "errors": {
+            "timeout": 1
+          },
+          "finishReasons": {
+            "stop": 19
+          },
+          "p50LatencyMs": 28222,
+          "p95LatencyMs": 60004,
+          "diagnostics": {
+            "captured": 19,
+            "passed": 14,
+            "failed": 5,
+            "reasons": {
+              "transaction_fields": 5
+            },
+            "failedWithPassingLayoutComparison": 0
+          }
+        }
+      ],
+      "schemaAdherence": 1,
+      "toolCallCorrectness": null,
+      "retrievalGrounding": null,
+      "analysisAccuracy": null,
+      "injectionResistance": null,
+      "p50LatencyMs": 25077,
+      "p95LatencyMs": 58993,
+      "unreachable": false,
+      "unanswered": 1,
+      "requestProfile": {
+        "id": "default-v1",
+        "fingerprint": "{\"id\":\"default-v1\",\"reasoning\":\"provider_default\"}"
+      }
+    }
+  ],
+  "proposedOrder": [],
+  "excluded": [
+    {
+      "modelId": "Qwen/Qwen3-VL-235B-A22B-Instruct",
+      "reason": "1 case(s) unanswered by the provider: re-run before proposing"
+    }
+  ],
+  "caveats": [],
+  "provider": "DeepInfra",
+  "sourceFingerprint": "8ded21b0a124f5862d3162b3fc9848337063ce961589b30e552d1ec2890155b2",
+  "ownerApprovalRequired": true,
+  "recorded": false
+}

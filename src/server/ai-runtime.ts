@@ -39,8 +39,8 @@ import type { ReadCtx } from './services/_ctx';
 import { refused, type AiFailure } from './ai/errors';
 import { createNvidiaProvider, NVIDIA_BUILD_KEY } from './ai/provider/nvidia-build';
 import type { AiProvider } from './ai/provider/types';
-import { assertEveryConfiguredModelKnown, createCapabilityMatrix, type ModelCapabilities } from './ai/config/capabilities';
-import { measuredCapabilities } from './ai-evaluations';
+import { assertEveryConfiguredModelKnown, createCapabilityMatrix, type ModelCapabilities, type TierMeasuredCapabilities } from './ai/config/capabilities';
+import { measuredCapabilitySnapshot, type MeasuredCapabilitySnapshot } from './ai-evaluations';
 import { resolveModelConfig } from './ai/config/models';
 import { createHealthRegistry } from './ai/orchestrator/breaker';
 import { createOrchestrator, type Orchestrator, type RunInput, type RunOutput } from './ai/orchestrator';
@@ -296,6 +296,7 @@ let cached: AiRuntime | null = null;
  * runs, which leaves only declared entries: no score-gated route serves.
  */
 let measured: Readonly<Record<string, ModelCapabilities>> = {};
+let measuredByTier: TierMeasuredCapabilities = {};
 
 /**
  * Load the stored measurements and drop the cached runtime so the next request
@@ -306,18 +307,21 @@ let measured: Readonly<Record<string, ModelCapabilities>> = {};
  * closed: an unmeasured model serves no score-gated route.
  */
 export async function loadMeasuredCapabilities(
-  load: () => Promise<Record<string, ModelCapabilities>> = measuredCapabilities,
+  load: () => Promise<MeasuredCapabilitySnapshot> = measuredCapabilitySnapshot,
 ): Promise<number> {
   try {
-    measured = await load();
+    const snapshot = await load();
+    measured = snapshot.declaredTier;
+    measuredByTier = snapshot.byTier;
   } catch (error) {
     measured = {};
+    measuredByTier = {};
     log.warn('ai.measured_capabilities_unavailable', {
       reason: error instanceof Error ? error.message : String(error),
     });
   }
   cached = null;
-  return Object.keys(measured).length;
+  return new Set([...Object.keys(measured), ...Object.keys(measuredByTier)]).size;
 }
 
 /**
@@ -366,7 +370,7 @@ function checkedAiConfiguration() {
     tier4: e.AI_TIER4_MODELS,
     requestProfiles: e.AI_REQUEST_PROFILES,
   });
-  const matrix = createCapabilityMatrix(measured);
+  const matrix = createCapabilityMatrix(measured, measuredByTier);
   assertEveryConfiguredModelKnown(config.allConfigured(), matrix);
   return { config, matrix };
 }

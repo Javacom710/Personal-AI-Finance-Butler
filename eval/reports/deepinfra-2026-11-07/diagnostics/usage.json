@@ -1,0 +1,173 @@
+{
+  "providerIdentity": "https://api.deepinfra.com/v1/openai",
+  "events": [
+    {
+      "at": "2026-11-07T06:09:18.265Z",
+      "caseId": "analysis-001",
+      "model": "openai/gpt-oss-120b",
+      "reservedUsd": 0.0037177299999999994,
+      "accountedUsd": 0.000304181,
+      "status": 200,
+      "promptTokens": 2193,
+      "completionTokens": 1312
+    },
+    {
+      "at": "2026-11-07T06:09:51.535Z",
+      "caseId": "analysis-006",
+      "model": "openai/gpt-oss-120b",
+      "reservedUsd": 0.0032469999999999995,
+      "accountedUsd": 0.00009306100000000001,
+      "status": 200,
+      "promptTokens": 1463,
+      "completionTokens": 229
+    },
+    {
+      "at": "2026-11-07T06:09:57.990Z",
+      "caseId": "analysis-015",
+      "model": "openai/gpt-oss-120b",
+      "reservedUsd": 0.0042872299999999995,
+      "accountedUsd": 0.0003956349999999999,
+      "status": 200,
+      "promptTokens": 3075,
+      "completionTokens": 1658
+    },
+    {
+      "at": "2026-11-07T06:10:37.442Z",
+      "caseId": "doc-001",
+      "model": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "reservedUsd": 0.00576,
+      "accountedUsd": 0.00576
+    },
+    {
+      "at": "2026-11-07T06:11:37.448Z",
+      "caseId": "doc-002",
+      "model": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "reservedUsd": 0.00576,
+      "accountedUsd": 0.0003015,
+      "status": 200,
+      "promptTokens": 1066,
+      "completionTokens": 236
+    },
+    {
+      "at": "2026-11-07T06:11:50.271Z",
+      "caseId": "doc-018",
+      "model": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "reservedUsd": 0.00576,
+      "accountedUsd": 0.00576
+    },
+    {
+      "at": "2026-11-07T06:18:35.470Z",
+      "caseId": "analysis-001",
+      "model": "openai/gpt-oss-120b",
+      "reservedUsd": 0.0037177299999999994,
+      "accountedUsd": 0.000304181,
+      "status": 200,
+      "promptTokens": 2193,
+      "completionTokens": 1312
+    },
+    {
+      "at": "2026-11-07T06:19:18.168Z",
+      "caseId": "analysis-006",
+      "model": "openai/gpt-oss-120b",
+      "reservedUsd": 0.0032469999999999995,
+      "accountedUsd": 0.00009306100000000001,
+      "status": 200,
+      "promptTokens": 1463,
+      "completionTokens": 229
+    },
+    {
+      "at": "2026-11-07T06:19:25.888Z",
+      "caseId": "analysis-015",
+      "model": "openai/gpt-oss-120b",
+      "reservedUsd": 0.0042872299999999995,
+      "accountedUsd": 0.0003708149999999999,
+      "status": 200,
+      "promptTokens": 3075,
+      "completionTokens": 1512
+    },
+    {
+      "at": "2026-11-07T09:54:35.719Z",
+      "caseId": "analysis-001",
+      "model": "openai/gpt-oss-120b",
+      "reservedUsd": 0.0038715799999999995,
+      "accountedUsd": 0.000351811,
+      "status": 200,
+      "promptTokens": 2373,
+      "completionTokens": 1553
+    },
+    {
+      "at": "2026-11-07T09:55:03.250Z",
+      "caseId": "analysis-006",
+      "model": "openai/gpt-oss-120b",
+      "reservedUsd": 0.00340085,
+      "accountedUsd": 0.00010261099999999998,
+      "status": 200,
+      "promptTokens": 1643,
+      "completionTokens": 246
+    },
+    {
+      "at": "2026-11-07T09:55:08.980Z",
+      "caseId": "analysis-015",
+      "model": "openai/gpt-oss-120b",
+      "reservedUsd": 0.00444108,
+      "accountedUsd": 0.00034636499999999995,
+      "status": 200,
+      "promptTokens": 3255,
+      "completionTokens": 1329
+    },
+    {
+      "at": "2026-11-07T09:55:32.351Z",
+      "caseId": "doc-001",
+      "model": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "reservedUsd": 0.0060371999999999995,
+      "accountedUsd": 0.0060371999999999995
+    },
+    {
+      "at": "2026-11-07T09:56:32.358Z",
+      "caseId": "doc-002",
+      "model": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "reservedUsd": 0.0060371999999999995,
+      "accountedUsd": 0.00030735,
+      "status": 200,
+      "promptTokens": 1153,
+      "completionTokens": 224
+    },
+    {
+      "at": "2026-11-07T09:56:42.681Z",
+      "caseId": "doc-018",
+      "model": "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "reservedUsd": 0.0060371999999999995,
+      "accountedUsd": 0.0060371999999999995
+    },
+    {
+      "at": "2026-11-07T10:11:36.658Z",
+      "model": "openai/gpt-oss-120b",
+      "caseId": "analysis-001",
+      "reservedUsd": 0.0038715799999999995,
+      "accountedUsd": 0.000362181,
+      "status": 200,
+      "promptTokens": 2373,
+      "completionTokens": 1614
+    },
+    {
+      "at": "2026-11-07T10:12:15.104Z",
+      "model": "openai/gpt-oss-120b",
+      "caseId": "analysis-006",
+      "reservedUsd": 0.00340085,
+      "accountedUsd": 0.000102101,
+      "status": 200,
+      "promptTokens": 1643,
+      "completionTokens": 243
+    },
+    {
+      "at": "2026-11-07T10:12:26.191Z",
+      "model": "openai/gpt-oss-120b",
+      "caseId": "analysis-015",
+      "reservedUsd": 0.00444108,
+      "accountedUsd": 0.00033599499999999996,
+      "status": 200,
+      "promptTokens": 3255,
+      "completionTokens": 1268
+    }
+  ]
+}

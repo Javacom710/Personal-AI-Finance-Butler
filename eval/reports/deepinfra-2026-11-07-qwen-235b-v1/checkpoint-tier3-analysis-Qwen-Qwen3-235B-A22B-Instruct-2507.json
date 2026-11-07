@@ -1,0 +1,663 @@
+{
+  "identity": "8d8d72f9db6eca8407af5b1bece6cff38fe4ecb35b107c4e1775eee400cb7e1d",
+  "providerIdentity": "https://api.deepinfra.com/v1/openai",
+  "model": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+  "tier": 3,
+  "suite": "analysis",
+  "version": 4,
+  "maxTokens": 8192,
+  "startedAt": "2026-11-07T10:22:19.357Z",
+  "cases": [
+    {
+      "caseId": "analysis-001",
+      "suite": "analysis",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": false,
+      "latencyMs": 781,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "tool_calls"
+    },
+    {
+      "caseId": "analysis-002",
+      "suite": "analysis",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": false,
+      "latencyMs": 12080,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "analysis-003",
+      "suite": "analysis",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": false,
+      "latencyMs": 10124,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "analysis-004",
+      "suite": "analysis",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": false,
+      "latencyMs": 9965,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "analysis-005",
+      "suite": "analysis",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": true,
+      "latencyMs": 8971,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "analysis-006",
+      "suite": "analysis",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": false,
+      "latencyMs": 1488,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "tool_calls"
+    },
+    {
+      "caseId": "analysis-007",
+      "suite": "analysis",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": false,
+      "latencyMs": 6033,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "analysis-008",
+      "suite": "analysis",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": false,
+      "latencyMs": 6650,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "analysis-009",
+      "suite": "analysis",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": false,
+      "latencyMs": 1674,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "tool_calls"
+    },
+    {
+      "caseId": "analysis-010",
+      "suite": "analysis",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": false,
+      "latencyMs": 6763,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "analysis-011",
+      "suite": "analysis",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": false,
+      "latencyMs": 3540,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "analysis-012",
+      "suite": "analysis",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": false,
+      "latencyMs": 9185,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "analysis-013",
+      "suite": "analysis",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": false,
+      "latencyMs": 17682,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "analysis-014",
+      "suite": "analysis",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": true,
+      "latencyMs": 11974,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "analysis-015",
+      "suite": "analysis",
+      "modelId": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "passed": false,
+      "latencyMs": 3366,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "tool_calls"
+    }
+  ],
+  "diagnostics": {
+    "analysis-001": {
+      "passed": false,
+      "counts": {
+        "empty_output": 1,
+        "unexpected_tool_calls": 1,
+        "untraceable_figures": 0,
+        "missing_figures": 3,
+        "forbidden_figures": 0,
+        "missing_mentions": 3,
+        "contradictions": 0,
+        "missing_metric_bindings": 2
+      },
+      "reasons": [
+        "empty_output",
+        "unexpected_tool_calls",
+        "missing_figures",
+        "missing_mentions",
+        "missing_metric_bindings"
+      ]
+    },
+    "analysis-002": {
+      "passed": false,
+      "counts": {
+        "empty_output": 0,
+        "unexpected_tool_calls": 0,
+        "untraceable_figures": 0,
+        "missing_figures": 0,
+        "forbidden_figures": 0,
+        "missing_mentions": 1,
+        "contradictions": 0,
+        "missing_metric_bindings": 0
+      },
+      "reasons": [
+        "missing_mentions"
+      ],
+      "layoutComparison": {
+        "lineBreaks": 8,
+        "markdownSpans": 0,
+        "whitespace": {
+          "passed": false,
+          "missingMentions": 1,
+          "missingMetricBindings": 0
+        },
+        "inlineMarkdown": {
+          "passed": false,
+          "missingMentions": 1,
+          "missingMetricBindings": 0
+        },
+        "combined": {
+          "passed": false,
+          "missingMentions": 1,
+          "missingMetricBindings": 0
+        }
+      }
+    },
+    "analysis-003": {
+      "passed": false,
+      "counts": {
+        "empty_output": 0,
+        "unexpected_tool_calls": 0,
+        "untraceable_figures": 1,
+        "missing_figures": 0,
+        "forbidden_figures": 0,
+        "missing_mentions": 0,
+        "contradictions": 0,
+        "missing_metric_bindings": 0
+      },
+      "reasons": [
+        "untraceable_figures"
+      ],
+      "layoutComparison": {
+        "lineBreaks": 7,
+        "markdownSpans": 3,
+        "whitespace": {
+          "passed": false,
+          "missingMentions": 0,
+          "missingMetricBindings": 0
+        },
+        "inlineMarkdown": {
+          "passed": false,
+          "missingMentions": 0,
+          "missingMetricBindings": 0
+        },
+        "combined": {
+          "passed": false,
+          "missingMentions": 0,
+          "missingMetricBindings": 0
+        }
+      }
+    },
+    "analysis-004": {
+      "passed": false,
+      "counts": {
+        "empty_output": 0,
+        "unexpected_tool_calls": 0,
+        "untraceable_figures": 0,
+        "missing_figures": 0,
+        "forbidden_figures": 0,
+        "missing_mentions": 1,
+        "contradictions": 0,
+        "missing_metric_bindings": 2
+      },
+      "reasons": [
+        "missing_mentions",
+        "missing_metric_bindings"
+      ],
+      "layoutComparison": {
+        "lineBreaks": 6,
+        "markdownSpans": 2,
+        "whitespace": {
+          "passed": false,
+          "missingMentions": 1,
+          "missingMetricBindings": 2
+        },
+        "inlineMarkdown": {
+          "passed": false,
+          "missingMentions": 1,
+          "missingMetricBindings": 2
+        },
+        "combined": {
+          "passed": false,
+          "missingMentions": 1,
+          "missingMetricBindings": 2
+        }
+      }
+    },
+    "analysis-005": {
+      "passed": true,
+      "counts": {
+        "empty_output": 0,
+        "unexpected_tool_calls": 0,
+        "untraceable_figures": 0,
+        "missing_figures": 0,
+        "forbidden_figures": 0,
+        "missing_mentions": 0,
+        "contradictions": 0,
+        "missing_metric_bindings": 0
+      },
+      "reasons": [],
+      "layoutComparison": {
+        "lineBreaks": 12,
+        "markdownSpans": 0,
+        "whitespace": {
+          "passed": true,
+          "missingMentions": 0,
+          "missingMetricBindings": 0
+        },
+        "inlineMarkdown": {
+          "passed": true,
+          "missingMentions": 0,
+          "missingMetricBindings": 0
+        },
+        "combined": {
+          "passed": true,
+          "missingMentions": 0,
+          "missingMetricBindings": 0
+        }
+      }
+    },
+    "analysis-006": {
+      "passed": false,
+      "counts": {
+        "empty_output": 1,
+        "unexpected_tool_calls": 1,
+        "untraceable_figures": 0,
+        "missing_figures": 4,
+        "forbidden_figures": 0,
+        "missing_mentions": 3,
+        "contradictions": 0,
+        "missing_metric_bindings": 4
+      },
+      "reasons": [
+        "empty_output",
+        "unexpected_tool_calls",
+        "missing_figures",
+        "missing_mentions",
+        "missing_metric_bindings"
+      ]
+    },
+    "analysis-007": {
+      "passed": false,
+      "counts": {
+        "empty_output": 0,
+        "unexpected_tool_calls": 0,
+        "untraceable_figures": 0,
+        "missing_figures": 0,
+        "forbidden_figures": 0,
+        "missing_mentions": 0,
+        "contradictions": 0,
+        "missing_metric_bindings": 2
+      },
+      "reasons": [
+        "missing_metric_bindings"
+      ],
+      "layoutComparison": {
+        "lineBreaks": 3,
+        "markdownSpans": 2,
+        "whitespace": {
+          "passed": false,
+          "missingMentions": 0,
+          "missingMetricBindings": 2
+        },
+        "inlineMarkdown": {
+          "passed": false,
+          "missingMentions": 0,
+          "missingMetricBindings": 2
+        },
+        "combined": {
+          "passed": false,
+          "missingMentions": 0,
+          "missingMetricBindings": 2
+        }
+      }
+    },
+    "analysis-008": {
+      "passed": false,
+      "counts": {
+        "empty_output": 0,
+        "unexpected_tool_calls": 0,
+        "untraceable_figures": 1,
+        "missing_figures": 0,
+        "forbidden_figures": 0,
+        "missing_mentions": 0,
+        "contradictions": 0,
+        "missing_metric_bindings": 1
+      },
+      "reasons": [
+        "untraceable_figures",
+        "missing_metric_bindings"
+      ],
+      "layoutComparison": {
+        "lineBreaks": 16,
+        "markdownSpans": 5,
+        "whitespace": {
+          "passed": false,
+          "missingMentions": 0,
+          "missingMetricBindings": 0
+        },
+        "inlineMarkdown": {
+          "passed": false,
+          "missingMentions": 0,
+          "missingMetricBindings": 1
+        },
+        "combined": {
+          "passed": false,
+          "missingMentions": 0,
+          "missingMetricBindings": 0
+        }
+      }
+    },
+    "analysis-009": {
+      "passed": false,
+      "counts": {
+        "empty_output": 1,
+        "unexpected_tool_calls": 1,
+        "untraceable_figures": 0,
+        "missing_figures": 1,
+        "forbidden_figures": 0,
+        "missing_mentions": 1,
+        "contradictions": 0,
+        "missing_metric_bindings": 0
+      },
+      "reasons": [
+        "empty_output",
+        "unexpected_tool_calls",
+        "missing_figures",
+        "missing_mentions"
+      ]
+    },
+    "analysis-010": {
+      "passed": false,
+      "counts": {
+        "empty_output": 0,
+        "unexpected_tool_calls": 0,
+        "untraceable_figures": 0,
+        "missing_figures": 1,
+        "forbidden_figures": 0,
+        "missing_mentions": 0,
+        "contradictions": 0,
+        "missing_metric_bindings": 0
+      },
+      "reasons": [
+        "missing_figures"
+      ],
+      "layoutComparison": {
+        "lineBreaks": 4,
+        "markdownSpans": 0,
+        "whitespace": {
+          "passed": false,
+          "missingMentions": 0,
+          "missingMetricBindings": 0
+        },
+        "inlineMarkdown": {
+          "passed": false,
+          "missingMentions": 0,
+          "missingMetricBindings": 0
+        },
+        "combined": {
+          "passed": false,
+          "missingMentions": 0,
+          "missingMetricBindings": 0
+        }
+      }
+    },
+    "analysis-011": {
+      "passed": false,
+      "counts": {
+        "empty_output": 0,
+        "unexpected_tool_calls": 0,
+        "untraceable_figures": 0,
+        "missing_figures": 0,
+        "forbidden_figures": 0,
+        "missing_mentions": 1,
+        "contradictions": 0,
+        "missing_metric_bindings": 0
+      },
+      "reasons": [
+        "missing_mentions"
+      ],
+      "layoutComparison": {
+        "lineBreaks": 2,
+        "markdownSpans": 0,
+        "whitespace": {
+          "passed": false,
+          "missingMentions": 1,
+          "missingMetricBindings": 0
+        },
+        "inlineMarkdown": {
+          "passed": false,
+          "missingMentions": 1,
+          "missingMetricBindings": 0
+        },
+        "combined": {
+          "passed": false,
+          "missingMentions": 1,
+          "missingMetricBindings": 0
+        }
+      }
+    },
+    "analysis-012": {
+      "passed": false,
+      "counts": {
+        "empty_output": 0,
+        "unexpected_tool_calls": 0,
+        "untraceable_figures": 0,
+        "missing_figures": 0,
+        "forbidden_figures": 0,
+        "missing_mentions": 1,
+        "contradictions": 0,
+        "missing_metric_bindings": 4
+      },
+      "reasons": [
+        "missing_mentions",
+        "missing_metric_bindings"
+      ],
+      "layoutComparison": {
+        "lineBreaks": 7,
+        "markdownSpans": 0,
+        "whitespace": {
+          "passed": false,
+          "missingMentions": 1,
+          "missingMetricBindings": 3
+        },
+        "inlineMarkdown": {
+          "passed": false,
+          "missingMentions": 1,
+          "missingMetricBindings": 4
+        },
+        "combined": {
+          "passed": false,
+          "missingMentions": 1,
+          "missingMetricBindings": 3
+        }
+      }
+    },
+    "analysis-013": {
+      "passed": false,
+      "counts": {
+        "empty_output": 0,
+        "unexpected_tool_calls": 0,
+        "untraceable_figures": 0,
+        "missing_figures": 1,
+        "forbidden_figures": 0,
+        "missing_mentions": 1,
+        "contradictions": 0,
+        "missing_metric_bindings": 1
+      },
+      "reasons": [
+        "missing_figures",
+        "missing_mentions",
+        "missing_metric_bindings"
+      ],
+      "layoutComparison": {
+        "lineBreaks": 4,
+        "markdownSpans": 0,
+        "whitespace": {
+          "passed": false,
+          "missingMentions": 1,
+          "missingMetricBindings": 1
+        },
+        "inlineMarkdown": {
+          "passed": false,
+          "missingMentions": 1,
+          "missingMetricBindings": 1
+        },
+        "combined": {
+          "passed": false,
+          "missingMentions": 1,
+          "missingMetricBindings": 1
+        }
+      }
+    },
+    "analysis-014": {
+      "passed": true,
+      "counts": {
+        "empty_output": 0,
+        "unexpected_tool_calls": 0,
+        "untraceable_figures": 0,
+        "missing_figures": 0,
+        "forbidden_figures": 0,
+        "missing_mentions": 0,
+        "contradictions": 0,
+        "missing_metric_bindings": 0
+      },
+      "reasons": [],
+      "layoutComparison": {
+        "lineBreaks": 4,
+        "markdownSpans": 0,
+        "whitespace": {
+          "passed": true,
+          "missingMentions": 0,
+          "missingMetricBindings": 0
+        },
+        "inlineMarkdown": {
+          "passed": true,
+          "missingMentions": 0,
+          "missingMetricBindings": 0
+        },
+        "combined": {
+          "passed": true,
+          "missingMentions": 0,
+          "missingMetricBindings": 0
+        }
+      }
+    },
+    "analysis-015": {
+      "passed": false,
+      "counts": {
+        "empty_output": 1,
+        "unexpected_tool_calls": 2,
+        "untraceable_figures": 0,
+        "missing_figures": 4,
+        "forbidden_figures": 0,
+        "missing_mentions": 3,
+        "contradictions": 0,
+        "missing_metric_bindings": 4
+      },
+      "reasons": [
+        "empty_output",
+        "unexpected_tool_calls",
+        "missing_figures",
+        "missing_mentions",
+        "missing_metric_bindings"
+      ],
+      "layoutComparison": {
+        "lineBreaks": 1,
+        "markdownSpans": 0,
+        "whitespace": {
+          "passed": false,
+          "missingMentions": 3,
+          "missingMetricBindings": 4
+        },
+        "inlineMarkdown": {
+          "passed": false,
+          "missingMentions": 3,
+          "missingMetricBindings": 4
+        },
+        "combined": {
+          "passed": false,
+          "missingMentions": 3,
+          "missingMetricBindings": 4
+        }
+      }
+    }
+  }
+}

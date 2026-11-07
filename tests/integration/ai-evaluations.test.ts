@@ -1,9 +1,15 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { evaluationProviderIdentity, latestEvaluations, measuredCapabilities, recordEvaluationRun } from '@/server/ai-evaluations';
+import { evaluationProviderIdentity, latestEvaluations, measuredCapabilities, measuredCapabilitySnapshot, recordEvaluationRun } from '@/server/ai-evaluations';
+import { createCapabilityMatrix } from '@/server/ai/config/capabilities';
+import { resolveModelConfig } from '@/server/ai/config/models';
+import { selectCandidates } from '@/server/ai/orchestrator/select';
+import { requirementFor } from '@/server/ai/orchestrator/requirements';
+import { createHealthRegistry } from '@/server/ai/orchestrator/breaker';
 import { aiRuntime, loadMeasuredCapabilities, resetAiRuntime } from '@/server/ai-runtime';
 import { DEFAULT_REQUEST_PROFILE, THINKING_DISABLED_PROFILE, requestProfileIdentity } from '@/server/ai/config/request-profiles';
-import { MODEL_SUITES, TIER_SUITES, type EvalRun, type ModelSuite } from '@/server/ai/eval/runner';
+import { maxTokensFor, MODEL_SUITES, TIER_SUITES, type EvalRun, type ModelSuite } from '@/server/ai/eval/runner';
+import type { Tier } from '@/server/ai/config/models';
 import type { ModelReport } from '@/server/ai/eval/harness';
 import { closeHarness, truncateAll } from './harness';
 import { rawSql, closeMoneyHarness } from './money-harness';
@@ -18,9 +24,9 @@ import { aiProviderSettings, env } from '@/lib/env';
 
 const MODEL = 'nvidia/nemotron-3-super-120b-a12b';
 
-function run(startedAt: string, passed: number, limit: number | null = null): EvalRun {
+function run(startedAt: string, passed: number, limit: number | null = null, tier: Tier = 2, model = MODEL): EvalRun {
   const report: ModelReport = {
-    modelId: MODEL,
+    modelId: model,
     cases: [],
     schemaAdherence: null,
     toolCallCorrectness: null,
@@ -28,28 +34,32 @@ function run(startedAt: string, passed: number, limit: number | null = null): Ev
     p50LatencyMs: 800,
     p95LatencyMs: 2000,
   };
-  const suites = TIER_SUITES[2].map((suite: ModelSuite) => ({
+  const suites = TIER_SUITES[tier].map((suite: ModelSuite) => {
+    const total = MODEL_SUITES[suite].build().length;
+    const schema = ['parse', 'classify', 'document'].includes(suite) ? total : 0;
+    const tools = ['tool-select', 'injection'].includes(suite) ? total : 0;
+    return {
     suite,
-    maxTokens: 4096,
+    maxTokens: maxTokensFor(tier, suite),
     finishReasons: { stop: 10 },
     version: MODEL_SUITES[suite].version,
     report,
     passed,
-    total: 10,
+    total,
     failedCases: [],
     errors: {},
-    counts: { answered: 10, unanswered: 0, schemaValid: 0, schemaApplicable: 0, toolCallValid: passed, toolCallApplicable: 10 },
-  }));
+    counts: { answered: total, unanswered: 0, schemaValid: Math.floor(schema * passed / 10), schemaApplicable: schema, toolCallValid: Math.ceil(tools * passed / 10), toolCallApplicable: tools },
+  }; });
   return {
     providerIdentity: evaluationProviderIdentity(aiProviderSettings(env()).baseUrl),
-    tier: 2,
+    tier,
     requestTimeoutMs: 45000,
     startedAt,
     limit,
     suiteVersions: {},
     models: [
       {
-        modelId: MODEL,
+        modelId: model,
         suites,
         schemaAdherence: null,
         toolCallCorrectness: passed / 10,
@@ -75,7 +85,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await rawSql('truncate table ai_model_evaluations');
   resetAiRuntime();
-  await loadMeasuredCapabilities(async () => ({}));
+  await loadMeasuredCapabilities(async () => ({ declaredTier: {}, byTier: {} }));
   await closeMoneyHarness();
   await closeHarness();
 });
@@ -96,7 +106,7 @@ describe('ai_model_evaluations', () => {
 
   it('becomes a measured entry the runtime routes on', async () => {
     const measured = await measuredCapabilities();
-    expect(measured[MODEL]).toMatchObject({ source: 'measured', scores: { toolCallCorrectness: 0.9 } });
+    expect(measured[MODEL]).toMatchObject({ source: 'measured', scores: { toolCallCorrectness: 50 / 55 } });
     expect(await loadMeasuredCapabilities()).toBe(1);
     // The runtime rebuilds with the measured matrix; building it must not throw.
     expect(() => aiRuntime()).not.toThrow();
@@ -162,5 +172,65 @@ describe('stored provider provenance', () => {
     expect(latest).toHaveLength(TIER_SUITES[2].length);
     expect(latest.every(r => r.casesPassed === 10 && r.detail.providerIdentity === source.providerIdentity)).toBe(true);
     expect((await measuredCapabilities())[MODEL]?.scores?.toolCallCorrectness).toBe(1);
+  });
+});
+
+describe('stored tier provenance', () => {
+  it('preserves latest histories per tier without allowing newer Tier 2 rows to shadow Tier 1', async () => {
+    const model = 'openai/gpt-oss-120b';
+    await recordEvaluationRun(run('2026-11-05T01:00:00Z', 10, null, 1, model));
+    await recordEvaluationRun(run('2026-11-06T01:00:00Z', 0, null, 2, model));
+    const latest = (await latestEvaluations()).filter(r => r.model === model);
+    expect(latest.filter(r => r.tier === 1)).toHaveLength(TIER_SUITES[1].length);
+    expect(latest.filter(r => r.tier === 2)).toHaveLength(TIER_SUITES[2].length);
+    expect((await measuredCapabilities())[model]).toMatchObject({ tier: 1, source: 'measured', scores: { toolCallCorrectness: 1 } });
+  });
+
+  it('does not let Tier 3 certify a Tier 2 model or override its lower Tier 2 score', async () => {
+    const model = 'deepseek-ai/deepseek-v4-flash-0731';
+    await recordEvaluationRun(run('2026-11-06T02:00:00Z', 10, null, 3, model));
+    expect((await measuredCapabilities())[model]).toBeUndefined();
+    await recordEvaluationRun(run('2026-11-05T02:00:00Z', 7, null, 2, model));
+    const latest = (await latestEvaluations()).filter(r => r.model === model);
+    expect(latest).toHaveLength(TIER_SUITES[2].length + TIER_SUITES[3].length);
+    expect((await measuredCapabilities())[model]).toMatchObject({ tier: 2, scores: { toolCallCorrectness: 39 / 55 } });
+  });
+});
+
+describe('independent tier eligibility from stored full measurements', () => {
+  function completeRun(tier: Tier, good: boolean, startedAt: string): EvalRun {
+    const source = run(startedAt, 0, null, tier, 'openai/gpt-oss-120b');
+    return { ...source, models: source.models.map(model => ({ ...model, suites: model.suites.map(s => {
+      const n = s.total;
+      const schema = ['parse', 'classify', 'document'].includes(s.suite) ? n : 0;
+      const tools = ['tool-select', 'injection'].includes(s.suite) ? n : 0;
+      return { ...s, passed: good ? n : 0, failedCases: good ? [] : MODEL_SUITES[s.suite].build().map(c => c.id),
+        counts: { answered: n, unanswered: 0, schemaApplicable: schema, schemaValid: good ? schema : 0, toolCallApplicable: tools, toolCallValid: good ? tools : 0 } };
+    }) })) };
+  }
+
+  it('loads and selects Tier 2 independently while the same model fails Tier 1', async () => {
+    const model = 'openai/gpt-oss-120b';
+    await recordEvaluationRun(completeRun(1, false, '2026-11-07T01:00:00Z'));
+    await recordEvaluationRun(completeRun(2, true, '2026-11-07T02:00:00Z'));
+    const snapshot = await measuredCapabilitySnapshot();
+    expect(snapshot.byTier[model]?.[1]?.scores?.toolCallCorrectness).toBe(0);
+    expect(snapshot.byTier[model]?.[2]?.scores?.toolCallCorrectness).toBe(1);
+    expect(snapshot.byTier[model]?.[3]).toBeUndefined();
+    const matrix = createCapabilityMatrix(snapshot.declaredTier, snapshot.byTier);
+    const config = resolveModelConfig({ tier1: model, tier2: model });
+    const select = (capability: Parameters<typeof requirementFor>[0]) => selectCandidates(requirementFor(capability), config, matrix, createHealthRegistry(), new Date('2026-11-07'));
+    expect(select('analyzePortfolio').candidates).toEqual([model]);
+    expect(select('answerFinanceQuestion').candidates).toEqual([]);
+    expect(await loadMeasuredCapabilities()).toBeGreaterThan(0);
+    expect(() => aiRuntime()).not.toThrow();
+  });
+
+  it('does not revive older Tier 2 evidence after a newer incomplete suite', async () => {
+    const source = completeRun(2, false, '2026-11-07T03:00:00Z');
+    const oneSuite = source.models[0]!.suites[0]!;
+    const partial = { ...oneSuite, counts: { ...oneSuite.counts, answered: oneSuite.total - 1 } };
+    await recordEvaluationRun({ ...source, models: source.models.map(m => ({ ...m, suites: [partial] })) });
+    expect((await measuredCapabilitySnapshot()).byTier['openai/gpt-oss-120b']?.[2]).toBeUndefined();
   });
 });
