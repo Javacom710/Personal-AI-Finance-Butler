@@ -14,6 +14,7 @@ import {
   recordDailyAiUsage,
   withMetering,
   resetAiRateLimits,
+  aiRuntime,
   resetAiRuntime,
   runAiCapability,
 } from '@/server/ai-runtime';
@@ -58,17 +59,25 @@ describe('B-3a — the daily budget is checked before the request, from a table'
     !result.ok && result.error.kind === 'refused' ? result.error.reason : result.ok ? 'ok' : result.error.kind;
 
   // The 'room left' cases rely on the next gate refusing for want of a key, so
-  // the key is removed for this block: with one configured (a developer's
-  // .env), they would otherwise send a real request.
-  const savedKey = process.env['NVIDIA_API_KEY'];
+  // every provider variable is removed for this block, whichever source set it
+  // (the process environment, or a .env the setup file loaded into it). With
+  // one configured — a developer's .env, a cloud session — the run would pass
+  // that gate and fail later (`no_capable_model`) or send a real request.
+  const PROVIDER_VARS = ['AI_API_KEY', 'AI_BASE_URL', 'NVIDIA_API_KEY', 'NVIDIA_BASE_URL'] as const;
+  const saved = Object.fromEntries(PROVIDER_VARS.map((name) => [name, process.env[name]]));
   beforeAll(async () => {
-    delete process.env['NVIDIA_API_KEY'];
+    for (const name of PROVIDER_VARS) delete process.env[name];
     resetEnvCache();
     resetAiRuntime();
+    // The precondition the 'room left' cases stand on, stated rather than assumed.
+    expect(aiRuntime().isConfigured()).toBe(false);
     await setAiEnabled(alice.userId, true);
   });
   afterAll(async () => {
-    if (savedKey !== undefined) process.env['NVIDIA_API_KEY'] = savedKey;
+    for (const name of PROVIDER_VARS) {
+      const value = saved[name];
+      if (value !== undefined) process.env[name] = value;
+    }
     resetEnvCache();
     resetAiRuntime();
     await database().delete(aiUsageDaily);
@@ -96,8 +105,8 @@ describe('B-3a — the daily budget is checked before the request, from a table'
   it('lets a request through while the day has room', async () => {
     resetAiRateLimits();
     resetAiRuntime();
-    // No key in the test environment, so the next gate refuses — which proves
-    // the budget let it pass.
+    // No key for this block, so the next gate refuses — which proves the budget
+    // let it pass.
     expect(reasonOf(await run())).toBe('unsupported_capability');
   });
 
