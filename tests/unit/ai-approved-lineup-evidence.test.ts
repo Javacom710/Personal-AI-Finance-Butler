@@ -53,6 +53,20 @@ it.each(['zai-org/GLM-5.3-Flash', 'openai/gpt-oss-120b'])(
   expect(rows.every(row => row.detail.unanswered === 0)).toBe(true);
   expect(tierCapabilitiesFromEvaluations(rows, undefined, undefined, endpoint)).toEqual({});
 });
+it.each([
+  { model: 'zai-org/GLM-5.3-Flash', validTools: 54 },
+  { model: 'openai/gpt-oss-120b', validTools: 53 },
+])('loads fresh parse-v4 evidence for $model without granting another tier', ({ model, validTools }) => {
+  const rows = archivedRows('deepinfra-2026-11-07-tier1-parse-v4-2026-11-08/tier1.json').filter(row => row.model === model);
+  expect(rows).toHaveLength(6); expect(rows.find(row => row.suite === 'parse')?.evalVersion).toBe(4);
+  expect(rows.every(row => row.detail.unanswered === 0)).toBe(true);
+  const measured = tierCapabilitiesFromEvaluations(rows, undefined, undefined, endpoint);
+  expect(measured[model]?.[1]).toMatchObject({ source: 'measured', scores: { schemaAdherence: 1, toolCallCorrectness: validTools / 57 } });
+  expect(Object.keys(measured[model]!)).toEqual(['1']);
+  const selected = selectCandidates(requirementFor('answerFinanceQuestion'), resolveModelConfig(), createCapabilityMatrix({}, measured), createHealthRegistry(), rows[0]!.runAt);
+  expect(selected.candidates).toEqual([model]);
+});
+
 it('cannot certify the fallback from its archived answered-only pass with unanswered cases', () => {
   const rows = archivedRows('2026-11-07T15-26-06-tier1.json');
   expect(rows.reduce((n, r) => n + r.detail.unanswered, 0)).toBe(2);

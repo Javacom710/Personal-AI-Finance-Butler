@@ -21,7 +21,7 @@ import { askFinanceQuestionAction } from '@app/(app)/ai/actions';
 import { draftTransactionAction } from '@app/(app)/money/proposals/actions';
 import { EMPTY_ACTION_STATE } from '@app/(app)/money/form-state';
 
-const NOW = new Date('2026-11-08T14:00:00Z');
+const NOW = new Date('2026-11-08T18:00:00Z');
 const endpoint = 'https://api.deepinfra.com/v1/openai';
 const envKeys = ['AI_API_KEY', 'AI_BASE_URL', 'AI_TIER1_MODELS', 'AI_REQUEST_PROFILES', 'AI_RATE_LIMIT_PER_MINUTE', 'AI_DAILY_REQUEST_LIMIT', 'AI_DAILY_TOKEN_LIMIT'] as const;
 const savedEnv = envKeys.map(key => [key, process.env[key]] as const);
@@ -33,7 +33,7 @@ let fetchMock: ReturnType<typeof vi.fn>;
 const requests: { model: string; messages: { role: string; content: unknown }[]; tools?: unknown[]; response_format?: unknown }[] = [];
 
 function freshMeasurements() {
-  const run = JSON.parse(readFileSync(new URL('../../eval/reports/deepinfra-2026-11-07-tier1-parse-v3-2026-11-08/tier1.json', import.meta.url), 'utf8'));
+  const run = JSON.parse(readFileSync(new URL('../../eval/reports/deepinfra-2026-11-07-tier1-parse-v4-2026-11-08/tier1.json', import.meta.url), 'utf8'));
   const rows: StoredEvaluation[] = run.models.flatMap((m: { modelId: string; requestProfile: RequestProfileIdentity; suites: { suite: string; version: number; passed: number; p50LatencyMs: number; p95LatencyMs: number; counts: SuiteCounts; failedCases: string[]; errors: Record<string, number>; maxTokens: number }[] }) => m.suites.map(s => ({
     model: m.modelId, tier: run.tier, suite: s.suite, evalVersion: s.version, casesPassed: s.passed,
     p50LatencyMs: s.p50LatencyMs, p95LatencyMs: s.p95LatencyMs, runAt: new Date(run.startedAt),

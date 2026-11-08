@@ -12,9 +12,9 @@ import { requirementFor } from '../../src/server/ai/orchestrator/requirements';
 import { createHealthRegistry } from '../../src/server/ai/orchestrator/breaker';
 import { assessEntry, checkpointReport } from './ai-measurement-workflow';
 
-export const TIER1_CAMPAIGN = 'tier1-parse-v3-2026-11-08';
+export const TIER1_CAMPAIGN = 'tier1-parse-v4-2026-11-08';
 export const TIER1_EVIDENCE_DIRECTORY = `eval/reports/deepinfra-2026-11-07-${TIER1_CAMPAIGN}`;
-const sourceFingerprint = '8db4dd1f0fb227c57072ef749e826712bbc87c105f43e72ae5b82949e587bb72';
+const sourceFingerprint = 'bfc6accec0ebf384b5f04372fa67771ae4502ea99a42e3a7f1b3c5b1978b727d';
 const endpoint = 'https://api.deepinfra.com/v1/openai';
 const config = resolveModelConfig();
 const models = config.candidates(1);

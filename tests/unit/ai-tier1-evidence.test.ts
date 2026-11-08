@@ -20,10 +20,10 @@ function changed(file: string, keys: string[], value: unknown) {
 }
 it('reconstructs the twelve exact recording rows and both production Tier 1 selections without rescoring', () => {
   const result = prepareTier1Evidence(files);
-  expect(JSON.parse(JSON.stringify(result.preview))).toEqual(JSON.parse(readFileSync(new URL('../../docs/audits/2026-11-08-tier1-evidence-preview.json', import.meta.url), 'utf8')));
+  expect(JSON.parse(JSON.stringify(result.preview))).toEqual(JSON.parse(readFileSync(new URL('../../docs/audits/2026-11-08-tier1-parse-v4-evidence-preview.json', import.meta.url), 'utf8')));
   expect(result.rows).toHaveLength(12); expect(result.preview).toMatchObject({ recorded: false, ownerApprovalRequired: true, proposedOrder: [model, 'openai/gpt-oss-120b'] });
   expect(result.rows.reduce((n, row) => n + row.detail.answered, 0)).toBe(380);
-  expect(result.rows.find(r => r.model === model && r.suite === 'parse')).toMatchObject({ casesPassed: 36, casesTotal: 40, score: '0.9000', runAt: new Date('2026-11-08T12:42:34.066Z'), detail: { failedCases: ['parse-003', 'parse-011', 'parse-012', 'parse-035'], maxTokens: 1024 } });
+  expect(result.rows.find(r => r.model === model && r.suite === 'parse')).toMatchObject({ casesPassed: 38, casesTotal: 40, score: '0.9500', runAt: new Date('2026-11-08T15:09:10.342Z'), detail: { failedCases: ['parse-003', 'parse-010'], maxTokens: 1024 } });
   expect(result.rows.find(r => r.model === 'openai/gpt-oss-120b' && r.suite === 'injection')).toMatchObject({ casesPassed: 21 });
   expect(JSON.stringify(result.preview)).not.toMatch(/"(?:raw|prompt|output|response|apiKey)"/);
   expect(prepareTier1Evidence(files).preview.digest).toBe(result.preview.digest);
@@ -35,7 +35,7 @@ it.each([
   ['incomplete campaign', 'progress.json', ['coverageComplete'], false],
   ['already relabeled record', 'tier1.json', ['recorded'], true],
   ['partial report', 'tier1.json', ['limit'], 1],
-  ['stale suite version', 'tier1.json', ['suiteVersions', 'parse'], 2],
+  ['stale suite version', 'tier1.json', ['suiteVersions', 'parse'], 3],
   ['wrong model', 'tier1.json', ['models', '0', 'modelId'], 'openai/gpt-oss-20b'],
   ['profile mismatch', 'tier1.json', ['models', '0', 'requestProfile', 'fingerprint'], 'other'],
   ['wrong output budget', 'tier1.json', ['models', '0', 'suites', '0', 'maxTokens'], 2048],
@@ -60,6 +60,12 @@ it.each(['missing checkpoint', 'extra checkpoint', 'duplicate suite', 'duplicate
   if (kind === 'duplicate suite') { const r = JSON.parse(copy['tier1.json']!); r.models[0].suites[1] = r.models[0].suites[0]; copy['tier1.json'] = JSON.stringify(r); }
   if (kind === 'duplicate case') { const c = JSON.parse(copy[parseFile]!); c.cases[1] = c.cases[0]; copy[parseFile] = JSON.stringify(c); }
   expect(() => prepareTier1Evidence(copy)).toThrow();
+});
+it('refuses the actual earlier v3 campaign and leaves its pinned preview archived', () => {
+  const earlier = retainedTier1Evidence('eval/reports/deepinfra-2026-11-07-tier1-parse-v3-2026-11-08');
+  expect(() => prepareTier1Evidence(earlier)).toThrow();
+  const preview = JSON.parse(readFileSync(new URL('../../docs/audits/2026-11-08-tier1-evidence-preview.json', import.meta.url), 'utf8'));
+  expect(preview.digest).toBe('dc12fa595707112f1711fdabddd4fc93361e87da929ddf7593768c9d04983583');
 });
 it('binds the review digest to exact artifact bytes, including output-free diagnostics', () => {
   const original = prepareTier1Evidence(files).preview;

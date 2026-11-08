@@ -22,7 +22,7 @@ describe('shared production prompt contracts', () => {
       expect(testCase.messages[0], testCase.id).toEqual({ role: 'system', content: analyzeDocumentSystemPrompt(context) });
     }
   });
-  it('sends the shared v3 parsing clarification with each case date and no model-specific instruction', () => {
+  it('sends the shared v4 parsing clarification with each case date and no model-specific instruction', () => {
     const cases = MODEL_SUITES.parse.build();
     for (const [index, testCase] of cases.entries()) {
       expect(testCase.messages[0]).toEqual({ role: 'system', content: parseTransactionSystemPrompt({ today: PARSE_CASES[index]!.today ?? '2026-08-09', baseCurrency: 'INR' }) });
@@ -34,9 +34,10 @@ describe('shared production prompt contracts', () => {
     expect(prompt).toContain('multiple different candidate amounts');
     expect(prompt).toContain('lower confidence');
     expect(prompt).toContain('If no amount is stated, amount is null. Never estimate one.');
+    expect(prompt).toContain('confidence must be medium or low, and ambiguities must say the amount is missing.');
   });
   it('versions parsing while preserving every other suite contract', () => {
     expect(Object.fromEntries(Object.entries(MODEL_SUITES).map(([suite, definition]) => [suite, definition.version])))
-      .toEqual({ parse: 3, classify: 2, 'tool-select': 3, grounding: 5, robustness: 5, injection: 4, analysis: 5, document: 2 });
+      .toEqual({ parse: 4, classify: 2, 'tool-select': 3, grounding: 5, robustness: 5, injection: 4, analysis: 5, document: 2 });
   });
 });
