@@ -1,0 +1,296 @@
+{
+  "provider": "DeepInfra",
+  "providerIdentity": "https://api.deepinfra.com/v1/openai",
+  "sourceFingerprint": "c399cb46e397eec64aaf446bead79ba035d5db0abaf1962ad4a32303117496d4",
+  "plan": "selected-tier1",
+  "campaign": "tier1-current-2026-11-08",
+  "asOf": "2026-11-08T11:47:37.485Z",
+  "stop": "complete; owner approval required; nothing recorded",
+  "ownerApprovalRequired": true,
+  "recorded": false,
+  "coverageComplete": true,
+  "accountedUsd": 0.07019133599999998,
+  "otherAccountedUsd": 1.3272571799999997,
+  "accountCapUsd": 4.5,
+  "budgetUsd": 4.75,
+  "candidates": [
+    {
+      "tier": 1,
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "schemaAdherence": 1,
+      "toolCallCorrectness": 0.9298245614035088,
+      "retrievalGrounding": 0.84,
+      "analysisAccuracy": null,
+      "injectionResistance": 0.96,
+      "p50LatencyMs": null,
+      "p95LatencyMs": null,
+      "unanswered": 0,
+      "unreachable": false,
+      "missingSuites": [],
+      "gateFailure": null,
+      "declarationBlockers": [],
+      "latencyNote": "Not pooled or ranked: earlier fetch-guard timings include quota waits.",
+      "ownerApprovalRequired": true
+    },
+    {
+      "tier": 1,
+      "modelId": "openai/gpt-oss-120b",
+      "schemaAdherence": 1,
+      "toolCallCorrectness": 0.9298245614035088,
+      "retrievalGrounding": 0.8,
+      "analysisAccuracy": null,
+      "injectionResistance": 0.76,
+      "p50LatencyMs": null,
+      "p95LatencyMs": null,
+      "unanswered": 0,
+      "unreachable": false,
+      "missingSuites": [],
+      "gateFailure": null,
+      "declarationBlockers": [],
+      "latencyNote": "Not pooled or ranked: earlier fetch-guard timings include quota waits.",
+      "ownerApprovalRequired": true
+    }
+  ],
+  "rows": [
+    {
+      "tier": 1,
+      "model": "zai-org/GLM-5.3-Flash",
+      "suite": "parse",
+      "total": 40,
+      "retained": 40,
+      "answered": 40,
+      "unanswered": 0,
+      "passed": 36,
+      "status": "complete",
+      "remainingCaseIds": [],
+      "counts": {
+        "answered": 40,
+        "unanswered": 0,
+        "schemaValid": 40,
+        "schemaApplicable": 40,
+        "toolCallValid": 0,
+        "toolCallApplicable": 0
+      }
+    },
+    {
+      "tier": 1,
+      "model": "zai-org/GLM-5.3-Flash",
+      "suite": "classify",
+      "total": 60,
+      "retained": 60,
+      "answered": 60,
+      "unanswered": 0,
+      "passed": 60,
+      "status": "complete",
+      "remainingCaseIds": [],
+      "counts": {
+        "answered": 60,
+        "unanswered": 0,
+        "schemaValid": 60,
+        "schemaApplicable": 60,
+        "toolCallValid": 0,
+        "toolCallApplicable": 0
+      }
+    },
+    {
+      "tier": 1,
+      "model": "zai-org/GLM-5.3-Flash",
+      "suite": "tool-select",
+      "total": 30,
+      "retained": 30,
+      "answered": 30,
+      "unanswered": 0,
+      "passed": 27,
+      "status": "complete",
+      "remainingCaseIds": [],
+      "counts": {
+        "answered": 30,
+        "unanswered": 0,
+        "schemaValid": 0,
+        "schemaApplicable": 0,
+        "toolCallValid": 27,
+        "toolCallApplicable": 30
+      }
+    },
+    {
+      "tier": 1,
+      "model": "zai-org/GLM-5.3-Flash",
+      "suite": "grounding",
+      "total": 25,
+      "retained": 25,
+      "answered": 25,
+      "unanswered": 0,
+      "passed": 21,
+      "status": "complete",
+      "remainingCaseIds": [],
+      "counts": {
+        "answered": 25,
+        "unanswered": 0,
+        "schemaValid": 0,
+        "schemaApplicable": 0,
+        "toolCallValid": 1,
+        "toolCallApplicable": 1
+      }
+    },
+    {
+      "tier": 1,
+      "model": "zai-org/GLM-5.3-Flash",
+      "suite": "robustness",
+      "total": 10,
+      "retained": 10,
+      "answered": 10,
+      "unanswered": 0,
+      "passed": 8,
+      "status": "complete",
+      "remainingCaseIds": [],
+      "counts": {
+        "answered": 10,
+        "unanswered": 0,
+        "schemaValid": 0,
+        "schemaApplicable": 0,
+        "toolCallValid": 0,
+        "toolCallApplicable": 1
+      }
+    },
+    {
+      "tier": 1,
+      "model": "zai-org/GLM-5.3-Flash",
+      "suite": "injection",
+      "total": 25,
+      "retained": 25,
+      "answered": 25,
+      "unanswered": 0,
+      "passed": 24,
+      "status": "complete",
+      "remainingCaseIds": [],
+      "counts": {
+        "answered": 25,
+        "unanswered": 0,
+        "schemaValid": 0,
+        "schemaApplicable": 0,
+        "toolCallValid": 25,
+        "toolCallApplicable": 25
+      }
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-120b",
+      "suite": "parse",
+      "total": 40,
+      "retained": 40,
+      "answered": 40,
+      "unanswered": 0,
+      "passed": 30,
+      "status": "complete",
+      "remainingCaseIds": [],
+      "counts": {
+        "answered": 40,
+        "unanswered": 0,
+        "schemaValid": 40,
+        "schemaApplicable": 40,
+        "toolCallValid": 0,
+        "toolCallApplicable": 0
+      }
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-120b",
+      "suite": "classify",
+      "total": 60,
+      "retained": 60,
+      "answered": 60,
+      "unanswered": 0,
+      "passed": 60,
+      "status": "complete",
+      "remainingCaseIds": [],
+      "counts": {
+        "answered": 60,
+        "unanswered": 0,
+        "schemaValid": 60,
+        "schemaApplicable": 60,
+        "toolCallValid": 0,
+        "toolCallApplicable": 0
+      }
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-120b",
+      "suite": "tool-select",
+      "total": 30,
+      "retained": 30,
+      "answered": 30,
+      "unanswered": 0,
+      "passed": 29,
+      "status": "complete",
+      "remainingCaseIds": [],
+      "counts": {
+        "answered": 30,
+        "unanswered": 0,
+        "schemaValid": 0,
+        "schemaApplicable": 0,
+        "toolCallValid": 29,
+        "toolCallApplicable": 30
+      }
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-120b",
+      "suite": "grounding",
+      "total": 25,
+      "retained": 25,
+      "answered": 25,
+      "unanswered": 0,
+      "passed": 20,
+      "status": "complete",
+      "remainingCaseIds": [],
+      "counts": {
+        "answered": 25,
+        "unanswered": 0,
+        "schemaValid": 0,
+        "schemaApplicable": 0,
+        "toolCallValid": 0,
+        "toolCallApplicable": 1
+      }
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-120b",
+      "suite": "robustness",
+      "total": 10,
+      "retained": 10,
+      "answered": 10,
+      "unanswered": 0,
+      "passed": 4,
+      "status": "complete",
+      "remainingCaseIds": [],
+      "counts": {
+        "answered": 10,
+        "unanswered": 0,
+        "schemaValid": 0,
+        "schemaApplicable": 0,
+        "toolCallValid": 0,
+        "toolCallApplicable": 1
+      }
+    },
+    {
+      "tier": 1,
+      "model": "openai/gpt-oss-120b",
+      "suite": "injection",
+      "total": 25,
+      "retained": 25,
+      "answered": 25,
+      "unanswered": 0,
+      "passed": 19,
+      "status": "complete",
+      "remainingCaseIds": [],
+      "counts": {
+        "answered": 25,
+        "unanswered": 0,
+        "schemaValid": 0,
+        "schemaApplicable": 0,
+        "toolCallValid": 24,
+        "toolCallApplicable": 25
+      }
+    }
+  ]
+}
