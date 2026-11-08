@@ -106,4 +106,19 @@ describe('project inference cap (ADR-56)', () => {
     writeFileSync(path.join(r, 'eval/reports/.inference-budget.lock'), `${process.ppid}\n`);
     await expect(withProjectBudgetLock(r, async () => 'ran', 200)).rejects.toThrow(/held by another runner/);
   });
+
+  it('lets exactly one contender recover a stale lock, and never deletes a replacement lock', async () => {
+    const r = root(); mkdirSync(path.join(r, 'eval/reports'), { recursive: true });
+    const lock = path.join(r, 'eval/reports/.inference-budget.lock');
+    writeFileSync(lock, '2147483646\n');
+    let inside = 0, overlap = false;
+    await Promise.all(Array.from({ length: 8 }, () => withProjectBudgetLock(r, async () => {
+      inside += 1; if (inside > 1) overlap = true;
+      await new Promise(resolve => setTimeout(resolve, 20));
+      inside -= 1;
+    })));
+    expect(overlap).toBe(false);
+    expect(existsSync(lock)).toBe(false);
+    expect(existsSync(`${lock}.recover`)).toBe(false);
+  });
 });

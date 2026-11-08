@@ -12,7 +12,7 @@
  * owner approved after vetting necessity and alternatives. Agents never add,
  * edit or approve an extension, and never edit `capUsd` (the schema pins it).
  */
-import { open, readFile, readdir, mkdir, writeFile, rename, unlink } from 'node:fs/promises';
+import { open, readFile, readdir, mkdir, writeFile, rename, stat, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
 
@@ -123,6 +123,39 @@ const alive = (pid: number): boolean => {
   catch (error) { return (error as NodeJS.ErrnoException).code === 'EPERM'; }
 };
 
+const holderOf = async (lockPath: string): Promise<number> =>
+  Number((await readFile(lockPath, 'utf8').catch(() => '')).trim());
+
+/**
+ * Remove a lock whose holder process is gone. Recovery itself is serialized by
+ * a second exclusive file, and the holder is re-read inside it, so a contender
+ * that saw the same dead PID can never delete a replacement lock another
+ * runner has since acquired.
+ */
+async function clearStaleLock(lockPath: string): Promise<boolean> {
+  const first = await holderOf(lockPath);
+  if (!Number.isSafeInteger(first) || first <= 0 || first === process.pid || alive(first)) return false;
+  const breaker = `${lockPath}.recover`;
+  let handle;
+  try { handle = await open(breaker, 'wx'); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+    // A recovery left by a crashed process within its few-millisecond window.
+    const started = (await stat(breaker).catch(() => undefined))?.mtimeMs;
+    if (started !== undefined && Date.now() - started > 10_000) await unlink(breaker).catch(() => undefined);
+    return false;
+  }
+  try {
+    const now = await holderOf(lockPath);
+    if (now !== first) return false;
+    await unlink(lockPath).catch(() => undefined);
+    return true;
+  } finally {
+    await handle.close();
+    await unlink(breaker).catch(() => undefined);
+  }
+}
+
 /**
  * One project-wide lock around "refresh the total, check the cap, persist the
  * reservation", shared by every paid runner on this machine, so two runners
@@ -141,11 +174,7 @@ export async function withProjectBudgetLock<T>(root: string, fn: () => Promise<T
       break;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
-      const holder = Number((await readFile(lockPath, 'utf8').catch(() => '')).trim());
-      if (Number.isSafeInteger(holder) && holder > 0 && holder !== process.pid && !alive(holder)) {
-        await unlink(lockPath).catch(() => undefined);
-        continue;
-      }
+      if (await clearStaleLock(lockPath)) continue;
       if (Date.now() > deadline) throw new Error('The project budget lock is held by another runner; no paid request was sent.');
       await new Promise(resolve => setTimeout(resolve, 25 + Math.random() * 75));
     }
