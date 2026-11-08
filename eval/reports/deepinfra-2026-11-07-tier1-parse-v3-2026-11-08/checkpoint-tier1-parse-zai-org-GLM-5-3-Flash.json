@@ -1,0 +1,1062 @@
+{
+  "identity": "8d52caad6c10bac363c587bc6d7a60418639c325c48293d65189194be541f9bb",
+  "providerIdentity": "https://api.deepinfra.com/v1/openai",
+  "model": "zai-org/GLM-5.3-Flash",
+  "tier": 1,
+  "suite": "parse",
+  "version": 3,
+  "maxTokens": 1024,
+  "startedAt": "2026-11-08T12:42:34.066Z",
+  "cases": [
+    {
+      "caseId": "parse-001",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 2313,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-002",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 1205,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-003",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": false,
+      "latencyMs": 1077,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-004",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 1592,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-005",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 876,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-006",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 827,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-007",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 1719,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-008",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 2383,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-009",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 1172,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-010",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 1855,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-011",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": false,
+      "latencyMs": 1647,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-012",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": false,
+      "latencyMs": 794,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-013",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 1999,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-014",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 1195,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-015",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 2574,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-016",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 990,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-017",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 1182,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-018",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 963,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-019",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 1307,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-020",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 912,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-021",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 2193,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-022",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 1525,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-023",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 867,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-024",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 4692,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-025",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 830,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-026",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 1354,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-027",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 904,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-028",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 2656,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-029",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 1471,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-030",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 1057,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-031",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 1324,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-032",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 913,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-033",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 1778,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-034",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 1720,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-035",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": false,
+      "latencyMs": 1008,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-036",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 675,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-037",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 1122,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-038",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 748,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-039",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 1437,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-040",
+      "suite": "parse",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 1109,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    }
+  ],
+  "diagnostics": {
+    "parse-001": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-002": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-003": {
+      "passed": false,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 1,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": [
+        "transaction_fields"
+      ]
+    },
+    "parse-004": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-005": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-006": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-007": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-008": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-009": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-010": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-011": {
+      "passed": false,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 1,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": [
+        "transaction_fields"
+      ]
+    },
+    "parse-012": {
+      "passed": false,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 1,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": [
+        "transaction_fields"
+      ]
+    },
+    "parse-013": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-014": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-015": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-016": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-017": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-018": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-019": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-020": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-021": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-022": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-023": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-024": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-025": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-026": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-027": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-028": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-029": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-030": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-031": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-032": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-033": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-034": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-035": {
+      "passed": false,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 1,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": [
+        "transaction_fields"
+      ]
+    },
+    "parse-036": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-037": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-038": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-039": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-040": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    }
+  }
+}
