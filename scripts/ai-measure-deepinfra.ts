@@ -13,7 +13,7 @@ import { countsOf, maxTokensFor, MODEL_SUITES, proposeOrder, renderEvalReport, s
 import { assessEntry, candidateReadiness, validatePlan, type Entry, type Progress } from './lib/ai-measurement-workflow';
 import { requestReserve } from './lib/ai-eval-budget';
 import { otherDeepinfraSpend } from './lib/deepinfra-accounting';
-import { assertWithinProjectCap, projectSpend, type ProjectSpend } from './lib/inference-budget';
+import { reserveInActiveLedger } from './lib/inference-budget';
 import { diagnoseAnalysis, diagnoseDocument, FailureDiagnosticsSchema, summariseDiagnostics, type FailureDiagnostics } from './lib/ai-failure-diagnostics';
 
 const endpoint = 'https://api.deepinfra.com/v1/openai';
@@ -75,7 +75,6 @@ async function main() {
   const ledgerPath = path.join(directory, 'usage.json');
   let ledger: { providerIdentity: string; budgetUsd: number; events: Usage[] };
   let otherAccountedUsd = 0;
-  let projectBaseline: ProjectSpend = { spentUsd: 0, capUsd: 0, remainingUsd: 0 };
   const spent = () => ledger.events.reduce((sum, event) => sum + event.accountedUsd, 0);
   const upperUsd = (r: Entry, reserve: number) => reserve * Math.max(prices.get(r.model)!.input_tokens, prices.get(r.model)!.output_tokens) / 1_000_000;
   const upper = entries.reduce((sum, r) => sum + MODEL_SUITES[r.suite].build().reduce((n, c) => n + upperUsd(r, requestReserve(c, maxTokensFor(r.tier, r.suite))), 0), 0);
@@ -120,7 +119,6 @@ async function main() {
     ledger = await read<typeof ledger>(ledgerPath) ?? { providerIdentity: endpoint, budgetUsd, events: [] };
     if (ledger.providerIdentity !== endpoint || ledger.budgetUsd !== budgetUsd || ledger.events.some(event => !Number.isFinite(event.accountedUsd) || event.accountedUsd < 0)) throw new Error('Usage provenance/budget mismatch.');
     otherAccountedUsd = await otherDeepinfraSpend(path.resolve('eval/reports'), ledgerPath);
-    projectBaseline = await projectSpend(process.cwd(), ledgerPath);
     for (const r of entries) {
       const cp = await read<Checkpoint>(cpPath(r));
       rows.push(assessEntry(r, context(r), cp));
@@ -139,10 +137,13 @@ async function main() {
         if (finished.has(c.id)) continue;
         const reservedUsd = upperUsd(r, requestReserve(c, maxTokens));
         if (spent() + reservedUsd > budgetUsd || otherAccountedUsd + spent() + reservedUsd > 4.50) throw new Error('Spend cap reached before request; checkpoint retained.');
-        assertWithinProjectCap({ ...projectBaseline, spentUsd: projectBaseline.spentUsd + spent() }, reservedUsd);
         const event: Usage = { at: new Date().toISOString(), model: r.model, tier: r.tier, suite: r.suite, caseId: c.id, reservedUsd, accountedUsd: reservedUsd };
-        ledger.events.push(event);
-        await save(ledgerPath, ledger);
+        // ADR-56: refresh the project total, check the cap and persist the
+        // reservation under the project-wide lock, before any HTTP request.
+        await reserveInActiveLedger(process.cwd(), ledgerPath, spent, reservedUsd, async () => {
+          ledger.events.push(event);
+          await save(ledgerPath, ledger);
+        });
         let fatalStatus: number | undefined;
         const provider = createNvidiaProvider({ apiKey: ai.apiKey, baseUrl: ai.baseUrl, requestProfiles: profiles, defaultTimeoutMs: e.AI_REQUEST_TIMEOUT_MS, fetch: async (url, init) => {
           if (url !== `${endpoint}/chat/completions`) throw new Error('Unexpected measurement endpoint.');

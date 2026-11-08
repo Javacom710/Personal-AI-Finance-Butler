@@ -13,7 +13,7 @@ import { evaluateModel } from '../src/server/ai/eval/harness';
 import { maxTokensFor, MODEL_SUITES } from '../src/server/ai/eval/runner';
 import { diagnoseAnalysis, diagnoseDocument, FailureDiagnosticsSchema, type FailureDiagnostics } from './lib/ai-failure-diagnostics';
 import { requestReserve } from './lib/ai-eval-budget';
-import { assertWithinProjectCap, projectSpend } from './lib/inference-budget';
+import { reserveInActiveLedger } from './lib/inference-budget';
 import { otherDeepinfraSpend } from './lib/deepinfra-accounting';
 
 const endpoint = 'https://api.deepinfra.com/v1/openai';
@@ -62,7 +62,6 @@ async function main() {
     await lock.writeFile(`${process.pid}\n`);
     const ledgerPath = path.join(directory, 'usage.json');
     const baseline = await otherDeepinfraSpend(path.resolve('eval/reports'), ledgerPath);
-    const projectBaseline = await projectSpend(process.cwd(), ledgerPath);
     let prior: unknown;
     try { prior = await read(ledgerPath); } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
     const ledger = prior === undefined ? { providerIdentity: endpoint, events: [] as Event[] } : z.object({ providerIdentity: z.literal(endpoint), events: z.array(z.object({ at: z.iso.datetime(), caseId: z.string(), model: z.string(), reservedUsd: amount, accountedUsd: amount, status: z.number().int().optional(), promptTokens: amount.optional(), completionTokens: amount.optional() })) }).parse(prior);
@@ -79,10 +78,13 @@ async function main() {
       for (const r of plan) {
         const reservedUsd = reserve(r);
         if (spent() + reservedUsd > 0.25 || baseline + spent() + reservedUsd > 4.50) throw new Error('Diagnostic or account spend cap reached before request.');
-        assertWithinProjectCap({ ...projectBaseline, spentUsd: projectBaseline.spentUsd + spent() }, reservedUsd);
         const event: Event = { at: new Date().toISOString(), model: r.model, caseId: r.id, reservedUsd, accountedUsd: reservedUsd };
-        ledger.events.push(event);
-        await save(ledgerPath, ledger);
+        // ADR-56: refresh the project total, check the cap and persist the
+        // reservation under the project-wide lock, before any HTTP request.
+        await reserveInActiveLedger(process.cwd(), ledgerPath, spent, reservedUsd, async () => {
+          ledger.events.push(event);
+          await save(ledgerPath, ledger);
+        });
         const provider = createNvidiaProvider({ apiKey: ai.apiKey, baseUrl: ai.baseUrl, requestProfiles: profiles, defaultTimeoutMs: e.AI_REQUEST_TIMEOUT_MS, fetch: async (url, init) => {
           if (url !== `${endpoint}/chat/completions`) throw new Error('Unexpected endpoint.');
           const response = await fetch(url, init);

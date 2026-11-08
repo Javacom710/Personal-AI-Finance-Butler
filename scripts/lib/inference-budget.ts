@@ -12,7 +12,7 @@
  * owner approved after vetting necessity and alternatives. Agents never add,
  * edit or approve an extension, and never edit `capUsd` (the schema pins it).
  */
-import { readFile, readdir, mkdir, writeFile, rename } from 'node:fs/promises';
+import { open, readFile, readdir, mkdir, writeFile, rename, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
 
@@ -118,6 +118,57 @@ export function takeReserveFlag(argv: readonly string[]): { argv: string[]; rese
   return { argv: [...argv.slice(0, at), ...argv.slice(at + 2)], reserveUsd: value };
 }
 
+const alive = (pid: number): boolean => {
+  try { process.kill(pid, 0); return true; }
+  catch (error) { return (error as NodeJS.ErrnoException).code === 'EPERM'; }
+};
+
+/**
+ * One project-wide lock around "refresh the total, check the cap, persist the
+ * reservation", shared by every paid runner on this machine, so two runners
+ * can never both pass the same remaining budget. A lock left by a process that
+ * no longer exists is cleared; a live holder is waited for, then refused.
+ */
+export async function withProjectBudgetLock<T>(root: string, fn: () => Promise<T>, timeoutMs = 30_000): Promise<T> {
+  const directory = path.join(root, 'eval/reports');
+  await mkdir(directory, { recursive: true });
+  const lockPath = path.join(directory, '.inference-budget.lock');
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    try {
+      const handle = await open(lockPath, 'wx');
+      try { await handle.writeFile(`${process.pid}\n`); } finally { await handle.close(); }
+      break;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+      const holder = Number((await readFile(lockPath, 'utf8').catch(() => '')).trim());
+      if (Number.isSafeInteger(holder) && holder > 0 && holder !== process.pid && !alive(holder)) {
+        await unlink(lockPath).catch(() => undefined);
+        continue;
+      }
+      if (Date.now() > deadline) throw new Error('The project budget lock is held by another runner; no paid request was sent.');
+      await new Promise(resolve => setTimeout(resolve, 25 + Math.random() * 75));
+    }
+  }
+  try { return await fn(); }
+  finally { await unlink(lockPath).catch(() => undefined); }
+}
+
+/**
+ * For runners with their own ledger: under the project lock, refresh the total
+ * (excluding the active ledger), add the runner's own accounted spend, check
+ * the cap, and persist the reservation before any request is sent.
+ */
+export async function reserveInActiveLedger(
+  root: string, activeLedger: string, ownSpentUsd: () => number, reservedUsd: number, persist: () => Promise<void>,
+): Promise<void> {
+  await withProjectBudgetLock(root, async () => {
+    const spend = await projectSpend(root, activeLedger);
+    assertWithinProjectCap({ ...spend, spentUsd: spend.spentUsd + ownSpentUsd() }, reservedUsd);
+    await persist();
+  });
+}
+
 /**
  * Scripts without per-request token accounting reserve an upper bound up front
  * and keep it as accounted spend: conservative, never under-counted.
@@ -126,15 +177,18 @@ export async function reserveUnledgeredSpend(
   root: string,
   entry: { script: string; providerIdentity: string; reservedUsd: number; note: string },
 ): Promise<void> {
-  const spend = await projectSpend(root);
-  assertWithinProjectCap(spend, entry.reservedUsd);
-  const directory = path.join(root, 'eval/reports/unledgered');
-  const file = path.join(directory, 'usage.json');
-  await mkdir(directory, { recursive: true });
-  let ledger: { events: object[] } = { events: [] };
-  try { ledger = ledgerSchema.parse(JSON.parse(await readFile(file, 'utf8'))) as { events: object[] }; }
-  catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
-  ledger.events.push({ at: new Date().toISOString(), ...entry, accountedUsd: entry.reservedUsd });
-  await writeFile(`${file}.tmp`, JSON.stringify(ledger, null, 2) + '\n');
-  await rename(`${file}.tmp`, file);
+  await withProjectBudgetLock(root, async () => {
+    const spend = await projectSpend(root);
+    assertWithinProjectCap(spend, entry.reservedUsd);
+    const directory = path.join(root, 'eval/reports/unledgered');
+    const file = path.join(directory, 'usage.json');
+    await mkdir(directory, { recursive: true });
+    let ledger: { events: object[] } = { events: [] };
+    try { ledger = ledgerSchema.parse(JSON.parse(await readFile(file, 'utf8'))) as { events: object[] }; }
+    catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+    ledger.events.push({ at: new Date().toISOString(), ...entry, accountedUsd: entry.reservedUsd });
+    const temporary = `${file}.${process.pid}.tmp`;
+    await writeFile(temporary, JSON.stringify(ledger, null, 2) + '\n');
+    await rename(temporary, file);
+  });
 }

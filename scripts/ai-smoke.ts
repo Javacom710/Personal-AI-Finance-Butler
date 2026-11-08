@@ -75,8 +75,9 @@ async function main(): Promise<void> {
   }
 
   // ADR-56: chat requests on a paid host reserve an upper bound against the
-  // project cap first. Listing the catalogue alone is free.
-  if (!CATALOGUE_ONLY && !isFreeHost(ai.baseUrl, await loadInferenceBudget())) {
+  // project cap first. Listing the catalogue alone is free; --reachability
+  // sends chat requests even with --catalogue.
+  if ((REACHABILITY || !CATALOGUE_ONLY) && !isFreeHost(ai.baseUrl, await loadInferenceBudget())) {
     await reserveUnledgeredSpend(process.cwd(), {
       script: REACHABILITY ? 'ai:reachability' : 'ai:smoke',
       providerIdentity: new URL(ai.baseUrl).origin,

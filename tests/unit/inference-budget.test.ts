@@ -1,10 +1,10 @@
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   CAP_MESSAGE, assertWithinProjectCap, effectiveCapUsd, isFreeHost, loadInferenceBudget,
-  projectSpend, reserveUnledgeredSpend, takeReserveFlag,
+  projectSpend, reserveInActiveLedger, reserveUnledgeredSpend, takeReserveFlag, withProjectBudgetLock,
 } from '../../scripts/lib/inference-budget';
 
 const roots: string[] = [];
@@ -76,5 +76,34 @@ describe('project inference cap (ADR-56)', () => {
     expect(isFreeHost('https://api.deepinfra.com/v1/openai', c)).toBe(false);
     expect(takeReserveFlag(['--tier', '1', '--reserve-usd', '0.5'])).toEqual({ argv: ['--tier', '1'], reserveUsd: 0.5 });
     expect(() => takeReserveFlag(['--reserve-usd', '0'])).toThrow();
+  });
+
+  it('serializes concurrent reservations so parallel runners cannot overshoot the cap', async () => {
+    const r = root(); ledger(r, 'deepinfra-a', [9]);
+    const results = await Promise.allSettled(Array.from({ length: 10 }, () =>
+      reserveUnledgeredSpend(r, { script: 'ai:eval', providerIdentity: 'https://x.test', reservedUsd: 0.3, note: 'race' })));
+    expect(results.filter(x => x.status === 'fulfilled')).toHaveLength(3);
+    expect(JSON.parse(readFileSync(path.join(r, 'eval/reports/unledgered/usage.json'), 'utf8')).events).toHaveLength(3);
+    expect((await projectSpend(r)).spentUsd).toBeLessThanOrEqual(10);
+    expect(existsSync(path.join(r, 'eval/reports/.inference-budget.lock'))).toBe(false);
+  });
+
+  it('refreshes the total for runners with their own ledger, seeing reservations made meanwhile', async () => {
+    const r = root(); ledger(r, 'deepinfra-a', [9]);
+    const active = path.join(r, 'eval/reports/deepinfra-b/usage.json');
+    await reserveUnledgeredSpend(r, { script: 'ai:eval', providerIdentity: 'https://x.test', reservedUsd: 0.8, note: 'other runner' });
+    let persisted = false;
+    await expect(reserveInActiveLedger(r, active, () => 0, 0.3, async () => { persisted = true; })).rejects.toThrow(CAP_MESSAGE);
+    expect(persisted).toBe(false);
+    await reserveInActiveLedger(r, active, () => 0, 0.2, async () => { persisted = true; });
+    expect(persisted).toBe(true);
+  });
+
+  it('clears a lock left by a dead process and waits for a live one', async () => {
+    const r = root(); mkdirSync(path.join(r, 'eval/reports'), { recursive: true });
+    writeFileSync(path.join(r, 'eval/reports/.inference-budget.lock'), '2147483646\n');
+    await expect(withProjectBudgetLock(r, async () => 'ran')).resolves.toBe('ran');
+    writeFileSync(path.join(r, 'eval/reports/.inference-budget.lock'), `${process.ppid}\n`);
+    await expect(withProjectBudgetLock(r, async () => 'ran', 200)).rejects.toThrow(/held by another runner/);
   });
 });

@@ -60,3 +60,5 @@ eval/reports/deepinfra-*/.measurement.lock
 eval/reports/deepinfra-*/*.tmp
 eval/reports/deepinfra-*/diagnostics/*.tmp
 eval/reports/.deepinfra-account.lock
+eval/reports/.inference-budget.lock
+eval/reports/unledgered/*.tmp
