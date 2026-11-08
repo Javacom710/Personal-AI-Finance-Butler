@@ -23,7 +23,7 @@ export type ProposalView = typeof aiProposals.$inferSelect;
 const editable = ['pending', 'invalid'] as const;
 
 /** Called only by the application composition root; production generation remains disabled. */
-export async function draftTransactionProposal(ctx: RequestCtx, text: unknown, orchestrator: Orchestrator): Promise<Result<ProposalView, DomainError>> {
+export async function draftTransactionProposal(ctx: RequestCtx, text: unknown, orchestrator: Pick<Orchestrator, 'run'>): Promise<Result<ProposalView, DomainError>> {
   const input = z.string().trim().min(1).max(4000).safeParse(text);
   if (!input.success) return err(validationFailed({ text: ['Describe one transaction in at most 4,000 characters.'] }));
   const interpreted = await interpretTransaction(orchestrator, { today: ctx.today, baseCurrency: ctx.base }, input.data);

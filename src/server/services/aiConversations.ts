@@ -55,7 +55,7 @@ export async function conversationMessages(ctx: ReadCtx, id: unknown): Promise<R
 }
 
 /** Called by the future application composition root, never by a live action yet. */
-export async function askConversation(ctx: RequestCtx, id: unknown, question: unknown, orchestrator: Orchestrator): Promise<Result<MessageView, DomainError>> {
+export async function askConversation(ctx: RequestCtx, id: unknown, question: unknown, orchestrator: Pick<Orchestrator, 'run'>): Promise<Result<MessageView, DomainError>> {
   const text = z.string().trim().min(1).max(4000).safeParse(question);
   if (!text.success) return err(validationFailed({ question: ['Ask a question of 1–4,000 characters.'] }));
   const parsedId = idSchema.safeParse(id);
