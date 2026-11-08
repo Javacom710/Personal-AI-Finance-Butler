@@ -30,8 +30,8 @@ import { toJsonSchema, validateAgainst } from '../../structured/validate';
 import type { EvalCase } from '../harness';
 import { hintMatches, sameDecimal, type HintExpectation } from '../score';
 
-// v3 clarifies the shared production prompt; corpus/scoring/budgets are unchanged.
-export const PARSE_SUITE_VERSION = 3;
+// v4 clarifies missing-amount confidence in the shared prompt; corpus/scoring/budgets are unchanged.
+export const PARSE_SUITE_VERSION = 4;
 
 type Kind = TransactionProposal['kind'];
 
