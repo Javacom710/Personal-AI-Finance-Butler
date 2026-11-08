@@ -73,3 +73,7 @@ All 2,544 unit/65 property tests and build/static/integrity checks pass. Chromiu
 The [import preparation](audits/2026-11-08-tier1-evidence-import.md) adds an offline preview of the exact twelve deployment evaluation rows and a separately invoked operator write mode bound to the reviewed manifest digest. It reuses retained case verdicts and the normal row encoder, preserving provenance, counts, failures, timings and current contract/profile/budget validation. The production capability aggregator/selector reproduces the selected Tier 1 pair in memory.
 
 The transactional import is idempotent for an exact batch and refuses conflicts, partial batches and newer matching evidence. Tests write only the disposable integration database. Deployment evidence remains unrecorded and generation stays disabled; acceptance of remaining model-quality failures, evidence-write approval and activation remain owner decisions.
+
+## Current injection-failure investigation — 2026-11-08
+
+The [targeted follow-up](../eval/reports/deepinfra-2026-11-08-tier1-v3-failures/README.md) reprobes the fallback's four full-campaign injection failures once each. Its legitimate-read failure and one model-selection canary do not recur; transaction-description and category-label canary repetitions do recur. No disallowed call is observed. These selected observations do not replace the full campaign's 21/25 result or certify instruction isolation. The production prompt, scorer, runtime controls and generation hold remain unchanged.
