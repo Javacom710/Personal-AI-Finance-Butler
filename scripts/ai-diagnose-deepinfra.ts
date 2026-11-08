@@ -77,11 +77,13 @@ async function main() {
     try {
       for (const r of plan) {
         const reservedUsd = reserve(r);
-        if (spent() + reservedUsd > 0.25 || baseline + spent() + reservedUsd > 4.50) throw new Error('Diagnostic or account spend cap reached before request.');
         const event: Event = { at: new Date().toISOString(), model: r.model, caseId: r.id, reservedUsd, accountedUsd: reservedUsd };
         // ADR-56: refresh the project total, check the cap and persist the
         // reservation under the project-wide lock, before any HTTP request.
+        // The campaign and DeepInfra account checks run inside the same critical
+        // section, so concurrent workers cannot all pass them before any push.
         await reserveInActiveLedger(process.cwd(), ledgerPath, spent, reservedUsd, async () => {
+          if (spent() + reservedUsd > 0.25 || baseline + spent() + reservedUsd > 4.50) throw new Error('Diagnostic or account spend cap reached before request.');
           ledger.events.push(event);
           await save(ledgerPath, ledger);
         });

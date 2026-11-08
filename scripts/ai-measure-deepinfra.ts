@@ -136,11 +136,13 @@ async function main() {
         if (halted) return;
         if (finished.has(c.id)) continue;
         const reservedUsd = upperUsd(r, requestReserve(c, maxTokens));
-        if (spent() + reservedUsd > budgetUsd || otherAccountedUsd + spent() + reservedUsd > 4.50) throw new Error('Spend cap reached before request; checkpoint retained.');
         const event: Usage = { at: new Date().toISOString(), model: r.model, tier: r.tier, suite: r.suite, caseId: c.id, reservedUsd, accountedUsd: reservedUsd };
         // ADR-56: refresh the project total, check the cap and persist the
         // reservation under the project-wide lock, before any HTTP request.
+        // The campaign and DeepInfra account checks run inside the same critical
+        // section, so concurrent workers cannot all pass them before any push.
         await reserveInActiveLedger(process.cwd(), ledgerPath, spent, reservedUsd, async () => {
+          if (spent() + reservedUsd > budgetUsd || otherAccountedUsd + spent() + reservedUsd > 4.50) throw new Error('Spend cap reached before request; checkpoint retained.');
           ledger.events.push(event);
           await save(ledgerPath, ledger);
         });
