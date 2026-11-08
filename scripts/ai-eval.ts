@@ -22,6 +22,7 @@
  * ignores `HTTPS_PROXY` otherwise).
  */
 
+import { isFreeHost, loadInferenceBudget, reserveUnledgeredSpend, takeReserveFlag } from './lib/inference-budget';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -33,7 +34,9 @@ import { assertEvaluationRecordingSupported, evaluationProviderIdentity, recordE
 import { closeDb } from '../src/server/db/client';
 
 async function main(): Promise<void> {
-  const parsed = parseEvalArgs(process.argv.slice(2));
+  // ADR-56: `--reserve-usd` is consumed here, never by the evaluation parser.
+  const reserve = takeReserveFlag(process.argv.slice(2));
+  const parsed = parseEvalArgs(reserve.argv);
   if (!parsed.ok) {
     console.error(parsed.error);
     process.exitCode = 2;
@@ -60,6 +63,17 @@ async function main(): Promise<void> {
   if (args.record) assertEvaluationRecordingSupported(evaluationProviderIdentity(ai.baseUrl));
   const models = modelsFor(args.tier, config, args.models);
   console.log(`Tier ${args.tier}: ${models.length} model(s) × ${args.suites.join(', ')}${args.limit ? ` (first ${args.limit} case(s) each)` : ''}`);
+
+  // ADR-56: this harness has no per-request cost accounting, so a paid host
+  // needs an operator-stated upper bound, reserved against the project cap.
+  if (!isFreeHost(ai.baseUrl, await loadInferenceBudget())) {
+    if (reserve.reserveUsd === undefined) {
+      console.error('This host is paid. Pass --reserve-usd <upper bound in USD> (reserved against the project cap, ADR-56), or use a budgeted runner such as npm run ai:measure:deepinfra.');
+      process.exitCode = 1;
+      return;
+    }
+    await reserveUnledgeredSpend(process.cwd(), { script: 'ai:eval', providerIdentity: new URL(ai.baseUrl).origin, reservedUsd: reserve.reserveUsd, note: `Tier ${args.tier}: ${args.suites.join(', ')}` });
+  }
 
   const provider = createNvidiaProvider({
     requestProfiles: config.requestProfiles,

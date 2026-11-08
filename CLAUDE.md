@@ -1251,6 +1251,16 @@ This allows models to be replaced without changing application/business logic.
 
 </ai_configuration>
 
+<inference_budget>
+
+Net API inference spending for the whole build, development and testing period is capped at US$10 across all providers and agents (docs/DECISIONS.md ADR-56). The scripts enforce it before every paid request; `config/inference-budget.json` holds the cap.
+
+Prefer free or already-collected evidence, the smallest case set that answers the question, and the cheapest capable model. On a paid host, pass `--reserve-usd` to unaccounted runners.
+
+Never raise the cap, add an extension, or edit `config/inference-budget.json` to get past a refusal. When work needs more than the remaining budget, stop and give the owner the amount, the necessity and the alternatives considered; spend only after the owner decides "spend".
+
+</inference_budget>
+
 <ai_security>
 
 Treat all user-provided natural language as potentially untrusted input.

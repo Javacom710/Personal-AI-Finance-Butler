@@ -13,6 +13,7 @@ import { countsOf, maxTokensFor, MODEL_SUITES, proposeOrder, renderEvalReport, s
 import { assessEntry, candidateReadiness, validatePlan, type Entry, type Progress } from './lib/ai-measurement-workflow';
 import { requestReserve } from './lib/ai-eval-budget';
 import { otherDeepinfraSpend } from './lib/deepinfra-accounting';
+import { reserveInActiveLedger } from './lib/inference-budget';
 import { diagnoseAnalysis, diagnoseDocument, FailureDiagnosticsSchema, summariseDiagnostics, type FailureDiagnostics } from './lib/ai-failure-diagnostics';
 
 const endpoint = 'https://api.deepinfra.com/v1/openai';
@@ -65,7 +66,7 @@ async function main() {
     if (!p || ![p.input_tokens, p.output_tokens].every(n => Number.isFinite(n) && n > 0)) throw new Error('Missing valid catalogue pricing.');
   }
   const files = execFileSync('git', ['ls-files', '-z', 'src/server/ai', 'src/lib/env.ts', 'src/server/ai-evaluations.ts']).toString().split('\0').filter(Boolean).sort();
-  files.push('scripts/ai-measure-deepinfra.ts', 'scripts/lib/ai-eval-budget.ts', 'scripts/lib/ai-measurement-workflow.ts', 'scripts/lib/deepinfra-accounting.ts', 'scripts/lib/ai-failure-diagnostics.ts');
+  files.push('scripts/ai-measure-deepinfra.ts', 'scripts/lib/ai-eval-budget.ts', 'scripts/lib/ai-measurement-workflow.ts', 'scripts/lib/deepinfra-accounting.ts', 'scripts/lib/ai-failure-diagnostics.ts', 'scripts/lib/inference-budget.ts');
   const source = createHash('sha256');
   for (const file of files) source.update(file).update(await readFile(file));
   const sourceFingerprint = source.digest('hex');
@@ -135,10 +136,16 @@ async function main() {
         if (halted) return;
         if (finished.has(c.id)) continue;
         const reservedUsd = upperUsd(r, requestReserve(c, maxTokens));
-        if (spent() + reservedUsd > budgetUsd || otherAccountedUsd + spent() + reservedUsd > 4.50) throw new Error('Spend cap reached before request; checkpoint retained.');
         const event: Usage = { at: new Date().toISOString(), model: r.model, tier: r.tier, suite: r.suite, caseId: c.id, reservedUsd, accountedUsd: reservedUsd };
-        ledger.events.push(event);
-        await save(ledgerPath, ledger);
+        // ADR-56: refresh the project total, check the cap and persist the
+        // reservation under the project-wide lock, before any HTTP request.
+        // The campaign and DeepInfra account checks run inside the same critical
+        // section, so concurrent workers cannot all pass them before any push.
+        await reserveInActiveLedger(process.cwd(), ledgerPath, spent, reservedUsd, async () => {
+          if (spent() + reservedUsd > budgetUsd || otherAccountedUsd + spent() + reservedUsd > 4.50) throw new Error('Spend cap reached before request; checkpoint retained.');
+          ledger.events.push(event);
+          await save(ledgerPath, ledger);
+        });
         let fatalStatus: number | undefined;
         const provider = createNvidiaProvider({ apiKey: ai.apiKey, baseUrl: ai.baseUrl, requestProfiles: profiles, defaultTimeoutMs: e.AI_REQUEST_TIMEOUT_MS, fetch: async (url, init) => {
           if (url !== `${endpoint}/chat/completions`) throw new Error('Unexpected measurement endpoint.');

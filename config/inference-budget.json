@@ -1,0 +1,15 @@
+{
+  "capUsd": 10,
+  "freeHosts": [
+    "api.groq.com"
+  ],
+  "extensions": [],
+  "externalSpend": [
+    {
+      "provider": "DeepInfra",
+      "usd": 0.4628,
+      "recordedOn": "2026-11-08",
+      "note": "Owner-reported DeepInfra billing total US$1.79 on 2026-11-08; ledgers held US$1.3273; the difference covers runs made outside the ledgers (e.g. the PR #54 rounds)."
+    }
+  ]
+}

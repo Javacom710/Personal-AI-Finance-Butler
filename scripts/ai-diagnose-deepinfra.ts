@@ -13,6 +13,7 @@ import { evaluateModel } from '../src/server/ai/eval/harness';
 import { maxTokensFor, MODEL_SUITES } from '../src/server/ai/eval/runner';
 import { diagnoseAnalysis, diagnoseDocument, FailureDiagnosticsSchema, type FailureDiagnostics } from './lib/ai-failure-diagnostics';
 import { requestReserve } from './lib/ai-eval-budget';
+import { reserveInActiveLedger } from './lib/inference-budget';
 import { otherDeepinfraSpend } from './lib/deepinfra-accounting';
 
 const endpoint = 'https://api.deepinfra.com/v1/openai';
@@ -66,7 +67,7 @@ async function main() {
     const ledger = prior === undefined ? { providerIdentity: endpoint, events: [] as Event[] } : z.object({ providerIdentity: z.literal(endpoint), events: z.array(z.object({ at: z.iso.datetime(), caseId: z.string(), model: z.string(), reservedUsd: amount, accountedUsd: amount, status: z.number().int().optional(), promptTokens: amount.optional(), completionTokens: amount.optional() })) }).parse(prior);
     const spent = () => ledger.events.reduce((n, event) => n + event.accountedUsd, 0);
     const files = execFileSync('git', ['ls-files', '-z', 'src/server/ai', 'src/lib/env.ts', 'src/server/ai-evaluations.ts']).toString().split('\0').filter(Boolean).sort();
-    files.push('scripts/ai-diagnose-deepinfra.ts', 'scripts/lib/ai-failure-diagnostics.ts', 'scripts/lib/ai-eval-budget.ts', 'scripts/lib/deepinfra-accounting.ts');
+    files.push('scripts/ai-diagnose-deepinfra.ts', 'scripts/lib/ai-failure-diagnostics.ts', 'scripts/lib/ai-eval-budget.ts', 'scripts/lib/deepinfra-accounting.ts', 'scripts/lib/inference-budget.ts');
     const hash = createHash('sha256');
     for (const f of files) hash.update(f).update(await readFile(f));
     const startedAt = new Date().toISOString();
@@ -76,10 +77,16 @@ async function main() {
     try {
       for (const r of plan) {
         const reservedUsd = reserve(r);
-        if (spent() + reservedUsd > 0.25 || baseline + spent() + reservedUsd > 4.50) throw new Error('Diagnostic or account spend cap reached before request.');
         const event: Event = { at: new Date().toISOString(), model: r.model, caseId: r.id, reservedUsd, accountedUsd: reservedUsd };
-        ledger.events.push(event);
-        await save(ledgerPath, ledger);
+        // ADR-56: refresh the project total, check the cap and persist the
+        // reservation under the project-wide lock, before any HTTP request.
+        // The campaign and DeepInfra account checks run inside the same critical
+        // section, so concurrent workers cannot all pass them before any push.
+        await reserveInActiveLedger(process.cwd(), ledgerPath, spent, reservedUsd, async () => {
+          if (spent() + reservedUsd > 0.25 || baseline + spent() + reservedUsd > 4.50) throw new Error('Diagnostic or account spend cap reached before request.');
+          ledger.events.push(event);
+          await save(ledgerPath, ledger);
+        });
         const provider = createNvidiaProvider({ apiKey: ai.apiKey, baseUrl: ai.baseUrl, requestProfiles: profiles, defaultTimeoutMs: e.AI_REQUEST_TIMEOUT_MS, fetch: async (url, init) => {
           if (url !== `${endpoint}/chat/completions`) throw new Error('Unexpected endpoint.');
           const response = await fetch(url, init);

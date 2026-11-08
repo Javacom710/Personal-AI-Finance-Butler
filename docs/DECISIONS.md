@@ -1139,6 +1139,25 @@ Fresh evaluations use the represented profile and explicit client pacing, with p
 
 ---
 
+## ADR-56 — Project inference spending is capped at US$10; anything above needs a vetted owner decision
+
+**Decision (owner, 2026-11-08).** Net API inference spending for the whole building, development and testing period is capped at **US$10**, across every provider and every agent (Claude, Codex, or any other). Any amount above US$10 is first vetted for necessity and against the other available options; the owner then decides *spend* or *not spend*.
+
+**Scope.** Money charged to this project's inference API keys: DeepInfra, OpenRouter, a paid Groq plan, or any future host. Groq's free tier costs nothing and is listed in `freeHosts`. The Claude Code and Codex subscriptions are not inference API spend. Production use after launch is outside this cap and gets its own budget decision.
+
+**How it is enforced.** `config/inference-budget.json` holds the cap, the free hosts, owner-decided extensions and owner-reported external spend. `scripts/lib/inference-budget.ts` sums every `usage.json` ledger under `eval/reports/` (any provider) plus `externalSpend`, and refuses a paid request *before* sending it if accounted spend plus that request's reservation would pass the cap.
+- `ai:measure:deepinfra` and `ai:diagnose:deepinfra` check the cap per request with their existing token-priced reservations; their US$4.50 DeepInfra account guard stays as an inner limit.
+- `ai:eval` and `ai:measure:openrouter` have no per-request cost accounting, so on a paid host they require `--reserve-usd <upper bound>`. The whole bound is recorded as spent in `eval/reports/unledgered/usage.json` before any request.
+- `ai:smoke` / `ai:reachability` reserve US$0.02 / US$0.05 on a paid host; the catalogue listing alone is free.
+- Free-host runs (Groq free tier) are not charged.
+The schema pins `capUsd` to 10, so the cap cannot be raised by editing one number. Refreshing the total, checking the cap and persisting each reservation happen under one project-wide lock (`eval/reports/.inference-budget.lock`), so concurrent runners on one machine cannot both spend the same remaining budget. Ledgers reach other machines only through git, so paid runs happen on one machine at a time.
+
+**Going above US$10 (vetting).** When work would exceed the remaining budget, the agent stops before the request and gives the owner a short request: the amount; why it is necessary (which decision or deliverable is blocked); the alternatives considered, at least fewer cases, a cheaper model or host, reusing existing evidence and a free tier that does not train on data; and the cheapest option that still unblocks the work. The owner decides. Only then is an `extensions` entry added, with `amountUsd`, `requestedOn`, `necessity`, `alternativesConsidered`, `decision` (`spend` or `not_spend`), `decidedBy: "owner"` and `decidedOn`; only `spend` entries raise the effective cap. An agent writes that entry only to transcribe a decision the owner stated in their own words, never on its own judgment.
+
+**Reconciliation.** The ledgers are conservative estimates; the provider's billing page is the truth. When the owner reports actual usage above what the ledgers hold (for example spending from runs made outside a ledger, such as the PR #54 rounds noted in ADR-55), the difference is added to `externalSpend`. Accounted at adoption: **US$1.33** in ledgers (US$1.00 of it a reservation for PR #50). The DeepInfra prepaid balance is US$5 (bought 2026-11-07 for ₹488.80). Reconciled the same day: the owner reported DeepInfra billing at **US$1.79**, so US$0.46 was added to `externalSpend`; US$8.21 remains.
+
+---
+
 ## Open decisions requiring the user
 
 | # | Decision | Why it cannot be defaulted | Blocks |

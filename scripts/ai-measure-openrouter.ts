@@ -1,4 +1,5 @@
 /** One finite OpenRouter campaign. Offline status by default; never records or changes routing. */
+import { reserveUnledgeredSpend, takeReserveFlag } from './lib/inference-budget';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
@@ -44,7 +45,9 @@ async function sourceFingerprint(): Promise<string> {
   return hash.digest('hex');
 }
 async function main() {
-  const args = argsOf(process.argv.slice(2));
+  // ADR-56: `--reserve-usd` is consumed here, before the campaign parser.
+  const reserve = takeReserveFlag(process.argv.slice(2));
+  const args = argsOf(reserve.argv);
   if (!args.vision) {
     if (args.mode !== 'status') throw new Error('Select the verified Qwen vision catalogue ID before running/finalizing.');
     console.log('Offline status: no campaign selected. Use --vision-model QWEN_ID. No key, network, database or inference request is needed for status.'); return;
@@ -54,6 +57,11 @@ async function main() {
   const live = args.mode === 'run' || args.mode === 'recover' ? env() : undefined;
   if (live && (!live.AI_API_KEY || !live.AI_BASE_URL || !openRouterPolicy(live.AI_BASE_URL))) throw new Error('OpenRouter key/endpoint readiness is missing. Configure AI_API_KEY and the canonical AI_BASE_URL after funding and ZDR-only account settings are confirmed.');
   if (live) cleanMeasurementInputs();
+  if (live) {
+    // No per-request cost accounting here: reserve an operator-stated upper bound.
+    if (reserve.reserveUsd === undefined) throw new Error('OpenRouter is paid. Pass --reserve-usd <upper bound in USD>; it is reserved against the project cap (ADR-56). No request was sent.');
+    await reserveUnledgeredSpend(process.cwd(), { script: 'ai:measure:openrouter', providerIdentity: new URL(live.AI_BASE_URL!).origin, reservedUsd: reserve.reserveUsd, note: `${args.mode} campaign` });
+  }
   const revision = execFileSync('git', ['rev-parse', 'HEAD']).toString().trim();
   const profiles = resolveRequestProfiles(process.env.AI_REQUEST_PROFILES ?? '');
   const timeoutMs = Number(process.env.AI_REQUEST_TIMEOUT_MS ?? 60000);
