@@ -52,17 +52,15 @@ it('cannot certify the fallback from its archived answered-only pass with unansw
 });
 
 it.each(['zai-org/GLM-5.3-Flash', 'openai/gpt-oss-120b'])(
-  'qualifies %s from its complete current-contract report in memory without granting another tier', (model) => {
+  'rejects %s from the previous passing full campaign after the parse prompt changes', (model) => {
   const rows = archivedRows('deepinfra-2026-11-07-tier1-current-2026-11-08/tier1.json')
     .filter(row => row.model === model);
   expect(rows).toHaveLength(6);
   expect(rows.every(row => row.detail.unanswered === 0)).toBe(true);
   const measured = tierCapabilitiesFromEvaluations(rows, undefined, undefined, endpoint);
-  expect(measured[model]?.[1]).toMatchObject({
-    source: 'measured', scores: { schemaAdherence: 1, toolCallCorrectness: 53 / 57 },
-  });
-  expect(Object.keys(measured[model]!)).toEqual(['1']);
+  expect(rows.find(row => row.suite === 'parse')?.evalVersion).toBe(2);
+  expect(measured).toEqual({});
   const selected = selectCandidates(requirementFor('answerFinanceQuestion'), resolveModelConfig(),
     createCapabilityMatrix({}, measured), createHealthRegistry(), rows[0]!.runAt);
-  expect(selected.candidates).toEqual([model]);
+  expect(selected.candidates).toEqual([]);
 });

@@ -14,7 +14,7 @@ import { assessEntry, candidateReadiness, validatePlan, type Entry, type Progres
 import { requestReserve } from './lib/ai-eval-budget';
 import { otherDeepinfraSpend } from './lib/deepinfra-accounting';
 import { reserveInActiveLedger } from './lib/inference-budget';
-import { diagnoseAnalysis, diagnoseDocument, FailureDiagnosticsSchema, summariseDiagnostics, type FailureDiagnostics } from './lib/ai-failure-diagnostics';
+import { diagnoseAnalysis, diagnoseDocument, diagnoseParse, diagnoseInjection, FailureDiagnosticsSchema, summariseDiagnostics, type FailureDiagnostics } from './lib/ai-failure-diagnostics';
 
 const endpoint = 'https://api.deepinfra.com/v1/openai';
 const originalDirectory = path.resolve('eval/reports/deepinfra-2026-11-07');
@@ -116,7 +116,7 @@ async function main() {
       const proposal = proposeOrder(models, tier);
       const run: EvalRun = { tier, providerIdentity: endpoint, startedAt: checkpoints.get(cpPath(tierEntries[0]!))!.startedAt, limit: null, requestIntervalMs: 0, requestTimeoutMs: e.AI_REQUEST_TIMEOUT_MS, suiteVersions: Object.fromEntries(TIER_SUITES[tier].map(s => [s, MODEL_SUITES[s].version])), models, proposedOrder: proposal.order, excluded: proposal.excluded, caveats: proposal.caveats };
       await save(path.join(directory, `tier${tier}.json`), { ...run, provider: 'DeepInfra', sourceFingerprint, ownerApprovalRequired: true, recorded: false, models: models.map(m => ({ ...m, suites: m.suites.map(({ report, ...s }) => ({ ...s, p50LatencyMs: report.p50LatencyMs, p95LatencyMs: report.p95LatencyMs,
-        ...(['analysis', 'document'].includes(s.suite) ? { diagnostics: summariseDiagnostics(checkpoints.get(cpPath({ tier, model: m.modelId, suite: s.suite }))?.diagnostics ?? {}) } : {}) })) })) });
+        ...(['analysis', 'document', 'parse', 'injection'].includes(s.suite) ? { diagnostics: summariseDiagnostics(checkpoints.get(cpPath({ tier, model: m.modelId, suite: s.suite }))?.diagnostics ?? {}) } : {}) })) })) });
       await writeFile(path.join(directory, `tier${tier}.md`), renderEvalReport(run));
       for (const row of rows.filter(r => r.tier === tier)) row.status = 'complete';
     }
@@ -180,9 +180,11 @@ async function main() {
         let diagnostic: FailureDiagnostics | undefined;
         const observed = { ...provider, chat: async (...args: Parameters<typeof provider.chat>) => {
           const response = await provider.chat(...args);
-          if (response.ok && (r.suite === 'analysis' || r.suite === 'document')) {
+          if (response.ok && ['analysis', 'document', 'parse', 'injection'].includes(r.suite)) {
             const { content, toolCalls } = response.value;
-            diagnostic = r.suite === 'analysis' ? diagnoseAnalysis(c.id, content, toolCalls) : diagnoseDocument(c.id, content);
+            diagnostic = r.suite === 'analysis' ? diagnoseAnalysis(c.id, content, toolCalls)
+              : r.suite === 'document' ? diagnoseDocument(c.id, content)
+              : r.suite === 'parse' ? diagnoseParse(c.id, content) : diagnoseInjection(c.id, content, toolCalls);
           }
           return response;
         } };

@@ -46,12 +46,12 @@ it('runs the full DeepInfra queue without storage, resumes offline, and rejects 
       retainedCheckpoints.set(name, text);
       expect(text).not.toContain('PRIVATE');
       const cp = JSON.parse(text);
-      if (['analysis', 'document'].includes(cp.suite)) {
+      if (['analysis', 'document', 'parse', 'injection'].includes(cp.suite)) {
         expect(Object.keys(cp.diagnostics)).toHaveLength(cp.cases.length);
         diagnosticCounts.push(Object.keys(cp.diagnostics).length);
       } else expect(cp.diagnostics).toBeUndefined();
     }
-    expect(diagnosticCounts.sort((a, b) => a - b)).toEqual([15, 15, 20]);
+    expect(diagnosticCounts.sort((a, b) => a - b)).toEqual([15, 15, 20, 25, 25, 25, 40]);
     const tier2 = JSON.parse(readFileSync(path.join(directory, 'tier2.json'), 'utf8'));
     expect(tier2.models[0].suites.find((s: { suite: string }) => s.suite === 'analysis').diagnostics)
       .toMatchObject({ captured: 15, passed: 0, failed: 15, failedWithPassingLayoutComparison: 0 });
@@ -100,7 +100,11 @@ it('runs the full DeepInfra queue without storage, resumes offline, and rejects 
     expect(selectedProgress.rows.every((row: { tier: number }) => row.tier === 1)).toBe(true);
     const selectedReport = JSON.parse(readFileSync(path.join(selectedDirectory, 'tier1.json'), 'utf8'));
     expect(selectedReport.models.map((model: { modelId: string }) => model.modelId)).toEqual(selectedModels);
-    expect(selectedReport.suiteVersions).toEqual({ parse: 2, classify: 2, 'tool-select': 3, grounding: 5, robustness: 5, injection: 4 });
+    expect(selectedReport.suiteVersions).toEqual({ parse: 3, classify: 2, 'tool-select': 3, grounding: 5, robustness: 5, injection: 4 });
+    for (const model of selectedReport.models) {
+      expect(model.suites.find((s: { suite: string }) => s.suite === 'parse').diagnostics).toMatchObject({ captured: 40 });
+      expect(model.suites.find((s: { suite: string }) => s.suite === 'injection').diagnostics).toMatchObject({ captured: 25 });
+    }
     expect(readdirSync(selectedDirectory)).not.toContain('tier2.json');
     const selectedLedger = readFileSync(path.join(selectedDirectory, 'usage.json'), 'utf8');
     expect(JSON.parse(selectedLedger).events).toHaveLength(380);
