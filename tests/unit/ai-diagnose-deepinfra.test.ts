@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, it } from 'vitest';
-import { DEEPINFRA_MEASUREMENT_MODELS } from '@/server/ai/config/models';
+import { DEEPINFRA_MEASUREMENT_MODELS, resolveModelConfig } from '@/server/ai/config/models';
 
 it('runs six bounded diagnostic probes without output retention or measurement writes, and enforces spending/provider/record guards', () => {
   const root = mkdtempSync(path.join(tmpdir(), 'deepinfra-diagnostic-test-'));
@@ -15,7 +15,8 @@ it('runs six bounded diagnostic probes without output retention or measurement w
     const directory = path.join(root, 'eval/reports/deepinfra-2026-11-07');
     mkdirSync(path.join(directory, 'serial-start'), { recursive: true });
     const endpoint = 'https://api.deepinfra.com/v1/openai';
-    const models = [DEEPINFRA_MEASUREMENT_MODELS[2][0], DEEPINFRA_MEASUREMENT_MODELS[4][0]];
+    const selectedModels = resolveModelConfig().candidates(1);
+    const models = [DEEPINFRA_MEASUREMENT_MODELS[2][0], DEEPINFRA_MEASUREMENT_MODELS[4][0], ...selectedModels];
     writeFileSync(path.join(directory, 'catalogue.json'), JSON.stringify({ providerIdentity: endpoint, data: models.map(id => ({ id, metadata: { pricing: { input_tokens: 0.15, output_tokens: 0.6 } } })) }));
     const baseline = JSON.stringify({ providerIdentity: endpoint, events: [{ accountedUsd: 0.01 }] });
     for (const f of ['usage.json', 'serial-start/usage.json']) writeFileSync(path.join(directory, f), baseline);
@@ -24,7 +25,8 @@ it('runs six bounded diagnostic probes without output retention or measurement w
       if (url !== '${endpoint}/chat/completions') throw new Error('Unexpected endpoint');
       const body=JSON.parse(init.body);
       if (!${JSON.stringify(models)}.includes(body.model)) throw new Error('Unexpected model');
-      if (body.max_tokens !== (body.model === ${JSON.stringify(models[0])} ? 4096 : 2048)) throw new Error('Changed request budget');
+      const expectedTokens = ${JSON.stringify(selectedModels)}.includes(body.model) ? (body.response_format ? 1024 : 2048) : body.model === ${JSON.stringify(models[0])} ? 4096 : 2048;
+      if (body.max_tokens !== expectedTokens) throw new Error('Changed request budget');
       return new Response(JSON.stringify({model:body.model, choices:[{message:{content:'PRIVATE_MODEL_CONTENT',reasoning_content:'PRIVATE_REASONING'},finish_reason:'stop'}]}),{status:200});
     };`);
     const loader = fileURLToPath(import.meta.resolve('tsx'));
@@ -38,6 +40,14 @@ it('runs six bounded diagnostic probes without output retention or measurement w
     expect(JSON.parse(analysisPlan.stdout).cases).toHaveLength(3);
     expect(JSON.parse(analysisPlan.stdout).cases.every((c: { suite: string }) => c.suite === 'analysis')).toBe(true);
     expect(run(['--plan', '--analysis-only', '--analysis-only']).status).toBe(1);
+    const selectedPlan = run(['--plan', '--selected-tier1'], { AI_TIER1_MODELS: 'anthropic/foreign-model' });
+    expect(selectedPlan.status, selectedPlan.stderr).toBe(0);
+    const selectedCases = JSON.parse(selectedPlan.stdout).cases;
+    expect(selectedCases).toHaveLength(9);
+    expect([...new Set(selectedCases.map((c: { model: string }) => c.model))]).toEqual(selectedModels);
+    expect(selectedCases.every((c: { tier: number; suite: string; maxTokens: number }) => c.tier === 1 && c.maxTokens === (c.suite === 'parse' ? 1024 : 2048))).toBe(true);
+    expect(run(['--plan', '--selected-tier1', '--selected-tier1']).status).toBe(1);
+    expect(run(['--plan', '--selected-tier1', '--analysis-only']).status).toBe(1);
     expect(readdirSync(directory)).not.toContain('diagnostics');
     const first = run(['--run', '--no-record']);
     expect(first.status, first.stderr).toBe(0);
@@ -53,6 +63,19 @@ it('runs six bounded diagnostic probes without output retention or measurement w
     const ledgerFile = path.join(diagnosticDir, 'usage.json');
     const ledger = JSON.parse(readFileSync(ledgerFile, 'utf8'));
     expect(ledger.events).toHaveLength(6);
+    const selected = run(['--run', '--no-record', '--selected-tier1']);
+    expect(selected.status, selected.stderr).toBe(0);
+    expect(selected.stdout).not.toContain('PRIVATE');
+    const selectedDir = path.join(root, 'eval/reports/deepinfra-2026-11-08-tier1-diagnostics');
+    const selectedFile = readdirSync(selectedDir).find(f => f !== 'usage.json')!;
+    const selectedText = readFileSync(path.join(selectedDir, selectedFile), 'utf8');
+    const selectedReport = JSON.parse(selectedText);
+    expect(selectedReport).toMatchObject({ diagnosticOnly: true, completeMeasurement: false, recorded: false, productionEligible: false });
+    expect(selectedReport.rows).toHaveLength(9);
+    expect(selectedReport.rows.every((r: { tier: number; diagnostics: unknown }) => r.tier === 1 && r.diagnostics !== null)).toBe(true);
+    expect(selectedText).not.toContain('PRIVATE');
+    expect(JSON.parse(readFileSync(path.join(selectedDir, 'usage.json'), 'utf8')).events).toHaveLength(9);
+    expect(JSON.parse(readFileSync(ledgerFile, 'utf8')).events).toHaveLength(6);
     const lockPath = path.join(path.dirname(directory), '.deepinfra-account.lock');
     writeFileSync(lockPath, 'another-process\n');
     expect(run(['--run', '--no-record']).status).toBe(1);

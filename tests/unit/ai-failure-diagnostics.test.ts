@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { diagnoseAnalysis, diagnoseDocument, FailureDiagnosticsSchema, summariseDiagnostics } from '../../scripts/lib/ai-failure-diagnostics';
+import { diagnoseAnalysis, diagnoseDocument, diagnoseParse, diagnoseInjection, FailureDiagnosticsSchema, summariseDiagnostics } from '../../scripts/lib/ai-failure-diagnostics';
 import { ANALYSIS_CASES, scoreAnalysisOutput } from '@/server/ai/eval/tasks/analysis';
 import { DOCUMENT_CASES, scoreDocumentOutput } from '@/server/ai/eval/tasks/document';
+import { PARSE_CASES, scoreParseOutput, type ParseExpectation } from '@/server/ai/eval/tasks/parse';
+import { INJECTION_CASES, INJECTION_CANARY, scoreInjectionResponse } from '@/server/ai/eval/tasks/injection';
 
 const goodAnalysis = 'Income was ₹120,812.37, expenses were ₹45,319.50, savings were ₹75,492.87, and the savings rate was 62.49%.';
 const ideal = (golden: typeof DOCUMENT_CASES[number]) => ({ transactions: golden.expected.map(e => ({
@@ -9,6 +11,69 @@ const ideal = (golden: typeof DOCUMENT_CASES[number]) => ({ transactions: golden
   tags: [], notes: null as string | null, confidence: e.amount === null || e.bookedOn === null ? 'low' : 'high',
   ambiguities: e.amount === null || e.bookedOn === null ? ['Unreadable field.'] : [],
 })) });
+
+const first = <T>(value: T | readonly T[]): T => Array.isArray(value) ? value[0]! : value as T;
+const hint = (value: ParseExpectation['account']) => value === null ? null : value === 'unscored' ? 'PRIVATE_HINT' : value[0]!;
+const parseIdeal = (e: ParseExpectation) => ({
+  kind: first(e.kind), bookedOn: e.bookedOn, amount: e.amount === null ? null : first(e.amount), currency: first(e.currency),
+  description: 'PRIVATE_DESCRIPTION', accountHint: hint(e.account), toAccountHint: hint(e.toAccount), categoryHint: hint(e.category),
+  tags: [], notes: null, confidence: e.flagged ? 'low' : 'high', ambiguities: e.flagged ? ['PRIVATE_AMBIGUITY'] : [],
+});
+
+describe('parse failure diagnostics', () => {
+  it.each(PARSE_CASES)('$id: preserves ideal and malformed verdicts without retaining fields', golden => {
+    for (const output of [JSON.stringify(parseIdeal(golden.expected)), null, '', 'PRIVATE_INVALID', '{"PRIVATE_KEY":1}']) {
+      const diagnostic = diagnoseParse(golden.id, output);
+      expect(diagnostic.passed).toBe(scoreParseOutput(output, golden.expected));
+      expect(FailureDiagnosticsSchema.safeParse(diagnostic).success).toBe(true);
+      expect(JSON.stringify(diagnostic)).not.toContain('PRIVATE');
+    }
+    expect(diagnoseParse(golden.id, JSON.stringify(parseIdeal(golden.expected))).passed).toBe(true);
+  });
+  it.each([
+    ['kind', 'income'], ['bookedOn', '2026-08-01'], ['amount', '999999.99'], ['currency', 'USD'],
+    ['accountHint', 'PRIVATE_WRONG'], ['toAccountHint', 'PRIVATE_WRONG'], ['categoryHint', 'PRIVATE_WRONG'],
+  ])('identifies %s mismatches without storing the wrong value', (field, value) => {
+    const output = JSON.stringify({ ...parseIdeal(PARSE_CASES[0]!.expected), [field]: value });
+    const diagnostic = diagnoseParse('parse-001', output);
+    expect(diagnostic).toMatchObject({ passed: false, reasons: ['transaction_fields'], counts: { [field]: 1 } });
+    expect(JSON.stringify(diagnostic)).not.toMatch(/PRIVATE|999999/);
+  });
+  it('separates missing ambiguity and overconfidence and accepts decimal equivalence', () => {
+    const golden = PARSE_CASES.find(c => c.id === 'parse-033')!;
+    const output = JSON.stringify({ ...parseIdeal(golden.expected), confidence: 'high', ambiguities: [] });
+    expect(diagnoseParse(golden.id, output)).toMatchObject({ passed: false, counts: { confidence: 1, ambiguities: 1 } });
+    expect(diagnoseParse('parse-001', JSON.stringify({ ...parseIdeal(PARSE_CASES[0]!.expected), amount: '1250.0000' })).passed).toBe(true);
+    expect(diagnoseParse('parse-001', null).reasons).toEqual(['empty_output']);
+    expect(diagnoseParse('parse-001', 'PRIVATE_INVALID').reasons).toEqual(['invalid_json']);
+    expect(diagnoseParse('parse-001', '{"PRIVATE_KEY":1}').reasons).toEqual(['invalid_schema']);
+    expect(() => diagnoseParse('unknown', null)).toThrow('Unknown');
+  });
+});
+
+describe('injection failure diagnostics', () => {
+  it.each(INJECTION_CASES)('$id: matches the scorer for safe calls, canaries and malformed or foreign calls', golden => {
+    const calls = golden.requiresCall ? [{ name: golden.allowedCalls[0]!.name, argumentsJson: JSON.stringify(golden.allowedCalls[0]!.args) }] : [];
+    const variants = [
+      { output: 'PRIVATE_SAFE_ANSWER', calls }, { output: `PRIVATE_${INJECTION_CANARY.toLowerCase()}`, calls },
+      { output: null, calls: [] }, { output: 'PRIVATE', calls: [{ name: 'PRIVATE_TOOL', argumentsJson: 'PRIVATE_ARGUMENTS' }] },
+      { output: 'PRIVATE', calls: [{ name: 'get_net_worth', argumentsJson: '{"userId":"PRIVATE_ID"}' }] },
+    ];
+    for (const variant of variants) {
+      const diagnostic = diagnoseInjection(golden.id, variant.output, variant.calls);
+      expect(diagnostic.passed).toBe(scoreInjectionResponse(variant.output, variant.calls, golden));
+      expect(FailureDiagnosticsSchema.safeParse(diagnostic).success).toBe(true);
+      expect(JSON.stringify(diagnostic)).not.toMatch(/PRIVATE|INJECTION_ACCEPTED|7F2C/);
+    }
+    expect(diagnoseInjection(golden.id, 'PRIVATE_SAFE_ANSWER', calls).passed).toBe(true);
+  });
+  it('distinguishes canary repetition, missing legitimate reads, and disallowed calls', () => {
+    expect(diagnoseInjection('injection-024', INJECTION_CANARY, [])).toMatchObject({ reasons: ['attack_canary'], counts: { invalid_tool_calls: 0 } });
+    expect(diagnoseInjection('injection-005', 'No.', [])).toMatchObject({ reasons: ['missing_required_call'] });
+    expect(diagnoseInjection('injection-024', 'PRIVATE', [{ name: 'PRIVATE_TOOL', argumentsJson: 'PRIVATE' }])).toMatchObject({ reasons: ['invalid_tool_calls'], counts: { invalid_tool_calls: 1 } });
+    expect(() => diagnoseInjection('unknown', null, [])).toThrow('Unknown');
+  });
+});
 
 describe('analysis failure diagnostics', () => {
   it('compares wrapped findings without changing the authoritative score or retaining text', () => {
