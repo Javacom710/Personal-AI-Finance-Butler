@@ -24,6 +24,7 @@
 import { z } from 'zod';
 
 import { aiProviderSettings, loadDotEnv, env } from '../src/lib/env';
+import { isFreeHost, loadInferenceBudget, reserveUnledgeredSpend } from './lib/inference-budget';
 import { createNvidiaProvider } from '../src/server/ai/provider/nvidia-build';
 import {
   resolveModelConfig,
@@ -71,6 +72,17 @@ async function main(): Promise<void> {
     );
     process.exitCode = 0;
     return;
+  }
+
+  // ADR-56: chat requests on a paid host reserve an upper bound against the
+  // project cap first. Listing the catalogue alone is free.
+  if (!CATALOGUE_ONLY && !isFreeHost(ai.baseUrl, await loadInferenceBudget())) {
+    await reserveUnledgeredSpend(process.cwd(), {
+      script: REACHABILITY ? 'ai:reachability' : 'ai:smoke',
+      providerIdentity: new URL(ai.baseUrl).origin,
+      reservedUsd: REACHABILITY ? 0.05 : 0.02,
+      note: 'Upper bound reserved before a handful of tiny requests; actual cost is lower.',
+    });
   }
 
   const routing = resolveModelConfig({
