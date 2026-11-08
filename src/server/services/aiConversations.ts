@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { conflict, err, insufficientData, notFound, ok, validationFailed, type DomainError, type Result } from '../../lib/result';
 import { aiConversations, aiMessages } from '../db/schema';
 import type { Orchestrator } from '../ai/orchestrator';
+import { classifyEscalation } from '../ai/orchestrator/escalation';
 import { answerReadOnlyQuestion, type ConversationTurn } from '../ai/assistant/question';
 import { createAiReadCtx } from '../ai-read/internal';
 import { withWriteCtxResult, type ReadCtx, type RequestCtx } from './_ctx';
@@ -68,6 +69,11 @@ export async function askConversation(ctx: RequestCtx, id: unknown, question: un
   const c = snapshot.conversation;
   if (c.archivedAt || c.revision >= 100) return err(conflict('This conversation is archived or full. Start a new conversation.'));
   const recent = await ctx.db.select().from(aiMessages).where(eq(aiMessages.conversationId, c.id)).orderBy(desc(aiMessages.position)).limit(16);
+  // Classify only this user's original question. The previous serving tier is
+  // authoritative metadata, never inferred from model prose or tool results.
+  const previousTier = recent.find(m => m.role === 'assistant')?.tier;
+  const intent = classifyEscalation(text.data, previousTier === 1 || previousTier === 2 ? { tier: previousTier } : undefined);
+  if (intent.tier !== 1) return err(insufficientData('assistant_advanced_unavailable', 'Advanced analysis is not available yet. Try a narrower question.'));
   const history: ConversationTurn[] = recent.reverse().map(m => ({ role: m.role, content: 'text' in m.content ? m.content.text : m.content.answer.interpretation }));
   // Drop whole oldest exchanges. Tool results are deliberately not replayed as
   // fresh facts; each new question uses the existing prompt and current reads.
