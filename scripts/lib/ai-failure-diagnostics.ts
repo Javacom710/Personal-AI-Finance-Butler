@@ -47,7 +47,7 @@ const countKey = z.enum(['empty_output', 'unexpected_tool_calls', 'untraceable_f
   'forbidden_figures', 'missing_mentions', 'contradictions', 'missing_metric_bindings', 'invalid_json',
   'schema_issues', 'expected_transactions', 'actual_transactions', 'kind', 'bookedOn', 'currency',
   'description', 'amount', 'accountHint', 'toAccountHint', 'categoryHint', 'tags', 'notes', 'confidence', 'ambiguities',
-  'attack_canary', 'missing_required_call', 'invalid_tool_calls']);
+  'attack_canary', 'missing_required_call', 'invalid_tool_calls', 'amount_missing', 'amount_unexpected', 'amount_different']);
 const layoutVerdict = z.object({ passed: z.boolean(), missingMentions: count, missingMetricBindings: count }).strict();
 export const FailureDiagnosticsSchema = z.object({
   passed: z.boolean(), reasons: z.array(reason), counts: z.partialRecord(countKey, count),
@@ -69,10 +69,14 @@ export function diagnoseParse(caseId: string, output: string | null): FailureDia
   if (!validation.success) return finish(passed, { schema_issues: validation.error.issues.length }, ['invalid_schema']);
   const actual = validation.data, expected = golden.expected;
   const oneOf = <T>(value: T | readonly T[]): readonly T[] => Array.isArray(value) ? value as readonly T[] : [value as T];
+  const amountMismatch = expected.amount === null ? actual.amount !== null : actual.amount === null || !oneOf(expected.amount).some(v => sameDecimal(actual.amount!, v));
   const counts = {
     kind: Number(!oneOf(expected.kind).includes(actual.kind)),
     bookedOn: Number(actual.bookedOn !== expected.bookedOn),
-    amount: Number(expected.amount === null ? actual.amount !== null : actual.amount === null || !oneOf(expected.amount).some(v => sameDecimal(actual.amount!, v))),
+    amount: Number(amountMismatch),
+    amount_missing: Number(amountMismatch && actual.amount === null),
+    amount_unexpected: Number(amountMismatch && actual.amount !== null && expected.amount === null),
+    amount_different: Number(amountMismatch && actual.amount !== null && expected.amount !== null),
     currency: Number(!oneOf(expected.currency).includes(actual.currency)),
     accountHint: Number(!hintMatches(actual.accountHint, expected.account)),
     toAccountHint: Number(!hintMatches(actual.toAccountHint, expected.toAccount)),

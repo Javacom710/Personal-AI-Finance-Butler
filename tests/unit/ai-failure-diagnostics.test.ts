@@ -39,6 +39,20 @@ describe('parse failure diagnostics', () => {
     expect(diagnostic).toMatchObject({ passed: false, reasons: ['transaction_fields'], counts: { [field]: 1 } });
     expect(JSON.stringify(diagnostic)).not.toMatch(/PRIVATE|999999/);
   });
+  it.each([
+    ['parse-001', null, 'amount_missing'], ['parse-011', '9999', 'amount_different'],
+    ['parse-032', '777', 'amount_unexpected'], ['parse-035', null, 'amount_missing'],
+    ['parse-035', '1250.00', null], ['parse-035', '1350', null],
+  ] as const)('%s: distinguishes amount mismatch shape without retaining a value', (id, amount, shape) => {
+    const golden = PARSE_CASES.find(c => c.id === id)!;
+    const output = JSON.stringify({ ...parseIdeal(golden.expected), amount });
+    const diagnostic = diagnoseParse(id, output);
+    expect(diagnostic.passed).toBe(scoreParseOutput(output, golden.expected));
+    expect(diagnostic.counts).toMatchObject({ amount: shape ? 1 : 0, amount_missing: shape === 'amount_missing' ? 1 : 0,
+      amount_unexpected: shape === 'amount_unexpected' ? 1 : 0, amount_different: shape === 'amount_different' ? 1 : 0 });
+    expect(FailureDiagnosticsSchema.safeParse(diagnostic).success).toBe(true);
+    expect(JSON.stringify(diagnostic)).not.toMatch(/PRIVATE|9999|777|1250|1350/);
+  });
   it('separates missing ambiguity and overconfidence and accepts decimal equivalence', () => {
     const golden = PARSE_CASES.find(c => c.id === 'parse-033')!;
     const output = JSON.stringify({ ...parseIdeal(golden.expected), confidence: 'high', ambiguities: [] });
