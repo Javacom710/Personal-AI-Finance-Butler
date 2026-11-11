@@ -17,14 +17,13 @@
  * the opposite convention would produce, because the choice must be deliberate
  * rather than an artefact of how the loop was written.
  *
- * ## The launch limitation, which is not a defect
+ * ## Incomplete history, which is not a defect
  *
  * TWR needs a valuation at every sub-period boundary, which needs
- * `instrument_prices` history. That table is populated by
- * `getHistoricalPrices()`, which needs the commercial provider blocked on
- * decision **OD-3**. Until it is resolved, only manually priced instruments and
- * AMFI-sourced mutual funds can produce a figure — **every equity and ETF
- * returns `null` with reason `insufficient_price_history`.**
+ * `instrument_prices` history. `portfolioTwr()` in the portfolio service supplies
+ * those valuations (INVESTMENT-DOMAIN.md §8.2); **a holding with no stored price
+ * near a boundary date makes the whole result `null` with reason
+ * `insufficient_price_history`.**
  *
  * That is the documented behaviour, shown in the UI as the reason. It is not
  * grounds for substituting a partial figure computed from the valuations that do

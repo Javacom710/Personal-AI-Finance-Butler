@@ -20,7 +20,7 @@ A phase is complete only when every box is ticked — including tests, type chec
 | 1 — Architecture | ✅ complete, **approved** |
 | 2 — Foundation | ✅ complete, verified |
 | 3 — Financial Core | ✅ complete, verified |
-| 4 — Investment Engine | ✅ complete, verified (TWR is implemented and tested but not wired to a production caller — OD-18) |
+| 4 — Investment Engine | ✅ complete, verified (TWR wired to `portfolio()` 2026-11-11 — OD-18) |
 | 5 — Net Worth at Cost | ✅ complete, verified |
 | 6 — Market Data | ✅ complete, steps 6.0–6.11 (6.10 closed unbuilt); equities need `TWELVE_DATA_API_KEY` (OD-3) |
 | 7 — AI Infrastructure | ✅ complete, steps 7.0–7.7 |
@@ -38,9 +38,9 @@ A phase is complete only when every box is ticked — including tests, type chec
 1. A fresh, complete DeepInfra campaign of the selected Tier 1 lineup (GLM-5.3-Flash → GPT-OSS-120B) on the current suite contracts: parse/classify v2, tool-select v3, injection v4, grounding/robustness/analysis v5. Reconcile #54's external spend first. Both models need zero unanswered cases.
 2. Owner review of those results, then `--record` and a reviewed activation of the Phase 9 features that Tier 1 serves.
 3. Tiers 2–4 have no selected models. Advanced analysis, scenarios and documents stay off until each has its own measured lineup.
-4. Independently of the AI work: OD-18 and OD-19 (the Overview page). **OD-18 update 2026-11-11:** the scenario engine and the three missing metrics are built, with a Scenarios tab under Investments and health figures on the Money page. What remains of OD-18 is TWR wiring and registering the two AI tools; both change evaluation suite contracts, so both wait for the owner's timing against the Tier 1 measurements.
+4. Independently of the AI work: OD-18 and OD-19 (the Overview page). **OD-18 update 2026-11-11:** the scenario engine and the three missing metrics are built, with a Scenarios tab under Investments and health figures on the Money page. TWR is wired into `portfolio()` as well, with the frozen grounding results unchanged. What remains of OD-18 is registering the two AI tools, which changes what tool-select measures and so waits for the owner's timing against the Tier 1 measurements.
 
-**What unblocks the rest:** OD-20 (Phase 8 lineup) gates Phase 9 activation and so every later phase's AI checks. OD-18's engine work is done for scenarios and metrics (2026-11-11); wiring TWR changes the frozen grounding results, so it also bumps evaluation suite versions and is not done yet. OD-19 (the Overview page) is product work that can proceed independently.
+**What unblocks the rest:** OD-20 (Phase 8 lineup) gates Phase 9 activation and so every later phase's AI checks. OD-18's engine work is done (2026-11-11): scenarios, metrics and TWR wiring. The TWR wiring left the frozen grounding results unchanged, so no suite version advanced. OD-19 (the Overview page) is product work that can proceed independently.
 
 ### Historical Phase 5 checkpoint — 2026-08-15
 

@@ -17,9 +17,9 @@ export const metadata: Metadata = { title: 'Performance' };
  * capital deployed*, because that denominator accumulates across round trips and
  * a reader who assumes otherwise will misread it.
  *
- * TWR reports `insufficient_price_history` for every equity and ETF until
- * Phase 6 populates `instrument_prices`. That is the documented launch
- * behaviour, shown as its reason rather than as a figure from partial data.
+ * TWR needs a stored price for every holding on every flow date. Where one is
+ * missing it reports `insufficient_price_history`, shown as its reason rather
+ * than as a figure from partial data.
  */
 export default async function PerformancePage() {
   const { ctx, format } = await loadMoneyContext('/investments/performance');
@@ -61,7 +61,7 @@ export default async function PerformancePage() {
     [
       'Time-weighted return',
       format.metricPercent(summary.twr, 2),
-      format.reason(summary.twr) ?? 'Chain-linked, annualised over a year or more',
+      format.reason(summary.twr) ?? 'Since the first transaction. Chain-linked across every flow date; annualised once a year has passed',
     ],
     ['Coverage', format.percent(summary.coverage, 1), 'Share of cost basis that could be priced'],
   ];
