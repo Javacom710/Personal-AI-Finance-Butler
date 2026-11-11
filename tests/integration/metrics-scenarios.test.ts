@@ -10,7 +10,7 @@ import {
   materialiseOccurrences,
 } from '@/server/services';
 import { closeHarness, truncateAll } from './harness';
-import { makeInstrument, priceIt, recordBuy, truncateInvestments } from './investment-harness';
+import { makeInstrument, priceIt, recordBuy, storeClose, truncateInvestments } from './investment-harness';
 import {
   categoryId,
   closeMoneyHarness,
@@ -206,9 +206,27 @@ describe('investmentScenario', () => {
     expect(s.start.kind).toBe('portfolio');
     if (s.start.kind !== 'portfolio') throw new Error('unreachable');
     expect(s.start.unpricedCount).toBe(1);
+    expect(s.start.staleCount).toBe(0);
     // Cost covered: 100000 of 125000.
     expect(rToDbString(s.start.coverage)).toBe('0.8000000000');
     expect(toDbString(s.projection.outcomes[0]!.finalValue)).toBe('1620000.0000');
+  });
+
+  it('counts a stale holding and says it is stale, in both scenarios', async () => {
+    const demat = await makeAccount(fixture.ctx, { name: 'Demat', kind: 'brokerage' });
+    const old = await makeInstrument(fixture.ctx, { symbol: 'OLDPX' });
+    must(await recordBuy(fixture.ctx, { accountId: demat, instrumentId: old, on: '2026-01-05', qty: '100', price: '1000' }));
+    // Last priced on 1 June; today is 10 August.
+    await storeClose(fixture.ctx, { instrumentId: old, on: '2026-06-01', close: '1100' });
+
+    const s = must(await investmentScenario(fixture.ctx, { ...base, startFrom: 'portfolio' }));
+    if (s.start.kind !== 'portfolio') throw new Error('unreachable');
+    // Used at its last known price, and flagged — never passed off as today's.
+    expect(toDbString(s.projection.deterministic.startingBalance)).toBe('110000.0000');
+    expect(s.start.staleCount).toBe(1);
+
+    const a = must(await allocationScenario(fixture.ctx, { additions: [{ assetClass: 'gold', amount: '1000' }] }));
+    expect(a.staleCount).toBe(1);
   });
 
   it('rejects what a person can mistype, beside the field', async () => {

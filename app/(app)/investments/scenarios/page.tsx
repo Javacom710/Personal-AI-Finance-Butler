@@ -140,7 +140,7 @@ export default async function ScenariosPage({ searchParams }: { searchParams: Se
             <Labelled id="startFrom" label="Start from">
               <select id="startFrom" name="startFrom" defaultValue={form.startFrom} className={FIELD}>
                 <option value="zero">Nothing</option>
-                <option value="portfolio">My portfolio&apos;s value today</option>
+                <option value="portfolio">My portfolio&apos;s latest value</option>
                 <option value="amount">An amount I enter</option>
               </select>
             </Labelled>
@@ -190,7 +190,10 @@ export default async function ScenariosPage({ searchParams }: { searchParams: Se
               </dl>
               {projection.value.start.kind === 'portfolio' ? (
                 <p className="text-xs text-ink-faint">
-                  The starting balance is the market value of your priced holdings today.
+                  The starting balance is the value of your priced holdings at their latest stored prices.
+                  {projection.value.start.staleCount > 0
+                    ? ` ${projection.value.start.staleCount} holding(s) are at a stale price, so this is a last-known value, not today's.`
+                    : ''}
                   {projection.value.start.unpricedCount > 0
                     ? ` ${projection.value.start.unpricedCount} holding(s) could not be priced and are left out; ${format.percent(projection.value.start.coverage, 1)} of cost is covered.`
                     : ''}
@@ -336,8 +339,12 @@ export default async function ScenariosPage({ searchParams }: { searchParams: Se
               </table>
             </div>
             <p className="text-xs text-ink-faint">
-              Today&apos;s market values plus the amount added, at what you would pay for it. Nothing
-              is assumed about prices afterwards. The change column is in percentage points.
+              Your holdings at their latest stored prices plus the amount added, at what you would
+              pay for it. Nothing is assumed about prices afterwards. The change column is in
+              percentage points.
+              {shift.value.staleCount > 0
+                ? ` ${shift.value.staleCount} holding(s) are at a stale price, so the "now" column is a last-known value.`
+                : ''}
               {shift.value.unpricedCount > 0
                 ? ` ${shift.value.unpricedCount} holding(s) costing ${format.money(shift.value.unpricedCost)} could not be priced and are in neither column.`
                 : ''}

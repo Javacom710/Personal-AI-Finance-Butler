@@ -919,7 +919,7 @@ The schema is tighter than the engine on purpose: `120` typed for a yearly retur
 
 ### 13.5 Starting from the portfolio
 
-`startFrom: 'portfolio'` uses today's **priced** market value as the starting balance. That is a deterministic input the user did not type, so the result says where it came from and carries the valuation's coverage and unpriced count ([§10.4](#104-partial-results-are-labelled-not-hidden)).
+`startFrom: 'portfolio'` uses today's **priced** market value as the starting balance. That is a deterministic input the user did not type, so the result says where it came from and carries the valuation's coverage, its unpriced count and its **stale** count. A stale holding is still counted, at its last known price, and the screen says so rather than calling the figure today's; the allocation scenario carries the same stale count ([§10.4](#104-partial-results-are-labelled-not-hidden)).
 
 ### 13.6 Allocation after an addition
 

@@ -55,6 +55,8 @@ export type ScenarioStart =
       /** Share of cost basis that could be priced. Below 1, the starting figure omits holdings. */
       readonly coverage: Rate;
       readonly unpricedCount: number;
+      /** Holdings counted at a stale price. The figure is then a last-known value, not today's. */
+      readonly staleCount: number;
     };
 
 export interface InvestmentScenario {
@@ -103,7 +105,12 @@ export async function investmentScenario(
     if (!current.ok) return current;
     const { valuation } = current.value;
     startingBalance = valuation.pricedValue;
-    start = { kind: 'portfolio', coverage: valuation.coverage, unpricedCount: valuation.unpricedCount };
+    start = {
+      kind: 'portfolio',
+      coverage: valuation.coverage,
+      unpricedCount: valuation.unpricedCount,
+      staleCount: valuation.stale.length,
+    };
   }
 
   const projection = projectScenario({
@@ -133,6 +140,8 @@ export interface AllocationScenario {
   /** Holdings left out of "before" because they could not be priced. */
   readonly unpricedCount: number;
   readonly unpricedCost: MoneyValue;
+  /** Holdings in "before" valued at a stale price. */
+  readonly staleCount: number;
 }
 
 /**
@@ -153,7 +162,9 @@ export async function allocationScenario(
     return err(validationFailed({ additions: [`"${unknown.assetClass}" is not an asset class.`] }));
   }
 
-  const current = await assetAllocation(ctx, 'asset_class');
+  // The allocation carries values but not their freshness; the valuation does.
+  const [current, valued] = await Promise.all([assetAllocation(ctx, 'asset_class'), portfolio(ctx)]);
+  if (!valued.ok) return valued;
   const shift = allocationAfterAdding(
     current.slices.map((s) => ({ key: s.key, label: s.label, value: s.marketValue })),
     parsed.data.additions.map((a) => ({
@@ -168,5 +179,6 @@ export async function allocationScenario(
     shift: shift.value,
     unpricedCount: current.unpricedCount,
     unpricedCost: current.unpricedValue,
+    staleCount: valued.value.valuation.stale.length,
   });
 }
