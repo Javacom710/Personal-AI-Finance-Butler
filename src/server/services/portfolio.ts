@@ -309,15 +309,15 @@ export async function portfolio(
 ): Promise<Result<PortfolioResult, DomainError>> {
   const valuation = await holdings(ctx, scope);
   const totals = await aggregates(ctx, scope);
-  const ledgerFlows = await ledgerCashFlows(ctx, scope);
-  const flows = withTerminal(ctx, ledgerFlows, valuation.pricedValue);
+  const ledger = await ledgerCashFlows(ctx, scope);
+  const flows = withTerminal(ctx, ledger.flows, valuation.pricedValue);
 
   // Whole-portfolio only. A scoped TWR needs a scoped valuation series, which
   // the net-worth composition does not offer; it stays the documented reason
   // rather than a figure for a different scope (INVESTMENT-DOMAIN.md §8).
   const twrDetail: Metric<PortfolioTwrResult> =
     scope.accountId === undefined && scope.instrumentId === undefined
-      ? await twrFromFlows(ctx, ledgerFlows)
+      ? await twrFromFlows(ctx, twrFlows(ledger))
       : unavailable('insufficient_price_history');
 
   const summary = buildSummary({
@@ -351,7 +351,10 @@ export async function portfolio(
  * The engine needs two things and this function only assembles them:
  *
  * - **External flows** — the XIRR series with the sign turned round and the
- *   terminal value dropped. Money the investor paid in is a contribution to the
+ *   terminal value dropped, **plus every in-kind transfer leg**. XIRR drops
+ *   those at portfolio scope; TWR cannot, because the valuation rises and falls
+ *   with each leg. A matched pair cancels on its own, and an unmatched leg is
+ *   capital arriving or leaving, not performance. Money the investor paid in is a contribution to the
  *   holdings; proceeds, dividends and interest leave them, because brokerage
  *   cash is outside the portfolio. Standalone fees and taxes count as
  *   contributions that bought nothing, so the figure is net of them, exactly as
@@ -371,7 +374,12 @@ export async function portfolio(
  * across the dates that happened to have prices.
  */
 export async function portfolioTwr(ctx: ReadCtx): Promise<Metric<PortfolioTwrResult>> {
-  return twrFromFlows(ctx, await ledgerCashFlows(ctx, {}));
+  return twrFromFlows(ctx, twrFlows(await ledgerCashFlows(ctx, {})));
+}
+
+/** Every movement of capital into or out of the holdings, transfer legs included. */
+function twrFlows(ledger: LedgerFlows): CashFlow[] {
+  return [...ledger.flows, ...ledger.portfolioTransfers];
 }
 
 async function twrFromFlows(
@@ -457,15 +465,28 @@ export async function portfolioCashFlows(
   scope: PortfolioScope,
   terminalValue: Money,
 ): Promise<CashFlow[]> {
-  return withTerminal(ctx, await ledgerCashFlows(ctx, scope), terminalValue);
+  return withTerminal(ctx, (await ledgerCashFlows(ctx, scope)).flows, terminalValue);
 }
 
 function withTerminal(ctx: ReadCtx, ledger: readonly CashFlow[], terminalValue: Money): CashFlow[] {
   return terminalValue.minor === 0n ? [...ledger] : [...ledger, { on: ctx.today, amount: terminalValue }];
 }
 
-/** The same series without the terminal value: ledger rows only. TWR's flows come from here. */
-async function ledgerCashFlows(ctx: ReadCtx, scope: PortfolioScope): Promise<CashFlow[]> {
+interface LedgerFlows {
+  /** The XIRR series without its terminal value. */
+  readonly flows: CashFlow[];
+  /**
+   * Transfer legs the XIRR series drops at portfolio scope. A matched pair
+   * cancels; an unmatched leg — shares gifted in, or a holding recorded when the
+   * user started — is capital arriving or leaving with no cash. TWR needs every
+   * leg, because the valuation moves with each one. Empty for a scoped call,
+   * where the legs are already in `flows`.
+   */
+  readonly portfolioTransfers: CashFlow[];
+}
+
+/** Ledger rows only, no terminal value. */
+async function ledgerCashFlows(ctx: ReadCtx, scope: PortfolioScope): Promise<LedgerFlows> {
   const scoped = scope.accountId !== undefined || scope.instrumentId !== undefined;
 
   const conditions: SQL[] = [eq(investmentTransactions.userId, ctx.userId)];
@@ -494,22 +515,24 @@ async function ledgerCashFlows(ctx: ReadCtx, scope: PortfolioScope): Promise<Cas
   `);
 
   const flows: CashFlow[] = [];
+  const portfolioTransfers: CashFlow[] = [];
 
   for (const row of rows) {
     const on = isoDate(row.trade_date);
 
     if (row.kind === 'transfer_in' || row.kind === 'transfer_out') {
-      // At portfolio scope a matched pair nets to zero, so both legs are
-      // dropped. At account or instrument scope an unmatched leg is a real flow
-      // into or out of that scope.
-      if (!scoped || row.base_gross === null) continue;
+      if (row.base_gross === null) continue;
       const gross = Money.fromDbString(row.base_gross, ctx.base);
       // A transfer_in brings shares into the scope — money out, from the
       // scope's point of view. transfer_out is the mirror.
-      flows.push({
+      const leg: CashFlow = {
         on,
         amount: row.kind === 'transfer_in' ? Money.fromMinor(-gross.minor, ctx.base) : gross,
-      });
+      };
+      // At portfolio scope the XIRR series drops both legs, on the footing that
+      // a matched pair nets to zero. At account or instrument scope an unmatched
+      // leg is a real flow into or out of that scope.
+      (scoped ? flows : portfolioTransfers).push(leg);
       continue;
     }
 
@@ -520,7 +543,7 @@ async function ledgerCashFlows(ctx: ReadCtx, scope: PortfolioScope): Promise<Cas
     if (amount.minor !== 0n) flows.push({ on, amount });
   }
 
-  return flows;
+  return { flows, portfolioTransfers };
 }
 
 // -------------------------------------------------------------- allocation

@@ -3,7 +3,15 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { rToDbString } from '@/lib/decimal/rate';
 import { portfolio, portfolioTwr } from '@/server/services';
 import { closeHarness, truncateAll } from './harness';
-import { makeInstrument, recordBuy, recordSell, storeClose, truncateInvestments } from './investment-harness';
+import {
+  makeInstrument,
+  recordBuy,
+  recordSell,
+  recordTransferIn,
+  recordTransferOut,
+  storeClose,
+  truncateInvestments,
+} from './investment-harness';
 import {
   closeMoneyHarness,
   makeAccount,
@@ -127,6 +135,35 @@ describe('portfolioTwr', () => {
     const result = await portfolioTwr(fixture.ctx);
     expect(result.value!.staleValuations).toBe(0);
     expect(result.value!.staleToday).toBe(false);
+  });
+
+  it('treats shares transferred in from outside as capital, not as performance', async () => {
+    const stock = await makeInstrument(fixture.ctx, { symbol: 'TWRL' });
+    await closes(stock, [['2026-01-05', '100'], ['2026-04-01', '100'], ['2026-08-10', '100']]);
+    must(await recordBuy(fixture.ctx, { accountId: demat, instrumentId: stock, on: '2026-01-05', qty: '100', price: '100' }));
+    // ₹10,000 of the same shares arrive with no cash, and the price never moves.
+    must(await recordTransferIn(fixture.ctx, { accountId: demat, instrumentId: stock, on: '2026-04-01', qty: '100', price: '100' }));
+
+    // Holdings doubled because capital arrived: 0%, not 100%.
+    const result = await portfolioTwr(fixture.ctx);
+    expect(rToDbString(result.value!.twr)).toBe('0.0000000000');
+    expect(result.value!.subPeriods).toBe(2);
+  });
+
+  it('treats shares transferred out as a withdrawal, and a matched pair as nothing', async () => {
+    const other = await makeAccount(fixture.ctx, { name: 'Second Demat', kind: 'brokerage' });
+    const stock = await makeInstrument(fixture.ctx, { symbol: 'TWRM' });
+    await closes(stock, [['2026-01-05', '100'], ['2026-04-01', '120'], ['2026-06-01', '120'], ['2026-08-10', '132']]);
+    must(await recordBuy(fixture.ctx, { accountId: demat, instrumentId: stock, on: '2026-01-05', qty: '100', price: '100' }));
+    // A matched pair between the user's own accounts on 1 April…
+    must(await recordTransferOut(fixture.ctx, { accountId: demat, instrumentId: stock, on: '2026-04-01', qty: '50', price: '120' }));
+    must(await recordTransferIn(fixture.ctx, { accountId: other, instrumentId: stock, on: '2026-04-01', qty: '50', price: '120' }));
+    // …and 20 shares leaving the portfolio altogether on 1 June.
+    must(await recordTransferOut(fixture.ctx, { accountId: other, instrumentId: stock, on: '2026-06-01', qty: '20', price: '120' }));
+
+    // Price path 100 → 120 → 120 → 132 is +20%, 0%, +10%: 32% whatever moved where.
+    const result = await portfolioTwr(fixture.ctx);
+    expect(rToDbString(result.value!.twr)).toBe('0.3200000000');
   });
 
   it('treats sale proceeds as a withdrawal, not as a loss', async () => {
