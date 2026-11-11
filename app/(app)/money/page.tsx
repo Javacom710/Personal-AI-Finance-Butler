@@ -130,16 +130,24 @@ export default async function MoneyPage() {
                 : `${format.rate(health.value.runwayMonths.value, 1)} months`
             }
             note={
-              format.reason(health.value.runwayMonths) ??
+              (health.value.cashExcludedCount > 0
+                ? `${health.value.cashExcludedCount} cash balance(s) have no exchange rate and are not counted`
+                : format.reason(health.value.runwayMonths)) ??
               `${format.money(health.value.liquidCash)} at ${format.metricMoney(health.value.trailing.averageMonthlyExpenses)} a month, the last ${health.value.trailing.months} full months\u2019 average`
             }
           />
           <Figure
             label={`Due in ${health.value.commitments.windowDays} days`}
             value={format.money(health.value.commitments.commitmentsDue)}
-            tone={health.value.commitments.surplus.minor < 0n ? 'text-negative' : 'text-ink'}
+            tone={
+              health.value.cashExcludedCount === 0 && health.value.commitments.surplus.minor < 0n
+                ? 'text-negative'
+                : 'text-ink'
+            }
             note={
-              health.value.commitments.unconvertedCount > 0
+              health.value.cashExcludedCount > 0
+                ? `${health.value.cashExcludedCount} cash balance(s) have no exchange rate, so cover cannot be stated`
+                : health.value.commitments.unconvertedCount > 0
                 ? `${health.value.commitments.unconvertedCount} commitment(s) have no exchange rate and are not counted`
                 : health.value.commitments.coverage.value === null
                   ? 'No recurring payments scheduled'

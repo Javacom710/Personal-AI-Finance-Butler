@@ -280,10 +280,27 @@ async function aggregates(ctx: ReadCtx, scope: PortfolioScope): Promise<Portfoli
   };
 }
 
+/** A time-weighted return, with how much of it rests on prices that were stale when used. */
+export interface PortfolioTwrResult extends TwrResult {
+  /** Boundary valuations the return was chained across. */
+  readonly valuations: number;
+  /**
+   * How many of those included at least one holding at a **stale** price —
+   * stale as of that boundary's own date. A stale price is used, never
+   * withheld (ADR-28), so the figure stands; this is what lets a reader see it
+   * is partly a last-known valuation rather than a current one.
+   */
+  readonly staleValuations: number;
+  /** Whether the valuation dated today is one of them. */
+  readonly staleToday: boolean;
+}
+
 export interface PortfolioResult {
   readonly summary: PortfolioSummary;
   readonly holdings: readonly HoldingView[];
   readonly valuation: PortfolioValuation;
+  /** The detail behind `summary.twr`. Unavailable, with the reason, for a scoped call. */
+  readonly twr: Metric<PortfolioTwrResult>;
 }
 
 export async function portfolio(
@@ -294,6 +311,14 @@ export async function portfolio(
   const totals = await aggregates(ctx, scope);
   const ledgerFlows = await ledgerCashFlows(ctx, scope);
   const flows = withTerminal(ctx, ledgerFlows, valuation.pricedValue);
+
+  // Whole-portfolio only. A scoped TWR needs a scoped valuation series, which
+  // the net-worth composition does not offer; it stays the documented reason
+  // rather than a figure for a different scope (INVESTMENT-DOMAIN.md §8).
+  const twrDetail: Metric<PortfolioTwrResult> =
+    scope.accountId === undefined && scope.instrumentId === undefined
+      ? await twrFromFlows(ctx, ledgerFlows)
+      : unavailable('insufficient_price_history');
 
   const summary = buildSummary({
     baseCurrency: ctx.base,
@@ -313,16 +338,10 @@ export async function portfolio(
     staleInstruments: valuation.stale,
     unpricedInstruments: valuation.unpriced,
     xirr: xirr(flows),
-    // Whole-portfolio only. A scoped TWR needs a scoped valuation series, which
-    // the net-worth composition does not offer; it stays the documented reason
-    // rather than a figure for a different scope (INVESTMENT-DOMAIN.md §8).
-    twr:
-      scope.accountId === undefined && scope.instrumentId === undefined
-        ? await portfolioTwrRate(ctx, ledgerFlows)
-        : unavailable('insufficient_price_history'),
+    twr: twrDetail.value === null ? unavailable(twrDetail.reason) : metric(twrDetail.value.twr),
   });
 
-  return ok({ summary, holdings: valuation.holdings, valuation });
+  return ok({ summary, holdings: valuation.holdings, valuation, twr: twrDetail });
 }
 
 /**
@@ -351,16 +370,14 @@ export async function portfolio(
  * boundary, the result is `insufficient_price_history` — never a return chained
  * across the dates that happened to have prices.
  */
-export async function portfolioTwr(ctx: ReadCtx): Promise<Metric<TwrResult>> {
+export async function portfolioTwr(ctx: ReadCtx): Promise<Metric<PortfolioTwrResult>> {
   return twrFromFlows(ctx, await ledgerCashFlows(ctx, {}));
 }
 
-async function portfolioTwrRate(ctx: ReadCtx, flows: readonly CashFlow[]): Promise<Metric<Rate>> {
-  const result = await twrFromFlows(ctx, flows);
-  return result.value === null ? unavailable(result.reason) : metric(result.value.twr);
-}
-
-async function twrFromFlows(ctx: ReadCtx, investorFlows: readonly CashFlow[]): Promise<Metric<TwrResult>> {
+async function twrFromFlows(
+  ctx: ReadCtx,
+  investorFlows: readonly CashFlow[],
+): Promise<Metric<PortfolioTwrResult>> {
   // Net contribution per date: the investor's flow with the sign turned round.
   const netByDate = new Map<IsoDate, bigint>();
   for (const flow of investorFlows) {
@@ -377,7 +394,13 @@ async function twrFromFlows(ctx: ReadCtx, investorFlows: readonly CashFlow[]): P
   const points = await netWorthSeries(ctx, boundaries, { basis: 'market' });
 
   const valuations: Valuation[] = [];
+  let staleValuations = 0;
+  let staleToday = false;
   for (const point of points) {
+    if ((point.result.market?.staleness.count ?? 0) > 0) {
+      staleValuations += 1;
+      if (point.asOf === to) staleToday = true;
+    }
     // One unvalued holding on one boundary breaks the chain.
     if (point.result.excluded.some((e) => e.group === 'investments')) {
       return unavailable('insufficient_price_history');
@@ -401,7 +424,9 @@ async function twrFromFlows(ctx: ReadCtx, investorFlows: readonly CashFlow[]): P
     amount: Money.fromMinor(minor, ctx.base),
   }));
 
-  return twr({ from, to, valuations, flows });
+  const result = twr({ from, to, valuations, flows });
+  if (result.value === null) return unavailable(result.reason);
+  return metric({ ...result.value, valuations: valuations.length, staleValuations, staleToday });
 }
 
 /**

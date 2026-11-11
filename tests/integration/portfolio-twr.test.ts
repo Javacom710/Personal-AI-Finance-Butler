@@ -105,6 +105,30 @@ describe('portfolioTwr', () => {
     expect(rToDbString(result.value!.twr)).toBe('0.2500000000');
   });
 
+  it('uses a stale price and says so, rather than passing the return off as current', async () => {
+    const stock = await makeInstrument(fixture.ctx, { symbol: 'TWRJ' });
+    // Last priced on 1 June; today is 10 August.
+    await closes(stock, [['2026-01-05', '100'], ['2026-06-01', '120']]);
+    must(await recordBuy(fixture.ctx, { accountId: demat, instrumentId: stock, on: '2026-01-05', qty: '100', price: '100' }));
+
+    const result = await portfolioTwr(fixture.ctx);
+    expect(rToDbString(result.value!.twr)).toBe('0.2000000000');
+    expect(result.value!.valuations).toBe(2);
+    expect(result.value!.staleValuations).toBe(1);
+    expect(result.value!.staleToday).toBe(true);
+    expect(must(await portfolio(fixture.ctx)).twr.value!.staleToday).toBe(true);
+  });
+
+  it('reports no stale valuation when every boundary is freshly priced', async () => {
+    const stock = await makeInstrument(fixture.ctx, { symbol: 'TWRK' });
+    await closes(stock, [['2026-01-05', '100'], ['2026-08-10', '132']]);
+    must(await recordBuy(fixture.ctx, { accountId: demat, instrumentId: stock, on: '2026-01-05', qty: '100', price: '100' }));
+
+    const result = await portfolioTwr(fixture.ctx);
+    expect(result.value!.staleValuations).toBe(0);
+    expect(result.value!.staleToday).toBe(false);
+  });
+
   it('treats sale proceeds as a withdrawal, not as a loss', async () => {
     const stock = await makeInstrument(fixture.ctx, { symbol: 'TWRC' });
     await closes(stock, [['2026-01-05', '100'], ['2026-04-01', '120'], ['2026-08-10', '132']]);
