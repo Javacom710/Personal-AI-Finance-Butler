@@ -79,3 +79,11 @@ export function attentionItems(input: AttentionInput): AttentionItem[] {
   }
   return items;
 }
+
+/**
+ * Whether net worth has no source at all: nothing counted and nothing excluded.
+ * A source that could not be valued is still a record, so it is not "empty".
+ */
+export function isOverviewEmpty(contributions: number, excluded: number): boolean {
+  return contributions === 0 && excluded === 0;
+}

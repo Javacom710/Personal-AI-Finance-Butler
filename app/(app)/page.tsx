@@ -15,7 +15,7 @@ import {
   portfolio,
   upcomingCommitments,
 } from '@/server/services';
-import { attentionItems } from './_overview';
+import { attentionItems, isOverviewEmpty } from './_overview';
 import { amountTone, loadMoneyContext } from './money/_page-data';
 
 export const metadata: Metadata = { title: 'Overview' };
@@ -36,9 +36,22 @@ const UPCOMING_DAYS = 14;
 export default async function OverviewPage() {
   const { ctx, format } = await loadMoneyContext('/');
 
-  const [accounts, instruments] = await Promise.all([listAccounts(ctx), listInstruments(ctx)]);
+  const [accounts, instruments, netWorth] = await Promise.all([
+    listAccounts(ctx),
+    listInstruments(ctx),
+    netWorthReconciliation(ctx),
+  ]);
+  if (!netWorth.ok) throw new Error(netWorth.error.message);
 
-  if (accounts.length === 0 && instruments.length === 0) {
+  // Empty only when NOTHING is recorded. Manual assets, liabilities and inactive
+  // accounts are not in the two active lists but do reach net worth, so the
+  // net-worth sources decide alongside them.
+  const nothingRecorded =
+    accounts.length === 0 &&
+    instruments.length === 0 &&
+    isOverviewEmpty(netWorth.value.result.contributions.length, netWorth.value.result.excluded.length);
+
+  if (nothingRecorded) {
     return (
       <>
         <PageHeader title="Overview" description="Where you stand right now, on one screen." />
@@ -65,8 +78,7 @@ export default async function OverviewPage() {
   const period = periodContaining(ctx.today, 'monthly', ctx.fiscalYearStartMonth);
   const monthAgo = addDays(ctx.today, -30);
 
-  const [netWorth, change, month, invested, allocation, upcoming, budgets] = await Promise.all([
-    netWorthReconciliation(ctx),
+  const [change, month, invested, allocation, upcoming, budgets] = await Promise.all([
     netWorthChange(ctx, monthAgo, ctx.today),
     periodSummary(ctx, period),
     portfolio(ctx),
@@ -75,7 +87,6 @@ export default async function OverviewPage() {
     listBudgetStatuses(ctx),
   ]);
 
-  if (!netWorth.ok) throw new Error(netWorth.error.message);
   if (!invested.ok) throw new Error(invested.error.message);
 
   const { result, reconciliation } = netWorth.value;

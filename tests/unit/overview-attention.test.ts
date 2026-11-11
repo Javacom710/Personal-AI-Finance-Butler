@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { attentionItems, symbolList, type AttentionInput } from '@app/(app)/_overview';
+import { attentionItems, isOverviewEmpty, symbolList, type AttentionInput } from '@app/(app)/_overview';
 
 const clean: AttentionInput = {
   reconciliationResidual: null,
@@ -65,5 +65,15 @@ describe('Overview — needs attention', () => {
   it('caps a symbol list at three and counts the rest', () => {
     expect(symbolList([{ symbol: 'A' }, { symbol: 'B' }])).toBe('A, B');
     expect(symbolList(['A', 'B', 'C', 'D', 'E'].map((symbol) => ({ symbol })))).toBe('A, B, C and 2 more');
+  });
+});
+
+describe('Overview — empty state', () => {
+  it('is empty only when net worth has no counted and no excluded source', () => {
+    expect(isOverviewEmpty(0, 0)).toBe(true);
+    // A manual asset or a liability alone is a contribution.
+    expect(isOverviewEmpty(1, 0)).toBe(false);
+    // A source that could not be valued is still a record.
+    expect(isOverviewEmpty(0, 1)).toBe(false);
   });
 });
