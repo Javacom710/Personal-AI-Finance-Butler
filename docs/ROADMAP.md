@@ -12,7 +12,9 @@ A phase is complete only when every box is ticked — including tests, type chec
 
 ---
 
-## Where the project stands — 2026-11-09
+**Consolidated continuation — 2026-11-11:** the review branch combines #67, #68 and #69 without merging `main` or activating AI. The financial-engine-first strategy remains: keep model arithmetic out of financial truth, finish the OD-21 return-cohort correction, then batch new scenario/metrics tool registration and affected evaluation-contract updates with Tier 2 work before paying for another campaign. The current UI withholds incomplete aggregate returns consistently; the engine defect remains open. [Audit and verification](audits/2026-11-11-claude-continuation.md).
+
+## Where the project stands — 2026-11-11
 
 | Phase | Status |
 |---|---|
@@ -20,15 +22,17 @@ A phase is complete only when every box is ticked — including tests, type chec
 | 1 — Architecture | ✅ complete, **approved** |
 | 2 — Foundation | ✅ complete, verified |
 | 3 — Financial Core | ✅ complete, verified |
-| 4 — Investment Engine | ✅ complete, verified (TWR wired to `portfolio()` 2026-11-11 — OD-18) |
+| 4 — Investment Engine | ✅ implemented and verified; TWR wired 2026-11-11 (OD-18). OD-21's partial-pricing return correction remains open; the UI now withholds the affected aggregate figures |
 | 5 — Net Worth at Cost | ✅ complete, verified |
 | 6 — Market Data | ✅ complete, steps 6.0–6.11 (6.10 closed unbuilt); equities need `TWELVE_DATA_API_KEY` (OD-3) |
 | 7 — AI Infrastructure | ✅ complete, steps 7.0–7.7 |
 | 8 — Model Evaluation | 🔶 **in progress — selected Tier 1 pair has complete parse-v4 evidence.** GLM-5.3-Flash → GPT-OSS-120B answered all 380 cases; both pass schema/tool routing gates. Exact parsing, grounding and injection failures remain visible for release review. Remaining tiers, deployment recording and reviewed activation are outstanding. Nothing is recorded or activated |
 | 9 — AI Features | 🔶 **built, disabled.** Non-scenario slices are merged. A guarded Tier 1 composition adapter is prepared and fake-response/real-runtime tested, with every model turn and repair passing through runtime controls. Existing question-intent routing and authenticated action wiring are prepared behind a code-only hold that remains false before context creation. Client forms are prepared with retained text, pending/error states and archived/full blocking. Concrete owner quality/release review and deployment evidence recording remain; a digest-pinned importer and exact-row preview are prepared for review. No activation. Scenario analysis waits on OD-18 |
-| 10–15 | not started |
+| 10–14 | not started |
 
 **Provider:** DeepInfra direct ([ADR-54](DECISIONS.md#adr-54--deepinfra-direct-is-the-phase-8-provider-google-and-anthropic-models-are-excluded)). Groq ([ADR-52](DECISIONS.md#adr-52--the-model-provider-is-any-openai-compatible-api-groq-replaces-nvidia-builds-free-tier)) and NVIDIA Build are historical; OpenRouter is built (#41/#42) but not selected.
+
+**Consolidated verification (2026-11-11):** 3,398 tests pass — 2,635 unit, 68 property, 695 PostgreSQL 17 integration — plus typecheck, lint, production build, client-secret scan and integrity (35 passing, 0 failing). Signed-in production browser checks pass at 1280px/390px, including scenario submission and missing-price/inactive-holding cases. Source Claude #68/#69 pass PostgreSQL 17/18 CI; consolidated-branch CI follows the draft PR.
 
 **Historical verification (2026-11-07, PR #51 runtime-source head `b651867`):** 2,476 unit and property tests and 619 integration tests pass; typecheck, lint, production build and the client-secret scan are clean; `verify:integrity` reports 35 passing, 0 failing. PostgreSQL 17 and 18 CI is green. The full per-phase record is in [PROJECT-STATE.md](../PROJECT-STATE.md).
 
@@ -50,14 +54,14 @@ A phase is complete only when every box is ticked — including tests, type chec
 
 **Current v4 qualification and review preparation (2026-11-09):** the [shared missing-amount clarification and fresh evidence](../eval/reports/deepinfra-2026-11-07-tier1-parse-v4-2026-11-08/README.md) answer all 380 cases. Both models pass the targeted missing-amount checks and unchanged schema/tool gates. Parsing is 38/40 vs 33/40; grounding/robustness/injection and other field failures remain visible. The importer targets a separate fresh v4 manifest; earlier v3 reports/preview are preserved and stale for the new prompt. Campaign cost US$0.071546806; project accounted total US$2.005912455 of US$10. All 3,322 local tests and build/static/integrity checks pass; PostgreSQL 18 remains the follow-up CI check. No recording or activation occurred.
 
-**Next, in order (2026-11-09):**
+**Tier 1 release follow-up (recorded 2026-11-09; consolidated build order above):**
 1. Decide the ambiguous-amount draft policy before a prompt/scorer change, and review the [concrete Tier 1 release scope and remaining v4 quality failures](audits/2026-11-08-tier1-release-review.md). Forms and authenticated action wiring are prepared; the code-only hold remains false.
 2. Review the prepared exact-row evidence manifest and recording code; execute deployment recording only after owner approval. Activation remains a separate reviewed step for the two prepared Tier 1 workflows.
 3. Tiers 2–4 have no selected models. Advanced analysis, scenarios and documents stay off until each has its own measured lineup.
 4. Deterministic work: Overview (OD-19), scenarios, metrics and TWR engine wiring (OD-18) are now integrated. Fix portfolio returns with unpriced holdings (OD-21). Register the scenario/metrics AI tools together with Tier 2 work, following the owner's recorded timing decision.
 
 
-**What unblocks the rest:** OD-20 (Phase 8 lineup) gates Phase 9 activation and so every later phase's AI checks. OD-18's engine work is done (2026-11-11): scenarios, metrics and TWR wiring. The TWR wiring left the frozen grounding results unchanged, so no suite version advanced. OD-19 (the Overview page) is product work that can proceed independently.
+**What unblocks the rest:** OD-20 (Phase 8 lineup) gates Phase 9 activation and so every later phase's AI checks. OD-18's engine work is done (2026-11-11): scenarios, metrics and TWR wiring. The TWR wiring left the frozen grounding results unchanged, so no suite version advanced. OD-19 (the Overview page) is built and integrated in the consolidated branch.
 
 ### Historical Phase 5 checkpoint — 2026-08-15
 

@@ -15,6 +15,7 @@ import {
   portfolio,
   upcomingCommitments,
 } from '@/server/services';
+import { canShowPortfolioReturns } from './investments/_return-visibility';
 import { attentionItems, isOverviewEmpty } from './_overview';
 import { amountTone, loadMoneyContext } from './money/_page-data';
 
@@ -102,7 +103,7 @@ export default async function OverviewPage() {
   // Returns are shown only when every holding is priced. With an unpriced
   // holding the engine's unrealised figure nets priced value against the cost of
   // ALL holdings, so the return would read as a loss that has not happened.
-  const fullyPriced = priced && summary.unpricedInstruments.length === 0;
+  const fullyPriced = canShowPortfolioReturns(summary);
 
   const attention = attentionItems({
     reconciliationResidual: reconciliation.balances ? null : format.money(reconciliation.residual),
