@@ -27,6 +27,7 @@ export function NavTabs({ current }: { current: string }) {
     ['Transactions', '/investments/transactions'],
     ['Allocation', '/investments/allocation'],
     ['Performance', '/investments/performance'],
+    ['Scenarios', '/investments/scenarios'],
     ['Instruments', '/investments/instruments'],
   ] as const;
 

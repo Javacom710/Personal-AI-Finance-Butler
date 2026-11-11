@@ -35,6 +35,7 @@ export type {
   Concentration,
 } from '../domain/pricing/allocation';
 export type { PortfolioSummary, GrowthPoint, GrowthSeries } from '../domain/calc/portfolio';
+export type { CommitmentCoverage } from '../domain/calc/metrics';
 
 // Net worth types a page renders without importing the engine itself.
 export type {
@@ -54,6 +55,7 @@ export type { BridgeLine, BridgeLineKey } from '../domain/networth/bridge';
 export * from './accounts';
 export * from './assets';
 export * from './liabilities';
+export * from './metrics';
 export * from './networth';
 export * from './budgets';
 export * from './cashflow';
@@ -65,6 +67,7 @@ export * from './positions';
 export * from './prices';
 export * from './recurring';
 export * from './reference';
+export * from './scenarios';
 export * from './tags';
 export * from './transactions';
 export * from './transfers';

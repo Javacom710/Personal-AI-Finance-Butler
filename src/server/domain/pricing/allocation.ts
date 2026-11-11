@@ -45,7 +45,7 @@ export interface Allocation {
   readonly unpricedCount: number;
 }
 
-const ASSET_CLASS_LABELS: Record<string, string> = {
+export const ASSET_CLASS_LABELS: Record<string, string> = {
   equity: 'Equities',
   mutual_fund: 'Mutual funds',
   etf: 'ETFs',
