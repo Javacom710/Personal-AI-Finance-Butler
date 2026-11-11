@@ -384,22 +384,32 @@ export async function portfolioTwr(ctx: ReadCtx): Promise<Metric<PortfolioTwrRes
 
 async function twrFromFlows(ctx: ReadCtx, ledger: LedgerFlows): Promise<Metric<PortfolioTwrResult>> {
   // Net contribution per date: the investor's flow with the sign turned round.
+  // Nothing dated after today is part of a return to today. A future-dated row
+  // is a valid ledger entry, and its price cannot exist yet — letting it into
+  // the pricing below would make a calculable return unavailable.
+  const to = ctx.today;
+  const dated = <T extends { readonly on: IsoDate }>(rows: readonly T[]): T[] =>
+    rows.filter((row) => compareDates(row.on, to) <= 0);
+
   const netByDate = new Map<IsoDate, bigint>();
-  for (const flow of ledger.flows) {
+  for (const flow of dated(ledger.flows)) {
     netByDate.set(flow.on, (netByDate.get(flow.on) ?? 0n) - flow.amount.minor);
   }
+  // Dates on which a figure in this calculation rested on a stale price.
+  const staleDates = new Set<IsoDate>();
 
   // A transfer leg is worth what its units were worth that day — the same
   // price and rate the boundary valuation uses, so the two cannot disagree. Its
   // recorded amount is the carried cost basis, and using that would book the
   // shares' appreciation before they arrived as this portfolio's return.
-  if (ledger.portfolioTransfers.length > 0) {
-    const dates = ledger.portfolioTransfers.map((leg) => leg.on);
+  const transfers = dated(ledger.portfolioTransfers);
+  if (transfers.length > 0) {
+    const dates = transfers.map((leg) => leg.on);
     const market = await loadMarketSources(ctx, {
       from: dates.reduce((a, b) => (compareDates(a, b) <= 0 ? a : b)),
       to: dates.reduce((a, b) => (compareDates(a, b) >= 0 ? a : b)),
     });
-    for (const leg of ledger.portfolioTransfers) {
+    for (const leg of transfers) {
       const instrument = market.instruments.get(leg.instrumentId);
       const price = instrument === undefined ? null : priceAt(market, instrument, leg.on, ctx.today);
       if (instrument === undefined || price === null || !price.ok) {
@@ -407,6 +417,9 @@ async function twrFromFlows(ctx: ReadCtx, ledger: LedgerFlows): Promise<Metric<P
       }
       const rate = ctx.fx.rate(instrument.currency, ctx.base, leg.on);
       if (!rate.ok) return unavailable('no_fx_rate');
+      // A leg that takes the last units out leaves nothing in the boundary
+      // valuation to carry the staleness, so it is recorded here.
+      if (price.freshness === 'stale') staleDates.add(leg.on);
       const value = mulRate(
         valueOf(closingBasisUnits(leg, ledger.corporateActions), price.price, instrument.currency, 'half_up'),
         rate.value.rate,
@@ -419,20 +432,14 @@ async function twrFromFlows(ctx: ReadCtx, ledger: LedgerFlows): Promise<Metric<P
 
   const flowDates = [...netByDate.keys()].sort(compareDates);
   const from = flowDates[0]!;
-  const to = ctx.today;
   if (compareDates(from, to) >= 0) return unavailable('no_data');
 
-  const boundaries = [...new Set([...flowDates.filter((d) => compareDates(d, to) <= 0), to])];
+  const boundaries = [...new Set([...flowDates, to])];
   const points = await netWorthSeries(ctx, boundaries, { basis: 'market' });
 
   const valuations: Valuation[] = [];
-  let staleValuations = 0;
-  let staleToday = false;
   for (const point of points) {
-    if ((point.result.market?.staleness.count ?? 0) > 0) {
-      staleValuations += 1;
-      if (point.asOf === to) staleToday = true;
-    }
+    if ((point.result.market?.staleness.count ?? 0) > 0) staleDates.add(point.asOf);
     // One unvalued holding on one boundary breaks the chain.
     if (point.result.excluded.some((e) => e.group === 'investments')) {
       return unavailable('insufficient_price_history');
@@ -458,7 +465,12 @@ async function twrFromFlows(ctx: ReadCtx, ledger: LedgerFlows): Promise<Metric<P
 
   const result = twr({ from, to, valuations, flows });
   if (result.value === null) return unavailable(result.reason);
-  return metric({ ...result.value, valuations: valuations.length, staleValuations, staleToday });
+  return metric({
+    ...result.value,
+    valuations: valuations.length,
+    staleValuations: staleDates.size,
+    staleToday: staleDates.has(to),
+  });
 }
 
 /**

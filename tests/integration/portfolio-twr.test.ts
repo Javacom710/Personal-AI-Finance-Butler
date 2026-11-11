@@ -189,6 +189,33 @@ describe('portfolioTwr', () => {
     expect(rToDbString(result.value!.twr)).toBe('0.0000000000');
   });
 
+  it('ignores a future-dated transfer, whose price cannot exist yet', async () => {
+    const stock = await makeInstrument(fixture.ctx, { symbol: 'TWRS' });
+    const later = await makeInstrument(fixture.ctx, { symbol: 'TWRT' });
+    await closes(stock, [['2026-01-05', '100'], ['2026-08-10', '132']]);
+    must(await recordBuy(fixture.ctx, { accountId: demat, instrumentId: stock, on: '2026-01-05', qty: '100', price: '100' }));
+    // Scheduled for next month, in an instrument nobody has priced.
+    must(await recordTransferIn(fixture.ctx, { accountId: demat, instrumentId: later, on: '2026-09-15', qty: '10', price: '100' }));
+
+    const result = await portfolioTwr(fixture.ctx);
+    expect(rToDbString(result.value!.twr)).toBe('0.3200000000');
+    expect(result.value!.subPeriods).toBe(1);
+  });
+
+  it('flags a stale price used to value a transfer that takes the last units out', async () => {
+    const stock = await makeInstrument(fixture.ctx, { symbol: 'TWRU' });
+    // Last priced on 1 June; everything leaves today, 10 August.
+    await closes(stock, [['2026-01-05', '100'], ['2026-06-01', '120']]);
+    must(await recordBuy(fixture.ctx, { accountId: demat, instrumentId: stock, on: '2026-01-05', qty: '100', price: '100' }));
+    must(await recordTransferOut(fixture.ctx, { accountId: demat, instrumentId: stock, on: '2026-08-10', qty: '100', price: '100' }));
+
+    // Nothing is left to value, so the boundary alone would report no staleness.
+    const result = await portfolioTwr(fixture.ctx);
+    expect(rToDbString(result.value!.twr)).toBe('0.2000000000');
+    expect(result.value!.staleValuations).toBe(1);
+    expect(result.value!.staleToday).toBe(true);
+  });
+
   it('cannot state a return when a transferred holding has no price on its transfer date', async () => {
     const priced = await makeInstrument(fixture.ctx, { symbol: 'TWRO' });
     const gap = await makeInstrument(fixture.ctx, { symbol: 'TWRP' });

@@ -667,6 +667,8 @@ The period ending at `D` then closes before the flow, and the period starting at
 
 - If any holding is excluded from the market valuation on any boundary (no price within the carry-back bound, no FX rate, an unreconciled corporate action), the result is `insufficient_price_history`. A chain with a missing link is not a smaller sample.
 - **A stale price is used, and counted.** Net worth values a holding at a stale price rather than withholding it ([ADR-28](DECISIONS.md#adr-28--staleness-is-measured-in-trading-sessions-not-wall-clock-hours)), so the return stands; the result carries `valuations`, `staleValuations` (stale as of each boundary's own date) and `staleToday`, and the Performance page says when the figure runs only to the last known prices.
+- **Rows dated after today are left out** before anything is priced. A future-dated transaction is a valid ledger entry, and its price cannot exist yet.
+- Staleness is also taken from the price used to value a **transfer leg**, since a leg that removes the last units leaves nothing in the boundary valuation to carry it.
 - No transactions, or a first transaction dated today, is `no_data`.
 - **Manually typed prices do not count as history.** `setManualPrice` moves the quote but writes no `instrument_prices` row, so a holding priced only by hand has a value today and none on an earlier flow date; its TWR is `insufficient_price_history` until a provider has stored closes for it.
 - **Whole portfolio only.** A scoped call (`accountId` or `instrumentId`) still reports `insufficient_price_history`, because there is no scoped valuation series.
