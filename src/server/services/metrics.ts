@@ -30,7 +30,7 @@ import type { ReadCtx } from './_ctx';
 import { listAccounts } from './accounts';
 import { periodSummary } from './cashflow';
 import { netWorthReconciliation } from './networth';
-import { DEFAULT_HORIZON_DAYS, listOccurrences, listRules } from './recurring';
+import { DEFAULT_HORIZON_DAYS, pendingExpensesDue } from './recurring';
 
 export const DEFAULT_TRAILING_MONTHS = 3;
 export const DEFAULT_COMMITMENT_DAYS = 30;
@@ -84,12 +84,11 @@ export async function financialMetrics(
   const monthStart = startOfMonth(ctx.today);
   const trailingRange = dateRange(addMonths(monthStart, -trailingMonths), addDays(monthStart, -1));
 
-  const [current, trailing, netWorth, occurrences, rules, accounts] = await Promise.all([
+  const [current, trailing, netWorth, pending, accounts] = await Promise.all([
     periodSummary(ctx, period),
     periodSummary(ctx, trailingRange),
     netWorthReconciliation(ctx),
-    listOccurrences(ctx, { status: 'pending', from: ctx.today, to: addDays(ctx.today, windowDays) }),
-    listRules(ctx, { includeInactive: true }),
+    pendingExpensesDue(ctx, ctx.today, addDays(ctx.today, windowDays)),
     listAccounts(ctx, { includeInactive: true }),
   ]);
   if (!netWorth.ok) return netWorth;
@@ -99,16 +98,13 @@ export async function financialMetrics(
 
   // A recurring amount is in its account's currency; coverage is a base figure.
   const currencyOf = new Map(accounts.map((a) => [a.id, a.currency]));
-  const ruleById = new Map(rules.map((r) => [r.id, r]));
   const due: Commitment[] = [];
   let unconvertedCount = 0;
 
-  for (const occurrence of occurrences) {
-    if (occurrence.kind !== 'expense') continue;
-    const template = ruleById.get(occurrence.ruleId)?.template;
-    const currency = template?.kind === 'expense' ? currencyOf.get(template.accountId) : undefined;
+  for (const expense of pending) {
+    const currency = currencyOf.get(expense.accountId);
     const converted =
-      currency === undefined ? null : ctx.fx.toBase(Money.of(occurrence.amountText, currency), ctx.today);
+      currency === undefined ? null : ctx.fx.toBase(Money.of(expense.amountText, currency), ctx.today);
     if (converted === null || !converted.ok) {
       unconvertedCount += 1;
       continue;

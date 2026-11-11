@@ -136,6 +136,34 @@ describe('financialMetrics', () => {
     expect(m.commitments.unconvertedCount).toBe(0);
   });
 
+  it('counts every pending expense, past the display list\'s row cap', async () => {
+    const bank = await makeAccount(fixture.ctx, { name: 'Bank', openingBalance: '100000' });
+    // A daily ₹10 expense and a daily income rule: 31 + 31 occurrences in the
+    // window per pair, and eight pairs put well over 200 rows in it.
+    for (let i = 0; i < 8; i += 1) {
+      for (const kind of ['income', 'expense'] as const) {
+        must(
+          await write(fixture.ctx, (w) =>
+            createRule(w, {
+              name: `${kind} ${i}`,
+              template: { kind, accountId: bank, categoryId: kind === 'income' ? salary : housing, amount: '10', description: kind },
+              rrule: 'FREQ=DAILY',
+              startsOn: '2026-08-10',
+              endsOn: null,
+              autoPost: false,
+            }),
+          ),
+        );
+      }
+    }
+    must(await write(fixture.ctx, (w) => materialiseOccurrences(w)));
+
+    const m = must(await financialMetrics(fixture.ctx));
+    // 10 Aug … 9 Sep inclusive is 31 days × 8 expense rules × ₹10.
+    expect(m.commitments.commitmentCount).toBe(248);
+    expect(toDbString(m.commitments.commitmentsDue)).toBe('2480.0000');
+  });
+
   it('widens both windows on request', async () => {
     const bank = await makeAccount(fixture.ctx, { name: 'Bank', openingBalance: '120000' });
     await record(fixture.ctx, { kind: 'expense', accountId: bank, categoryId: food, amount: '60000', bookedOn: '2026-02-10' });
