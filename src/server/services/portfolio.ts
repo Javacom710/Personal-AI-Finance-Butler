@@ -28,7 +28,8 @@ import { and, asc, desc, eq, sql, type SQL } from 'drizzle-orm';
 import { compareDates, isoDate, type IsoDate } from '../../lib/date';
 import { Money, currency, mulRate, sum, type CurrencyCode } from '../../lib/decimal/money';
 import { valueOf } from '../../lib/decimal/price';
-import { Quantity, qAbs } from '../../lib/decimal/quantity';
+import { Quantity, qAbs, qAdd, qScale } from '../../lib/decimal/quantity';
+import { kindRank } from '../domain/lots/order';
 import { Rate } from '../../lib/decimal/rate';
 import { metric, unavailable, type Metric } from '../../lib/metric';
 import { ok, type DomainError, type Result } from '../../lib/result';
@@ -407,7 +408,7 @@ async function twrFromFlows(ctx: ReadCtx, ledger: LedgerFlows): Promise<Metric<P
       const rate = ctx.fx.rate(instrument.currency, ctx.base, leg.on);
       if (!rate.ok) return unavailable('no_fx_rate');
       const value = mulRate(
-        valueOf(leg.quantity, price.price, instrument.currency, 'half_up'),
+        valueOf(closingBasisUnits(leg, ledger.corporateActions), price.price, instrument.currency, 'half_up'),
         rate.value.rate,
         'half_up',
       ).minor;
@@ -461,6 +462,37 @@ async function twrFromFlows(ctx: ReadCtx, ledger: LedgerFlows): Promise<Metric<P
 }
 
 /**
+ * A transfer leg's units on the basis the day's closing price is quoted in.
+ *
+ * `replay()` applies a split or bonus **after** the same day's trades, so shares
+ * transferred on an ex-date are recorded pre-action while that day's close is
+ * post-action. Pricing the recorded units at that close would value 100 shares
+ * arriving on a 2:1 split date at half what they were worth.
+ *
+ * The same two operations `replay()` applies to a lot, in the same order and
+ * rounding — a split scales, a bonus adds the scaled amount. The action is read
+ * from the leg's own account; a leg that empties its account may have no action
+ * recorded there, so another account's record of the same instrument and date
+ * is used instead — one account's, never several, or the ratio would compound.
+ */
+function closingBasisUnits(leg: TransferLeg, actions: readonly CorporateAction[]): Quantity {
+  const sameDay = actions.filter((a) => a.on === leg.on && a.instrumentId === leg.instrumentId);
+  if (sameDay.length === 0) return leg.quantity;
+
+  const own = sameDay.filter((a) => a.accountId === leg.accountId);
+  const source = own.length > 0 ? own : sameDay.filter((a) => a.accountId === sameDay[0]!.accountId);
+
+  let units = leg.quantity;
+  for (const action of source) {
+    units =
+      action.kind === 'split'
+        ? qScale(units, action.num, action.den, 'half_up')
+        : qAdd(units, qScale(units, action.num, action.den, 'half_up'));
+  }
+  return units;
+}
+
+/**
  * The XIRR series, from the investor's perspective
  * ([INVESTMENT-DOMAIN.md §7](../../../docs/INVESTMENT-DOMAIN.md#7-xirr)).
  *
@@ -499,8 +531,20 @@ function withTerminal(ctx: ReadCtx, ledger: readonly CashFlow[], terminalValue: 
 interface TransferLeg {
   readonly on: IsoDate;
   readonly direction: 'in' | 'out';
+  readonly accountId: string;
   readonly instrumentId: string;
+  /** Units as recorded — before any corporate action dated the same day. */
   readonly quantity: Quantity;
+}
+
+/** A split or bonus, for restating a same-day transfer's units onto the closing price's basis. */
+interface CorporateAction {
+  readonly on: IsoDate;
+  readonly accountId: string;
+  readonly instrumentId: string;
+  readonly kind: 'split' | 'bonus';
+  readonly num: bigint;
+  readonly den: bigint;
 }
 
 interface LedgerFlows {
@@ -517,6 +561,8 @@ interface LedgerFlows {
    * Empty for a scoped call, where the legs are already in `flows`.
    */
   readonly portfolioTransfers: TransferLeg[];
+  /** In replay order. Only collected at portfolio scope, where the transfers are. */
+  readonly corporateActions: CorporateAction[];
 }
 
 /** Ledger rows only, no terminal value. */
@@ -534,15 +580,21 @@ async function ledgerCashFlows(ctx: ReadCtx, scope: PortfolioScope): Promise<Led
   const { rows } = await ctx.db.execute<{
     kind: string;
     trade_date: string;
+    account_id: string;
     instrument_id: string;
     quantity: string | null;
+    ratio_num: number | null;
+    ratio_den: number | null;
     base_net_amount: string;
     base_gross: string | null;
   }>(sql`
     select kind::text            as kind,
            trade_date::text      as trade_date,
+           account_id::text      as account_id,
            instrument_id::text   as instrument_id,
            quantity::text        as quantity,
+           ratio_num             as ratio_num,
+           ratio_den             as ratio_den,
            base_net_amount::text as base_net_amount,
            case when gross_amount is null then null
                 else round(gross_amount * fx_rate_instrument_to_account * fx_rate_to_base, 4)::text
@@ -554,6 +606,7 @@ async function ledgerCashFlows(ctx: ReadCtx, scope: PortfolioScope): Promise<Led
 
   const flows: CashFlow[] = [];
   const portfolioTransfers: TransferLeg[] = [];
+  const corporateActions: CorporateAction[] = [];
 
   for (const row of rows) {
     const on = isoDate(row.trade_date);
@@ -566,6 +619,7 @@ async function ledgerCashFlows(ctx: ReadCtx, scope: PortfolioScope): Promise<Led
           portfolioTransfers.push({
             on,
             direction: row.kind === 'transfer_in' ? 'in' : 'out',
+            accountId: row.account_id,
             instrumentId: row.instrument_id,
             // Stored signed (an out is negative); the direction is carried
             // separately, so the magnitude is what is valued.
@@ -587,14 +641,33 @@ async function ledgerCashFlows(ctx: ReadCtx, scope: PortfolioScope): Promise<Led
       continue;
     }
 
-    // Corporate actions move no cash, so they contribute nothing.
-    if (row.kind === 'split' || row.kind === 'bonus') continue;
+    // Corporate actions move no cash, so they contribute nothing — but a
+    // transfer dated the same day is priced at a close that already reflects
+    // them, so they are kept to restate its units.
+    if (row.kind === 'split' || row.kind === 'bonus') {
+      if (!scoped && row.ratio_num !== null && row.ratio_den !== null) {
+        corporateActions.push({
+          on,
+          accountId: row.account_id,
+          instrumentId: row.instrument_id,
+          kind: row.kind,
+          num: BigInt(row.ratio_num),
+          den: BigInt(row.ratio_den),
+        });
+      }
+      continue;
+    }
 
     const amount = Money.fromDbString(row.base_net_amount, ctx.base);
     if (amount.minor !== 0n) flows.push({ on, amount });
   }
 
-  return { flows, portfolioTransfers };
+  // Split before bonus on a shared date, as `replay()` orders them.
+  corporateActions.sort((a, b) =>
+    a.on !== b.on ? (a.on < b.on ? -1 : 1) : kindRank(a.kind) - kindRank(b.kind),
+  );
+
+  return { flows, portfolioTransfers, corporateActions };
 }
 
 // -------------------------------------------------------------- allocation

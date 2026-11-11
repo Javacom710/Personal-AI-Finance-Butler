@@ -6,6 +6,7 @@ import { closeHarness, truncateAll } from './harness';
 import {
   makeInstrument,
   recordBuy,
+  recordCorporateAction,
   recordSell,
   recordTransferIn,
   recordTransferOut,
@@ -158,6 +159,32 @@ describe('portfolioTwr', () => {
     must(await recordTransferIn(fixture.ctx, { accountId: demat, instrumentId: stock, on: '2026-04-01', qty: '100', price: '50', acquiredOn: '2020-01-01' }));
 
     // The gain behind that basis was made before the shares arrived: 0%, not 50%.
+    const result = await portfolioTwr(fixture.ctx);
+    expect(rToDbString(result.value!.twr)).toBe('0.0000000000');
+  });
+
+  it('restates a transfer dated on a split onto the split-adjusted close', async () => {
+    const stock = await makeInstrument(fixture.ctx, { symbol: 'TWRQ' });
+    // 2:1 split on 1 April: ₹100 a share before, ₹50 after, no change in value.
+    await closes(stock, [['2026-01-05', '100'], ['2026-04-01', '50'], ['2026-08-10', '50']]);
+    must(await recordBuy(fixture.ctx, { accountId: demat, instrumentId: stock, on: '2026-01-05', qty: '100', price: '100' }));
+    must(await recordTransferIn(fixture.ctx, { accountId: demat, instrumentId: stock, on: '2026-04-01', qty: '100', price: '100' }));
+    must(await recordCorporateAction(fixture.ctx, { accountId: demat, instrumentId: stock, on: '2026-04-01', num: 2, den: 1 }));
+
+    // 100 shares arrive worth ₹10,000 and become 200 at ₹50. 400 × 50 = ₹20,000
+    // on ₹10,000 held plus ₹10,000 transferred: 0%, not 50%.
+    const result = await portfolioTwr(fixture.ctx);
+    expect(rToDbString(result.value!.twr)).toBe('0.0000000000');
+  });
+
+  it('restates a same-day transfer for a bonus issue too', async () => {
+    const stock = await makeInstrument(fixture.ctx, { symbol: 'TWRR' });
+    // 1:1 bonus on 1 April: one new share per share held, price halves.
+    await closes(stock, [['2026-01-05', '100'], ['2026-04-01', '50'], ['2026-08-10', '50']]);
+    must(await recordBuy(fixture.ctx, { accountId: demat, instrumentId: stock, on: '2026-01-05', qty: '100', price: '100' }));
+    must(await recordTransferIn(fixture.ctx, { accountId: demat, instrumentId: stock, on: '2026-04-01', qty: '100', price: '100' }));
+    must(await recordCorporateAction(fixture.ctx, { accountId: demat, instrumentId: stock, on: '2026-04-01', num: 1, den: 1 }, 'bonus'));
+
     const result = await portfolioTwr(fixture.ctx);
     expect(rToDbString(result.value!.twr)).toBe('0.0000000000');
   });
