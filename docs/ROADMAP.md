@@ -54,7 +54,7 @@ A phase is complete only when every box is ticked — including tests, type chec
 1. Decide the ambiguous-amount draft policy before a prompt/scorer change, and review the [concrete Tier 1 release scope and remaining v4 quality failures](audits/2026-11-08-tier1-release-review.md). Forms and authenticated action wiring are prepared; the code-only hold remains false.
 2. Review the prepared exact-row evidence manifest and recording code; execute deployment recording only after owner approval. Activation remains a separate reviewed step for the two prepared Tier 1 workflows.
 3. Tiers 2–4 have no selected models. Advanced analysis, scenarios and documents stay off until each has its own measured lineup.
-4. Independently of the AI work: OD-18 (scenario engine, metrics, TWR wiring) and OD-19 (the Overview page).
+4. Independently of the AI work: OD-18 (scenario engine, metrics, TWR wiring) and OD-21 (portfolio returns with unpriced holdings). OD-19, the Overview page, was built on 2026-11-11.
 
 **What unblocks the rest:** OD-20 (Phase 8 lineup) gates Phase 9 activation and so every later phase's AI checks. OD-18 (scenario engine, missing metrics, TWR wiring) is deterministic engine work that can proceed once its phase placement is chosen; wiring TWR changes the frozen grounding results, so it also bumps evaluation suite versions. OD-19 (the Overview page) is product work that can proceed independently.
 
@@ -397,7 +397,7 @@ is normative in `AI-SYSTEM.md` §8 — *an AI capability exists only where a det
 capability already exists or has an explicitly approved implementation path.* **AI must not become a
 substitute for missing financial-engine functionality.**
 
-**The Overview page stays a Phase-2 placeholder for now** — **OD-19, deferred 2026-08-30** as a
+**The Overview page is built (2026-11-11, OD-19 resolved).** *Earlier record:* it stayed a Phase-2 placeholder — **OD-19, deferred 2026-08-30** as a
 product/UI work item scheduled with the Phase 9 UX pass. It does not block Phase 7.
 
 | Step | Delivers | Needs the key? |
