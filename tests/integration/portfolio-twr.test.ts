@@ -150,6 +150,33 @@ describe('portfolioTwr', () => {
     expect(result.value!.subPeriods).toBe(2);
   });
 
+  it('values a transfer at what the shares were worth, not at their carried cost', async () => {
+    const stock = await makeInstrument(fixture.ctx, { symbol: 'TWRN' });
+    await closes(stock, [['2026-01-05', '100'], ['2026-04-01', '100'], ['2026-08-10', '100']]);
+    must(await recordBuy(fixture.ctx, { accountId: demat, instrumentId: stock, on: '2026-01-05', qty: '100', price: '100' }));
+    // Worth ₹10,000 on the day, carried in at a ₹5,000 basis from years ago.
+    must(await recordTransferIn(fixture.ctx, { accountId: demat, instrumentId: stock, on: '2026-04-01', qty: '100', price: '50', acquiredOn: '2020-01-01' }));
+
+    // The gain behind that basis was made before the shares arrived: 0%, not 50%.
+    const result = await portfolioTwr(fixture.ctx);
+    expect(rToDbString(result.value!.twr)).toBe('0.0000000000');
+  });
+
+  it('cannot state a return when a transferred holding has no price on its transfer date', async () => {
+    const priced = await makeInstrument(fixture.ctx, { symbol: 'TWRO' });
+    const gap = await makeInstrument(fixture.ctx, { symbol: 'TWRP' });
+    await closes(priced, [['2026-01-05', '100'], ['2026-04-01', '100'], ['2026-06-01', '100'], ['2026-08-10', '100']]);
+    await closes(gap, [['2026-04-01', '100']]);
+    must(await recordBuy(fixture.ctx, { accountId: demat, instrumentId: priced, on: '2026-01-05', qty: '100', price: '100' }));
+    // In on a priced day, out — entirely — on a day with no price in reach.
+    must(await recordTransferIn(fixture.ctx, { accountId: demat, instrumentId: gap, on: '2026-04-01', qty: '10', price: '100' }));
+    must(await recordTransferOut(fixture.ctx, { accountId: demat, instrumentId: gap, on: '2026-06-01', qty: '10', price: '100' }));
+
+    const result = await portfolioTwr(fixture.ctx);
+    expect(result.value).toBeNull();
+    expect(result.reason).toBe('insufficient_price_history');
+  });
+
   it('treats shares transferred out as a withdrawal, and a matched pair as nothing', async () => {
     const other = await makeAccount(fixture.ctx, { name: 'Second Demat', kind: 'brokerage' });
     const stock = await makeInstrument(fixture.ctx, { symbol: 'TWRM' });

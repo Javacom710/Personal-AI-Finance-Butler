@@ -26,8 +26,9 @@ import 'server-only';
 import { and, asc, desc, eq, sql, type SQL } from 'drizzle-orm';
 
 import { compareDates, isoDate, type IsoDate } from '../../lib/date';
-import { Money, currency, sum, type CurrencyCode } from '../../lib/decimal/money';
-import { Quantity } from '../../lib/decimal/quantity';
+import { Money, currency, mulRate, sum, type CurrencyCode } from '../../lib/decimal/money';
+import { valueOf } from '../../lib/decimal/price';
+import { Quantity, qAbs } from '../../lib/decimal/quantity';
 import { Rate } from '../../lib/decimal/rate';
 import { metric, unavailable, type Metric } from '../../lib/metric';
 import { ok, type DomainError, type Result } from '../../lib/result';
@@ -53,6 +54,7 @@ import {
 } from '../domain/pricing/valuation';
 import { accounts, instruments, investmentTransactions, lotDisposals, positions, taxLots } from '../db/schema';
 import type { ReadCtx } from './_ctx';
+import { loadMarketSources, priceAt } from './_networth-market';
 import { netWorthSeries } from './networth';
 import { quotesFor } from './prices';
 
@@ -317,7 +319,7 @@ export async function portfolio(
   // rather than a figure for a different scope (INVESTMENT-DOMAIN.md §8).
   const twrDetail: Metric<PortfolioTwrResult> =
     scope.accountId === undefined && scope.instrumentId === undefined
-      ? await twrFromFlows(ctx, twrFlows(ledger))
+      ? await twrFromFlows(ctx, ledger)
       : unavailable('insufficient_price_history');
 
   const summary = buildSummary({
@@ -353,8 +355,10 @@ export async function portfolio(
  * - **External flows** — the XIRR series with the sign turned round and the
  *   terminal value dropped, **plus every in-kind transfer leg**. XIRR drops
  *   those at portfolio scope; TWR cannot, because the valuation rises and falls
- *   with each leg. A matched pair cancels on its own, and an unmatched leg is
- *   capital arriving or leaving, not performance. Money the investor paid in is a contribution to the
+ *   with each leg. Each leg is valued at **that day's market value** of its
+ *   units, not at its recorded amount, which is the carried cost basis. A
+ *   matched pair cancels on its own, and an unmatched leg is capital arriving or
+ *   leaving, not performance. Money the investor paid in is a contribution to the
  *   holdings; proceeds, dividends and interest leave them, because brokerage
  *   cash is outside the portfolio. Standalone fees and taxes count as
  *   contributions that bought nothing, so the figure is net of them, exactly as
@@ -374,22 +378,41 @@ export async function portfolio(
  * across the dates that happened to have prices.
  */
 export async function portfolioTwr(ctx: ReadCtx): Promise<Metric<PortfolioTwrResult>> {
-  return twrFromFlows(ctx, twrFlows(await ledgerCashFlows(ctx, {})));
+  return twrFromFlows(ctx, await ledgerCashFlows(ctx, {}));
 }
 
-/** Every movement of capital into or out of the holdings, transfer legs included. */
-function twrFlows(ledger: LedgerFlows): CashFlow[] {
-  return [...ledger.flows, ...ledger.portfolioTransfers];
-}
-
-async function twrFromFlows(
-  ctx: ReadCtx,
-  investorFlows: readonly CashFlow[],
-): Promise<Metric<PortfolioTwrResult>> {
+async function twrFromFlows(ctx: ReadCtx, ledger: LedgerFlows): Promise<Metric<PortfolioTwrResult>> {
   // Net contribution per date: the investor's flow with the sign turned round.
   const netByDate = new Map<IsoDate, bigint>();
-  for (const flow of investorFlows) {
+  for (const flow of ledger.flows) {
     netByDate.set(flow.on, (netByDate.get(flow.on) ?? 0n) - flow.amount.minor);
+  }
+
+  // A transfer leg is worth what its units were worth that day — the same
+  // price and rate the boundary valuation uses, so the two cannot disagree. Its
+  // recorded amount is the carried cost basis, and using that would book the
+  // shares' appreciation before they arrived as this portfolio's return.
+  if (ledger.portfolioTransfers.length > 0) {
+    const dates = ledger.portfolioTransfers.map((leg) => leg.on);
+    const market = await loadMarketSources(ctx, {
+      from: dates.reduce((a, b) => (compareDates(a, b) <= 0 ? a : b)),
+      to: dates.reduce((a, b) => (compareDates(a, b) >= 0 ? a : b)),
+    });
+    for (const leg of ledger.portfolioTransfers) {
+      const instrument = market.instruments.get(leg.instrumentId);
+      const price = instrument === undefined ? null : priceAt(market, instrument, leg.on, ctx.today);
+      if (instrument === undefined || price === null || !price.ok) {
+        return unavailable('insufficient_price_history');
+      }
+      const rate = ctx.fx.rate(instrument.currency, ctx.base, leg.on);
+      if (!rate.ok) return unavailable('no_fx_rate');
+      const value = mulRate(
+        valueOf(leg.quantity, price.price, instrument.currency, 'half_up'),
+        rate.value.rate,
+        'half_up',
+      ).minor;
+      netByDate.set(leg.on, (netByDate.get(leg.on) ?? 0n) + (leg.direction === 'in' ? value : -value));
+    }
   }
   if (netByDate.size === 0) return unavailable('no_data');
 
@@ -472,6 +495,14 @@ function withTerminal(ctx: ReadCtx, ledger: readonly CashFlow[], terminalValue: 
   return terminalValue.minor === 0n ? [...ledger] : [...ledger, { on: ctx.today, amount: terminalValue }];
 }
 
+/** One in-kind transfer leg at portfolio scope, as recorded. */
+interface TransferLeg {
+  readonly on: IsoDate;
+  readonly direction: 'in' | 'out';
+  readonly instrumentId: string;
+  readonly quantity: Quantity;
+}
+
 interface LedgerFlows {
   /** The XIRR series without its terminal value. */
   readonly flows: CashFlow[];
@@ -479,10 +510,13 @@ interface LedgerFlows {
    * Transfer legs the XIRR series drops at portfolio scope. A matched pair
    * cancels; an unmatched leg — shares gifted in, or a holding recorded when the
    * user started — is capital arriving or leaving with no cash. TWR needs every
-   * leg, because the valuation moves with each one. Empty for a scoped call,
-   * where the legs are already in `flows`.
+   * leg, because the valuation moves with each one.
+   *
+   * Carried as **units**, not money: a transfer's recorded amount is the carried
+   * cost basis, which is what the lots need and not what the shares were worth.
+   * Empty for a scoped call, where the legs are already in `flows`.
    */
-  readonly portfolioTransfers: CashFlow[];
+  readonly portfolioTransfers: TransferLeg[];
 }
 
 /** Ledger rows only, no terminal value. */
@@ -500,11 +534,15 @@ async function ledgerCashFlows(ctx: ReadCtx, scope: PortfolioScope): Promise<Led
   const { rows } = await ctx.db.execute<{
     kind: string;
     trade_date: string;
+    instrument_id: string;
+    quantity: string | null;
     base_net_amount: string;
     base_gross: string | null;
   }>(sql`
     select kind::text            as kind,
            trade_date::text      as trade_date,
+           instrument_id::text   as instrument_id,
+           quantity::text        as quantity,
            base_net_amount::text as base_net_amount,
            case when gross_amount is null then null
                 else round(gross_amount * fx_rate_instrument_to_account * fx_rate_to_base, 4)::text
@@ -515,24 +553,37 @@ async function ledgerCashFlows(ctx: ReadCtx, scope: PortfolioScope): Promise<Led
   `);
 
   const flows: CashFlow[] = [];
-  const portfolioTransfers: CashFlow[] = [];
+  const portfolioTransfers: TransferLeg[] = [];
 
   for (const row of rows) {
     const on = isoDate(row.trade_date);
 
     if (row.kind === 'transfer_in' || row.kind === 'transfer_out') {
+      // At portfolio scope the XIRR series drops both legs, on the footing that
+      // a matched pair nets to zero; they are kept aside, as units, for TWR.
+      if (!scoped) {
+        if (row.quantity !== null) {
+          portfolioTransfers.push({
+            on,
+            direction: row.kind === 'transfer_in' ? 'in' : 'out',
+            instrumentId: row.instrument_id,
+            // Stored signed (an out is negative); the direction is carried
+            // separately, so the magnitude is what is valued.
+            quantity: qAbs(Quantity.fromDbString(row.quantity)),
+          });
+        }
+        continue;
+      }
+      // At account or instrument scope an unmatched leg is a real flow into or
+      // out of that scope.
       if (row.base_gross === null) continue;
       const gross = Money.fromDbString(row.base_gross, ctx.base);
       // A transfer_in brings shares into the scope — money out, from the
       // scope's point of view. transfer_out is the mirror.
-      const leg: CashFlow = {
+      flows.push({
         on,
         amount: row.kind === 'transfer_in' ? Money.fromMinor(-gross.minor, ctx.base) : gross,
-      };
-      // At portfolio scope the XIRR series drops both legs, on the footing that
-      // a matched pair nets to zero. At account or instrument scope an unmatched
-      // leg is a real flow into or out of that scope.
-      (scoped ? flows : portfolioTransfers).push(leg);
+      });
       continue;
     }
 
