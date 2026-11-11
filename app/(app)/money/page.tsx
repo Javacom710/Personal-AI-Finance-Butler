@@ -6,6 +6,7 @@ import { periodContaining, previousPeriod } from '@/lib/date/periods';
 import {
   breakdown,
   compareWithPrevious,
+  financialMetrics,
   listAccounts,
   listBudgetStatuses,
   listCategories,
@@ -32,7 +33,7 @@ export default async function MoneyPage() {
   const period = periodContaining(ctx.today, 'monthly', ctx.fiscalYearStartMonth);
   const prior = previousPeriod(period, 'monthly', ctx.fiscalYearStartMonth);
 
-  const [accounts, current, comparison, topExpenses, recent, budgets, upcoming, categories] =
+  const [accounts, current, comparison, topExpenses, recent, budgets, upcoming, categories, health] =
     await Promise.all([
       listAccounts(ctx),
       periodSummary(ctx, period),
@@ -42,6 +43,7 @@ export default async function MoneyPage() {
       listBudgetStatuses(ctx),
       upcomingCommitments(ctx, 14),
       listCategories(ctx),
+      financialMetrics(ctx),
     ]);
 
   if (accounts.length === 0) {
@@ -112,6 +114,40 @@ export default async function MoneyPage() {
           note={format.reason(current.savingsRate) ?? 'of income kept'}
         />
       </section>
+
+      {health.ok ? (
+        <section aria-label="Financial health" className="grid gap-3 sm:grid-cols-3">
+          <Figure
+            label="Expense ratio"
+            value={format.metricPercent(health.value.expenseRatio)}
+            note={format.reason(health.value.expenseRatio) ?? 'of this month\u2019s income spent'}
+          />
+          <Figure
+            label="Cash runway"
+            value={
+              health.value.runwayMonths.value === null
+                ? '—'
+                : `${format.rate(health.value.runwayMonths.value, 1)} months`
+            }
+            note={
+              format.reason(health.value.runwayMonths) ??
+              `${format.money(health.value.liquidCash)} at ${format.metricMoney(health.value.trailing.averageMonthlyExpenses)} a month, the last ${health.value.trailing.months} full months\u2019 average`
+            }
+          />
+          <Figure
+            label={`Due in ${health.value.commitments.windowDays} days`}
+            value={format.money(health.value.commitments.commitmentsDue)}
+            tone={health.value.commitments.surplus.minor < 0n ? 'text-negative' : 'text-ink'}
+            note={
+              health.value.commitments.unconvertedCount > 0
+                ? `${health.value.commitments.unconvertedCount} commitment(s) have no exchange rate and are not counted`
+                : health.value.commitments.coverage.value === null
+                  ? 'No recurring payments scheduled'
+                  : `Cash covers it ${format.rate(health.value.commitments.coverage.value, 1)}× over`
+            }
+          />
+        </section>
+      ) : null}
 
       {current.fxEffect.minor !== 0n ? (
         <p className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm">

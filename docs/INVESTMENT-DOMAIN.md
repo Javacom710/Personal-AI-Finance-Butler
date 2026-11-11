@@ -593,7 +593,7 @@ With a boundary at every flow date there are no intra-period flows, so `C_i = 0`
 
 TWR requires valuations at sub-period boundaries, which requires `instrument_prices` history. When history is incomplete, TWR returns `null` with `reason: 'insufficient_price_history'` rather than a figure computed from partial data.
 
-**At launch that is every equity and ETF.** `instrument_prices` is populated only by `getHistoricalPrices()`, which needs the commercial provider blocked on decision **OD-3** ([§10](#10-market-data-architecture)). Until it is resolved, only manually priced instruments and AMFI-sourced mutual funds produce a TWR figure. This is a stated launch limitation shown in the UI as the `insufficient_price_history` reason — not a defect to chase, and not grounds for substituting a partial figure.
+**At launch that was every equity and ETF** (the service wiring is described in [§8.2](#82-the-inputs-the-service-supplies)). `instrument_prices` is populated only by `getHistoricalPrices()`, which needs the commercial provider blocked on decision **OD-3** ([§10](#10-market-data-architecture)). Until it is resolved, only manually priced instruments and AMFI-sourced mutual funds produce a TWR figure. This is a stated launch limitation shown in the UI as the `insufficient_price_history` reason — not a defect to chase, and not grounds for substituting a partial figure.
 
 **Which to show where.** XIRR is the headline (it answers "what return did *my* money earn"). TWR is shown on the Performance page for comparing against a benchmark, since it removes the effect of contribution timing. Both are labelled with their day-count and annualisation basis.
 
@@ -644,6 +644,32 @@ The backstop is what turns "the provider quietly stopped" from an invisible wron
 **Days with no price are gaps, not zeros.** The series is only as complete as `instrument_prices`. AMFI fills it for Indian mutual funds; equities and ETFs wait on the **OD-3** adapter. A gap renders as a break in the line with the affected instruments named — never interpolated, never zero, and never silently omitted from the total ([§5](#5-valuation), [FINANCIAL-DOMAIN.md §10.4](FINANCIAL-DOMAIN.md#104-partial-results-are-labelled-not-hidden)).
 
 **A TWR boundary needs a valuation, and a boundary can fall on a non-trading day.** `twr()` matches boundary dates exactly, so a SIP debit dated on a market holiday would otherwise return `insufficient_price_history` permanently — which is every Indian investor with a monthly SIP. The **caller** builds a valuation for every boundary using the bounded carry-back above; `twr()` itself is unchanged. The boundary set must also include **instruments since fully disposed**: a position sold in March still determined the January and February sub-period returns, and reading *current* positions to decide which prices to fetch produces a plausible, wrong figure.
+
+### 8.2 The inputs the service supplies
+
+`twr()` is pure; `portfolioTwr()` in `src/server/services/portfolio.ts` assembles its two inputs, and `portfolio()` puts the result in `summary.twr` (wired 2026-11-11, OD-18). The window is the first investment transaction to today.
+
+**External flows** are the XIRR series ([§7](#7-xirr)) with the sign turned round and without the terminal value. A purchase is a contribution to the holdings. Sale proceeds, dividends and interest are withdrawals, because brokerage cash is outside the portfolio. A standalone fee or tax is a contribution that bought nothing, so TWR is net of those charges, as XIRR is.
+
+**Valuations** come from the one historical valuation path the application has: the `investments` group of market-basis net worth on each boundary date ([FINANCIAL-DOMAIN.md §9](FINANCIAL-DOMAIN.md#9-net-worth)). That gives ledger-derived, ratio-aware units, the bounded carry-back, and the same suppression and FX rules as every other historical figure.
+
+That figure is the **close**, which already contains the day's trades, while the engine wants the value a flow arrives into ([§8](#8-time-weighted-return), boundary convention). So the service passes
+
+```
+valuation(D) = close(D) − netFlow(D)
+```
+
+The period ending at `D` then closes before the flow, and the period starting at `D` opens at `close(D)`. **The first boundary is the exception: `valuation(first) = 0`.** Nothing was held before the first transaction and there is no earlier period to carry `close − flow`, so using it would cancel the first day's result. With zero, a ₹100 fee on a ₹10,000 first purchase reads as −100 / 10,100 = −0.99%, not 0%. A trade made away from the close has its intraday gain or loss attributed to the period that **ends** that day. No value change is dropped.
+
+**Rules**
+
+- If any holding is excluded from the market valuation on any boundary (no price within the carry-back bound, no FX rate, an unreconciled corporate action), the result is `insufficient_price_history`. A chain with a missing link is not a smaller sample.
+- No transactions, or a first transaction dated today, is `no_data`.
+- **Manually typed prices do not count as history.** `setManualPrice` moves the quote but writes no `instrument_prices` row, so a holding priced only by hand has a value today and none on an earlier flow date; its TWR is `insufficient_price_history` until a provider has stored closes for it.
+- **Whole portfolio only.** A scoped call (`accountId` or `instrumentId`) still reports `insufficient_price_history`, because there is no scoped valuation series.
+- A portfolio that is fully sold and later re-entered at a price away from that day's close has a period with no capital at risk and a non-zero change; the engine reports `divide_by_zero` rather than inventing a return for it.
+
+**Measured cost (2026-11-11, local PostgreSQL 16, real services).** A ledger of 302 purchases over 61 flow dates across 7 instruments: `portfolioTwr()` alone 99 ms median; an unscoped `portfolio()` 116 ms, against 6 ms for a scoped call that skips it. That is inside the 400 ms Overview budget ([ARCHITECTURE.md §9](ARCHITECTURE.md#9-performance-targets)), so nothing is cached. The cost is one net-worth composition per flow date; if it ever needs cutting, the place is a valuation series restricted to positions, not a stored return.
 
 ## 9. Asset allocation
 
