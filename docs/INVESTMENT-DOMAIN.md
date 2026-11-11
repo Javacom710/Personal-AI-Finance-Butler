@@ -665,8 +665,11 @@ The period ending at `D` then closes before the flow, and the period starting at
 
 - If any holding is excluded from the market valuation on any boundary (no price within the carry-back bound, no FX rate, an unreconciled corporate action), the result is `insufficient_price_history`. A chain with a missing link is not a smaller sample.
 - No transactions, or a first transaction dated today, is `no_data`.
+- **Manually typed prices do not count as history.** `setManualPrice` moves the quote but writes no `instrument_prices` row, so a holding priced only by hand has a value today and none on an earlier flow date; its TWR is `insufficient_price_history` until a provider has stored closes for it.
 - **Whole portfolio only.** A scoped call (`accountId` or `instrumentId`) still reports `insufficient_price_history`, because there is no scoped valuation series.
 - A portfolio that is fully sold and later re-entered at a price away from that day's close has a period with no capital at risk and a non-zero change; the engine reports `divide_by_zero` rather than inventing a return for it.
+
+**Measured cost (2026-11-11, local PostgreSQL 16, real services).** A ledger of 302 purchases over 61 flow dates across 7 instruments: `portfolioTwr()` alone 99 ms median; an unscoped `portfolio()` 116 ms, against 6 ms for a scoped call that skips it. That is inside the 400 ms Overview budget ([ARCHITECTURE.md §9](ARCHITECTURE.md#9-performance-targets)), so nothing is cached. The cost is one net-worth composition per flow date; if it ever needs cutting, the place is a valuation series restricted to positions, not a stored return.
 
 ## 9. Asset allocation
 
