@@ -95,7 +95,9 @@ export default async function OverviewPage() {
   const cash = result.groups.find((g) => g.group === 'cash');
   const investmentsAtCost = result.groups.find((g) => g.group === 'investments');
   const priced = summary.unrealizedPnl !== null;
-  const hasHoldings = instruments.length > 0;
+  // From open positions, not the active-instrument list: a deactivated
+  // instrument that is still held is still part of the portfolio.
+  const hasHoldings = invested.value.holdings.some((h) => h.quantity.units !== 0n);
 
   // Returns are shown only when every holding is priced. With an unpriced
   // holding the engine's unrealised figure nets priced value against the cost of
