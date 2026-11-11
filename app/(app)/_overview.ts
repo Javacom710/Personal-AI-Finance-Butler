@@ -17,6 +17,8 @@ export interface AttentionInput {
   readonly reconciliationResidual: string | null;
   /** Set only when this month's savings are negative. */
   readonly overspend: { readonly expenses: string; readonly income: string } | null;
+  /** Set when the budget check itself failed, so no all-clear can be given. */
+  readonly budgetsUnavailable: string | null;
   readonly overBudget: readonly { readonly label: string; readonly actual: string; readonly budgeted: string }[];
   readonly unpriced: readonly { readonly symbol: string }[];
   readonly stale: readonly { readonly symbol: string }[];
@@ -45,6 +47,13 @@ export function attentionItems(input: AttentionInput): AttentionItem[] {
     items.push({
       text: `Spending is ${input.overspend.expenses} against ${input.overspend.income} of income this month.`,
       href: '/money',
+      tone: 'warning',
+    });
+  }
+  if (input.budgetsUnavailable !== null) {
+    items.push({
+      text: `Budgets could not be checked: ${input.budgetsUnavailable}`,
+      href: '/money/budgets',
       tone: 'warning',
     });
   }

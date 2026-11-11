@@ -5,6 +5,7 @@ import { attentionItems, isOverviewEmpty, symbolList, type AttentionInput } from
 const clean: AttentionInput = {
   reconciliationResidual: null,
   overspend: null,
+  budgetsUnavailable: null,
   overBudget: [],
   unpriced: [],
   stale: [],
@@ -37,6 +38,13 @@ describe('Overview — needs attention', () => {
       href: '/money/budgets',
       tone: 'negative',
     });
+  });
+
+  it('reports a failed budget check instead of giving an all-clear', () => {
+    const items = attentionItems({ ...clean, budgetsUnavailable: 'No exchange rate for USD.' });
+    expect(items).toEqual([
+      { text: 'Budgets could not be checked: No exchange rate for USD.', href: '/money/budgets', tone: 'warning' },
+    ]);
   });
 
   it('flags overspending only when it is passed in', () => {

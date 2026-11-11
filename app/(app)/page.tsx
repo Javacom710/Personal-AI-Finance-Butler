@@ -108,6 +108,7 @@ export default async function OverviewPage() {
       month.savings.minor < 0n
         ? { expenses: format.money(month.expenses), income: format.money(month.income) }
         : null,
+    budgetsUnavailable: budgets.ok ? null : budgets.error.message,
     overBudget: (budgets.ok ? budgets.value : [])
       .filter((b) => b.status.isOverBudget)
       .map((b) => ({
