@@ -84,6 +84,27 @@ describe('portfolioTwr', () => {
     expect(rToDbString(result.value!.twr)).toBe('0.3310000000');
   });
 
+  it('counts the first purchase\'s fee, and a first fill away from the close, as a result', async () => {
+    const stock = await makeInstrument(fixture.ctx, { symbol: 'TWRH' });
+    await closes(stock, [['2026-01-05', '100'], ['2026-08-10', '100']]);
+    // ₹10,100 paid for holdings worth ₹10,000 at the close, and the price never moves.
+    must(await recordBuy(fixture.ctx, { accountId: demat, instrumentId: stock, on: '2026-01-05', qty: '100', price: '100', fees: '100' }));
+
+    // −100 on 10,100 contributed = −0.990099…%, not 0%.
+    const result = await portfolioTwr(fixture.ctx);
+    expect(rToDbString(result.value!.twr)).toBe('-0.0099010000');
+  });
+
+  it('counts a first fill below the close as a gain', async () => {
+    const stock = await makeInstrument(fixture.ctx, { symbol: 'TWRI' });
+    await closes(stock, [['2026-01-05', '100'], ['2026-08-10', '100']]);
+    must(await recordBuy(fixture.ctx, { accountId: demat, instrumentId: stock, on: '2026-01-05', qty: '100', price: '80' }));
+
+    // ₹8,000 paid for ₹10,000 at the close: +2,000 on 8,000 = +25%.
+    const result = await portfolioTwr(fixture.ctx);
+    expect(rToDbString(result.value!.twr)).toBe('0.2500000000');
+  });
+
   it('treats sale proceeds as a withdrawal, not as a loss', async () => {
     const stock = await makeInstrument(fixture.ctx, { symbol: 'TWRC' });
     await closes(stock, [['2026-01-05', '100'], ['2026-04-01', '120'], ['2026-08-10', '132']]);

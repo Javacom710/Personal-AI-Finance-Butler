@@ -659,7 +659,7 @@ That figure is the **close**, which already contains the day's trades, while the
 valuation(D) = close(D) − netFlow(D)
 ```
 
-The period ending at `D` then closes before the flow, and the period starting at `D` opens at `close(D)`. A trade made away from the close has its intraday gain or loss attributed to the period that **ends** that day. No value change is dropped.
+The period ending at `D` then closes before the flow, and the period starting at `D` opens at `close(D)`. **The first boundary is the exception: `valuation(first) = 0`.** Nothing was held before the first transaction and there is no earlier period to carry `close − flow`, so using it would cancel the first day's result. With zero, a ₹100 fee on a ₹10,000 first purchase reads as −100 / 10,100 = −0.99%, not 0%. A trade made away from the close has its intraday gain or loss attributed to the period that **ends** that day. No value change is dropped.
 
 **Rules**
 

@@ -344,7 +344,8 @@ export async function portfolio(
  *   already contains the day's trades, while the engine wants the value a flow
  *   arrives into. So the day's net flow is taken back out:
  *   `valuation(D) = close(D) − flow(D)`. The period ending at `D` then closes
- *   before the flow and the one starting at `D` opens at `close(D)`.
+ *   before the flow and the one starting at `D` opens at `close(D)`. The first
+ *   boundary is the exception: nothing was held before it, so it is zero.
  *
  * **A gap is not a smaller sample.** If any holding cannot be valued on any
  * boundary, the result is `insufficient_price_history` — never a return chained
@@ -384,7 +385,14 @@ async function twrFromFlows(ctx: ReadCtx, investorFlows: readonly CashFlow[]): P
     const close = point.result.groups.find((g) => g.group === 'investments')?.total.minor ?? 0n;
     valuations.push({
       on: point.asOf,
-      value: Money.fromMinor(close - (netByDate.get(point.asOf) ?? 0n), ctx.base),
+      // Before its first transaction the portfolio held nothing, so the first
+      // boundary opens at zero — not at `close − flow`. There is no earlier
+      // period to carry that difference, and using it would cancel the first
+      // day's result: a purchase fee, or a fill away from the close.
+      value:
+        point.asOf === from
+          ? Money.zero(ctx.base)
+          : Money.fromMinor(close - (netByDate.get(point.asOf) ?? 0n), ctx.base),
     });
   }
 
