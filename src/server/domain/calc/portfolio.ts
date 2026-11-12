@@ -48,6 +48,28 @@ export interface PortfolioInput {
   readonly costDeployed: Money;
   /** Priced holdings only, base currency. */
   readonly marketValue: Money;
+  /**
+   * Cost basis of the open holdings that `marketValue` covers. Unrealised P&L
+   * compares like with like: `marketValue − pricedCostBasis`. Defaults to
+   * `investedCapital`, which is correct whenever every holding is priced.
+   */
+  readonly pricedCostBasis?: Money;
+  /**
+   * The return cohort's own aggregates when some open holdings are unpriced
+   * (OD-21). An unpriced instrument is excluded from portfolio totals
+   * (INVESTMENT-DOMAIN.md §5), so its realised P&L, income, charges and every lot
+   * it ever opened leave the total return and its denominator too. The shown
+   * `realizedPnl`, `dividends`, … stay whole-ledger facts. Omitted when nothing
+   * is unpriced, so both views are the same numbers.
+   */
+  readonly returnCohort?: {
+    readonly costDeployed: Money;
+    readonly realizedPnl: Money;
+    readonly dividends: Money;
+    readonly interest: Money;
+    readonly fees: Money;
+    readonly taxes: Money;
+  };
   /** `Σ lot_disposals.base_realized_pnl`. */
   readonly realizedPnl: Money;
 
@@ -72,19 +94,25 @@ export interface PortfolioSummary {
   readonly investedCapital: Money;
   readonly costDeployed: Money;
   readonly marketValue: Money;
-  /** `marketValue − investedCapital`. `null` when nothing could be priced. */
+  /** `marketValue − pricedCostBasis`, priced holdings only. `null` when nothing could be priced. */
   readonly unrealizedPnl: Money | null;
   readonly realizedPnl: Money;
   readonly dividends: Money;
   readonly interest: Money;
   readonly fees: Money;
   readonly taxes: Money;
-  /** `unrealized + realized + dividends + interest − fees − taxes`. */
+  /**
+   * `unrealized + realized + dividends + interest − fees − taxes`, over the
+   * return cohort: every instrument except the unpriced ones (OD-21).
+   */
   readonly totalReturn: Money | null;
 
-  /** `unrealizedPnl / investedCapital` — numerator and denominator span the same units. */
+  /** `unrealizedPnl / pricedCostBasis` — numerator and denominator span the same units. */
   readonly unrealizedReturnPct: Metric<Rate>;
-  /** `totalReturn / costDeployed`. **Not annualised**; label it *on capital deployed*. */
+  /**
+   * `totalReturn / costDeployed` of the same cohort. **Not annualised**; label it
+   * *on capital deployed*.
+   */
   readonly totalReturnPct: Metric<Rate>;
   readonly xirr: Metric<Rate>;
   readonly twr: Metric<Rate>;
@@ -112,14 +140,16 @@ export function portfolioSummary(input: PortfolioInput): PortfolioSummary {
   // (edge case 10, FINANCIAL-DOMAIN.md §10.3).
   const nothingPriced = input.coverage.value === 0n && investedCapital.minor !== 0n;
 
-  const unrealizedPnl = nothingPriced ? null : sub(marketValue, investedCapital);
+  const pricedCost = input.pricedCostBasis ?? investedCapital;
+  const unrealizedPnl = nothingPriced ? null : sub(marketValue, pricedCost);
 
-  const income = add(dividends, interest);
-  const costs = add(fees, taxes);
+  const cohort = input.returnCohort ?? { costDeployed, realizedPnl, dividends, interest, fees, taxes };
+  const income = add(cohort.dividends, cohort.interest);
+  const costs = add(cohort.fees, cohort.taxes);
   const totalReturn =
     unrealizedPnl === null
       ? null
-      : sub(add(add(unrealizedPnl, realizedPnl), income), costs);
+      : sub(add(add(unrealizedPnl, cohort.realizedPnl), income), costs);
 
   return {
     asOf: input.asOf,
@@ -135,8 +165,9 @@ export function portfolioSummary(input: PortfolioInput): PortfolioSummary {
     totalReturn,
 
     unrealizedReturnPct:
-      unrealizedPnl === null ? unavailable('no_price') : ratio(unrealizedPnl, investedCapital),
-    totalReturnPct: totalReturn === null ? unavailable('no_price') : ratio(totalReturn, costDeployed),
+      unrealizedPnl === null ? unavailable('no_price') : ratio(unrealizedPnl, pricedCost),
+    totalReturnPct:
+      totalReturn === null ? unavailable('no_price') : ratio(totalReturn, cohort.costDeployed),
     xirr: input.xirr,
     twr: input.twr,
 

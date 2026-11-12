@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
+import type * as Runner from '@/server/ai/eval/runner';
 import { eq } from 'drizzle-orm';
 import { resetEnvCache } from '@/lib/env';
 import { composeTier1Features } from '@/server/ai-tier1-features';
@@ -20,6 +21,19 @@ vi.mock('next/navigation', () => ({ redirect: (path: string) => { throw new Erro
 import { askFinanceQuestionAction } from '@app/(app)/ai/actions';
 import { draftTransactionAction } from '@app/(app)/money/proposals/actions';
 import { EMPTY_ACTION_STATE } from '@app/(app)/money/form-state';
+
+// OD-21 advanced grounding and robustness to v6, so the retained parse-v4
+// campaign is no longer current evidence. These tests exercise mechanics with
+// that campaign under the contract it was reviewed against (v5); the unit test
+// ai-approved-lineup-evidence asserts that the current contracts refuse it.
+vi.mock('@/server/ai/eval/runner', async (importOriginal) => {
+  const original = await importOriginal<typeof Runner>();
+  const suites = original.MODEL_SUITES;
+  return {
+    ...original,
+    MODEL_SUITES: { ...suites, grounding: { ...suites.grounding, version: 5 }, robustness: { ...suites.robustness, version: 5 } },
+  };
+});
 
 const NOW = new Date('2026-11-08T18:00:00Z');
 const endpoint = 'https://api.deepinfra.com/v1/openai';

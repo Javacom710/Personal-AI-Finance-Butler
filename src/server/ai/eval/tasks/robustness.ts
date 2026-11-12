@@ -29,7 +29,7 @@ import 'server-only';
 import type { EvalCase } from '../harness';
 import { amountFor, CURRENT_PRICE, money, rate, replayCase, replaySuite, type GroundingGoldenCase } from './grounding';
 
-export const ROBUSTNESS_SUITE_VERSION = 5;
+export const ROBUSTNESS_SUITE_VERSION = 6;
 
 const r = replayCase('robustness');
 
@@ -117,9 +117,12 @@ export const ROBUSTNESS_CASES: readonly GroundingGoldenCase[] = [
   }),
 
   // — A negative figure keeps its sign —
-  r(10, 'What is my XIRR?', {
-    calls: ['portfolio'],
-    required: [[rate('-0.2105550000')]],
+  // The Dining budget is ₹650 over (remaining −₹650). Until OD-21 this case
+  // used the portfolio XIRR, which was negative only because an unpriced
+  // holding's cost was counted as a loss.
+  r(10, 'How much of my dining budget is left this month?', {
+    calls: ['budgetsOct'],
+    required: [money('-650')],
   }),
 ];
 

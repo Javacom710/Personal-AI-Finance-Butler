@@ -437,16 +437,17 @@ interface PortfolioSummary {
   costDeployed: Money;          // Σ (tax_lots.cost_total × lot.fx_rate_to_base) over ALL lots
                                 // ever opened, including closed — capital ever committed
   marketValue: Money;           // priced holdings only
-  unrealizedPnl: Money;         // marketValue − investedCapital
+  unrealizedPnl: Money;         // marketValue − pricedCostBasis (priced holdings only)
   realizedPnl: Money;           // Σ lot_disposals.base_realized_pnl
   dividends: Money;             // GROSS declared, per I-12
   interest: Money;              // GROSS declared
   fees: Money;                  // Σ positions.fees_total  + portfolio-level fee rows (§6.2)
   taxes: Money;                 // Σ positions.taxes_total + portfolio-level tax rows (§6.2)
-  totalReturn: Money;           // unrealized + realized + dividends + interest − fees − taxes
+  totalReturn: Money;           // unrealized + realized + dividends + interest − fees − taxes,
+                                // over the return cohort (below)
 
-  unrealizedReturnPct: Rate | null;  // unrealizedPnl / investedCapital
-  totalReturnPct: Rate | null;       // totalReturn / costDeployed
+  unrealizedReturnPct: Rate | null;  // unrealizedPnl / pricedCostBasis
+  totalReturnPct: Rate | null;       // totalReturn / costDeployed of the return cohort
   xirr: Rate | null;
   twr: Rate | null;
   coverage: Rate;               // 0..1
@@ -454,6 +455,17 @@ interface PortfolioSummary {
   staleInstruments: InstrumentRef[];
 }
 ```
+
+### 6.1 The return cohort when a holding is unpriced (OD-21)
+
+An unpriced holding is excluded from portfolio totals (§5), and it is excluded from **every return figure as a whole**, never from one side of a ratio. The return cohort is every instrument except those whose open holding is unpriced, plus account-level rows with no instrument:
+
+- `unrealizedPnl = marketValue − pricedCostBasis`: priced value against priced cost.
+- `totalReturn` takes realised P&L, income, fees and taxes from the cohort only; `totalReturnPct` divides by the cohort's `costDeployed`.
+- XIRR drops the excluded instruments' ledger rows, because its terminal value never included them.
+- `investedCapital`, `costDeployed`, `realizedPnl`, `dividends`, `interest`, `fees` and `taxes` are still shown whole-ledger: they are facts that need no price.
+
+Before this rule, the unpriced cost entered the denominator but not the value, so it read as a loss: two holdings in profit beside one unpriced holding reported −17.43%. With everything priced the cohort is the whole portfolio and no figure changes.
 
 ### Two denominators, and why using one for both is wrong
 

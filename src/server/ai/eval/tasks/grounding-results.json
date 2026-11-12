@@ -1150,7 +1150,7 @@
       },
       "unrealizedPnl": {
         "kind": "money",
-        "amount": "-30912.0000",
+        "amount": "9088.0000",
         "currency": "INR",
         "scale": 4
       },
@@ -1186,14 +1186,14 @@
       },
       "totalReturn": {
         "kind": "money",
-        "amount": "-24220.0000",
+        "amount": "15780.0000",
         "currency": "INR",
         "scale": 4
       },
       "totalReturnPct": {
         "value": {
           "kind": "rate",
-          "value": "-0.1169935272",
+          "value": "0.0944797030",
           "scale": 10
         },
         "unavailableReason": null
@@ -1201,7 +1201,7 @@
       "xirr": {
         "value": {
           "kind": "rate",
-          "value": "-0.2105550000",
+          "value": "0.1806980000",
           "scale": 10
         },
         "unavailableReason": null
