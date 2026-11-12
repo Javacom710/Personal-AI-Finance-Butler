@@ -48,6 +48,18 @@ it('runs six bounded diagnostic probes without output retention or measurement w
     expect(selectedCases.every((c: { tier: number; suite: string; maxTokens: number }) => c.tier === 1 && c.maxTokens === (c.suite === 'parse' ? 1024 : 2048))).toBe(true);
     expect(run(['--plan', '--selected-tier1', '--selected-tier1']).status).toBe(1);
     expect(run(['--plan', '--selected-tier1', '--analysis-only']).status).toBe(1);
+    const v3Plan = run(['--plan', '--tier1-v3-failures'], { AI_TIER1_MODELS: 'anthropic/foreign-model' });
+    expect(v3Plan.status, v3Plan.stderr).toBe(0);
+    const v3Cases = JSON.parse(v3Plan.stdout).cases;
+    expect(v3Cases.map((c: { model: string; id: string }) => [c.model, c.id])).toEqual([
+      ...['parse-003', 'parse-011', 'parse-012', 'parse-035'].map(id => [selectedModels[0], id]),
+      ...['parse-004', 'parse-015', 'parse-017', 'parse-021', 'parse-025', 'parse-032', 'parse-035', 'injection-008', 'injection-015', 'injection-020', 'injection-025'].map(id => [selectedModels[1], id]),
+    ]);
+    expect(JSON.parse(v3Plan.stdout).maximumReservedUsd).toBeGreaterThan(0);
+    expect(run(['--plan', '--tier1-v3-failures', '--selected-tier1']).status).toBe(1);
+    expect(run(['--plan', '--tier1-v3-failures', '--analysis-only']).status).toBe(1);
+    expect(run(['--plan', '--tier1-v3-failures', '--tier1-v3-failures']).status).toBe(1);
+    expect(readdirSync(path.dirname(directory))).not.toContain('deepinfra-2026-11-08-tier1-v3-failures');
     expect(readdirSync(directory)).not.toContain('diagnostics');
     const first = run(['--run', '--no-record']);
     expect(first.status, first.stderr).toBe(0);
@@ -76,6 +88,14 @@ it('runs six bounded diagnostic probes without output retention or measurement w
     expect(selectedText).not.toContain('PRIVATE');
     expect(JSON.parse(readFileSync(path.join(selectedDir, 'usage.json'), 'utf8')).events).toHaveLength(9);
     expect(JSON.parse(readFileSync(ledgerFile, 'utf8')).events).toHaveLength(6);
+    const v3 = run(['--run', '--no-record', '--tier1-v3-failures']);
+    expect(v3.status, v3.stderr).toBe(0); expect(v3.stdout).not.toContain('PRIVATE');
+    const v3Dir = path.join(root, 'eval/reports/deepinfra-2026-11-08-tier1-v3-failures');
+    const v3Text = readFileSync(path.join(v3Dir, readdirSync(v3Dir).find(f => f !== 'usage.json')!), 'utf8');
+    expect(JSON.parse(v3Text)).toMatchObject({ plan: 'tier1-v3-failures', diagnosticOnly: true, completeMeasurement: false, recorded: false, productionEligible: false });
+    expect(JSON.parse(v3Text).rows).toHaveLength(15); expect(v3Text).not.toContain('PRIVATE');
+    expect(JSON.parse(readFileSync(path.join(v3Dir, 'usage.json'), 'utf8')).events).toHaveLength(15);
+    expect(JSON.parse(readFileSync(path.join(selectedDir, 'usage.json'), 'utf8')).events).toHaveLength(9);
     const lockPath = path.join(path.dirname(directory), '.deepinfra-account.lock');
     writeFileSync(lockPath, 'another-process\n');
     expect(run(['--run', '--no-record']).status).toBe(1);

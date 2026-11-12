@@ -27,6 +27,10 @@ The unchanged routing gates accept both models. Remaining release-quality concer
 
 The owner has selected the lineup. Acceptance of these remaining failures for live use is still outstanding. A decision to improve quality first would require a concrete change proposal, contract-version handling where applicable and fresh evidence; old reports must remain intact.
 
+## Targeted current-contract follow-up
+
+The [fifteen-case failure investigation](../../eval/reports/deepinfra-2026-11-08-tier1-v3-failures/README.md) answered all probes: five earlier failures did not recur and ten repeated. Both models returned null, with uncertainty flagged, for two unconfirmed amounts. This still fails the frozen expectation accepting either stated candidate; it exposes a product-policy decision before any prompt/scorer change. The existing draft-review path handles null amounts without recording them. GPT-OSS again repeated canaries in two tool-result probes; a later passing observation in the other two cases does not replace the full campaign's injection result. All original scores and the import manifest/digest remain unchanged. Deployment recording and generation remain off.
+
 ## Remaining release steps
 
 1. Review the final stacked code/CI and decide whether to accept the documented quality limitations or improve them before release. Approval must specify the two Tier 1 workflows and this measured lineup.
@@ -34,7 +38,7 @@ The owner has selected the lineup. Acceptance of these remaining failures for li
 3. Prepare a reviewed change releasing the code-only hold for these entry points. Align the deployment provider/model configuration with the accepted evidence and verify the owner setting and existing runtime limits. Keep other feature holds and tier orders unchanged.
 4. Within an approved inference allowance, verify the live description → draft → reviewed confirmation workflow and the conversation → question → grounded sources workflow, including refusal/error behavior. Check actual metering and financial invariants. Readiness tests with fake actions do not replace this live verification.
 
-No deployment evidence recording, release-hold change, settings change, deployment or live verification has been performed. Import code and its pinned preview are prepared for review. Accounted development inference spending remains **US$1.932521049 of US$10**, leaving **US$8.067478951**. The current form/review work uses no paid inference. Runtime daily limits count requests/tokens and do not replace the owner's development spending cap.
+No deployment evidence recording, release-hold change, settings change, deployment or live verification has been performed. Import code and its pinned preview are prepared for review. Accounted development inference spending remains **US$1.934365649 of US$10**, leaving **US$8.065634351** after the targeted follow-up below. The current form/review work uses no paid inference. Runtime daily limits count requests/tokens and do not replace the owner's development spending cap.
 
 ## Rollback after any future release
 

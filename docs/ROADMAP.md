@@ -46,8 +46,10 @@ A phase is complete only when every box is ticked — including tests, type chec
 
 **Current retained-evidence preparation (2026-11-08):** the [importer and pinned preview](audits/2026-11-08-tier1-evidence-import.md) reconstruct and validate the twelve deployment rows from the retained campaign, then verify production Tier 1 selection. Operator write mode is explicit and digest-bound, atomic/idempotent and conflict-refusing. All 3,311 unit/property/PostgreSQL 17 tests and build/static/integrity checks pass; PostgreSQL 18 remains the follow-up CI check. No deployment evidence write or activation has occurred.
 
+**Current targeted failure investigation (2026-11-08):** [fifteen fresh parse/injection probes](../eval/reports/deepinfra-2026-11-08-tier1-v3-failures/README.md) answered completely: five prior failures did not recur and ten repeated. Both models returned conservative nulls for competing unconfirmed amounts; these still fail the unchanged expectation accepting either candidate. The fallback again repeated two tool-result canaries. Original qualification scores and the import manifest are unchanged. The probe accounts for US$0.0018446, bringing total development inference spending to US$1.934365649 of US$10. No recording or activation occurred.
+
 **Next, in order (2026-11-08):**
-1. Review the [concrete Tier 1 release scope and remaining v3 quality failures](audits/2026-11-08-tier1-release-review.md). Forms and authenticated action wiring are prepared; the code-only hold remains false.
+1. Decide the ambiguous-amount draft policy before a prompt/scorer change, and review the [concrete Tier 1 release scope and remaining v3 quality failures](audits/2026-11-08-tier1-release-review.md). Forms and authenticated action wiring are prepared; the code-only hold remains false.
 2. Review the prepared exact-row evidence manifest and recording code; execute deployment recording only after owner approval. Activation remains a separate reviewed step for the two prepared Tier 1 workflows.
 3. Tiers 2–4 have no selected models. Advanced analysis, scenarios and documents stay off until each has its own measured lineup.
 4. Independently of the AI work: OD-18 (scenario engine, metrics, TWR wiring) and OD-19 (the Overview page).
