@@ -28,6 +28,8 @@ export type MetricUnavailable =
   | 'insufficient_price_history'
   | 'no_fx_rate'
   | 'no_price'
+  /** Deliberately not computed: the caller asked for the result without it. */
+  | 'not_computed'
   /**
    * The answer is real but not representable — a savings rate of −10,000,000×
    * from ₹0.0001 of income against real spending exceeds `NUMERIC(20,10)`.
@@ -64,6 +66,7 @@ export const METRIC_REASON_TEXT: Record<MetricUnavailable, string> = {
   insufficient_price_history: 'not enough price history',
   no_fx_rate: 'no exchange rate for that date',
   no_price: 'no price available',
+  not_computed: 'not computed for this view',
   out_of_range: 'the result is too large to represent exactly',
 };
 

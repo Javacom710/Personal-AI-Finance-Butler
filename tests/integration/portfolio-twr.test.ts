@@ -78,6 +78,12 @@ describe('portfolioTwr', () => {
     // The summary carries the same figure: one implementation, two readers.
     const summary = must(await portfolio(fixture.ctx)).summary;
     expect(rToDbString(summary.twr.value!)).toBe('0.3200000000');
+
+    // A view that does not show TWR skips it, says so, and changes nothing else.
+    const without = must(await portfolio(fixture.ctx, {}, { twr: false }));
+    expect(without.summary.twr).toEqual({ value: null, reason: 'not_computed' });
+    expect(without.twr).toEqual({ value: null, reason: 'not_computed' });
+    expect({ ...without.summary, twr: null }).toEqual({ ...summary, twr: null });
   });
 
   it('attributes a trade away from the close to the period that ends that day', async () => {

@@ -197,4 +197,4 @@ export default async function TransactionsPage({ searchParams }: { searchParams:
 }
 
 const FILTER =
-  'w-full rounded-md border border-border bg-surface px-2 py-1 text-sm outline-none focus:border-accent';
+  'w-full rounded-md border border-border bg-surface px-2 py-1 text-sm outline-none focus:border-accent focus:ring-2 focus:ring-accent/40';

@@ -7,7 +7,7 @@ import { abandonChallengeAction, passwordStepAction, secondFactorAction } from '
 import { EMPTY_STATE, type FormState } from './form-state';
 
 const FIELD =
-  'w-full rounded-md border border-border bg-surface px-3 py-2 text-sm outline-none placeholder:text-ink-faint focus:border-accent';
+  'w-full rounded-md border border-border bg-surface px-3 py-2 text-sm outline-none placeholder:text-ink-faint focus:border-accent focus:ring-2 focus:ring-accent/40';
 
 const LABEL = 'block text-xs font-medium text-ink-muted';
 

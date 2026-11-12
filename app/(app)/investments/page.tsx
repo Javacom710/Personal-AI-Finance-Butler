@@ -24,7 +24,7 @@ export const metadata: Metadata = { title: 'Investments' };
 export default async function InvestmentsPage() {
   const { ctx, format } = await loadMoneyContext('/investments');
 
-  const [result, instruments] = await Promise.all([portfolio(ctx), listInstruments(ctx)]);
+  const [result, instruments] = await Promise.all([portfolio(ctx, {}, { twr: false }), listInstruments(ctx)]);
 
   if (!result.ok) throw new Error(result.error.message);
   const { summary, holdings } = result.value;

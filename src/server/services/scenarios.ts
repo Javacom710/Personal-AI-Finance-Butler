@@ -101,7 +101,7 @@ export async function investmentScenario(
     startingBalance = Money.of(input.startingAmount!, ctx.base);
     start = { kind: 'amount' };
   } else if (input.startFrom === 'portfolio') {
-    const current = await portfolio(ctx);
+    const current = await portfolio(ctx, {}, { twr: false });
     if (!current.ok) return current;
     const { valuation } = current.value;
     startingBalance = valuation.pricedValue;
@@ -163,7 +163,7 @@ export async function allocationScenario(
   }
 
   // The allocation carries values but not their freshness; the valuation does.
-  const [current, valued] = await Promise.all([assetAllocation(ctx, 'asset_class'), portfolio(ctx)]);
+  const [current, valued] = await Promise.all([assetAllocation(ctx, 'asset_class'), portfolio(ctx, {}, { twr: false })]);
   if (!valued.ok) return valued;
   const shift = allocationAfterAdding(
     current.slices.map((s) => ({ key: s.key, label: s.label, value: s.marketValue })),

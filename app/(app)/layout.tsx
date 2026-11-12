@@ -32,6 +32,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-dvh md:grid md:grid-cols-[15rem_1fr]">
+      {/* First stop for a keyboard user: past the navigation, straight to the page. */}
+      <a
+        href="#content"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-surface focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:shadow"
+      >
+        Skip to content
+      </a>
       <aside className="sticky top-0 hidden h-dvh flex-col border-r border-border bg-surface-sunken md:flex">
         <div className="flex items-center gap-2 px-5 py-4">
           <span className="text-sm font-semibold tracking-tight">Finance OS</span>
@@ -53,7 +60,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <SignOutButton compact />
         </header>
 
-        <main className="mx-auto w-full max-w-6xl flex-1 space-y-6 px-4 py-6 pb-24 md:px-8 md:pb-10">
+        <main id="content" tabIndex={-1} className="mx-auto w-full max-w-6xl flex-1 space-y-6 px-4 py-6 pb-24 focus:outline-none md:px-8 md:pb-10">
           {children}
         </main>
       </div>

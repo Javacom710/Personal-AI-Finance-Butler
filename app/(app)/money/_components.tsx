@@ -12,13 +12,13 @@
  * the server keeps `formatMoney` the single renderer of every figure.
  */
 
-import { useActionState, useState } from 'react';
+import { useActionState, useEffect, useRef, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 
 import { EMPTY_ACTION_STATE, type ActionState } from './form-state';
 
 export const FIELD =
-  'w-full rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm outline-none placeholder:text-ink-faint focus:border-accent';
+  'w-full rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm outline-none placeholder:text-ink-faint focus:border-accent focus:ring-2 focus:ring-accent/40';
 export const LABEL = 'block text-xs font-medium text-ink-muted';
 
 export function SubmitButton({
@@ -223,6 +223,18 @@ export function QuickAdd({
   );
 }
 
+/**
+ * After a successful save the form is cleared; put focus back on the amount so
+ * the next entry starts without reaching for the mouse.
+ */
+function useRefocusAmount(state: ActionState) {
+  const form = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    if (state.status === 'ok') form.current?.querySelector<HTMLInputElement>('#amount')?.focus();
+  }, [state]);
+  return form;
+}
+
 function EntryForm({
   action,
   kind,
@@ -237,8 +249,9 @@ function EntryForm({
   today: string;
 }) {
   const [state, dispatch] = useActionState(action, EMPTY_ACTION_STATE);
+  const form = useRefocusAmount(state);
   return (
-    <form action={dispatch} className="space-y-3">
+    <form ref={form} action={dispatch} className="space-y-3">
       <Notice state={state} />
       <EntryFields state={state} kind={kind} accounts={accounts} categories={categories} today={today} />
     </form>
@@ -255,8 +268,9 @@ function TransferForm({
   today: string;
 }) {
   const [state, dispatch] = useActionState(action, EMPTY_ACTION_STATE);
+  const form = useRefocusAmount(state);
   return (
-    <form action={dispatch} className="space-y-3">
+    <form ref={form} action={dispatch} className="space-y-3">
       <Notice state={state} />
       <TransferFields state={state} accounts={accounts} today={today} />
     </form>
