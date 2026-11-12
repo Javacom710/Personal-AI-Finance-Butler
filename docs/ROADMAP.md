@@ -25,7 +25,7 @@ A phase is complete only when every box is ticked — including tests, type chec
 | 6 — Market Data | ✅ complete, steps 6.0–6.11 (6.10 closed unbuilt); equities need `TWELVE_DATA_API_KEY` (OD-3) |
 | 7 — AI Infrastructure | ✅ complete, steps 7.0–7.7 |
 | 8 — Model Evaluation | 🔶 **in progress — selected Tier 1 pair has complete parse-v3 evidence.** GLM-5.3-Flash → GPT-OSS-120B answered all 380 cases; both pass schema/tool routing gates. Exact parsing, grounding and injection failures remain visible for release review. Remaining tiers, deployment recording and reviewed activation are outstanding. Nothing is recorded or activated |
-| 9 — AI Features | 🔶 **built, disabled.** Non-scenario slices are merged. A guarded Tier 1 composition adapter is prepared and fake-response/real-runtime tested, with every model turn and repair passing through runtime controls. Existing question-intent routing and authenticated action wiring are prepared behind a code-only hold that remains false before context creation. Active forms and concrete owner release review remain; no recording or activation. Scenario analysis waits on OD-18 |
+| 9 — AI Features | 🔶 **built, disabled.** Non-scenario slices are merged. A guarded Tier 1 composition adapter is prepared and fake-response/real-runtime tested, with every model turn and repair passing through runtime controls. Existing question-intent routing and authenticated action wiring are prepared behind a code-only hold that remains false before context creation. Client forms are prepared with retained text, pending/error states and archived/full blocking. Concrete owner release review and evidence recording remain; no activation. Scenario analysis waits on OD-18 |
 | 10–15 | not started |
 
 **Provider:** DeepInfra direct ([ADR-54](DECISIONS.md#adr-54--deepinfra-direct-is-the-phase-8-provider-google-and-anthropic-models-are-excluded)). Groq ([ADR-52](DECISIONS.md#adr-52--the-model-provider-is-any-openai-compatible-api-groq-replaces-nvidia-builds-free-tier)) and NVIDIA Build are historical; OpenRouter is built (#41/#42) but not selected.
@@ -42,9 +42,11 @@ A phase is complete only when every box is ticked — including tests, type chec
 
 **Current intent/action preparation (2026-11-08):** existing routing now classifies original questions with authoritative serving-tier history; advanced intent is refused before egress in the Tier 1 composition. Authenticated actions use session-bound adapters behind a code-only hold that remains false before context creation. All **3,262 local tests**, typecheck, lint, production build and client-secret scan pass; integrity is 35 passing, 0 failing. No inference spending or activation occurred. See the [audit and remaining release work](audits/2026-11-08-tier1-intent-actions.md).
 
+**Current form/review preparation (2026-11-08):** client transaction-description and saved-question forms are wired behind the false release hold. All 2,544 unit/65 property tests and build/static/integrity checks pass, with Chromium fake-action interaction checks and authenticated production held-action checks. Base #63 is CI-green on PostgreSQL 17/18. The [concrete release packet](audits/2026-11-08-tier1-release-review.md) records quality limitations and the reviewed evidence-import step still needed; generation stays disabled.
+
 **Next, in order (2026-11-08):**
-1. Review remaining v3 quality failures and continue the [prepared Tier 1 intent/action wiring](audits/2026-11-08-tier1-intent-actions.md) with active generation forms and the concrete owner release review. The code-only hold remains false; generation controls stay disabled.
-2. After owner review, recording and activation are separate remaining steps for the Phase 9 features that Tier 1 serves.
+1. Review the [concrete Tier 1 release scope and remaining v3 quality failures](audits/2026-11-08-tier1-release-review.md). Forms and authenticated action wiring are prepared; the code-only hold remains false.
+2. After owner review, prepare a validated evidence-recording procedure; recording and activation are separate remaining steps for the two prepared Tier 1 workflows.
 3. Tiers 2–4 have no selected models. Advanced analysis, scenarios and documents stay off until each has its own measured lineup.
 4. Independently of the AI work: OD-18 (scenario engine, metrics, TWR wiring) and OD-19 (the Overview page).
 
