@@ -12,7 +12,7 @@ A phase is complete only when every box is ticked — including tests, type chec
 
 ---
 
-## Where the project stands — 2026-11-07
+## Where the project stands — 2026-11-08
 
 | Phase | Status |
 |---|---|
@@ -24,7 +24,7 @@ A phase is complete only when every box is ticked — including tests, type chec
 | 5 — Net Worth at Cost | ✅ complete, verified |
 | 6 — Market Data | ✅ complete, steps 6.0–6.11 (6.10 closed unbuilt); equities need `TWELVE_DATA_API_KEY` (OD-3) |
 | 7 — AI Infrastructure | ✅ complete, steps 7.0–7.7 |
-| 8 — Model Evaluation | 🔶 **in progress — Tier 1 lineup selected (ADR-55); awaiting its current-contract measurements (OD-20, partially resolved).** All suites, the runner, storage and per-tier eligibility (ADR-53) are built. The Tier 1 selection recorded in #54 is GLM-5.3-Flash → GPT-OSS-120B (ADR-55). Current merged-contract measurements, fallback completeness, remaining tiers and release composition remain outstanding. Nothing is recorded or activated |
+| 8 — Model Evaluation | 🔶 **in progress — selected Tier 1 pair has complete current-contract evidence.** GLM-5.3-Flash → GPT-OSS-120B answered all 380 cases; both pass schema/tool routing gates. Exact parsing, grounding and injection failures remain visible for release review. Remaining tiers, deployment recording and reviewed activation are outstanding. Nothing is recorded or activated |
 | 9 — AI Features | 🔶 **built, disabled.** Every non-scenario slice is merged (PRs #39, #40, #43–#48) and tested with fake providers; live generation stays hard-disabled until the selected lineup has complete current-contract measured eligibility and a reviewed activation. Scenario analysis waits on OD-18 |
 | 10–15 | not started |
 
@@ -32,11 +32,13 @@ A phase is complete only when every box is ticked — including tests, type chec
 
 **Historical verification (2026-11-07, PR #51 runtime-source head `b651867`):** 2,476 unit and property tests and 619 integration tests pass; typecheck, lint, production build and the client-secret scan are clean; `verify:integrity` reports 35 passing, 0 failing. PostgreSQL 17 and 18 CI is green. The full per-phase record is in [PROJECT-STATE.md](../PROJECT-STATE.md).
 
-**Latest verified follow-ups:** final-head #51 CI [42385230550](https://github.com/Javacom710/Personal-AI-Finance-Butler/actions/runs/42385230550) passes on PostgreSQL 17/18 at `93de4c2`. Assistant evidence PR #55 verifies twelve real-engine workloads plus ledger immutability and visible partial-result labels with fake providers; it does not complete real-model question quality. The current handoff combines #52/#53 documentation and provider-test isolation, without importing #54's scorer or scores.
+**Historical verified follow-ups (2026-11-07):** final-head #51 CI [42385230550](https://github.com/Javacom710/Personal-AI-Finance-Butler/actions/runs/42385230550) passes on PostgreSQL 17/18 at `93de4c2`. Assistant evidence PR #55 verifies twelve real-engine workloads plus ledger immutability and visible partial-result labels with fake providers; it does not complete real-model question quality. At that checkpoint the handoff combined #52/#53 documentation and provider-test isolation, without importing #54's scorer or scores.
 
-**Next, in order (2026-11-07):**
-1. A fresh, complete DeepInfra campaign of the selected Tier 1 lineup (GLM-5.3-Flash → GPT-OSS-120B) on the current suite contracts: parse/classify v2, tool-select v3, injection v4, grounding/robustness/analysis v5. Reconcile #54's external spend first. Both models need zero unanswered cases.
-2. Owner review of those results, then `--record` and a reviewed activation of the Phase 9 features that Tier 1 serves.
+**Current Tier 1 evidence (2026-11-08):** the [fresh source-bound campaign](../eval/reports/deepinfra-2026-11-07-tier1-current-2026-11-08/README.md) completed 380/380 answered cases after ADR-56's external-spend reconciliation. Each model has schema 100/100 and tools 53/57 (92.98%). Exact parsing is 36/40 vs 30/40, grounding 21/25 vs 20/25 and injection 24/25 vs 19/25. The unchanged proposer retains GLM → GPT-OSS. Campaign ledger estimate: US$0.0702; project accounted total US$1.8602 of US$10. Passing routing gates does not complete the release-quality checks below.
+
+**Next, in order (2026-11-08):**
+1. Review the current Tier 1 quality failures and decide release composition; fresh measurement and fallback coverage are now complete. No automatic rerun or changed gate is implied.
+2. After owner review, recording and activation are separate remaining steps for the Phase 9 features that Tier 1 serves.
 3. Tiers 2–4 have no selected models. Advanced analysis, scenarios and documents stay off until each has its own measured lineup.
 4. Independently of the AI work: OD-18 (scenario engine, metrics, TWR wiring) and OD-19 (the Overview page).
 

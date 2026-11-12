@@ -5,7 +5,7 @@ import { mkdir, open, readFile, rename, unlink, writeFile } from 'node:fs/promis
 import path from 'node:path';
 import { aiProviderSettings, env, loadDotEnv } from '../src/lib/env';
 import { evaluationProviderIdentity } from '../src/server/ai-evaluations';
-import { DEEPINFRA_MEASUREMENT_MODELS, type Tier } from '../src/server/ai/config/models';
+import { DEEPINFRA_MEASUREMENT_MODELS, resolveModelConfig, type Tier } from '../src/server/ai/config/models';
 import { requestProfileIdentity, resolveRequestProfiles } from '../src/server/ai/config/request-profiles';
 import { createNvidiaProvider } from '../src/server/ai/provider/nvidia-build';
 import { evaluateModel, reportFromCases, type CaseResult } from '../src/server/ai/eval/harness';
@@ -44,18 +44,29 @@ async function main() {
     if (!campaign || campaign.length > 64 || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(campaign)) throw new Error('Invalid campaign name.');
     argv.splice(campaignIndex, 2);
   }
+  const selectedTier1 = argv.includes('--selected-tier1');
+  if (selectedTier1) {
+    argv.splice(argv.indexOf('--selected-tier1'), 1);
+    if (!campaign) throw new Error('--selected-tier1 requires a fresh named --campaign.');
+  }
+  const plan = selectedTier1 ? 'selected-tier1' : 'qwen-candidates';
+  // The selected plan follows the reviewed application default (ADR-55),
+  // never an environment override or a request-supplied model identifier.
+  const measurementModels: Readonly<Partial<Record<Tier, readonly string[]>>> = selectedTier1
+    ? { 1: resolveModelConfig().candidates(1) }
+    : DEEPINFRA_MEASUREMENT_MODELS;
   const directory = campaign ? `${originalDirectory}-${campaign}` : originalDirectory;
   const live = argv.includes('--run');
   if (argv.some(a => !['--run', '--no-record', '--status'].includes(a)) ||
       (live ? !argv.includes('--no-record') || argv.length !== 2 : argv.length !== 1 || argv[0] !== '--status')) {
-    throw new Error('Use --status (offline) or --run --no-record, optionally --campaign <name>. Recording is unsupported.');
+    throw new Error('Use --status (offline) or --run --no-record, optionally --campaign <name> and --selected-tier1. Recording is unsupported.');
   }
   loadDotEnv();
   const e = env();
   const ai = aiProviderSettings(e);
   if (evaluationProviderIdentity(ai.baseUrl) !== endpoint || (live && !ai.apiKey)) throw new Error('Require the direct DeepInfra endpoint and its configured key.');
   const profiles = resolveRequestProfiles(e.AI_REQUEST_PROFILES);
-  const entries: Entry[] = ([1, 2, 3, 4] as const).flatMap(tier => DEEPINFRA_MEASUREMENT_MODELS[tier].flatMap(model => TIER_SUITES[tier].map(suite => ({ tier, model, suite }))));
+  const entries: Entry[] = ([1, 2, 3, 4] as const).flatMap(tier => (measurementModels[tier] ?? []).flatMap(model => TIER_SUITES[tier].map(suite => ({ tier, model, suite }))));
   validatePlan(entries);
   if (entries.some(r => /^(google|anthropic)\//i.test(r.model))) throw new Error('Google/Anthropic models are excluded from this run.');
   const catalogue = await read<{ providerIdentity: string; data: { id: string; metadata: { pricing: { input_tokens: number; output_tokens: number } } }[] }>(path.join(originalDirectory, 'catalogue.json'));
@@ -69,6 +80,9 @@ async function main() {
   files.push('scripts/ai-measure-deepinfra.ts', 'scripts/lib/ai-eval-budget.ts', 'scripts/lib/ai-measurement-workflow.ts', 'scripts/lib/deepinfra-accounting.ts', 'scripts/lib/ai-failure-diagnostics.ts', 'scripts/lib/inference-budget.ts');
   const source = createHash('sha256');
   for (const file of files) source.update(file).update(await readFile(file));
+  // Switching plans must not overwrite or resume another plan's campaign,
+  // even when both plans share a model and checkpoint filenames.
+  source.update(JSON.stringify({ plan, entries }));
   const sourceFingerprint = source.digest('hex');
   const context = (r: Entry) => ({ providerIdentity: endpoint, identity: createHash('sha256').update(sourceFingerprint).update(JSON.stringify({ endpoint, ...r, version: MODEL_SUITES[r.suite].version, maxTokens: maxTokensFor(r.tier, r.suite), profile: profiles.forModel(r.model) })).digest('hex'), profile: requestProfileIdentity(profiles.forModel(r.model)) });
   const cpPath = (r: Entry) => path.join(directory, `checkpoint-tier${r.tier}-${r.suite}-${r.model.replace(/[^a-zA-Z0-9-]/g, '-')}.json`);
@@ -84,8 +98,9 @@ async function main() {
   const updateReports = async (stop: string) => {
     for (const tier of [1, 2, 3, 4] as const) {
       const tierEntries = entries.filter(r => r.tier === tier);
+      if (!tierEntries.length) continue;
       if (tierEntries.some(r => !checkpoints.has(cpPath(r)) || checkpoints.get(cpPath(r))!.cases.length !== MODEL_SUITES[r.suite].build().length)) continue;
-      const models = DEEPINFRA_MEASUREMENT_MODELS[tier].map(model => {
+      const models = measurementModels[tier]!.map(model => {
         const suites: SuiteResult[] = tierEntries.filter(r => r.model === model).map(r => {
           const cp = checkpoints.get(cpPath(r))!;
           const report = reportFromCases(model, cp.cases);
@@ -105,7 +120,7 @@ async function main() {
       await writeFile(path.join(directory, `tier${tier}.md`), renderEvalReport(run));
       for (const row of rows.filter(r => r.tier === tier)) row.status = 'complete';
     }
-    await save(path.join(directory, 'progress.json'), { provider: 'DeepInfra', providerIdentity: endpoint, sourceFingerprint, campaign: campaign ?? 'original', asOf: new Date().toISOString(), stop, ownerApprovalRequired: true, recorded: false, coverageComplete: rows.length === entries.length && rows.every(r => r.remainingCaseIds.length === 0), accountedUsd: spent(), otherAccountedUsd, accountCapUsd: 4.50, budgetUsd, candidates: candidateReadiness(rows), rows });
+    await save(path.join(directory, 'progress.json'), { provider: 'DeepInfra', providerIdentity: endpoint, sourceFingerprint, plan, campaign: campaign ?? 'original', asOf: new Date().toISOString(), stop, ownerApprovalRequired: true, recorded: false, coverageComplete: rows.length === entries.length && rows.every(r => r.remainingCaseIds.length === 0), accountedUsd: spent(), otherAccountedUsd, accountCapUsd: 4.50, budgetUsd, candidates: candidateReadiness(rows), rows });
   };
   await mkdir(directory, { recursive: true });
   const lockPath = path.resolve('eval/reports/.deepinfra-account.lock');

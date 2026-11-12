@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, it } from 'vitest';
-import { DEEPINFRA_MEASUREMENT_MODELS } from '../../src/server/ai/config/models';
+import { DEEPINFRA_MEASUREMENT_MODELS, resolveModelConfig } from '../../src/server/ai/config/models';
 
 it('runs the full DeepInfra queue without storage, resumes offline, and rejects foreign checkpoints and recording', () => {
   const root = mkdtempSync(path.join(tmpdir(), 'deepinfra-eval-test-'));
@@ -15,7 +15,8 @@ it('runs the full DeepInfra queue without storage, resumes offline, and rejects 
     const directory = path.join(root, 'eval/reports/deepinfra-2026-11-07');
     mkdirSync(directory, { recursive: true });
     const endpoint = 'https://api.deepinfra.com/v1/openai';
-    const models = [...new Set(Object.values(DEEPINFRA_MEASUREMENT_MODELS).flat())];
+    const selectedModels = resolveModelConfig().candidates(1);
+    const models = [...new Set([...Object.values(DEEPINFRA_MEASUREMENT_MODELS).flat(), ...selectedModels])];
     writeFileSync(path.join(directory, 'catalogue.json'), JSON.stringify({ providerIdentity: endpoint, data: models.map(id => ({ id, metadata: { pricing: { input_tokens: 0.15, output_tokens: 0.6 } } })) }));
     const hook = path.join(root, 'fetch.mjs');
     writeFileSync(hook, `globalThis.fetch = async (url, init) => {
@@ -88,7 +89,30 @@ it('runs the full DeepInfra queue without storage, resumes offline, and rejects 
     expect(JSON.parse(readFileSync(path.join(fresh, 'progress.json'), 'utf8'))).toMatchObject({ campaign: 'format-v3', coverageComplete: true, accountCapUsd: 4.50 });
     expect(JSON.parse(readFileSync(path.join(fresh, 'usage.json'), 'utf8')).events).toHaveLength(420);
     expect(readFileSync(path.join(directory, 'usage.json'), 'utf8')).toBe(ledger);
+    // ADR-55's selected pair is a separate complete Tier 1 campaign, not an
+    // implicit replacement of the historical Qwen plan or a live activation.
+    const selected = run('--run', '--no-record', '--selected-tier1', '--campaign', 'selected-tier1');
+    expect(selected.status, selected.stderr).toBe(0);
+    const selectedDirectory = path.join(root, 'eval/reports/deepinfra-2026-11-07-selected-tier1');
+    const selectedProgress = JSON.parse(readFileSync(path.join(selectedDirectory, 'progress.json'), 'utf8'));
+    expect(selectedProgress).toMatchObject({ plan: 'selected-tier1', coverageComplete: true, ownerApprovalRequired: true, recorded: false });
+    expect(selectedProgress.rows).toHaveLength(12);
+    expect(selectedProgress.rows.every((row: { tier: number }) => row.tier === 1)).toBe(true);
+    const selectedReport = JSON.parse(readFileSync(path.join(selectedDirectory, 'tier1.json'), 'utf8'));
+    expect(selectedReport.models.map((model: { modelId: string }) => model.modelId)).toEqual(selectedModels);
+    expect(selectedReport.suiteVersions).toEqual({ parse: 2, classify: 2, 'tool-select': 3, grounding: 5, robustness: 5, injection: 4 });
+    expect(readdirSync(selectedDirectory)).not.toContain('tier2.json');
+    const selectedLedger = readFileSync(path.join(selectedDirectory, 'usage.json'), 'utf8');
+    expect(JSON.parse(selectedLedger).events).toHaveLength(380);
+    expect(readFileSync(path.join(directory, 'usage.json'), 'utf8')).toBe(ledger);
     writeFileSync(hook, 'globalThis.fetch = () => { throw new Error("Unexpected network call"); };');
+    expect(run('--run', '--no-record', '--selected-tier1', '--campaign', 'selected-tier1').status).toBe(0);
+    const changedPlan = run('--status', '--campaign', 'selected-tier1');
+    expect(changedPlan.status).toBe(1);
+    expect(changedPlan.stderr).toContain('Campaign source differs');
+    expect(readFileSync(path.join(selectedDirectory, 'usage.json'), 'utf8')).toBe(selectedLedger);
+    expect(run('--status', '--selected-tier1').status).toBe(1);
+    expect(run('--status', '--selected-tier1', '--selected-tier1', '--campaign', 'duplicate').status).toBe(1);
     expect(run('--status', '--campaign', '../escape').status).toBe(1);
     expect(run('--status', '--campaign', 'one', '--campaign', 'two').status).toBe(1);
     expect(run('--run', '--record').status).toBe(1);
