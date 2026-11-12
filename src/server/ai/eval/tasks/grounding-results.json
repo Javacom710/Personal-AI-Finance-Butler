@@ -1148,12 +1148,7 @@
         "currency": "INR",
         "scale": 4
       },
-      "unrealizedPnl": {
-        "kind": "money",
-        "amount": "-30912.0000",
-        "currency": "INR",
-        "scale": 4
-      },
+      "unrealizedPnl": null,
       "realizedPnl": {
         "kind": "money",
         "amount": "4992.0000",
@@ -1184,27 +1179,14 @@
         "currency": "INR",
         "scale": 4
       },
-      "totalReturn": {
-        "kind": "money",
-        "amount": "-24220.0000",
-        "currency": "INR",
-        "scale": 4
-      },
+      "totalReturn": null,
       "totalReturnPct": {
-        "value": {
-          "kind": "rate",
-          "value": "-0.1169935272",
-          "scale": 10
-        },
-        "unavailableReason": null
+        "value": null,
+        "unavailableReason": "no_price"
       },
       "xirr": {
-        "value": {
-          "kind": "rate",
-          "value": "-0.2105550000",
-          "scale": 10
-        },
-        "unavailableReason": null
+        "value": null,
+        "unavailableReason": "no_price"
       },
       "twr": {
         "value": null,

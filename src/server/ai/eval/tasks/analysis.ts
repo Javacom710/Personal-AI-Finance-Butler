@@ -28,7 +28,7 @@ import {
   type GroundingGoldenCase,
 } from './grounding';
 
-export const ANALYSIS_SUITE_VERSION = 5;
+export const ANALYSIS_SUITE_VERSION = 6;
 
 export type AnalysisDomain = 'portfolio' | 'health' | 'period' | 'cross-domain';
 
@@ -101,8 +101,8 @@ const NOT_ASSIGNED = String.raw`[()\[\]]|\b(?:unavailable|not|no|none|missing|in
  * but the figure must follow the subject with nothing between them that hands
  * it elsewhere or denies it ({@link NOT_ASSIGNED}).
  */
-export function assignedTo(subject: string): RegExp {
-  const nonZero = String.raw`(?!0(?:\.0+)?(?![\d.,]))`;
+export function assignedTo(subject: string, includeZero = false): RegExp {
+  const nonZero = includeZero ? '' : String.raw`(?!0(?:\.0+)?(?![\d.,]))`;
   const gap = String.raw`(?:(?!₹|\brs\b|\binr\b|\$|\d|${NOT_ASSIGNED})[^;!?]){0,40}`;
   return new RegExp(
     String.raw`\b(?:${subject})\b${gap}(?:(?:₹|\brs\.?|\binr\b|\$)\s?-?${nonZero}\d|${nonZero}-?\d[\d,.]*\s?%)`,
@@ -112,6 +112,10 @@ export function assignedTo(subject: string): RegExp {
 
 /** Time-weighted return: the portfolio result has insufficient price history for it. */
 const TWR_FIGURE = assignedTo(String.raw`time[- ]weighted (?:rate of )?return|TWR`);
+// The fixture has an unpriced holding. Whole-portfolio returns are unavailable,
+// even when a stated figure could trace to another metric in the same result.
+const INCOMPLETE_RETURN_FIGURE = assignedTo(String.raw`total return|unreali[sz]ed (?:P&L|profit|loss|gain|return)|XIRR`, true);
+const RETURN_UNAVAILABLE = /total return[^;.!?]{0,70}(?:unavailable|not available|cannot|can'?t)/i;
 /** Dining is over budget (remaining -₹650): saying it is under, or that nothing is over, reverses the finding. */
 const DINING_REVERSED = [
   /\bdining\b(?:(?!\bover\b)[^;!?]){0,80}\b(?:under|within|below|inside)\s+(?:its\s+|the\s+)?budget/i,
@@ -159,20 +163,18 @@ export const ANALYSIS_CASES: readonly AnalysisGoldenCase[] = [
   // Portfolio reviews
   analysisCase(1, 'portfolio', 'Review my portfolio position and its main data limitations.', {
     calls: ['portfolio', 'holdings'],
-    required: [money('148100'), money('-24220'), [rate('-0.1169935272')]],
-    mentions: [/HDFC ?BANK.{0,60}(?:no price|unpriced|missing price)/i, /NIFTYBEES.{0,60}(?:stale|old price|out of date)/i, /partial|incomplete|coverage/i],
-    contradictions: [CURRENT_PRICE, HDFC_VALUE, TWR_FIGURE],
-    bound: [bind(/market value/i, money('148100')), bind(/total return/i, money('-24220'))],
+    required: [money('148100')],
+    mentions: [/HDFC ?BANK.{0,60}(?:no price|unpriced|missing price)/i, /NIFTYBEES.{0,60}(?:stale|old price|out of date)/i, /partial|incomplete|coverage/i, RETURN_UNAVAILABLE],
+    contradictions: [CURRENT_PRICE, HDFC_VALUE, TWR_FIGURE, INCOMPLETE_RETURN_FIGURE],
+    bound: [bind(/market value/i, money('148100'))],
   }),
   analysisCase(2, 'portfolio', 'Explain the portfolio return using the reported realised and unrealised results.', {
     calls: ['portfolio'],
-    required: [money('4992'), money('-30912'), money('-24220')],
-    mentions: [/(?:unrealised|unrealized) loss/i, /realised|realized gain/i],
-    contradictions: [TWR_FIGURE, /\bunreali[sz]ed gain/i, /(?<!un)\breali[sz]ed loss/i],
+    required: [money('4992')],
+    mentions: [/unreali[sz]ed (?:P&L|result|return|gain|loss)[^;.!?]{0,70}(?:unavailable|not available|cannot|can'?t)/i, /realised|realized gain/i, RETURN_UNAVAILABLE, /unpriced|missing price|no price/i],
+    contradictions: [TWR_FIGURE, INCOMPLETE_RETURN_FIGURE, /(?<!un)\breali[sz]ed loss/i],
     bound: [
       bind(/(?<!un)\breali[sz]ed\b/i, money('4992')),
-      bind(/\bunreali[sz]ed\b/i, money('-30912')),
-      bind(/total return/i, money('-24220')),
     ],
   }),
   analysisCase(3, 'portfolio', 'Review my allocation by asset class and say what it leaves out.', {
@@ -196,11 +198,10 @@ export const ANALYSIS_CASES: readonly AnalysisGoldenCase[] = [
   }),
   analysisCase(5, 'portfolio', 'Summarise my investment returns and explain whether time-weighted return is available.', {
     calls: ['portfolio'],
-    required: [money('-24220'), [rate('-0.2105550000')]],
+    required: [],
     forbidden: [rate('0')],
-    mentions: [/time[- ]weighted return/i, /unavailable|not available|insufficient price history/i],
-    contradictions: [TWR_FIGURE],
-    bound: [bind(/total return/i, money('-24220')), bind(/\bXIRR\b/i, rate('-0.2105550000'))],
+    mentions: [/time[- ]weighted return/i, /insufficient price history/i, RETURN_UNAVAILABLE, /XIRR[^;.!?]{0,70}(?:unavailable|not available|cannot|can'?t)/i, /unpriced|missing price|no price/i],
+    contradictions: [TWR_FIGURE, INCOMPLETE_RETURN_FIGURE],
   }),
 
   // Financial health
@@ -279,13 +280,12 @@ export const ANALYSIS_CASES: readonly AnalysisGoldenCase[] = [
   // Cross-domain analysis
   analysisCase(13, 'cross-domain', 'Give a snapshot that connects my net worth and portfolio, including valuation limits.', {
     calls: ['netWorthCost', 'portfolio', 'holdings'],
-    required: [money('8107349.20'), money('148100'), money('-24220')],
-    mentions: [/cost/i, /partial|incomplete|coverage/i, /HDFC ?BANK/i, /stale/i],
-    contradictions: [CURRENT_PRICE, HDFC_VALUE, TWR_FIGURE],
+    required: [money('8107349.20'), money('148100')],
+    mentions: [/cost/i, /partial|incomplete|coverage/i, /HDFC ?BANK/i, /stale/i, RETURN_UNAVAILABLE],
+    contradictions: [CURRENT_PRICE, HDFC_VALUE, TWR_FIGURE, INCOMPLETE_RETURN_FIGURE],
     bound: [
       bind(/net[- ]worth/i, money('8107349.20')),
       bind(/market value/i, money('148100')),
-      bind(/total return/i, money('-24220')),
     ],
   }),
   analysisCase(14, 'cross-domain', 'Connect my savings, current budget pressure and debt obligations.', {
@@ -303,7 +303,7 @@ export const ANALYSIS_CASES: readonly AnalysisGoldenCase[] = [
     calls: ['accounts', 'liabilities', 'cashflowSep', 'portfolio', 'holdings'],
     required: [money('412022.37'), money('24500'), money('75492.87'), money('148100')],
     mentions: [/HDFC ?BANK.{0,60}(?:no price|unpriced|missing price)/i, /NIFTYBEES.{0,60}(?:stale|old price|out of date)/i, /(?:risk tolerance|time horizon|goals|emergency fund)/i],
-    contradictions: [CURRENT_PRICE, HDFC_VALUE, TWR_FIGURE, /\b(?:you should|I recommend|I would recommend)\s+(?:to\s+)?(?:invest|buy)\b/i],
+    contradictions: [CURRENT_PRICE, HDFC_VALUE, TWR_FIGURE, INCOMPLETE_RETURN_FIGURE, /\b(?:you should|I recommend|I would recommend)\s+(?:to\s+)?(?:invest|buy)\b/i],
     bound: [
       bind(/HDFC Savings/i, money('412022.37')),
       bind(/\bEMI\b/i, money('24500')),

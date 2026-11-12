@@ -15,7 +15,7 @@ import {
   portfolio,
   upcomingCommitments,
 } from '@/server/services';
-import { canShowPortfolioReturns } from './investments/_return-visibility';
+import { canShowPortfolioReturns, canShowPortfolioValue } from './investments/_return-visibility';
 import { attentionItems, isOverviewEmpty } from './_overview';
 import { amountTone, loadMoneyContext } from './money/_page-data';
 
@@ -95,14 +95,12 @@ export default async function OverviewPage() {
   const delta = change.ok ? change.value.delta : null;
   const cash = result.groups.find((g) => g.group === 'cash');
   const investmentsAtCost = result.groups.find((g) => g.group === 'investments');
-  const priced = summary.unrealizedPnl !== null;
+  const priced = canShowPortfolioValue(invested.value.valuation);
   // From open positions, not the active-instrument list: a deactivated
   // instrument that is still held is still part of the portfolio.
   const hasHoldings = invested.value.holdings.some((h) => h.quantity.units !== 0n);
 
-  // Returns are shown only when every holding is priced. With an unpriced
-  // holding the engine's unrealised figure nets priced value against the cost of
-  // ALL holdings, so the return would read as a loss that has not happened.
+  // Returns require every holding priced; a partial market value remains useful.
   const fullyPriced = canShowPortfolioReturns(summary);
 
   const attention = attentionItems({

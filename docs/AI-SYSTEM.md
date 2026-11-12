@@ -1,7 +1,7 @@
 # AI System
 
 <!-- project-doc-status:start -->
-> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21/22/23 remain open. DeepInfra direct is selected.
+> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21 is protected in the engine; OD-22/23 remain open. DeepInfra direct is selected.
 > **Current references:** [Project state](../PROJECT-STATE.md) · [Roadmap](ROADMAP.md) · [Maintained deadline forecast](../PROJECT-DEADLINE-FORECAST.md).
 > **Document role:** Technical/operational reference; current state and roadmap govern completion.
 <!-- project-doc-status:end -->
@@ -626,6 +626,8 @@ These metrics feed routing changes — which is the point of measuring them.
 ## 14. Evaluation framework
 
 `CLAUDE.md <model_selection>` requires evaluation against real workloads before finalising routing. This is Phase 8.
+
+**Financial contract update, 12 Nov 2026:** grounding/robustness/analysis are **v6** after OD-21. The frozen partial-price portfolio now reports unavailable aggregate returns/XIRR instead of a phantom loss. Integration checks regenerate and compare production-handler output; affected rubric cases require that limitation and reject invented return figures (including zero). Parse v4, classify v2, tool-select v3, injection v4 and document v2 are unchanged. Previous campaigns/manifests remain historical and are rejected for current qualification/import. Complete OD-22/23 and scenario/metrics registration before the next paid qualification batch. [Audit](audits/2026-11-12-incomplete-portfolio-returns.md).
 
 ### Task set
 

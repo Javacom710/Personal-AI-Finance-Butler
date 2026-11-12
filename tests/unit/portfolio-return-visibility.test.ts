@@ -7,7 +7,7 @@ import { Rate } from '@/lib/decimal/rate';
 import { isoDate } from '@/lib/date';
 import { metric } from '@/lib/metric';
 import type { PortfolioTwrResult } from '@/server/services/portfolio';
-import { canShowPortfolioReturns } from '@app/(app)/investments/_return-visibility';
+import { canShowPortfolioReturns, canShowPortfolioValue } from '@app/(app)/investments/_return-visibility';
 
 const mocks = vi.hoisted(() => ({ portfolio: vi.fn(), instruments: vi.fn() }));
 
@@ -51,18 +51,19 @@ const twrDetail = (staleToday = false, staleValuations = 0) => metric<PortfolioT
   twr: Rate.of('0.25'), annualised: false, subPeriods: 2, days: 50,
   valuations: 3, staleValuations, staleToday,
 });
+const valuation = { holdings: [{}, {}], unpricedCount: 1 };
 const base = () => ({
   asOf: isoDate('2026-11-11'),
   investedCapital: money('1000'),
   costDeployed: money('1000'),
   marketValue: money('600'),
-  unrealizedPnl: money('-400'),
+  unrealizedPnl: null,
   realizedPnl: money('10'),
   dividends: money('2'),
   interest: money('3'),
   fees: money('1'),
   taxes: money('1'),
-  totalReturn: money('-387'),
+  totalReturn: null,
   unrealizedReturnPct: metric(Rate.of('0')),
   totalReturnPct: metric(Rate.of('0')),
   xirr: metric(Rate.of('0')),
@@ -77,7 +78,7 @@ const base = () => ({
 
 beforeEach(() => {
   mocks.instruments.mockResolvedValue([{ id: 'instrument' }]);
-  mocks.portfolio.mockResolvedValue({ ok: true, value: { summary: base(), holdings: [], twr: twrDetail() } });
+  mocks.portfolio.mockResolvedValue({ ok: true, value: { summary: base(), holdings: [], valuation, twr: twrDetail() } });
 });
 
 it.each([InvestmentsPage, PerformancePage])(
@@ -99,7 +100,7 @@ it.each([InvestmentsPage, PerformancePage])(
   async (page) => {
     mocks.portfolio.mockResolvedValue({
       ok: true,
-      value: { summary: { ...base(), unpricedInstruments: [], marketValue: money('0') }, holdings: [], twr: twrDetail() },
+      value: { summary: { ...base(), unpricedInstruments: [], unrealizedPnl: money('-400'), totalReturn: money('-387'), marketValue: money('0') }, holdings: [], valuation, twr: twrDetail() },
     });
     const html = renderToStaticMarkup(await page());
     expect(html).toContain('return:999%');
@@ -110,7 +111,7 @@ it.each([InvestmentsPage, PerformancePage])(
 
 it.each([false, true])('discloses historical TWR staleness without weakening the missing-price guard (stale today: %s)', async staleToday => {
   mocks.portfolio.mockResolvedValue({ ok: true, value: {
-    summary: { ...base(), unpricedInstruments: [] }, holdings: [], twr: twrDetail(staleToday, 1),
+    summary: { ...base(), unpricedInstruments: [], unrealizedPnl: money('0') }, holdings: [], valuation, twr: twrDetail(staleToday, 1),
   } });
   const priced = renderToStaticMarkup(await PerformancePage());
   expect(priced).toContain('return:999%');
@@ -119,7 +120,7 @@ it.each([false, true])('discloses historical TWR staleness without weakening the
   expect(priced.includes('not to today')).toBe(staleToday);
 
   mocks.portfolio.mockResolvedValue({ ok: true, value: {
-    summary: base(), holdings: [], twr: twrDetail(staleToday, 1),
+    summary: base(), holdings: [], valuation, twr: twrDetail(staleToday, 1),
   } });
   const partial = renderToStaticMarkup(await PerformancePage());
   expect(partial).toContain('Needs every holding priced');
@@ -131,7 +132,7 @@ it('does not infer complete coverage from the cost percentage for a zero-cost un
   expect(canShowPortfolioReturns(base())).toBe(false);
   expect(canShowPortfolioReturns({ ...base(), unpricedInstruments: [], unrealizedPnl: null })).toBe(false);
   const stale = {
-    ...base(), unpricedInstruments: [],
+    ...base(), unpricedInstruments: [], unrealizedPnl: money('0'),
     staleInstruments: [{ id: 'stale', symbol: 'OLD', name: 'Old' }],
   };
   expect(canShowPortfolioReturns(stale)).toBe(true);
@@ -143,7 +144,7 @@ it('keeps held inactive instruments visible and guards the aggregate footer', as
     ok: true,
     value: {
       summary: base(),
-      holdings: [{
+      valuation, holdings: [{
         accountId: 'account', instrument: { id: 'inactive' },
         quantity: { units: 1n }, baseMarketValue: money('600'),
       }],
@@ -164,7 +165,7 @@ it('keeps realised history visible after every instrument is closed and inactive
     ...base(), investedCapital: money('0'), marketValue: money('0'),
     unrealizedPnl: money('0'), unpricedInstruments: [],
   };
-  mocks.portfolio.mockResolvedValue({ ok: true, value: { summary, holdings: [] } });
+  mocks.portfolio.mockResolvedValue({ ok: true, value: { summary, holdings: [], valuation } });
   const html = renderToStaticMarkup(await InvestmentsPage());
   expect(html).not.toContain('Add an instrument to begin');
   expect(html).toContain('money:100000');
@@ -179,8 +180,14 @@ it('retains the setup state for a genuinely empty investment record', async () =
         ...base(), costDeployed: money('0'), realizedPnl: money('0'),
         dividends: money('0'), interest: money('0'), fees: money('0'), taxes: money('0'),
       },
-      holdings: [],
+      holdings: [], valuation,
     },
   });
   expect(renderToStaticMarkup(await InvestmentsPage())).toContain('Add an instrument to begin');
+});
+
+it('keeps partial priced value separate from returns, including all-missing and empty cases', () => {
+  expect(canShowPortfolioValue(valuation)).toBe(true);
+  expect(canShowPortfolioValue({ ...valuation, holdings: [{}] })).toBe(false);
+  expect(canShowPortfolioValue({ ...valuation, holdings: [], unpricedCount: 0 })).toBe(true);
 });

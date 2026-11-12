@@ -1,7 +1,7 @@
 # Documentation Index
 
 <!-- project-doc-status:start -->
-> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21/22/23 remain open. DeepInfra direct is selected.
+> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21 is protected in the engine; OD-22/23 remain open. DeepInfra direct is selected.
 > **Current references:** [Project state](../PROJECT-STATE.md) · [Roadmap](ROADMAP.md) · [Maintained deadline forecast](../PROJECT-DEADLINE-FORECAST.md).
 > **Document role:** Documentation navigation and current status.
 <!-- project-doc-status:end -->
@@ -36,4 +36,4 @@ Durable technical reference for the Personal Finance & Investment OS. Read in th
 - `ADR-nn` — cross-reference into [DECISIONS.md](DECISIONS.md).
 - Code identifiers are written as they will appear in the repository.
 
-Status (12 November 2026): **Phases 0–7 are built; Phase 8 has complete selected Tier 1 parse-v4 evidence with quality/release review open; Phase 9 is built but live generation remains disabled.** Overview, deterministic Scenarios, Money health metrics and TWR are built. Phase 10 UX is partial; Phases 11–14 remain unfinished. OD-21/22 return correctness and OD-23 AI freshness disclosure remain open. [ROADMAP.md](ROADMAP.md) is the current summary; [PROJECT-STATE.md](../PROJECT-STATE.md) retains dated checkpoints. The [latest Claude reconciliation](audits/2026-11-12-claude-latest-handoff.md) records source pins and verification. The forecast is core **18 December 2026**, full scope **15 January 2027**, low confidence. A design describes shipped behaviour only where the roadmap and implementation confirm it.
+Status (12 November 2026): **Phases 0–7 are built; Phase 8 quality/release review is open and Phase 9 live generation remains disabled.** Overview, Scenarios, metrics and TWR are built; Phase 10 is partial. OD-21 now withholds incomplete aggregate returns in the engine; OD-22/23 and scenario/metrics tools remain. Grounding/robustness/analysis are v6, so the earlier complete parse-v4 campaign and its pinned manifest are historical rather than current qualification/import evidence. [Roadmap](ROADMAP.md), [state](../PROJECT-STATE.md) and the [OD-21 audit](audits/2026-11-12-incomplete-portfolio-returns.md) govern current status. The maintained forecast remains core **18 December 2026**, full scope **15 January 2027**, low confidence.

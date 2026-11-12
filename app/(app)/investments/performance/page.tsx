@@ -5,7 +5,7 @@ import { InlineAction } from '../../money/_components';
 import { loadMoneyContext } from '../../money/_page-data';
 import { portfolio, realizedDisposals } from '@/server/services';
 import { rebuildPositionsAction } from '../actions';
-import { canShowPortfolioReturns, RETURN_PRICING_REASON } from '../_return-visibility';
+import { canShowPortfolioReturns, canShowPortfolioValue, RETURN_PRICING_REASON } from '../_return-visibility';
 import { NavTabs, TABLE, TD, TD_NUM, TH, TH_NUM } from '../_components';
 
 export const metadata: Metadata = { title: 'Performance' };
@@ -29,6 +29,7 @@ export default async function PerformancePage() {
   if (!result.ok) throw new Error(result.error.message);
   const { summary, twr } = result.value;
   const showReturns = canShowPortfolioReturns(summary);
+  const showValue = canShowPortfolioValue(result.value.valuation);
 
   // A stale price is used rather than withheld, so the return stands — but it
   // must not read as current when part of it is a last-known valuation.
@@ -42,7 +43,7 @@ export default async function PerformancePage() {
   const metrics: readonly [string, string, string | undefined][] = [
     ['Invested capital', format.money(summary.investedCapital), 'Σ cost basis over open positions — capital currently at risk'],
     ['Capital deployed', format.money(summary.costDeployed), 'Σ cost of every lot ever opened, including closed ones'],
-    ['Market value', summary.unrealizedPnl === null ? '—' : format.money(summary.marketValue), 'Priced holdings only'],
+    ['Market value', showValue ? format.money(summary.marketValue) : '—', 'Priced holdings only'],
     [
       'Unrealised P&L',
       showReturns ? format.money(summary.unrealizedPnl!) : '—',

@@ -1,7 +1,7 @@
 # Project deadline forecast — forecast versus actual
 
 <!-- project-doc-status:start -->
-> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21/22/23 remain open. DeepInfra direct is selected.
+> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21 is protected in the engine; OD-22/23 remain open. DeepInfra direct is selected.
 > **Current references:** [Project state](PROJECT-STATE.md) · [Roadmap](docs/ROADMAP.md) · [Maintained deadline forecast](PROJECT-DEADLINE-FORECAST.md).
 > **Document role:** Maintained forecast versus actual; frozen F1 baseline.
 <!-- project-doc-status:end -->
@@ -46,14 +46,14 @@ test counts, phase counts and cheap API calls cannot establish one.
 | Actual work | Evidence | Schedule implication |
 |---|---|---|
 | Phases 0–7 built; main now includes PR #70 | [Roadmap](docs/ROADMAP.md), main `50b604a` | Foundation and consolidated UI/engine work exist; production acceptance remains open |
-| Current Tier 1 parse-v4 pair measured, 380/380 answers | [Current campaign](eval/reports/deepinfra-2026-11-07-tier1-parse-v4-2026-11-08/README.md) | Complete current-prompt evidence; quality/release acceptance remains open |
+| Historical Tier 1 parse-v4 pair measured, 380/380 answers | [Current campaign](eval/reports/deepinfra-2026-11-07-tier1-parse-v4-2026-11-08/README.md) | Complete historical evidence; current v6 financial contracts require fresh measurement after remaining contract work |
 | v4 parsing 38/40 GLM, 33/40 GPT-OSS; injection 24/25 and 21/25 | Same campaign; schema 100/100 each; tools 54/57 and 53/57 | Passing numerical gates does not close release-quality review |
 | Independent Nov-12 v2 campaign and fifteen diagnostic probes retained from PRs #71/#72 | [Historical investigation](docs/audits/2026-11-12-tier1-failure-diagnostics.md), source `7037372` | Historical source contracts; not current v4 qualification; no rescoring or replay |
 | Overview, deterministic scenarios, expense ratio/runway/coverage and TWR built | Main PR #70 plus latest Claude `259fa91`; [handoff audit](docs/audits/2026-11-12-claude-latest-handoff.md) | Earlier “placeholder/missing engine” actuals corrected; M2/M5 remain incomplete |
 | Latest TWR transfer, action, future-row and freshness fixes integrated; missing-FX cash withholds ratios | Same handoff; 3,411 local tests (2,705 unit/property, 706 PostgreSQL 17 integration); integrity 35/0 | Verified engineering progress, not production or model-quality acceptance; branch CI tracked separately |
 | Phase 9 non-scenario slices/composition/forms built; live generation disabled | [Feature handovers](docs/README.md) | Activation, advanced/scenario tools and real-model workflows still outstanding |
 | OD-18 timing settled by owner on 11 Nov; Tiers 2–4 unselected | [OD-18/20](docs/DECISIONS.md); tool registration with Tier 2 work | Part of M1 resolved; remaining quality/candidate decisions prevent milestone closure |
-| OD-21 return cohorts, OD-22 unmatched-transfer XIRR and OD-23 tool freshness open | [Open decisions](docs/DECISIONS.md#open-decisions-requiring-the-user) | Batch affected engine/tool/evaluation changes before the next paid measurement and before relevant activation |
+| OD-21 protected in the engine; OD-22 unmatched-transfer XIRR and OD-23 tool freshness open | [Open decisions](docs/DECISIONS.md#open-decisions-requiring-the-user) | Batch affected engine/tool/evaluation changes before the next paid measurement and before relevant activation |
 | Phase 10 partial; Phases 11–14 unfinished | [Roadmap](docs/ROADMAP.md) | UX, security, release rehearsal, deployment and integrations remain |
 
 ## Milestones and variance
@@ -68,7 +68,7 @@ workdays must be recorded as work occurs before using them as measured velocity.
 | ID / exit condition | Baseline F1 | Current forecast | Actual finish | Forecast variance | Dependency / current condition |
 |---|---|---|---|---|---|
 | M1 — quality-revision approach, remaining tier candidates and OD-18 path settled | 16 Nov 2026 | 16 Nov 2026 | — | 0 days | OD-18 timing settled 11 Nov; remaining quality approach/tier candidates open |
-| M2 — approved deterministic gaps and changed tool/schema contracts implemented and tested | 20 Nov 2026 | 20 Nov 2026 | — | 0 days | Engine/UI built; OD-21/22/23, scenario/metrics tools and affected suites remain; approved period/CAS boundaries where required |
+| M2 — approved deterministic gaps and changed tool/schema contracts implemented and tested | 20 Nov 2026 | 20 Nov 2026 | — | 0 days | Engine/UI built; OD-21 protection and v6 financial contracts implemented; OD-22/23, scenario/metrics tools and final affected suites remain; approved period/CAS boundaries where required |
 | M3 — final current-contract lineups measured and accepted for every release capability | 27 Nov 2026 | 27 Nov 2026 | — | 0 days | M2; quality, model availability, budget and owner acceptance |
 | M4 — Phase 9 live composition and real user workflows verified | 4 Dec 2026 | 4 Dec 2026 | — | 0 days | M3; explicit reviewed activation, all relevant feature gates |
 | M5 — Overview and Phase 10 UX/accessibility/performance complete | 9 Dec 2026 | 9 Dec 2026 | — | 0 days | Overview built; phone fixes verified; remaining accessibility/tap targets/performance and M4 live-AI interaction checks |
@@ -78,7 +78,7 @@ workdays must be recorded as work occurs before using them as measured velocity.
 | M9 — remaining approved imports and Phase 14 Groww workflows accepted; full scope finished | 15 Jan 2027 | 15 Jan 2027 | — | 0 days | M8; CAS/import contracts, Gmail/Groww access, static IP and owner-confirmation checks |
 
 **Order matters:** The current TWR wiring leaves the retained grounding fixture unchanged, but
-OD-21 and OD-23 change projected results; OD-22 must be checked against the fixture.
+OD-21 now changes projected results and advances financial suites to v6; OD-23 will change the result shape and OD-22 must be checked against the fixture.
 These changes and tool registration require coordinated affected suite versions. Finish the approved deterministic contract changes before
 the final paid qualification campaign, rather than paying to certify contracts
 that will immediately change. Independent preparation can proceed, but this plan
@@ -110,6 +110,7 @@ finish date; do not substitute a forecast. Baseline dates never move silently.
 | 12 Nov 2026 | All 102 Markdown files reviewed/updated; 306 status-navigation links and historical-body preservation verified; both instruction files require maintenance | F1 unchanged | Documentation task completed locally; no delivery milestone or release gate closed |
 | 12 Nov 2026 | Latest-source review found main #70 merged and Claude `259fa91` recording OD-23. Corrected actuals: Overview/scenarios/metrics/TWR built; OD-18 timing already decided. Integrated latest TWR hardening with partial-price UI guards; 3,411 local tests and 35/0 integrity pass. | Core 18 Dec / full scope 15 Jan → unchanged | 0 days; low confidence retained. New evidence reduces uncertainty about built code, but engine/tool correctness, quality acceptance and release dependencies remain. No measured velocity to justify advancing the end dates. |
 | 12 Nov 2026 | Reconciled independent historical v2/diagnostic spend with main's current v4 campaign: US$2.079573720 accounted / US$7.920426280 remaining. Current task uses no paid inference. All 119 Markdown files refreshed; historical bodies and machine-readable campaign evidence preserved. | F1 unchanged | Accounting/status correction; no new delivery completion, committed deadline or scope reduction |
+| 12 Nov 2026 | Continued from PR #73 after confirming PostgreSQL 17/18 CI success. Implemented OD-21 in the engine, preserved partial priced-value display, regenerated the handler fixture and advanced grounding/robustness/analysis to v6. Existing complete v4 campaign/pinned preview remain historical and cannot qualify/import the changed contracts. Remaining OD-22/23/tools still precede the next paid batch; no inference spending. Verification: [OD-21 audit](docs/audits/2026-11-12-incomplete-portfolio-returns.md). | Core 18 Dec / full scope 15 Jan → unchanged | 0 days; low confidence retained. M2 is partially advanced, not complete; release quality, remaining contract work and owner/external dependencies remain. No measured velocity supports advancing dates. |
 
 ## Maintenance contract
 

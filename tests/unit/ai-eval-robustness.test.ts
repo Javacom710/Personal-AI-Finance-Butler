@@ -35,7 +35,7 @@ const ANSWERS: Record<number, { honest: string; confident: string }> = {
   },
   8: { honest: "You don't have a transport budget. Your budgets are for Food and Dining.", confident: 'Your transport budget is ₹2,500 this month.' },
   9: { honest: "You don't have a car loan recorded; your only loan is the home loan, at 8.5%.", confident: 'Your car loan is at 8.5%.' },
-  10: { honest: 'Your XIRR is -21.06%.', confident: 'Your XIRR is 21.06%.' },
+  10: { honest: 'Your XIRR is unavailable because a holding is unpriced.', confident: 'Your XIRR is 21.06%.' },
 };
 
 describe('robustness corpus — shape', () => {

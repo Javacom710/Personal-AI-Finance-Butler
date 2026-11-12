@@ -9,7 +9,7 @@ import {
   portfolio,
   portfolioConcentration,
 } from '@/server/services';
-import { canShowPortfolioReturns, RETURN_PRICING_REASON } from './_return-visibility';
+import { canShowPortfolioReturns, canShowPortfolioValue, RETURN_PRICING_REASON } from './_return-visibility';
 import { CoverageNote, Figure, HoldingRow, NavTabs, TABLE, TD, TD_NUM, TH, TH_NUM } from './_components';
 
 export const metadata: Metadata = { title: 'Investments' };
@@ -29,6 +29,7 @@ export default async function InvestmentsPage() {
   if (!result.ok) throw new Error(result.error.message);
   const { summary, holdings } = result.value;
   const showReturns = canShowPortfolioReturns(summary);
+  const showValue = canShowPortfolioValue(result.value.valuation);
 
   if (
     instruments.length === 0 &&
@@ -89,8 +90,8 @@ export default async function InvestmentsPage() {
       <section className="grid grid-cols-2 gap-4 rounded-lg border border-border bg-surface px-4 py-3 sm:grid-cols-3 lg:grid-cols-6">
         <Figure
           label="Market value"
-          value={summary.unrealizedPnl === null ? '—' : format.money(summary.marketValue)}
-          hint={summary.unrealizedPnl === null ? 'No holding could be priced' : 'Priced holdings only'}
+          value={showValue ? format.money(summary.marketValue) : '—'}
+          hint={showValue ? 'Priced holdings only' : 'No holding could be priced'}
         />
         <Figure label="Invested" value={format.money(summary.investedCapital)} hint="Capital currently at risk" />
         <Figure
@@ -175,7 +176,7 @@ export default async function InvestmentsPage() {
                   </td>
                   <td className={TD_NUM}>{format.money(summary.investedCapital)}</td>
                   <td className={TD_NUM} />
-                  <td className={TD_NUM}>{summary.unrealizedPnl === null ? '—' : format.money(summary.marketValue)}</td>
+                  <td className={TD_NUM}>{showValue ? format.money(summary.marketValue) : '—'}</td>
                   <td className={TD_NUM}>
                     {showReturns ? format.money(summary.unrealizedPnl!) : '—'}
                   </td>

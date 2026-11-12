@@ -72,7 +72,7 @@ export interface PortfolioSummary {
   readonly investedCapital: Money;
   readonly costDeployed: Money;
   readonly marketValue: Money;
-  /** `marketValue − investedCapital`. `null` when nothing could be priced. */
+  /** `marketValue − investedCapital`. `null` unless every open holding is priced. */
   readonly unrealizedPnl: Money | null;
   readonly realizedPnl: Money;
   readonly dividends: Money;
@@ -106,13 +106,14 @@ export function portfolioSummary(input: PortfolioInput): PortfolioSummary {
     taxes,
   } = input;
 
-  // With no priced holding at all, `marketValue` is zero because nothing could
-  // be added — not because the portfolio is worthless. Unrealised P&L and every
-  // figure that depends on it are therefore `null` with a reason, never 0
-  // (edge case 10, FINANCIAL-DOMAIN.md §10.3).
-  const nothingPriced = input.coverage.value === 0n && investedCapital.minor !== 0n;
+  // Costs, realised income and cash flows span the whole requested portfolio;
+  // `marketValue` contains only priced holdings. Subtracting full costs from a
+  // partial value treats the missing assets as losses. Withhold dependent
+  // returns instead of silently changing their cohort. The explicit list also
+  // catches unpriced zero-cost holdings, invisible to cost-weighted coverage.
+  const incomplete = input.unpricedInstruments.length > 0 || input.coverage.value < Rate.one().value;
 
-  const unrealizedPnl = nothingPriced ? null : sub(marketValue, investedCapital);
+  const unrealizedPnl = incomplete ? null : sub(marketValue, investedCapital);
 
   const income = add(dividends, interest);
   const costs = add(fees, taxes);
@@ -137,7 +138,8 @@ export function portfolioSummary(input: PortfolioInput): PortfolioSummary {
     unrealizedReturnPct:
       unrealizedPnl === null ? unavailable('no_price') : ratio(unrealizedPnl, investedCapital),
     totalReturnPct: totalReturn === null ? unavailable('no_price') : ratio(totalReturn, costDeployed),
-    xirr: input.xirr,
+    // A partial terminal value cannot be compared with all historic cash flows.
+    xirr: incomplete ? unavailable('no_price') : input.xirr,
     twr: input.twr,
 
     coverage: input.coverage,

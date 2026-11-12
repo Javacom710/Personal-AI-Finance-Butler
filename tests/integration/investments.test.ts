@@ -13,6 +13,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { db } from '@/server/db/client';
 import { isoDate } from '@/lib/date';
 import { toDbString } from '@/lib/decimal/money';
+import { aiCapabilityFor } from '@/server/ai-runtime';
+import { getPortfolioSummary } from '@/server/ai-read/queries';
 import {
   accountLedger,
   periodSummary,
@@ -31,6 +33,7 @@ import {
   makeAccount,
   must,
   record,
+  rawSql,
   setupMoneyFixture,
   transfer,
   truncateMoney,
@@ -702,6 +705,51 @@ describe('integration with the money subsystem', () => {
 // ---------------------------------------------------------------------------
 
 describe('the portfolio read path', () => {
+  it('withholds aggregate returns for partial prices in both the service and AI read, and restores them after pricing', async () => {
+    const missing = await makeInstrument(ctx, { symbol: 'UNPRICED' });
+    must(await recordBuy(ctx, { accountId: brokerage, instrumentId: reliance, on: '2025-08-11', qty: '100', price: '100' }));
+    must(await recordBuy(ctx, { accountId: brokerage, instrumentId: missing, on: '2025-08-11', qty: '100', price: '100' }));
+    // Realised history remains meaningful even when the remaining holding has no price.
+    must(await recordSell(ctx, { accountId: brokerage, instrumentId: missing, on: '2026-01-01', qty: '20', price: '150' }));
+    must(await recordDividend(ctx, { accountId: brokerage, instrumentId: missing, on: '2026-02-01', gross: '200' }));
+    await priceIt(ctx, reliance, '120');
+
+    const beforeLedger = await rawSql('select * from investment_transactions order by id');
+    const beforeAudit = await rawSql('select * from audit_log order by id');
+    const partial = must(await portfolio(ctx));
+    expect(toDbString(partial.summary.investedCapital)).toBe('18000.0000');
+    expect(toDbString(partial.summary.costDeployed)).toBe('20000.0000');
+    expect(toDbString(partial.summary.marketValue)).toBe('12000.0000');
+    expect(toDbString(partial.summary.realizedPnl)).toBe('1000.0000');
+    expect(toDbString(partial.summary.dividends)).toBe('200.0000');
+    expect(partial.summary.unrealizedPnl).toBeNull();
+    expect(partial.summary.totalReturn).toBeNull();
+    for (const m of [partial.summary.unrealizedReturnPct, partial.summary.totalReturnPct, partial.summary.xirr]) {
+      expect(m).toEqual({ value: null, reason: 'no_price' });
+    }
+    expect(toDbString(partial.holdings.find(h => h.instrument.id === reliance)!.unrealizedPnl!)).toBe('2000.0000');
+    const projected = await getPortfolioSummary(aiCapabilityFor(ctx));
+    expect(projected).toMatchObject({ data: {
+      unrealizedPnl: null, totalReturn: null,
+      totalReturnPct: { value: null, unavailableReason: 'no_price' },
+      xirr: { value: null, unavailableReason: 'no_price' },
+    } });
+    expect(await rawSql('select * from investment_transactions order by id')).toEqual(beforeLedger);
+    expect(await rawSql('select * from audit_log order by id')).toEqual(beforeAudit);
+
+    // Restricting to the fully priced instrument keeps the same complete cohort.
+    const scoped = must(await portfolio(ctx, { instrumentId: reliance }));
+    expect(toDbString(scoped.summary.totalReturn!)).toBe('2000.0000');
+    expect(scoped.summary.xirr.value).not.toBeNull();
+
+    await priceIt(ctx, missing, '120');
+    const complete = must(await portfolio(ctx));
+    expect(toDbString(complete.summary.marketValue)).toBe('21600.0000');
+    expect(toDbString(complete.summary.unrealizedPnl!)).toBe('3600.0000');
+    expect(toDbString(complete.summary.totalReturn!)).toBe('4800.0000');
+    expect(complete.summary.xirr.value).not.toBeNull();
+  });
+
   it('reports holdings at cost with reason no_price until a price is entered', async () => {
     must(await recordBuy(ctx, { accountId: brokerage, instrumentId: reliance, on: '2026-01-01', qty: '100', price: '100' }));
 

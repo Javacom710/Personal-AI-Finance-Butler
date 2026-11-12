@@ -12,11 +12,11 @@ import { GROUNDING_RESULTS } from '@/server/ai/eval/tasks/grounding';
 import type { AiProvider, ChatRequest } from '@/server/ai/provider/types';
 
 const ANSWERS: Readonly<Record<string, string>> = {
-  'analysis-001': 'Portfolio market value is ₹148,100, with total return -₹24,220 (-11.70%). HDFC Bank has no price and NIFTYBEES is stale, so this is a partial valuation.',
-  'analysis-002': 'The realised gain is ₹4,992; the unrealised loss is -₹30,912, alongside total return -₹24,220.',
+  'analysis-001': 'Portfolio market value is ₹148,100. Total return is unavailable. HDFC Bank has no price and NIFTYBEES is stale, so this is a partial valuation.',
+  'analysis-002': 'The realised gain is ₹4,992; the unrealised result is unavailable. Total return is unavailable because a holding is unpriced.',
   'analysis-003': 'Equities total ₹91,200 (61.58%); ETFs total ₹56,900 (38.42%). HDFC Bank has no price, so the allocation excludes it.',
   'analysis-004': 'HDFC Bank has ₹40,000 invested and no price, so its market value is unavailable. NIFTYBEES is valued at ₹56,900 using a stale price.',
-  'analysis-005': 'Total return is -₹24,220 and XIRR is -21.06%; time-weighted return is unavailable because of insufficient price history.',
+  'analysis-005': 'Total return is unavailable and XIRR is unavailable because a holding is unpriced; time-weighted return is unavailable because of insufficient price history.',
   'analysis-006': 'Income was ₹120,812.37, expenses were ₹45,319.50, savings were ₹75,492.87, and the savings rate was 62.49%.',
   'analysis-007': 'Food spending is ₹5,040 of its ₹10,000 budget, leaving ₹4,960. Dining spending is ₹3,150 against ₹2,500, so it is ₹650 over budget.',
   'analysis-008': 'HDFC Savings has ₹412,022.37; the HDFC Credit Card balance is -₹14,969.50. The Home loan has ₹2,412,345.67 outstanding with an EMI of ₹24,500.',
@@ -24,14 +24,14 @@ const ANSWERS: Readonly<Record<string, string>> = {
   'analysis-010': 'October expenses were ₹30,040, down from September’s ₹45,319.50; savings rose to ₹89,960 from ₹75,492.87. Expense delta was -₹15,279.50 and savings delta was ₹14,467.13.',
   'analysis-011': 'Housing was the largest September category at ₹25,000. October spending was ₹30,040, lower than September’s ₹45,319.50.',
   'analysis-012': 'At cost basis, net worth rose from June’s ₹7,404,700 to July’s ₹7,409,692, August’s ₹7,494,242 and September’s ₹8,017,389.20.',
-  'analysis-013': 'At cost, net worth was ₹8,107,349.20. Portfolio market value was ₹148,100 and total return was -₹24,220. The portfolio valuation is partial: HDFC Bank is unpriced and NIFTYBEES has a stale price.',
+  'analysis-013': 'At cost, net worth was ₹8,107,349.20. Portfolio market value was ₹148,100. Total return is unavailable. The portfolio valuation is partial: HDFC Bank is unpriced and NIFTYBEES has a stale price.',
   'analysis-014': 'September savings were ₹75,492.87. Dining is ₹650 over budget; the home loan outstanding is ₹2,412,345.67 with a ₹24,500 EMI.',
   'analysis-015': 'HDFC Savings shows ₹412,022.37, the home loan EMI is ₹24,500, and September savings were ₹75,492.87. Portfolio market value is ₹148,100, but HDFC Bank is unpriced and NIFTYBEES is stale. Consider time horizon, risk tolerance, goals and emergency fund before an investment decision.',
 };
 
 describe('analysis corpus — coverage and replay shape', () => {
   it('contains 15 versioned cases across portfolio, health, period and cross-domain analysis', () => {
-    expect(ANALYSIS_SUITE_VERSION).toBe(5);
+    expect(ANALYSIS_SUITE_VERSION).toBe(6);
     expect(ANALYSIS_CASES).toHaveLength(15);
     expect(new Set(ANALYSIS_CASES.map((c) => c.id)).size).toBe(15);
     expect(new Set(ANALYSIS_CASES.map((c) => c.domain))).toEqual(new Set(['portfolio', 'health', 'period', 'cross-domain']));
@@ -80,6 +80,10 @@ describe('analysis scorer — deterministic factual rubric', () => {
   it.each([
     ['analysis-005', 'Your time-weighted return is -21.06%.'],
     ['analysis-005', 'TWR: -21.06%.'],
+    ['analysis-005', 'Total return is ₹4,992.'],
+    ['analysis-005', 'XIRR is 0%.'],
+    ['analysis-005', 'Unrealised P&L is ₹4,992.'],
+    ['analysis-015', 'XIRR is 62.49%.'],
     ['analysis-001', 'Your time-weighted return was -11.70%.'],
     ['analysis-002', 'The time-weighted return is -11.70%.'],
     ['analysis-013', 'Time-weighted return comes to -21.06%.'],
@@ -96,7 +100,7 @@ describe('analysis scorer — deterministic factual rubric', () => {
 
   // An answer that reverses the result's finding fails, though every figure traces.
   it.each([
-    ['analysis-002', (a: string) => a.replace('unrealised loss', 'unrealised gain')],
+    ['analysis-002', (a: string) => a.replace('unrealised result is unavailable', 'unrealised gain is ₹4,992')],
     ['analysis-002', (a: string) => `${a} That was a realised loss.`],
     ['analysis-003', (a: string) => `${a} NIFTYBEES is valued using a current price.`],
     ['analysis-004', (a: string) => `${a} NIFTYBEES is valued using a current price.`],
@@ -118,9 +122,9 @@ describe('analysis scorer — deterministic factual rubric', () => {
 
   // A figure that belongs to another metric beside the disclaimer is not given to the missing one.
   it.each([
-    ['analysis-005', 'Total return is -₹24,220; time-weighted return is unavailable (XIRR is -21.06%).'],
-    ['analysis-005', 'Total return is -₹24,220. The time-weighted return is not available, but XIRR is -21.06%.'],
-    ['analysis-005', 'Total return is -₹24,220, and the time-weighted return is unavailable: XIRR -21.06% is the money-weighted figure.'],
+    ['analysis-005', 'Total return is unavailable (realised gain ₹4,992). XIRR is unavailable because a holding is unpriced. Time-weighted return is unavailable (insufficient price history).'],
+    ['analysis-005', 'Total return is not available, but the realised gain is ₹4,992. XIRR cannot be calculated because of a missing price. Time-weighted return is unavailable: insufficient price history.'],
+    ['analysis-005', 'Total return is unavailable: dividends are ₹1,700. XIRR is unavailable (unpriced holding). Time-weighted return is unavailable (insufficient price history).'],
     ['analysis-004', 'HDFC Bank has no price, so its market value is unavailable (₹40,000 invested). NIFTYBEES is valued at ₹56,900 using a stale price.'],
     ['analysis-009', 'The runway is not available (no spend history of 3 months). HDFC Savings is ₹412,022.37.'],
   ])('%s: accepts a disclaimer with another metric\'s figure beside it — %s', (id, answer) => {
@@ -158,7 +162,7 @@ describe('analysis scorer — deterministic factual rubric', () => {
   it.each([
     ['analysis-006', '| Income | 120 812.3700 |\n| Expenses | 45 319.5000 |\n| Savings | 75 492.87 (62.49 % savings rate) |'],
     ['analysis-006', 'Income was ₹1 20 812.37, expenses were ₹45 319.50, savings were ₹75 492.87, a 62.49% savings rate.'],
-    ['analysis-005', 'Total return is ‑₹24 220. The time‑weighted return is unavailable (insufficient price history); XIRR is −21.06%.'],
+    ['analysis-005', 'Total return is unavailable. XIRR is unavailable (unpriced holding). The time‑weighted return is unavailable (insufficient price history); realised gain is ₹4 992.'],
   ])('%s: reads typeset digit grouping and hyphens as the plain figure — %s', (id, answer) => {
     const golden = ANALYSIS_CASES.find((c) => c.id === id)!;
     expect(scoreAnalysisOutput(answer, [], golden)).toBe(true);
