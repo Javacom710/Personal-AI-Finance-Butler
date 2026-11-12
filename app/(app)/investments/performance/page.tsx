@@ -5,6 +5,7 @@ import { InlineAction } from '../../money/_components';
 import { loadMoneyContext } from '../../money/_page-data';
 import { portfolio, realizedDisposals } from '@/server/services';
 import { rebuildPositionsAction } from '../actions';
+import { canShowPortfolioReturns, RETURN_PRICING_REASON } from '../_return-visibility';
 import { NavTabs, TABLE, TD, TD_NUM, TH, TH_NUM } from '../_components';
 
 export const metadata: Metadata = { title: 'Performance' };
@@ -17,9 +18,9 @@ export const metadata: Metadata = { title: 'Performance' };
  * capital deployed*, because that denominator accumulates across round trips and
  * a reader who assumes otherwise will misread it.
  *
- * TWR reports `insufficient_price_history` for every equity and ETF until
- * Phase 6 populates `instrument_prices`. That is the documented launch
- * behaviour, shown as its reason rather than as a figure from partial data.
+ * TWR needs a stored price for every holding on every flow date. Where one is
+ * missing it reports `insufficient_price_history`, shown as its reason rather
+ * than as a figure from partial data.
  */
 export default async function PerformancePage() {
   const { ctx, format } = await loadMoneyContext('/investments/performance');
@@ -27,6 +28,7 @@ export default async function PerformancePage() {
   const [result, disposals] = await Promise.all([portfolio(ctx), realizedDisposals(ctx, { limit: 50 })]);
   if (!result.ok) throw new Error(result.error.message);
   const { summary } = result.value;
+  const showReturns = canShowPortfolioReturns(summary);
 
   const metrics: readonly [string, string, string | undefined][] = [
     ['Invested capital', format.money(summary.investedCapital), 'Σ cost basis over open positions — capital currently at risk'],
@@ -34,8 +36,8 @@ export default async function PerformancePage() {
     ['Market value', summary.unrealizedPnl === null ? '—' : format.money(summary.marketValue), 'Priced holdings only'],
     [
       'Unrealised P&L',
-      summary.unrealizedPnl === null ? '—' : format.money(summary.unrealizedPnl),
-      summary.unrealizedPnl === null ? 'No holding could be priced' : 'Market value − invested capital',
+      showReturns ? format.money(summary.unrealizedPnl!) : '—',
+      showReturns ? 'Market value − invested capital' : RETURN_PRICING_REASON,
     ],
     ['Realised P&L', format.money(summary.realizedPnl), 'Σ base realised P&L across every disposal'],
     ['Dividends', format.money(summary.dividends), 'Gross declared, before withholding'],
@@ -44,24 +46,24 @@ export default async function PerformancePage() {
     ['Taxes', format.money(summary.taxes), 'Withholding on income, plus standalone tax rows'],
     [
       'Total return',
-      summary.totalReturn === null ? '—' : format.money(summary.totalReturn),
-      'unrealised + realised + income − fees − taxes',
+      showReturns && summary.totalReturn !== null ? format.money(summary.totalReturn) : '—',
+      showReturns ? 'unrealised + realised + income − fees − taxes' : RETURN_PRICING_REASON,
     ],
     [
       'Total return %',
-      format.metricPercent(summary.totalReturnPct, 2),
-      format.reason(summary.totalReturnPct) ?? 'On capital deployed. Not annualised.',
+      showReturns ? format.metricPercent(summary.totalReturnPct, 2) : '—',
+      showReturns ? (format.reason(summary.totalReturnPct) ?? 'On capital deployed. Not annualised.') : RETURN_PRICING_REASON,
     ],
     [
       'Unrealised return %',
-      format.metricPercent(summary.unrealizedReturnPct, 2),
-      format.reason(summary.unrealizedReturnPct) ?? 'On capital currently at risk',
+      showReturns ? format.metricPercent(summary.unrealizedReturnPct, 2) : '—',
+      showReturns ? (format.reason(summary.unrealizedReturnPct) ?? 'On capital currently at risk') : RETURN_PRICING_REASON,
     ],
-    ['XIRR', format.metricPercent(summary.xirr, 2), format.reason(summary.xirr) ?? 'Money-weighted, actual/365'],
+    ['XIRR', showReturns ? format.metricPercent(summary.xirr, 2) : '—', showReturns ? (format.reason(summary.xirr) ?? 'Money-weighted, actual/365') : RETURN_PRICING_REASON],
     [
       'Time-weighted return',
-      format.metricPercent(summary.twr, 2),
-      format.reason(summary.twr) ?? 'Chain-linked, annualised over a year or more',
+      showReturns ? format.metricPercent(summary.twr, 2) : '—',
+      showReturns ? (format.reason(summary.twr) ?? 'Since the first transaction. Chain-linked across every flow date; annualised once a year has passed') : RETURN_PRICING_REASON,
     ],
     ['Coverage', format.percent(summary.coverage, 1), 'Share of cost basis that could be priced'],
   ];

@@ -25,16 +25,17 @@ import 'server-only';
 
 import { and, asc, desc, eq, sql, type SQL } from 'drizzle-orm';
 
-import { isoDate, type IsoDate } from '../../lib/date';
+import { compareDates, isoDate, type IsoDate } from '../../lib/date';
 import { Money, currency, sum, type CurrencyCode } from '../../lib/decimal/money';
 import { Quantity } from '../../lib/decimal/quantity';
 import { Rate } from '../../lib/decimal/rate';
-import { unavailable, type Metric } from '../../lib/metric';
+import { metric, unavailable, type Metric } from '../../lib/metric';
 import { ok, type DomainError, type Result } from '../../lib/result';
 import {
   portfolioSummary as buildSummary,
   type PortfolioSummary,
 } from '../domain/calc/portfolio';
+import { twr, type ExternalFlow, type TwrResult, type Valuation } from '../domain/calc/twr';
 import { xirr, type CashFlow } from '../domain/calc/xirr';
 import {
   allocation as buildAllocation,
@@ -52,6 +53,7 @@ import {
 } from '../domain/pricing/valuation';
 import { accounts, instruments, investmentTransactions, lotDisposals, positions, taxLots } from '../db/schema';
 import type { ReadCtx } from './_ctx';
+import { netWorthSeries } from './networth';
 import { quotesFor } from './prices';
 
 export interface PortfolioScope {
@@ -290,7 +292,8 @@ export async function portfolio(
 ): Promise<Result<PortfolioResult, DomainError>> {
   const valuation = await holdings(ctx, scope);
   const totals = await aggregates(ctx, scope);
-  const flows = await portfolioCashFlows(ctx, scope, valuation.pricedValue);
+  const ledgerFlows = await ledgerCashFlows(ctx, scope);
+  const flows = withTerminal(ctx, ledgerFlows, valuation.pricedValue);
 
   const summary = buildSummary({
     baseCurrency: ctx.base,
@@ -310,14 +313,95 @@ export async function portfolio(
     staleInstruments: valuation.stale,
     unpricedInstruments: valuation.unpriced,
     xirr: xirr(flows),
-    // TWR needs a valuation at every sub-period boundary, which needs
-    // `instrument_prices` history — populated in Phase 6 once OD-3 is decided.
-    // Reported as the documented reason rather than as a figure from partial
-    // data (INVESTMENT-DOMAIN.md §8).
-    twr: unavailable('insufficient_price_history'),
+    // Whole-portfolio only. A scoped TWR needs a scoped valuation series, which
+    // the net-worth composition does not offer; it stays the documented reason
+    // rather than a figure for a different scope (INVESTMENT-DOMAIN.md §8).
+    twr:
+      scope.accountId === undefined && scope.instrumentId === undefined
+        ? await portfolioTwrRate(ctx, ledgerFlows)
+        : unavailable('insufficient_price_history'),
   });
 
   return ok({ summary, holdings: valuation.holdings, valuation });
+}
+
+/**
+ * Time-weighted return of the whole portfolio, from its first transaction to
+ * today ([INVESTMENT-DOMAIN.md §8.2](../../../docs/INVESTMENT-DOMAIN.md#82-the-inputs-the-service-supplies)).
+ *
+ * The engine needs two things and this function only assembles them:
+ *
+ * - **External flows** — the XIRR series with the sign turned round and the
+ *   terminal value dropped. Money the investor paid in is a contribution to the
+ *   holdings; proceeds, dividends and interest leave them, because brokerage
+ *   cash is outside the portfolio. Standalone fees and taxes count as
+ *   contributions that bought nothing, so the figure is net of them, exactly as
+ *   XIRR is.
+ * - **A valuation at every flow date** — the `investments` group of market-basis
+ *   net worth on that date, which is the one historical valuation path the
+ *   application has (units from the ledger, ratio-aware; the bounded carry-back;
+ *   the same suppression and FX rules). That figure is the **close**, which
+ *   already contains the day's trades, while the engine wants the value a flow
+ *   arrives into. So the day's net flow is taken back out:
+ *   `valuation(D) = close(D) − flow(D)`. The period ending at `D` then closes
+ *   before the flow and the one starting at `D` opens at `close(D)`. The first
+ *   boundary is the exception: nothing was held before it, so it is zero.
+ *
+ * **A gap is not a smaller sample.** If any holding cannot be valued on any
+ * boundary, the result is `insufficient_price_history` — never a return chained
+ * across the dates that happened to have prices.
+ */
+export async function portfolioTwr(ctx: ReadCtx): Promise<Metric<TwrResult>> {
+  return twrFromFlows(ctx, await ledgerCashFlows(ctx, {}));
+}
+
+async function portfolioTwrRate(ctx: ReadCtx, flows: readonly CashFlow[]): Promise<Metric<Rate>> {
+  const result = await twrFromFlows(ctx, flows);
+  return result.value === null ? unavailable(result.reason) : metric(result.value.twr);
+}
+
+async function twrFromFlows(ctx: ReadCtx, investorFlows: readonly CashFlow[]): Promise<Metric<TwrResult>> {
+  // Net contribution per date: the investor's flow with the sign turned round.
+  const netByDate = new Map<IsoDate, bigint>();
+  for (const flow of investorFlows) {
+    netByDate.set(flow.on, (netByDate.get(flow.on) ?? 0n) - flow.amount.minor);
+  }
+  if (netByDate.size === 0) return unavailable('no_data');
+
+  const flowDates = [...netByDate.keys()].sort(compareDates);
+  const from = flowDates[0]!;
+  const to = ctx.today;
+  if (compareDates(from, to) >= 0) return unavailable('no_data');
+
+  const boundaries = [...new Set([...flowDates.filter((d) => compareDates(d, to) <= 0), to])];
+  const points = await netWorthSeries(ctx, boundaries, { basis: 'market' });
+
+  const valuations: Valuation[] = [];
+  for (const point of points) {
+    // One unvalued holding on one boundary breaks the chain.
+    if (point.result.excluded.some((e) => e.group === 'investments')) {
+      return unavailable('insufficient_price_history');
+    }
+    const close = point.result.groups.find((g) => g.group === 'investments')?.total.minor ?? 0n;
+    valuations.push({
+      on: point.asOf,
+      // Before its first transaction the portfolio held nothing, so the first
+      // boundary opens at zero — not at `close − flow`. There is no earlier
+      // period to carry that difference, and using it would cancel the first
+      // day's result: a purchase fee, or a fill away from the close.
+      value:
+        point.asOf === from
+          ? Money.zero(ctx.base)
+          : Money.fromMinor(close - (netByDate.get(point.asOf) ?? 0n), ctx.base),
+    });
+  }
+
+  const flows: ExternalFlow[] = [...netByDate].map(([on, minor]) => ({
+    on,
+    amount: Money.fromMinor(minor, ctx.base),
+  }));
+
+  return twr({ from, to, valuations, flows });
 }
 
 /**
@@ -348,6 +432,15 @@ export async function portfolioCashFlows(
   scope: PortfolioScope,
   terminalValue: Money,
 ): Promise<CashFlow[]> {
+  return withTerminal(ctx, await ledgerCashFlows(ctx, scope), terminalValue);
+}
+
+function withTerminal(ctx: ReadCtx, ledger: readonly CashFlow[], terminalValue: Money): CashFlow[] {
+  return terminalValue.minor === 0n ? [...ledger] : [...ledger, { on: ctx.today, amount: terminalValue }];
+}
+
+/** The same series without the terminal value: ledger rows only. TWR's flows come from here. */
+async function ledgerCashFlows(ctx: ReadCtx, scope: PortfolioScope): Promise<CashFlow[]> {
   const scoped = scope.accountId !== undefined || scope.instrumentId !== undefined;
 
   const conditions: SQL[] = [eq(investmentTransactions.userId, ctx.userId)];
@@ -400,10 +493,6 @@ export async function portfolioCashFlows(
 
     const amount = Money.fromDbString(row.base_net_amount, ctx.base);
     if (amount.minor !== 0n) flows.push({ on, amount });
-  }
-
-  if (terminalValue.minor !== 0n) {
-    flows.push({ on: ctx.today, amount: terminalValue });
   }
 
   return flows;

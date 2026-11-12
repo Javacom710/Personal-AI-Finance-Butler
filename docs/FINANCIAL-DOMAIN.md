@@ -406,6 +406,26 @@ Notes:
 - **Proceeds from disposing of a manual asset inflate `income` and therefore `savingsRate`** for that period, because the receipt is an ordinary income transaction while the asset it replaced was never income. Net worth is unaffected — the bridge nets the proceeds against the asset's last valuation ([§9.3](#93-calculation)). The default `Other Income → Asset sale proceeds` category exists so the receipt is identifiable; excluding it from a savings-rate reading is a filter, not a calculation change.
 - Period comparison (`compare_periods`) returns both periods' figures plus absolute and percentage deltas, with `null` percentages when the base period is zero.
 
+### 8.1 Financial health metrics
+
+Four ratios, read off figures the rest of the domain already defines. Engine: `src/server/domain/calc/metrics.ts`; service: `financialMetrics()` in `src/server/services/metrics.ts` (OD-18, built 2026-11-11).
+
+```
+savingsRate        = savings / income                              -- §8, not recomputed
+expenseRatio       = expenses / income                             -- the current month
+avgMonthlyExpenses = Σ expenses over N complete months / N         -- N = 3 by default, at most 24
+runwayMonths       = max(liquidCash, 0) / avgMonthlyExpenses
+commitmentCoverage = max(liquidCash, 0) / Σ pending recurring expenses due within D days   -- D = 30 by default
+```
+
+- **`liquidCash` is the net-worth `cash` group** ([§9](#9-net-worth)): cash, bank and wallet balances in credit, in base currency. It is read from `netWorthReconciliation`, not summed again over accounts, so it is the same number the Net Worth and Overview pages show. Brokerage cash, investments and credit-card debt are not in it.
+- **The trailing window is whole calendar months and never includes the current one.** A part-month would understate the average and overstate the runway.
+- **Runway is a statement about the past rate of spending, not a forecast.** It assumes no income and no change in spending.
+- **Commitment coverage does not net off expected income.** It answers "could I meet these if nothing else arrived?". Only `pending` occurrences of `expense` rules count; recurring transfers and income do not.
+- `runwayMonths` and `commitmentCoverage` are multiples (4.5 months, 3.2×) carried as a `Rate`. They are not percentages.
+- Each is `null` with a reason, never zero ([§10.3](#103-missing-data-propagates-as-null-never-as-zero)): no income → `divide_by_zero`; no entries in the trailing window → `no_data`; entries but nothing spent, or nothing due → `divide_by_zero`; a commitment in a currency with no rate → `no_fx_rate`, because a ratio against a total known to be short would overstate the cover.
+- An overdrawn cash total gives a runway and a coverage of `0`, and a `surplus` that keeps the true shortfall.
+
 ## 9. Net worth
 
 **Net worth carries a declared valuation basis, and the basis is part of the answer** ([ADR-23](DECISIONS.md#adr-23--net-worth-carries-a-declared-valuation-basis-phase-5-ships-net-worth-at-cost)):
@@ -755,6 +775,8 @@ src/server/services/            APPLICATION SERVICES — impure, transactional
   recurring.ts      rules CRUD, post (job handler)
   assets.ts         manual assets, valuations          <- the only writer of asset data
   liabilities.ts    CRUD, balances                     <- the only writer of liability data
+  metrics.ts        READ ONLY: financialMetrics (§8.1)
+  scenarios.ts      READ ONLY: investmentScenario, allocationScenario (§13)
   networth.ts       READ ONLY: asOf, series, bridge, reconcile.
                     Exports NO function taking a WriteCtx — net worth opens no ledger
                     and therefore cannot mutate anything (I-32, ADR-24).
@@ -765,7 +787,7 @@ src/server/services/            APPLICATION SERVICES — impure, transactional
 
 src/server/domain/              FINANCIAL ENGINE — pure, total, no I/O
   ledger/     buildEntries, assertEntryInvariants, deriveBalance
-  calc/       cashflow.ts, periods.ts, budget.ts, recurrence.ts
+  calc/       cashflow.ts, periods.ts, budget.ts, recurrence.ts, metrics.ts, scenario.ts
   networth/   keys.ts        SourceKey, ContributionMap, add() that throws on a duplicate
               eligibility.ts one predicate per row of the §9.3 eligibility table
               compose.ts     components + rates -> NetWorthResult
@@ -848,3 +870,57 @@ Added by the Phase 5 design review. Each guards a defect the pre-review rules wo
 38. **A liability linked to a `bank` account** — rejected at creation; otherwise the liability contributes nothing and the account contributes as an asset, and the debt disappears.
 39. **Missing FX rate for one component** — that component is excluded and named, coverage falls on **its own side** only, and neither the component nor the total is zeroed or nulled.
 40. **Negative net worth** — reported as negative. No `abs()` is applied to a total anywhere.
+
+---
+
+## 13. Scenario projection
+
+`CLAUDE.md <scenario_analysis>` requires deterministic inputs to stay apart from hypothetical assumptions. Engine: `src/server/domain/calc/scenario.ts`; services: `investmentScenario()` and `allocationScenario()` in `src/server/services/scenarios.ts`; input schemas: `src/lib/schemas/scenarios.ts` (OD-18, built 2026-11-11).
+
+A scenario reads and never writes. Nothing is stored, and neither service takes a `WriteCtx`.
+
+### 13.1 The split is in the result type
+
+```
+ScenarioProjection
+  deterministic   startingBalance, months, totalContributions, totalInvested, schedule[]
+                  -- facts about the plan, the same under every assumption
+  outcomes[]      { label, annualReturn, finalValue, growth, realFinalValue, path[] }
+                  -- one per assumption; each carries the rate it depends on
+```
+
+A caller cannot show a projected value without its assumption, because they are one object. No outcome is a prediction, and nothing in the engine supplies a default return: every rate comes from the caller.
+
+### 13.2 Conventions
+
+Each of these changes the answer, so each is fixed and tested.
+
+1. **Monthly compounding at `annualRate / 12`** — the nominal-rate convention Indian SIP calculators use, so a figure can be checked against one. 12% a year compounds to 12.68% over twelve months.
+2. **Instalment timing is an input**: `start` (the default; each instalment earns its first month) or `end`.
+3. **A yearly step-up applies at each 12-month anniversary** to the previous year's instalment, rounded `half_even` to the money scale.
+4. **Inflation deflates the final value once**, by `(1 + i/12)^months`. With no inflation assumption `realFinalValue` is `null`, not a copy of the nominal figure.
+5. `growth = finalValue − startingBalance − totalContributions`. It is negative under a negative return.
+
+### 13.3 Exactness
+
+No float touches a figure. The balance is a `bigint` carried twelve guard digits below the money scale; each month is one exact rational multiplication rounded `half_even` at that working scale, and the result is rounded to the money scale once, at the end. **At a zero return the final value equals the starting balance plus the contributions exactly** — a property test, over arbitrary plans.
+
+### 13.4 Bounds
+
+| Input | Engine | Form / service schema |
+|---|---|---|
+| Horizon | 1–600 months | 1–50 whole years |
+| Assumptions | 1–5 | 1–5 |
+| Yearly return | any rate keeping the monthly factor positive | −50% … +50% |
+| Yearly step-up | ≥ 0 | 0% … 50% |
+| Inflation | any rate keeping the monthly factor positive | 0% … 30% |
+
+The schema is tighter than the engine on purpose: `120` typed for a yearly return almost certainly meant `12.0`. A figure beyond the storable money range is reported as `out_of_range`, never clamped. Amounts and percentages are strings at the boundary; a JSON number is rejected.
+
+### 13.5 Starting from the portfolio
+
+`startFrom: 'portfolio'` uses today's **priced** market value as the starting balance. That is a deterministic input the user did not type, so the result says where it came from and carries the valuation's coverage, its unpriced count and its **stale** count. A stale holding is still counted, at its last known price, and the screen says so rather than calling the figure today's; the allocation scenario carries the same stale count ([§10.4](#104-partial-results-are-labelled-not-hidden)).
+
+### 13.6 Allocation after an addition
+
+`allocationAfterAdding` answers "if I invest another ₹2 lakh, how will my allocation change?". It is arithmetic on today's values: the addition is valued at what is paid for it and no later price is assumed, so it needs no assumption and is not a projection. A slice the portfolio does not hold yet has a "before" weight of `0`; an empty portfolio has no "before" weight at all (`null`).

@@ -27,6 +27,7 @@ export function NavTabs({ current }: { current: string }) {
     ['Transactions', '/investments/transactions'],
     ['Allocation', '/investments/allocation'],
     ['Performance', '/investments/performance'],
+    ['Scenarios', '/investments/scenarios'],
     ['Instruments', '/investments/instruments'],
   ] as const;
 
@@ -69,7 +70,7 @@ export function PriceDot({ price }: { price: PriceResult }) {
       : [freshnessTone(price.freshness), `${describeAge(price)}, from ${price.source}`];
 
   return (
-    <span className="inline-flex items-center gap-1.5">
+    <span className="relative inline-flex items-center gap-1.5">
       <span className={`inline-block size-1.5 rounded-full ${tone}`} title={title} aria-hidden="true" />
       <span className="sr-only">{title}</span>
     </span>
@@ -120,8 +121,8 @@ export function CoverageNote({
       {unpriced.length > 0 ? (
         <>
           <strong className="font-medium text-ink">{coveragePct} of cost basis priced.</strong>{' '}
-          {unpriced.length} holding{unpriced.length === 1 ? '' : 's'} unpriced and excluded from every
-          total — {unpriced.map((i) => i.symbol).join(', ')}.{' '}
+          {unpriced.length} holding{unpriced.length === 1 ? '' : 's'} unpriced and excluded from market
+          value and allocation — {unpriced.map((i) => i.symbol).join(', ')}.{' '}
         </>
       ) : null}
       {stale.length > 0 ? <>Stale prices, used and marked: {stale.map((i) => i.symbol).join(', ')}.</> : null}

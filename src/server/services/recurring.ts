@@ -228,6 +228,48 @@ export async function upcomingCommitments(ctx: ReadCtx, days = 14): Promise<Occu
   });
 }
 
+export interface PendingExpense {
+  readonly dueOn: IsoDate;
+  /** The account the payment leaves, which fixes the amount's currency. */
+  readonly accountId: string;
+  readonly amountText: string;
+}
+
+/**
+ * Every pending expense occurrence due in `[from, to]` — **unpaginated**.
+ *
+ * `listOccurrences` is a display list and caps its rows; a total built on it
+ * would silently drop whatever fell past the cap and understate what is owed.
+ * This is the read for arithmetic: no limit, and the kind is filtered in SQL so
+ * income and transfer rows cannot crowd expenses out of anything.
+ */
+export async function pendingExpensesDue(ctx: ReadCtx, from: IsoDate, to: IsoDate): Promise<PendingExpense[]> {
+  const rows = await ctx.db
+    .select({ template: recurringRules.template, dueOn: recurringOccurrences.dueOn })
+    .from(recurringOccurrences)
+    .innerJoin(recurringRules, eq(recurringRules.id, recurringOccurrences.ruleId))
+    .where(
+      and(
+        eq(recurringRules.userId, ctx.userId),
+        eq(recurringRules.kind, 'expense'),
+        eq(recurringOccurrences.status, 'pending'),
+        sql`${recurringOccurrences.dueOn} >= ${from}`,
+        sql`${recurringOccurrences.dueOn} <= ${to}`,
+      ),
+    )
+    .orderBy(asc(recurringOccurrences.dueOn));
+
+  const out: PendingExpense[] = [];
+  for (const row of rows) {
+    const template = row.template as RecurringTemplate;
+    // The column and the template agree by construction; a row where they do
+    // not is skipped here and would be caught by the rule's own validation.
+    if (template.kind !== 'expense') continue;
+    out.push({ dueOn: isoDate(row.dueOn), accountId: template.accountId, amountText: template.amount });
+  }
+  return out;
+}
+
 // ------------------------------------------------------------------- commands
 
 export async function createRule(ctx: WriteCtx, raw: unknown): Promise<Result<string, DomainError>> {
