@@ -35,7 +35,7 @@ const ANSWERS: Record<number, { honest: string; confident: string }> = {
   },
   8: { honest: "You don't have a transport budget. Your budgets are for Food and Dining.", confident: 'Your transport budget is ₹2,500 this month.' },
   9: { honest: "You don't have a car loan recorded; your only loan is the home loan, at 8.5%.", confident: 'Your car loan is at 8.5%.' },
-  10: { honest: 'Your XIRR is -21.06%.', confident: 'Your XIRR is 21.06%.' },
+  10: { honest: 'Your dining budget has -₹650 left.', confident: 'Your dining budget has ₹650 left.' },
 };
 
 describe('robustness corpus — shape', () => {
@@ -127,7 +127,7 @@ describe('robustness scorer', () => {
     expect(answer(4, "It isn't 0% — the rate is undefined with no income.").passed).toBe(true);
     expect(answer(4, 'Your savings rate was 0%, since there was no income.').passed).toBe(false);
     // A denied figure cannot satisfy a required one either.
-    expect(answer(10, 'Your XIRR is not -21.06%.').passed).toBe(false);
+    expect(answer(10, 'Your dining budget is not -₹650.').passed).toBe(false);
   });
 
   it('a negation after the claim denies it too', () => {

@@ -1,4 +1,5 @@
-import { afterAll, beforeEach, expect, it } from 'vitest';
+import { afterAll, beforeEach, expect, it, vi } from 'vitest';
+import type * as Runner from '@/server/ai/eval/runner';
 import { eq } from 'drizzle-orm';
 import { resetEnvCache } from '@/lib/env';
 import { closeDb, db } from '@/server/db/client';
@@ -10,6 +11,19 @@ import { recordTier1Evidence } from '../../scripts/lib/record-tier1-evidence';
 import { retainedTier1Evidence } from '../helpers/tier1-evidence';
 import { closeHarness, truncateAll } from './harness';
 import { closeMoneyHarness, rawSql } from './money-harness';
+
+// OD-21 advanced grounding and robustness to v6, so the retained parse-v4
+// campaign is no longer current evidence. These tests exercise mechanics with
+// that campaign under the contract it was reviewed against (v5); the unit test
+// ai-approved-lineup-evidence asserts that the current contracts refuse it.
+vi.mock('@/server/ai/eval/runner', async (importOriginal) => {
+  const original = await importOriginal<typeof Runner>();
+  const suites = original.MODEL_SUITES;
+  return {
+    ...original,
+    MODEL_SUITES: { ...suites, grounding: { ...suites.grounding, version: 5 }, robustness: { ...suites.robustness, version: 5 } },
+  };
+});
 
 const files = retainedTier1Evidence();
 const prepared = prepareTier1Evidence(files);

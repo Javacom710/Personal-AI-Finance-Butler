@@ -1,5 +1,7 @@
 import 'server-only';
 
+import { wireModelId } from '../config/hosts';
+
 /**
  * NVIDIA Build — the only NVIDIA-aware file in the codebase
  * ([ADR-09](../../../../docs/DECISIONS.md#adr-09--nvidia-build-as-the-model-provider-behind-a-provider-abstraction)).
@@ -232,7 +234,8 @@ export function createNvidiaProvider(config: NvidiaProviderConfig): AiProvider {
       const startedAt = Date.now();
 
       const body: Record<string, unknown> = {
-        model: request.model,
+        // The host's spelling of the canonical id (OD-24); unchanged where it has no alias.
+        model: wireModelId(config.baseUrl, request.model),
         messages: request.messages.map(toWireMessage),
         max_tokens: request.maxTokens,
       };

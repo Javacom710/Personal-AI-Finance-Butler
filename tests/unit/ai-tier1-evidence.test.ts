@@ -1,10 +1,24 @@
-import { execFileSync, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
+import type * as Runner from '../../src/server/ai/eval/runner';
+
+// OD-21 advanced grounding and robustness to v6, so the retained parse-v4
+// campaign is no longer current evidence (see ai-approved-lineup-evidence and
+// the refusal test below). The importer's mechanics are still checked against
+// the exact contract that campaign was reviewed under: grounding/robustness v5.
+vi.mock('../../src/server/ai/eval/runner', async (importOriginal) => {
+  const original = await importOriginal<typeof Runner>();
+  const suites = original.MODEL_SUITES;
+  return {
+    ...original,
+    MODEL_SUITES: { ...suites, grounding: { ...suites.grounding, version: 5 }, robustness: { ...suites.robustness, version: 5 } },
+  };
+});
 import { checkpointName, prepareTier1Evidence } from '../../scripts/lib/tier1-evidence';
 import { retainedTier1Evidence } from '../helpers/tier1-evidence';
 
@@ -74,16 +88,15 @@ it('binds the review digest to exact artifact bytes, including output-free diagn
   expect(prepared.rows).toEqual(prepareTier1Evidence(files).rows); expect(prepared.preview.digest).not.toBe(original.digest);
   expect(original.artifacts.find(f => f.name === parseFile)?.sha256).toBe(createHash('sha256').update(files[parseFile]!).digest('hex'));
 });
-it('previews with unusable database/secret configuration and denied network, without changing retained evidence', () => {
+it('refuses to preview or record the stale campaign under the current contracts, with denied network, without changing retained evidence', () => {
   const root = fileURLToPath(new URL('../..', import.meta.url)); const temporary = mkdtempSync(path.join(tmpdir(), 'tier1-evidence-'));
   try {
     const hook = path.join(temporary, 'deny-network.mjs');
     writeFileSync(hook, `import net from 'node:net'; globalThis.fetch = () => { throw new Error('Network forbidden'); }; net.Socket.prototype.connect = function() { throw new Error('Sockets forbidden'); };`);
     const env = { ...process.env, DATABASE_URL: 'invalid', DATABASE_MIGRATION_URL: 'invalid', APP_ENCRYPTION_KEY: 'invalid', SESSION_COOKIE_SECRET: 'invalid' };
     const args = ['--conditions=react-server', '--import', hook, '--import', 'tsx', 'scripts/ai-tier1-evidence.ts'];
-    const result = execFileSync(process.execPath, [...args, '--preview'], { cwd: root, env, encoding: 'utf8' });
-    expect(JSON.parse(result)).toEqual(JSON.parse(JSON.stringify(prepareTier1Evidence(files).preview)));
-    for (const invalid of [[], ['--record'], ['--record', '--expect-sha256', '0'.repeat(64)], ['--preview', '--record']]) {
+    // The subprocess is not mocked: it sees grounding/robustness v6 and refuses.
+    for (const invalid of [['--preview'], [], ['--record'], ['--record', '--expect-sha256', '0'.repeat(64)], ['--preview', '--record']]) {
       const refused = spawnSync(process.execPath, [...args, ...invalid], { cwd: root, env, encoding: 'utf8' });
       expect(refused.status).toBe(1); expect(refused.stdout).toBe(''); expect(refused.stderr).toContain('operation failed');
     }

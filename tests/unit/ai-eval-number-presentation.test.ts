@@ -67,13 +67,13 @@ describe('numeric presentation preserves financial meaning', () => {
 
   it('retains unsupported-metric and sign checks through escaped percentages', () => {
     const golden = ANALYSIS_CASES.find(c => c.id === 'analysis-005')!;
-    const supported = 'Total return is -₹24,220 and XIRR is -21.06%; time-weighted return is unavailable because of insufficient price history.';
+    const supported = 'Total return is ₹15,780 and XIRR is 18.07%; time-weighted return is unavailable because of insufficient price history.';
     expect(scoreAnalysisOutput(tex(supported), [], golden)).toBe(true);
-    expect(scoreAnalysisOutput(tex(supported + ' TWR is -21.06%.'), [], golden)).toBe(false);
-    expect(scoreAnalysisOutput(tex(supported.replace('-₹24,220', '₹24,220')), [], golden)).toBe(false);
+    expect(scoreAnalysisOutput(tex(supported + ' TWR is 18.07%.'), [], golden)).toBe(false);
+    expect(scoreAnalysisOutput(tex(supported.replace('₹15,780', '-₹15,780')), [], golden)).toBe(false);
   });
 
   it('invalidates old scorer measurements for every affected suite', () => {
-    expect([GROUNDING_SUITE_VERSION, ROBUSTNESS_SUITE_VERSION, ANALYSIS_SUITE_VERSION]).toEqual([5, 5, 5]);
+    expect([GROUNDING_SUITE_VERSION, ROBUSTNESS_SUITE_VERSION, ANALYSIS_SUITE_VERSION]).toEqual([6, 6, 6]);
   });
 });

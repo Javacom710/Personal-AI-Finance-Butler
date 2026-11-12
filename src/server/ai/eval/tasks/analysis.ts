@@ -28,7 +28,7 @@ import {
   type GroundingGoldenCase,
 } from './grounding';
 
-export const ANALYSIS_SUITE_VERSION = 5;
+export const ANALYSIS_SUITE_VERSION = 6;
 
 export type AnalysisDomain = 'portfolio' | 'health' | 'period' | 'cross-domain';
 
@@ -86,12 +86,12 @@ const makeCase = replayCase('analysis');
 /*
  * Metrics the frozen results cannot supply. An answer may say they are
  * unavailable; a figure given to one is fabricated, whatever disclaimer sits
- * beside it, and the figure may well trace to another result (XIRR's -21.06%
+ * beside it, and the figure may well trace to another result (XIRR's 18.07%
  * given as the TWR), so traceability alone does not catch it.
  */
 /**
  * The words between a subject and a figure that end the figure's claim to it:
- * a bracket ("TWR is unavailable (XIRR is -21.06%)" gives the figure to XIRR)
+ * a bracket ("TWR is unavailable (XIRR is 18.07%)" gives the figure to XIRR)
  * or a denial ("market value is unavailable; ₹40,000 is cost").
  */
 const NOT_ASSIGNED = String.raw`[()\[\]]|\b(?:unavailable|not|no|none|missing|insufficient|cannot|unknown|without|n['’]t)\b`;
@@ -159,20 +159,20 @@ export const ANALYSIS_CASES: readonly AnalysisGoldenCase[] = [
   // Portfolio reviews
   analysisCase(1, 'portfolio', 'Review my portfolio position and its main data limitations.', {
     calls: ['portfolio', 'holdings'],
-    required: [money('148100'), money('-24220'), [rate('-0.1169935272')]],
+    required: [money('148100'), money('15780'), [rate('0.0944797030')]],
     mentions: [/HDFC ?BANK.{0,60}(?:no price|unpriced|missing price)/i, /NIFTYBEES.{0,60}(?:stale|old price|out of date)/i, /partial|incomplete|coverage/i],
     contradictions: [CURRENT_PRICE, HDFC_VALUE, TWR_FIGURE],
-    bound: [bind(/market value/i, money('148100')), bind(/total return/i, money('-24220'))],
+    bound: [bind(/market value/i, money('148100')), bind(/total return/i, money('15780'))],
   }),
   analysisCase(2, 'portfolio', 'Explain the portfolio return using the reported realised and unrealised results.', {
     calls: ['portfolio'],
-    required: [money('4992'), money('-30912'), money('-24220')],
-    mentions: [/(?:unrealised|unrealized) loss/i, /realised|realized gain/i],
-    contradictions: [TWR_FIGURE, /\bunreali[sz]ed gain/i, /(?<!un)\breali[sz]ed loss/i],
+    required: [money('4992'), money('9088'), money('15780')],
+    mentions: [/(?:unrealised|unrealized) gain/i, /realised|realized gain/i],
+    contradictions: [TWR_FIGURE, /\bunreali[sz]ed loss/i, /(?<!un)\breali[sz]ed loss/i],
     bound: [
       bind(/(?<!un)\breali[sz]ed\b/i, money('4992')),
-      bind(/\bunreali[sz]ed\b/i, money('-30912')),
-      bind(/total return/i, money('-24220')),
+      bind(/\bunreali[sz]ed\b/i, money('9088')),
+      bind(/total return/i, money('15780')),
     ],
   }),
   analysisCase(3, 'portfolio', 'Review my allocation by asset class and say what it leaves out.', {
@@ -196,11 +196,11 @@ export const ANALYSIS_CASES: readonly AnalysisGoldenCase[] = [
   }),
   analysisCase(5, 'portfolio', 'Summarise my investment returns and explain whether time-weighted return is available.', {
     calls: ['portfolio'],
-    required: [money('-24220'), [rate('-0.2105550000')]],
+    required: [money('15780'), [rate('0.1806980000')]],
     forbidden: [rate('0')],
     mentions: [/time[- ]weighted return/i, /unavailable|not available|insufficient price history/i],
     contradictions: [TWR_FIGURE],
-    bound: [bind(/total return/i, money('-24220')), bind(/\bXIRR\b/i, rate('-0.2105550000'))],
+    bound: [bind(/total return/i, money('15780')), bind(/\bXIRR\b/i, rate('0.1806980000'))],
   }),
 
   // Financial health
@@ -279,13 +279,13 @@ export const ANALYSIS_CASES: readonly AnalysisGoldenCase[] = [
   // Cross-domain analysis
   analysisCase(13, 'cross-domain', 'Give a snapshot that connects my net worth and portfolio, including valuation limits.', {
     calls: ['netWorthCost', 'portfolio', 'holdings'],
-    required: [money('8107349.20'), money('148100'), money('-24220')],
+    required: [money('8107349.20'), money('148100'), money('15780')],
     mentions: [/cost/i, /partial|incomplete|coverage/i, /HDFC ?BANK/i, /stale/i],
     contradictions: [CURRENT_PRICE, HDFC_VALUE, TWR_FIGURE],
     bound: [
       bind(/net[- ]worth/i, money('8107349.20')),
       bind(/market value/i, money('148100')),
-      bind(/total return/i, money('-24220')),
+      bind(/total return/i, money('15780')),
     ],
   }),
   analysisCase(14, 'cross-domain', 'Connect my savings, current budget pressure and debt obligations.', {

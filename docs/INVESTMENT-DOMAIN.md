@@ -437,16 +437,17 @@ interface PortfolioSummary {
   costDeployed: Money;          // Σ (tax_lots.cost_total × lot.fx_rate_to_base) over ALL lots
                                 // ever opened, including closed — capital ever committed
   marketValue: Money;           // priced holdings only
-  unrealizedPnl: Money;         // marketValue − investedCapital
+  unrealizedPnl: Money;         // marketValue − pricedCostBasis (priced holdings only)
   realizedPnl: Money;           // Σ lot_disposals.base_realized_pnl
   dividends: Money;             // GROSS declared, per I-12
   interest: Money;              // GROSS declared
   fees: Money;                  // Σ positions.fees_total  + portfolio-level fee rows (§6.2)
   taxes: Money;                 // Σ positions.taxes_total + portfolio-level tax rows (§6.2)
-  totalReturn: Money;           // unrealized + realized + dividends + interest − fees − taxes
+  totalReturn: Money;           // unrealized + realized + dividends + interest − fees − taxes,
+                                // over the return cohort (below)
 
-  unrealizedReturnPct: Rate | null;  // unrealizedPnl / investedCapital
-  totalReturnPct: Rate | null;       // totalReturn / costDeployed
+  unrealizedReturnPct: Rate | null;  // unrealizedPnl / pricedCostBasis
+  totalReturnPct: Rate | null;       // totalReturn / costDeployed of the return cohort
   xirr: Rate | null;
   twr: Rate | null;
   coverage: Rate;               // 0..1
@@ -454,6 +455,17 @@ interface PortfolioSummary {
   staleInstruments: InstrumentRef[];
 }
 ```
+
+### 6.1 The return cohort when a holding is unpriced (OD-21)
+
+An unpriced holding is excluded from portfolio totals (§5), and it is excluded from **every return figure as a whole**, never from one side of a ratio. The return cohort is every instrument except those whose open holding is unpriced, plus account-level rows with no instrument:
+
+- `unrealizedPnl = marketValue − pricedCostBasis`: priced value against priced cost.
+- `totalReturn` takes realised P&L, income, fees and taxes from the cohort only; `totalReturnPct` divides by the cohort's `costDeployed`.
+- XIRR drops the excluded instruments' ledger rows, because its terminal value never included them.
+- `investedCapital`, `costDeployed`, `realizedPnl`, `dividends`, `interest`, `fees` and `taxes` are still shown whole-ledger: they are facts that need no price.
+
+Before this rule, the unpriced cost entered the denominator but not the value, so it read as a loss: two holdings in profit beside one unpriced holding reported −17.43%. With everything priced the cohort is the whole portfolio and no figure changes.
 
 ### Two denominators, and why using one for both is wrong
 
@@ -651,6 +663,8 @@ The backstop is what turns "the provider quietly stopped" from an invisible wron
 
 **External flows** are the XIRR series ([§7](#7-xirr)) with the sign turned round and without the terminal value. A purchase is a contribution to the holdings. Sale proceeds, dividends and interest are withdrawals, because brokerage cash is outside the portfolio. A standalone fee or tax is a contribution that bought nothing, so TWR is net of those charges, as XIRR is.
 
+**Every in-kind transfer leg is a flow too**, at the **market value of its units on the transfer date** — the same price and rate the boundary valuation uses: `transfer_in` a contribution, `transfer_out` a withdrawal. Not at the leg's recorded amount: a transfer's `price` is the carried cost basis per unit, which the lots need, and using it would book the appreciation the shares made before they arrived as this portfolio's return. A leg whose instrument has no price on that date makes the whole result `insufficient_price_history`. **A leg dated on a split or bonus is restated first.** Replay applies a corporate action after the same day's trades, so the leg's recorded units are pre-action while that day's close is post-action; the units are scaled by the same operations and rounding replay applies to a lot before they are priced. XIRR drops both legs at portfolio scope on the footing that a matched pair nets to zero; TWR cannot, because the valuation moves with each leg. A matched pair cancels on its own. An unmatched leg — shares gifted in, or a holding recorded when the user started using the app — is capital arriving, and without it ₹10,000 of shares transferred in beside a ₹10,000 purchase would read as a 100% return. *(Portfolio-scope XIRR still ignores an unmatched leg; that predates this work and is recorded in DECISIONS as OD-22.)*
+
 **Valuations** come from the one historical valuation path the application has: the `investments` group of market-basis net worth on each boundary date ([FINANCIAL-DOMAIN.md §9](FINANCIAL-DOMAIN.md#9-net-worth)). That gives ledger-derived, ratio-aware units, the bounded carry-back, and the same suppression and FX rules as every other historical figure.
 
 That figure is the **close**, which already contains the day's trades, while the engine wants the value a flow arrives into ([§8](#8-time-weighted-return), boundary convention). So the service passes
@@ -664,6 +678,9 @@ The period ending at `D` then closes before the flow, and the period starting at
 **Rules**
 
 - If any holding is excluded from the market valuation on any boundary (no price within the carry-back bound, no FX rate, an unreconciled corporate action), the result is `insufficient_price_history`. A chain with a missing link is not a smaller sample.
+- **A stale price is used, and counted.** Net worth values a holding at a stale price rather than withholding it ([ADR-28](DECISIONS.md#adr-28--staleness-is-measured-in-trading-sessions-not-wall-clock-hours)), so the return stands; the result carries `valuations`, `staleValuations` (stale as of each boundary's own date) and `staleToday`, and the Performance page says when the figure runs only to the last known prices.
+- **Rows dated after today are left out** before anything is priced. A future-dated transaction is a valid ledger entry, and its price cannot exist yet.
+- Staleness is also taken from the price used to value a **transfer leg**, since a leg that removes the last units leaves nothing in the boundary valuation to carry it.
 - No transactions, or a first transaction dated today, is `no_data`.
 - **Manually typed prices do not count as history.** `setManualPrice` moves the quote but writes no `instrument_prices` row, so a holding priced only by hand has a value today and none on an earlier flow date; its TWR is `insufficient_price_history` until a provider has stored closes for it.
 - **Whole portfolio only.** A scoped call (`accountId` or `instrumentId`) still reports `insufficient_price_history`, because there is no scoped valuation series.
