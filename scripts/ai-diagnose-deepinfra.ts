@@ -1,4 +1,4 @@
-/** Six synthetic probes, output-free diagnostics, no promotion or recording. */
+/** Finite synthetic probes, output-free diagnostics, no promotion or recording. */
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { mkdir, open, readFile, rename, unlink, writeFile } from 'node:fs/promises';
@@ -6,19 +6,18 @@ import path from 'node:path';
 import { z } from 'zod';
 import { aiProviderSettings, env, loadDotEnv } from '../src/lib/env';
 import { evaluationProviderIdentity } from '../src/server/ai-evaluations';
-import { DEEPINFRA_MEASUREMENT_MODELS } from '../src/server/ai/config/models';
+import { DEEPINFRA_MEASUREMENT_MODELS, resolveModelConfig } from '../src/server/ai/config/models';
 import { resolveRequestProfiles } from '../src/server/ai/config/request-profiles';
 import { createNvidiaProvider } from '../src/server/ai/provider/nvidia-build';
 import { evaluateModel } from '../src/server/ai/eval/harness';
 import { maxTokensFor, MODEL_SUITES } from '../src/server/ai/eval/runner';
-import { diagnoseAnalysis, diagnoseDocument, FailureDiagnosticsSchema, type FailureDiagnostics } from './lib/ai-failure-diagnostics';
+import { diagnoseAnalysis, diagnoseDocument, diagnoseParse, diagnoseInjection, FailureDiagnosticsSchema, type FailureDiagnostics } from './lib/ai-failure-diagnostics';
 import { requestReserve } from './lib/ai-eval-budget';
 import { reserveInActiveLedger } from './lib/inference-budget';
 import { otherDeepinfraSpend } from './lib/deepinfra-accounting';
 
 const endpoint = 'https://api.deepinfra.com/v1/openai';
 const root = path.resolve('eval/reports/deepinfra-2026-11-07');
-const directory = path.join(root, 'diagnostics');
 const amount = z.number().finite().nonnegative();
 interface Event { at: string; caseId: string; model: string; reservedUsd: number; accountedUsd: number; status?: number; promptTokens?: number; completionTokens?: number; }
 async function read(file: string): Promise<unknown> { return JSON.parse(await readFile(file, 'utf8')); }
@@ -28,18 +27,29 @@ async function save(file: string, body: unknown) {
 }
 async function main() {
   const analysisOnly = process.argv.includes('--analysis-only');
-  const argv = process.argv.slice(2).filter(a => a !== '--analysis-only');
-  if (process.argv.slice(2).filter(a => a === '--analysis-only').length > 1) throw new Error('Duplicate analysis-only flag.');
+  const selectedTier1 = process.argv.includes('--selected-tier1');
+  const flags = ['--analysis-only', '--selected-tier1'];
+  const argv = process.argv.slice(2).filter(a => !flags.includes(a));
+  if (flags.some(flag => process.argv.slice(2).filter(a => a === flag).length > 1)) throw new Error('Duplicate diagnostic plan flag.');
+  if (analysisOnly && selectedTier1) throw new Error('Choose one diagnostic plan.');
+  const directory = selectedTier1 ? path.resolve('eval/reports/deepinfra-2026-11-08-tier1-diagnostics') : path.join(root, 'diagnostics');
   const live = argv.length === 2 && argv.includes('--run') && argv.includes('--no-record');
   if (!live && !(argv.length === 1 && argv[0] === '--plan')) throw new Error('Use --plan or --run --no-record. Recording and arbitrary case/model overrides are unsupported.');
   loadDotEnv();
   const e = env(), ai = aiProviderSettings(e);
   if (evaluationProviderIdentity(ai.baseUrl) !== endpoint || (live && !ai.apiKey)) throw new Error('Require the direct DeepInfra endpoint and its key.');
   const profiles = resolveRequestProfiles(e.AI_REQUEST_PROFILES);
-  const plan = [
+  const selectedModels = resolveModelConfig().candidates(1);
+  const probes = selectedTier1 ? [
+    ...['parse-010', 'parse-011', 'parse-033', 'parse-035'].map(id => ({ tier: 1 as const, suite: 'parse' as const, id, model: selectedModels[0]! })),
+    { tier: 1 as const, suite: 'injection' as const, id: 'injection-024', model: selectedModels[0]! },
+    ...['parse-033', 'parse-035'].map(id => ({ tier: 1 as const, suite: 'parse' as const, id, model: selectedModels[1]! })),
+    ...['injection-005', 'injection-014'].map(id => ({ tier: 1 as const, suite: 'injection' as const, id, model: selectedModels[1]! })),
+  ] : [
     ...['analysis-001', 'analysis-006', 'analysis-015'].map(id => ({ tier: 2 as const, suite: 'analysis' as const, id, model: DEEPINFRA_MEASUREMENT_MODELS[2][0]! })),
     ...['doc-001', 'doc-002', 'doc-018'].map(id => ({ tier: 4 as const, suite: 'document' as const, id, model: DEEPINFRA_MEASUREMENT_MODELS[4][0]! })),
-  ].filter(r => !analysisOnly || r.suite === 'analysis').map(r => {
+  ];
+  const plan = probes.filter(r => !analysisOnly || r.suite === 'analysis').map(r => {
     if (/^(google|anthropic)\//i.test(r.model)) throw new Error('Excluded model publisher.');
     const testCase = MODEL_SUITES[r.suite].build().find(c => c.id === r.id);
     if (!testCase) throw new Error('Diagnostic case is missing.');
@@ -108,7 +118,9 @@ async function main() {
           if (response.ok) {
             const { content, toolCalls, reasoning } = response.value;
             shape = { contentCharacters: content?.length ?? 0, reasoningCharacters: reasoning?.length ?? 0, toolCalls: toolCalls.length };
-            diagnostics = r.suite === 'analysis' ? diagnoseAnalysis(r.id, content, toolCalls) : diagnoseDocument(r.id, content);
+            diagnostics = r.suite === 'analysis' ? diagnoseAnalysis(r.id, content, toolCalls)
+              : r.suite === 'document' ? diagnoseDocument(r.id, content)
+              : r.suite === 'parse' ? diagnoseParse(r.id, content) : diagnoseInjection(r.id, content, toolCalls);
             FailureDiagnosticsSchema.parse(diagnostics);
           }
           return response;

@@ -36,8 +36,10 @@ A phase is complete only when every box is ticked — including tests, type chec
 
 **Current Tier 1 evidence (2026-11-08):** the [fresh source-bound campaign](../eval/reports/deepinfra-2026-11-07-tier1-current-2026-11-08/README.md) completed 380/380 answered cases after ADR-56's external-spend reconciliation. Each model has schema 100/100 and tools 53/57 (92.98%). Exact parsing is 36/40 vs 30/40, grounding 21/25 vs 20/25 and injection 24/25 vs 19/25. The unchanged proposer retains GLM → GPT-OSS. Campaign ledger estimate: US$0.0702; project accounted total US$1.8602 of US$10. Passing routing gates does not complete the release-quality checks below.
 
+**Quality follow-up (2026-11-08):** PR #59 is CI-green on PostgreSQL 17/18. A [separate nine-probe diagnostic run](../eval/reports/deepinfra-2026-11-08-tier1-diagnostics/README.md) reproduced ambiguity/confidence failures in both models and field mismatches in two other parse cases. Three injection probes passed this time; earlier failures remain unresolved. Diagnostics do not replace qualification scores. Project accounted spending is now US$1.8617. The linked review packet includes a concrete shared parsing-prompt proposal, without changing any production contract.
+
 **Next, in order (2026-11-08):**
-1. Review the current Tier 1 quality failures and decide release composition; fresh measurement and fallback coverage are now complete. No automatic rerun or changed gate is implied.
+1. Review the proposed shared parsing-prompt clarification and remaining Tier 1 failures. A prompt change requires a new parse contract version and fresh complete evidence; no automatic rerun or changed gate is implied.
 2. After owner review, recording and activation are separate remaining steps for the Phase 9 features that Tier 1 serves.
 3. Tiers 2–4 have no selected models. Advanced analysis, scenarios and documents stay off until each has its own measured lineup.
 4. Independently of the AI work: OD-18 (scenario engine, metrics, TWR wiring) and OD-19 (the Overview page).
