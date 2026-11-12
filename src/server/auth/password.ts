@@ -51,7 +51,7 @@ export const ARGON2_OPTIONS = {
 
 /** Length beats character classes: a 12-character minimum, and no composition rules. */
 export const MIN_PASSWORD_LENGTH = 12;
-const MAX_PASSWORD_LENGTH = 1024; // A bounded input; argon2 cost is otherwise attacker-controlled.
+export const MAX_PASSWORD_LENGTH = 1024; // A bounded input; argon2 cost is otherwise attacker-controlled.
 
 export type PasswordPolicyFailure =
   | { readonly code: 'too_short'; readonly message: string }

@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 
 import { deleteAccount } from '@/server/auth/account-deletion';
 import { requireSession } from '@/server/auth/guards';
+import { MAX_PASSWORD_LENGTH } from '@/server/auth/password';
 import { clearSessionCookie, requestContext } from '@/server/auth/session-cookie';
 import type { DeletionFormState } from './form-state';
 
@@ -12,8 +13,13 @@ function minutes(seconds: number): string {
   return m === 1 ? '1 minute' : `${m} minutes`;
 }
 
-function text(value: FormDataEntryValue | null): string {
-  return typeof value === 'string' ? value.slice(0, 200) : '';
+/**
+ * A form field, bounded. An over-long value is **refused, not truncated**: a
+ * truncated password would fail against the stored hash however correct the
+ * typed one was. The bound on the password is the policy's own maximum.
+ */
+function field(value: FormDataEntryValue | null, max: number): string {
+  return typeof value === 'string' && value.length <= max ? value : '';
 }
 
 /**
@@ -26,9 +32,9 @@ export async function deleteEverythingAction(_prev: DeletionFormState, formData:
   const result = await deleteAccount(
     session.userId,
     {
-      password: text(formData.get('password')),
-      code: text(formData.get('code')),
-      confirmation: text(formData.get('confirmation')),
+      password: field(formData.get('password'), MAX_PASSWORD_LENGTH),
+      code: field(formData.get('code'), 20),
+      confirmation: field(formData.get('confirmation'), 100),
     },
     await requestContext(),
   );
