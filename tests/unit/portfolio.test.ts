@@ -25,7 +25,7 @@ import {
   type InstrumentRef,
 } from '@/server/domain/pricing/valuation';
 import { allocation, allocationTotal, concentration } from '@/server/domain/pricing/allocation';
-import { portfolioSummary, totalReturnByCashCrossCheck } from '@/server/domain/calc/portfolio';
+import { portfolioSummary, totalReturnByCashCrossCheck, type PortfolioInput } from '@/server/domain/calc/portfolio';
 import { unavailable } from '@/lib/metric';
 import { FIFO_INR, INR, buy, dividend, resetSequence, sell } from './_lot-fixtures';
 
@@ -259,6 +259,64 @@ describe('case 10 — an instrument with no price at all', () => {
     expect(nothing.totalReturn).toBeNull();
     expect(nothing.unrealizedReturnPct.reason).toBe('no_price');
     expect(nothing.totalReturnPct.reason).toBe('no_price');
+  });
+
+  // OD-21: the unpriced holding's ₹4,000 cost must not read as a ₹4,000 loss.
+  describe('OD-21 — returns over the priced cohort only', () => {
+    const base: PortfolioInput = {
+      baseCurrency: INR,
+      asOf: isoDate('2026-08-11'),
+      investedCapital: result.totalCostBasis, // ₹10,030, priced or not
+      costDeployed: Money.of('12030', INR), // includes an INFY lot sold earlier
+      marketValue: result.pricedValue, // ₹9,600
+      realizedPnl: Money.of('1950', INR),
+      dividends: Money.zero(INR),
+      interest: Money.zero(INR),
+      fees: Money.zero(INR),
+      taxes: Money.zero(INR),
+      coverage: result.coverage,
+      staleInstruments: [],
+      unpricedInstruments: result.unpriced,
+      xirr: unavailable('no_data'),
+      twr: unavailable('insufficient_price_history'),
+    };
+
+    it('reproduces the defect when the priced cost basis is not supplied', () => {
+      // The pre-fix computation: 9,600 − 10,030 = −430, a loss that is not there.
+      expect(money(portfolioSummary(base).unrealizedPnl)).toBe('-430.0000');
+    });
+
+    const fixed = portfolioSummary({
+      ...base,
+      pricedCostBasis: result.pricedCostBasis, // ₹6,030
+      // The cohort without INFY: no INFY lot, no INFY realised P&L.
+      returnCohort: {
+        costDeployed: Money.of('6030', INR),
+        realizedPnl: Money.zero(INR),
+        dividends: Money.zero(INR),
+        interest: Money.zero(INR),
+        fees: Money.zero(INR),
+        taxes: Money.zero(INR),
+      },
+    });
+
+    it('compares priced value with priced cost', () => {
+      expect(money(fixed.unrealizedPnl)).toBe('3570.0000');
+      expect(rToDbString(fixed.unrealizedReturnPct.value!)).toBe(
+        rToDbString(ratio(Money.of('3570', INR), Money.of('6030', INR)).value!),
+      );
+    });
+
+    it('takes total return and its denominator from the same cohort', () => {
+      expect(money(fixed.totalReturn)).toBe('3570.0000');
+      expect(rToDbString(fixed.totalReturnPct.value!)).toBe(rToDbString(fixed.unrealizedReturnPct.value!));
+    });
+
+    it('still shows the whole-ledger facts and the full capital at risk', () => {
+      expect(money(fixed.investedCapital)).toBe('10030.0000');
+      expect(money(fixed.costDeployed)).toBe('12030.0000');
+      expect(money(fixed.realizedPnl)).toBe('1950.0000');
+    });
   });
 });
 

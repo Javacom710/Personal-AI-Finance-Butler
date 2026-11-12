@@ -156,7 +156,7 @@ it('keeps realised history visible after every instrument is closed and inactive
     ...base(), investedCapital: money('0'), marketValue: money('0'),
     unrealizedPnl: money('0'), unpricedInstruments: [],
   };
-  mocks.portfolio.mockResolvedValue({ ok: true, value: { summary, holdings: [] } });
+  mocks.portfolio.mockResolvedValue({ ok: true, value: { summary, holdings: [], twr: { value: null, reason: 'insufficient_price_history' } } });
   const html = renderToStaticMarkup(await InvestmentsPage());
   expect(html).not.toContain('Add an instrument to begin');
   expect(html).toContain('money:100000');
@@ -172,6 +172,7 @@ it('retains the setup state for a genuinely empty investment record', async () =
         dividends: money('0'), interest: money('0'), fees: money('0'), taxes: money('0'),
       },
       holdings: [],
+      twr: { value: null, reason: 'insufficient_price_history' },
     },
   });
   expect(renderToStaticMarkup(await InvestmentsPage())).toContain('Add an instrument to begin');

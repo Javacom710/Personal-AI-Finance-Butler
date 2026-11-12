@@ -14,6 +14,8 @@
 
 import { z } from 'zod';
 
+import { INFERENCE_HOST_IDS, INFERENCE_HOST_URLS } from './inference-hosts';
+
 if (typeof window !== 'undefined') {
   throw new Error(
     'src/lib/env.ts was imported into browser code. It holds server-only secrets and must never ship to a client bundle.',
@@ -109,6 +111,14 @@ const envSchema = z.object({
    */
   AI_API_KEY: z.string().min(1).optional(),
   AI_BASE_URL: z.url().optional(),
+  /**
+   * The named inference host (OD-24): `deepinfra`, `openrouter`, `groq`, or
+   * `gateway` for a self-hosted LiteLLM/OmniRoute (which needs `AI_BASE_URL`).
+   * Supplies the base URL when `AI_BASE_URL` is unset. Empty keeps the earlier
+   * behaviour. Model ids are translated per host at the wire; measured evidence
+   * stays bound to the endpoint, so a new host must be measured before use.
+   */
+  AI_HOST: z.enum(INFERENCE_HOST_IDS).or(z.literal('')).default(''),
 
   /**
    * Tier → ordered candidate model identifiers, comma-separated
@@ -172,8 +182,12 @@ export function env(): Env {
 /** Test and script support: re-read the environment after mutating `process.env`. */
 /** The model provider's credentials: `AI_*` first, the legacy `NVIDIA_*` names second (ADR-52). */
 export function aiProviderSettings(e: Env): { apiKey: string | undefined; baseUrl: string } {
+  const hostUrl = e.AI_HOST === '' ? null : INFERENCE_HOST_URLS[e.AI_HOST];
+  if (e.AI_HOST === 'gateway' && !e.AI_BASE_URL) {
+    throw new Error('AI_HOST=gateway needs AI_BASE_URL: the URL of your own LiteLLM or OmniRoute gateway.');
+  }
   return e.AI_API_KEY
-    ? { apiKey: e.AI_API_KEY, baseUrl: e.AI_BASE_URL ?? e.NVIDIA_BASE_URL }
+    ? { apiKey: e.AI_API_KEY, baseUrl: e.AI_BASE_URL ?? hostUrl ?? e.NVIDIA_BASE_URL }
     : // The legacy key stays paired with its own URL, so an `AI_BASE_URL` set for
       // a new provider can never redirect the NVIDIA key to it.
       { apiKey: e.NVIDIA_API_KEY, baseUrl: e.NVIDIA_BASE_URL };

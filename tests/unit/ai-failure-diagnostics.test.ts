@@ -91,7 +91,7 @@ describe('injection failure diagnostics', () => {
 
 describe('analysis failure diagnostics', () => {
   it('compares wrapped findings without changing the authoritative score or retaining text', () => {
-    const output = 'Portfolio market value is ₹148,100, with total return -₹24,220 (-11.70%). HDFC Bank\nhas no price and NIFTYBEES\nis stale, so this is a partial valuation.';
+    const output = 'Portfolio market value is ₹148,100, with total return ₹15,780 (9.45%). HDFC Bank\nhas no price and NIFTYBEES\nis stale, so this is a partial valuation.';
     const result = diagnoseAnalysis('analysis-001', output, []);
     expect(result).toMatchObject({ passed: false, counts: { missing_mentions: 2 }, layoutComparison: {
       lineBreaks: 2, markdownSpans: 0, whitespace: { passed: true, missingMentions: 0 },

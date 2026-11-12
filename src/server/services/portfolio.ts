@@ -203,9 +203,21 @@ interface PortfolioAggregates {
   readonly taxes: Money;
 }
 
-async function aggregates(ctx: ReadCtx, scope: PortfolioScope): Promise<PortfolioAggregates> {
+async function aggregates(
+  ctx: ReadCtx,
+  scope: PortfolioScope,
+  /** Instruments left out of the return cohort (OD-21). Account-level rows have none and always stay. */
+  exclude: readonly string[] = [],
+): Promise<PortfolioAggregates> {
   const accountFilter = scope.accountId ?? null;
   const instrumentFilter = scope.instrumentId ?? null;
+  const notExcluded = (column: SQL) =>
+    exclude.length === 0
+      ? sql``
+      : sql`and (${column} is null or ${column}::text not in (${sql.join(
+          exclude.map((id) => sql`${id}`),
+          sql`, `,
+        )}))`;
 
   const { rows: deployed } = await ctx.db.execute<{ total: string }>(sql`
     select coalesce(sum(round(l.cost_total * l.fx_rate_to_base, 4)), 0)::text as total
@@ -213,6 +225,7 @@ async function aggregates(ctx: ReadCtx, scope: PortfolioScope): Promise<Portfoli
      where l.user_id = ${ctx.userId}
        ${accountFilter === null ? sql`` : sql`and l.account_id = ${accountFilter}`}
        ${instrumentFilter === null ? sql`` : sql`and l.instrument_id = ${instrumentFilter}`}
+       ${notExcluded(sql`l.instrument_id`)}
   `);
 
   const { rows: realized } = await ctx.db.execute<{ total: string }>(sql`
@@ -222,6 +235,7 @@ async function aggregates(ctx: ReadCtx, scope: PortfolioScope): Promise<Portfoli
      where d.user_id = ${ctx.userId}
        ${accountFilter === null ? sql`` : sql`and l.account_id = ${accountFilter}`}
        ${instrumentFilter === null ? sql`` : sql`and l.instrument_id = ${instrumentFilter}`}
+       ${notExcluded(sql`l.instrument_id`)}
   `);
 
   // Income and charges in BASE currency, from the ledger's own base column.
@@ -252,6 +266,7 @@ async function aggregates(ctx: ReadCtx, scope: PortfolioScope): Promise<Portfoli
      where i.user_id = ${ctx.userId}
        ${accountFilter === null ? sql`` : sql`and i.account_id = ${accountFilter}`}
        ${instrumentFilter === null ? sql`` : sql`and i.instrument_id = ${instrumentFilter}`}
+       ${notExcluded(sql`i.instrument_id`)}
   `);
 
   const flow = flows[0] ?? {
@@ -313,7 +328,20 @@ export async function portfolio(
   const valuation = await holdings(ctx, scope);
   const totals = await aggregates(ctx, scope);
   const ledger = await ledgerCashFlows(ctx, scope);
-  const flows = withTerminal(ctx, ledger.flows, valuation.pricedValue);
+
+  // OD-21. An unpriced holding is excluded from portfolio totals (§5), so it
+  // leaves every return figure as a whole: its cost from unrealised P&L, its
+  // lots, realised P&L, income and charges from total return and its
+  // denominator, and its ledger rows from the XIRR series, whose terminal value
+  // never included it. Otherwise its whole cost reads as a loss.
+  const excluded = [...new Set(valuation.unpriced.map((i) => i.id))];
+  const excludedSet = new Set(excluded);
+  const cohort = excluded.length === 0 ? undefined : await aggregates(ctx, scope, excluded);
+  const xirrLedger =
+    excluded.length === 0
+      ? ledger.flows
+      : ledger.flows.filter((f, i) => !excludedSet.has(ledger.flowInstruments[i] ?? ''));
+  const flows = withTerminal(ctx, xirrLedger, valuation.pricedValue);
 
   // Whole-portfolio only. A scoped TWR needs a scoped valuation series, which
   // the net-worth composition does not offer; it stays the documented reason
@@ -332,6 +360,8 @@ export async function portfolio(
     ),
     costDeployed: totals.costDeployed,
     marketValue: valuation.pricedValue,
+    pricedCostBasis: valuation.pricedCostBasis,
+    ...(cohort !== undefined && { returnCohort: cohort }),
     realizedPnl: totals.realizedPnl,
     dividends: totals.dividends,
     interest: totals.interest,
@@ -562,6 +592,8 @@ interface CorporateAction {
 interface LedgerFlows {
   /** The XIRR series without its terminal value. */
   readonly flows: CashFlow[];
+  /** `flows[i]`'s instrument, `null` for an account-level row. Parallel to `flows`. */
+  readonly flowInstruments: (string | null)[];
   /**
    * Transfer legs the XIRR series drops at portfolio scope. A matched pair
    * cancels; an unmatched leg — shares gifted in, or a holding recorded when the
@@ -593,7 +625,7 @@ async function ledgerCashFlows(ctx: ReadCtx, scope: PortfolioScope): Promise<Led
     kind: string;
     trade_date: string;
     account_id: string;
-    instrument_id: string;
+    instrument_id: string | null;
     quantity: string | null;
     ratio_num: number | null;
     ratio_den: number | null;
@@ -617,6 +649,7 @@ async function ledgerCashFlows(ctx: ReadCtx, scope: PortfolioScope): Promise<Led
   `);
 
   const flows: CashFlow[] = [];
+  const flowInstruments: (string | null)[] = [];
   const portfolioTransfers: TransferLeg[] = [];
   const corporateActions: CorporateAction[] = [];
 
@@ -627,7 +660,7 @@ async function ledgerCashFlows(ctx: ReadCtx, scope: PortfolioScope): Promise<Led
       // At portfolio scope the XIRR series drops both legs, on the footing that
       // a matched pair nets to zero; they are kept aside, as units, for TWR.
       if (!scoped) {
-        if (row.quantity !== null) {
+        if (row.quantity !== null && row.instrument_id !== null) {
           portfolioTransfers.push({
             on,
             direction: row.kind === 'transfer_in' ? 'in' : 'out',
@@ -650,6 +683,7 @@ async function ledgerCashFlows(ctx: ReadCtx, scope: PortfolioScope): Promise<Led
         on,
         amount: row.kind === 'transfer_in' ? Money.fromMinor(-gross.minor, ctx.base) : gross,
       });
+      flowInstruments.push(row.instrument_id);
       continue;
     }
 
@@ -657,7 +691,7 @@ async function ledgerCashFlows(ctx: ReadCtx, scope: PortfolioScope): Promise<Led
     // transfer dated the same day is priced at a close that already reflects
     // them, so they are kept to restate its units.
     if (row.kind === 'split' || row.kind === 'bonus') {
-      if (!scoped && row.ratio_num !== null && row.ratio_den !== null) {
+      if (!scoped && row.instrument_id !== null && row.ratio_num !== null && row.ratio_den !== null) {
         corporateActions.push({
           on,
           accountId: row.account_id,
@@ -671,7 +705,10 @@ async function ledgerCashFlows(ctx: ReadCtx, scope: PortfolioScope): Promise<Led
     }
 
     const amount = Money.fromDbString(row.base_net_amount, ctx.base);
-    if (amount.minor !== 0n) flows.push({ on, amount });
+    if (amount.minor !== 0n) {
+      flows.push({ on, amount });
+      flowInstruments.push(row.instrument_id);
+    }
   }
 
   // Split before bonus on a shared date, as `replay()` orders them.
@@ -679,7 +716,7 @@ async function ledgerCashFlows(ctx: ReadCtx, scope: PortfolioScope): Promise<Led
     a.on !== b.on ? (a.on < b.on ? -1 : 1) : kindRank(a.kind) - kindRank(b.kind),
   );
 
-  return { flows, portfolioTransfers, corporateActions };
+  return { flows, flowInstruments, portfolioTransfers, corporateActions };
 }
 
 // -------------------------------------------------------------- allocation
