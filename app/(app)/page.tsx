@@ -100,9 +100,10 @@ export default async function OverviewPage() {
   // instrument that is still held is still part of the portfolio.
   const hasHoldings = invested.value.holdings.some((h) => h.quantity.units !== 0n);
 
-  // Returns are shown only when every holding is priced. With an unpriced
-  // holding the engine's unrealised figure nets priced value against the cost of
-  // ALL holdings, so the return would read as a loss that has not happened.
+  // Returns are shown only when every holding is priced. Since OD-21 the engine
+  // computes them over the priced holdings alone, which is correct but not the
+  // whole portfolio; showing that cohort here needs a label saying what it
+  // excludes, and stays withheld until that presentation is approved.
   const fullyPriced = canShowPortfolioReturns(summary);
 
   const attention = attentionItems({

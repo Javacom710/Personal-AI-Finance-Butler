@@ -52,6 +52,26 @@ export default defineConfig({
           fileParallelism: false,
         },
       },
+      // Performance against ARCHITECTURE.md §9 on a seeded 5-year history.
+      // Opt-in (`BENCH=1 npx vitest run --project bench`): it takes minutes to
+      // seed and its timings depend on the machine, so it is not a CI gate.
+      ...(process.env['BENCH'] === '1'
+        ? [
+            {
+              resolve: { alias },
+              test: {
+                name: 'bench',
+                include: ['tests/bench/**/*.test.ts'],
+                environment: 'node' as const,
+                globalSetup: ['tests/setup/integration-global.ts'],
+                setupFiles: ['tests/setup/integration-env.ts'],
+                testTimeout: 1_800_000,
+                hookTimeout: 1_800_000,
+                fileParallelism: false,
+              },
+            },
+          ]
+        : []),
     ],
   },
 });
