@@ -1,5 +1,7 @@
 # Tier 1 retained-evidence import preparation — 8 November 2026
 
+> Historical v3 preparation. The current prompt is v4, so this archived command/digest is stale. See the [v4 update](2026-11-08-parse-prompt-v4.md) and [current manifest](2026-11-08-tier1-parse-v4-evidence-preview.json). The original v3 preview remains byte-identical. No deployment recording has occurred.
+
 Continues CI-green PR #64 (`d4f13eb`, PostgreSQL 17/18). Adds an offline preview and an explicit operator recording command for the retained parse-v3 Tier 1 campaign. **No deployment recording or activation has been performed.** The owner still needs to accept or resolve the [documented quality limitations](2026-11-08-tier1-release-review.md) before authorizing deployment evidence writes.
 
 ## Reviewable evidence and rows

@@ -77,3 +77,7 @@ The transactional import is idempotent for an exact batch and refuses conflicts,
 ## Current injection-failure investigation — 2026-11-08
 
 The [targeted follow-up](../eval/reports/deepinfra-2026-11-08-tier1-v3-failures/README.md) reprobes the fallback's four full-campaign injection failures once each. Its legitimate-read failure and one model-selection canary do not recur; transaction-description and category-label canary repetitions do recur. No disallowed call is observed. These selected observations do not replace the full campaign's 21/25 result or certify instruction isolation. The production prompt, scorer, runtime controls and generation hold remain unchanged.
+
+## Current v4 evidence and release review — 2026-11-09
+
+The [missing-amount prompt update](audits/2026-11-08-parse-prompt-v4.md) clarifies existing confidence/ambiguity expectations and advances parse to v4, without changing the corpus, scorer, competing-amount policy or other contracts. All 380 fresh cases answer; both models pass the omitted-amount cases and unchanged routing gates. Remaining quality failures are retained. The [separate v4 manifest](audits/2026-11-08-tier1-parse-v4-evidence-preview.json) prepares the current twelve-row write; the archived v3 evidence/manifest are unchanged and stale for qualification. Generation and deployment recording remain off pending owner quality/evidence/release review.

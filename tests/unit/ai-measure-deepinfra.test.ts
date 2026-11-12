@@ -100,7 +100,7 @@ it('runs the full DeepInfra queue without storage, resumes offline, and rejects 
     expect(selectedProgress.rows.every((row: { tier: number }) => row.tier === 1)).toBe(true);
     const selectedReport = JSON.parse(readFileSync(path.join(selectedDirectory, 'tier1.json'), 'utf8'));
     expect(selectedReport.models.map((model: { modelId: string }) => model.modelId)).toEqual(selectedModels);
-    expect(selectedReport.suiteVersions).toEqual({ parse: 3, classify: 2, 'tool-select': 3, grounding: 5, robustness: 5, injection: 4 });
+    expect(selectedReport.suiteVersions).toEqual({ parse: 4, classify: 2, 'tool-select': 3, grounding: 5, robustness: 5, injection: 4 });
     for (const model of selectedReport.models) {
       expect(model.suites.find((s: { suite: string }) => s.suite === 'parse').diagnostics).toMatchObject({ captured: 40 });
       expect(model.suites.find((s: { suite: string }) => s.suite === 'injection').diagnostics).toMatchObject({ captured: 25 });

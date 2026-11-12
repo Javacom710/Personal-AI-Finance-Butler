@@ -1,0 +1,1188 @@
+{
+  "identity": "faaad3da764f1ef73921d5afd22e07c5f998b2401dace165d2be00c397060b0e",
+  "providerIdentity": "https://api.deepinfra.com/v1/openai",
+  "model": "openai/gpt-oss-120b",
+  "tier": 1,
+  "suite": "parse",
+  "version": 4,
+  "maxTokens": 1024,
+  "startedAt": "2026-11-08T15:09:26.747Z",
+  "cases": [
+    {
+      "caseId": "parse-001",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 35754,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-002",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 24268,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-003",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 35419,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-004",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": false,
+      "latencyMs": 45738,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-005",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": false,
+      "latencyMs": 26844,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-006",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 12675,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-007",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 15092,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-008",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 12455,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-009",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 17815,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-010",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 26848,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-011",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 11401,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-012",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 24320,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-013",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 11651,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-014",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 17754,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-015",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": false,
+      "latencyMs": 19662,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-016",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 23344,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-017",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 36872,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-018",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 35767,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-019",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 15683,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-020",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 29140,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-021",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 19082,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-022",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 17953,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-023",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 31733,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-024",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 30666,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-025",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": false,
+      "latencyMs": 13675,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-026",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 16781,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-027",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 19382,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-028",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 33266,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-029",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": false,
+      "latencyMs": 48953,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-030",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 41916,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-031",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 37733,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-032",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 25585,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-033",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 58762,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-034",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 37838,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-035",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": false,
+      "latencyMs": 17506,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-036",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 34172,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-037",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 32241,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-038",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 26638,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-039",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": false,
+      "latencyMs": 28161,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "parse-040",
+      "suite": "parse",
+      "modelId": "openai/gpt-oss-120b",
+      "passed": true,
+      "latencyMs": 29767,
+      "schemaValid": true,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    }
+  ],
+  "diagnostics": {
+    "parse-001": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-002": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-003": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-004": {
+      "passed": false,
+      "counts": {
+        "kind": 1,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 1,
+        "categoryHint": 1,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": [
+        "transaction_fields"
+      ]
+    },
+    "parse-005": {
+      "passed": false,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 1,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": [
+        "transaction_fields"
+      ]
+    },
+    "parse-006": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-007": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-008": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-009": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-010": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-011": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-012": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-013": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-014": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-015": {
+      "passed": false,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 1,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": [
+        "transaction_fields"
+      ]
+    },
+    "parse-016": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-017": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-018": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-019": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-020": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-021": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-022": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-023": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-024": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-025": {
+      "passed": false,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 1,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": [
+        "transaction_fields"
+      ]
+    },
+    "parse-026": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-027": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-028": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-029": {
+      "passed": false,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 1,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": [
+        "transaction_fields"
+      ]
+    },
+    "parse-030": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-031": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-032": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-033": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-034": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-035": {
+      "passed": false,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 1,
+        "amount_missing": 1,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": [
+        "transaction_fields"
+      ]
+    },
+    "parse-036": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-037": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-038": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    },
+    "parse-039": {
+      "passed": false,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 1,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": [
+        "transaction_fields"
+      ]
+    },
+    "parse-040": {
+      "passed": true,
+      "counts": {
+        "kind": 0,
+        "bookedOn": 0,
+        "amount": 0,
+        "amount_missing": 0,
+        "amount_unexpected": 0,
+        "amount_different": 0,
+        "currency": 0,
+        "accountHint": 0,
+        "toAccountHint": 0,
+        "categoryHint": 0,
+        "confidence": 0,
+        "ambiguities": 0
+      },
+      "reasons": []
+    }
+  }
+}

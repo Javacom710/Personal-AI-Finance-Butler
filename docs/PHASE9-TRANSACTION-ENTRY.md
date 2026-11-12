@@ -69,3 +69,7 @@ The transactional import is idempotent for an exact batch and refuses conflicts,
 ## Current parsing-failure investigation — 2026-11-08
 
 The [fifteen-probe follow-up](../eval/reports/deepinfra-2026-11-08-tier1-v3-failures/README.md) distinguishes null amounts from different or unsupported non-null values using fixed counters, without retaining output values. Both models return null for two unconfirmed candidate amounts, with uncertainty flagged; both still fail the frozen candidate-amount expectation. Existing proposal resolution leaves null for user correction and refuses missing-amount confirmation. This exposes a product-policy decision before any prompt/scorer change; no expectation is relaxed. GPT-OSS's separate missing-amount confidence/ambiguity failure also repeats. No generation, schema or confirmation behavior changes.
+
+## Current v4 evidence and release review — 2026-11-09
+
+The [missing-amount prompt update](audits/2026-11-08-parse-prompt-v4.md) clarifies existing confidence/ambiguity expectations and advances parse to v4, without changing the corpus, scorer, competing-amount policy or other contracts. All 380 fresh cases answer; both models pass the omitted-amount cases and unchanged routing gates. Remaining quality failures are retained. The [separate v4 manifest](audits/2026-11-08-tier1-parse-v4-evidence-preview.json) prepares the current twelve-row write; the archived v3 evidence/manifest are unchanged and stale for qualification. Generation and deployment recording remain off pending owner quality/evidence/release review.

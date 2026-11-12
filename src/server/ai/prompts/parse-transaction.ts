@@ -45,6 +45,8 @@ export function parseTransactionSystemPrompt(context: ParseContext): string {
     '- amount: a decimal string with no grouping separators or symbols ("125000", "12.50"). Expand',
     '  shorthand exactly: "1.5k" = "1500", "2 lakh" = "200000", "1 crore" = "10000000".',
     '  If no amount is stated, amount is null. Never estimate one.',
+    '  An omitted amount makes the draft incomplete even when its kind, date and account are clear:',
+    '  confidence must be medium or low, and ambiguities must say the amount is missing.',
     '  When multiple different candidate amounts are stated without a confirmed one, lower confidence',
     '  and describe the uncertainty in ambiguities. Do not present an amount as certain.',
     `- currency: the ISO 4217 code of the stated currency; ${context.baseCurrency} when none is stated.`,
