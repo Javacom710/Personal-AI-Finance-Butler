@@ -1,5 +1,11 @@
 # Model evaluation — Tier 1
 
+<!-- project-doc-status:start -->
+> **Project status reviewed 12 November 2026:** Phases 0–7 complete; Phase 8 quality/release review open; Phase 9 built but live AI disabled. Selected provider: DeepInfra direct.
+> **Current references:** [Project state](../../../PROJECT-STATE.md) · [Roadmap](../../../docs/ROADMAP.md) · [Maintained deadline forecast](../../../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Dated evidence below retains its original findings and scores; this annotation is a current navigation update.
+<!-- project-doc-status:end -->
+
 Run 2026-11-12T05:14:40.419Z. Suites: parse v2, classify v2, tool-select v3, grounding v5, robustness v5, injection v4.
 
 Provider endpoint: https://api.deepinfra.com/v1/openai.

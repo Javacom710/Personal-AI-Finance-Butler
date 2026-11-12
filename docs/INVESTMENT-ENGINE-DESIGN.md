@@ -1,5 +1,11 @@
 # Investment Engine — Implementation Review & Design
 
+<!-- project-doc-status:start -->
+> **Project status reviewed 12 November 2026:** Phases 0–7 complete; Phase 8 quality/release review open; Phase 9 built but live AI disabled. Selected provider: DeepInfra direct.
+> **Current references:** [Project state](../PROJECT-STATE.md) · [Roadmap](ROADMAP.md) · [Maintained deadline forecast](../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Design/review reference; canonical implementation docs govern.
+<!-- project-doc-status:end -->
+
 **Status:** **approved 2026-08-11 (OD-4, OD-5). Corrections applied to the canonical documents.** No code or schema has been changed.
 **Date:** 2026-08-11 · **Reviewed against:** `CLAUDE.md`, `docs/FINANCIAL-DOMAIN.md`, `docs/INVESTMENT-DOMAIN.md`, `docs/ARCHITECTURE.md`, `docs/SCHEMA.md`, `docs/DECISIONS.md`, `docs/TESTING.md`, the Phase 2 migration, `src/lib/decimal/`, and the 282 existing tests.
 

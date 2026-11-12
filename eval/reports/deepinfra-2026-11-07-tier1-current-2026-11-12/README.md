@@ -1,5 +1,11 @@
 # Selected Tier 1 measurements — 12 November 2026
 
+<!-- project-doc-status:start -->
+> **Project status reviewed 12 November 2026:** Phases 0–7 complete; Phase 8 quality/release review open; Phase 9 built but live AI disabled. Selected provider: DeepInfra direct.
+> **Current references:** [Project state](../../../PROJECT-STATE.md) · [Roadmap](../../../docs/ROADMAP.md) · [Maintained deadline forecast](../../../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Dated evidence below retains its original findings and scores; this annotation is a current navigation update.
+<!-- project-doc-status:end -->
+
 This is a fresh, source-bound campaign for the ADR-55 selection,
 `zai-org/GLM-5.3-Flash` → `openai/gpt-oss-120b`, on DeepInfra direct.
 Each model receives all 190 current Tier 1 cases: parse/classify v2,

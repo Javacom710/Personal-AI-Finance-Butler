@@ -1,5 +1,11 @@
 # Open PR merge pass — 7 November 2026
 
+<!-- project-doc-status:start -->
+> **Project status reviewed 12 November 2026:** Phases 0–7 complete; Phase 8 quality/release review open; Phase 9 built but live AI disabled. Selected provider: DeepInfra direct.
+> **Current references:** [Project state](../../PROJECT-STATE.md) · [Roadmap](../ROADMAP.md) · [Maintained deadline forecast](../../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Dated evidence below retains its original findings and scores; this annotation is a current navigation update.
+<!-- project-doc-status:end -->
+
 All twelve open PRs **#39–#50** are merged into `main`; a final repository search returns no open PRs. The final main commit is `44e53ce86aaeb1a4178a25a3efaff0b83866809c`. Its complete file tree is identical to the combined source at `930e3fcd49ef13390f091e577743fcb45827860f`, which passed the PostgreSQL 17/18 CI matrix.
 
 Reviewed production changes, current-head CI, review states and dependency order. The two review threads were verified fixed before resolution: populated Money navigation exposes draft review, and cross-domain analysis reads holding price status. The transaction/assistant/review/document feature stack merged first, preserving hard-disabled live generation. OpenRouter preparation and its runner remain unactivated; the selected provider is still DeepInfra.

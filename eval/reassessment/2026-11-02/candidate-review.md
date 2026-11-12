@@ -1,5 +1,11 @@
 # Fresh model discovery review
 
+<!-- project-doc-status:start -->
+> **Project status reviewed 12 November 2026:** Phases 0–7 complete; Phase 8 quality/release review open; Phase 9 built but live AI disabled. Selected provider: DeepInfra direct.
+> **Current references:** [Project state](../../../PROJECT-STATE.md) · [Roadmap](../../../docs/ROADMAP.md) · [Maintained deadline forecast](../../../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Dated evidence below retains its original findings and scores; this annotation is a current navigation update.
+<!-- project-doc-status:end -->
+
 Discovery candidates only. These ids came from the fresh authenticated catalogue; no production model, tier order or request profile has been selected. Public metadata is a claim to verify through access/API-feature tests and unchanged workload scoring. No inference request was made during this documentation review.
 
 | Candidate | Advertised context | Advertised tools / structured output | Advertised input | Next check |

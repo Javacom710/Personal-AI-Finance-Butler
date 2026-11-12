@@ -1,5 +1,11 @@
 # DeepInfra measurements — 2026-11-07
 
+<!-- project-doc-status:start -->
+> **Project status reviewed 12 November 2026:** Phases 0–7 complete; Phase 8 quality/release review open; Phase 9 built but live AI disabled. Selected provider: DeepInfra direct.
+> **Current references:** [Project state](../../../PROJECT-STATE.md) · [Roadmap](../../../docs/ROADMAP.md) · [Maintained deadline forecast](../../../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Dated evidence below retains its original findings and scores; this annotation is a current navigation update.
+<!-- project-doc-status:end -->
+
 Provider: `https://api.deepinfra.com/v1/openai` (owner's prepaid testing provider, PR #49). Base: `main` at `3dd38f2`. Every run used the unchanged `npm run ai:eval -- --tier <n> --model <id> --no-record` from a Claude cloud session (`NODE_USE_ENV_PROXY=1`). Synthetic golden fixtures only. No gate, prompt, scorer, suite, request profile, tier order or database row was changed. Cost well under US$1 of the US$5 credit.
 
 | Tier | Model | Report | Per-suite passes | Unanswered | Verdict (unchanged gates) |

@@ -1,5 +1,11 @@
 # Investment & Portfolio Domain Model
 
+<!-- project-doc-status:start -->
+> **Project status reviewed 12 November 2026:** Phases 0–7 complete; Phase 8 quality/release review open; Phase 9 built but live AI disabled. Selected provider: DeepInfra direct.
+> **Current references:** [Project state](../PROJECT-STATE.md) · [Roadmap](ROADMAP.md) · [Maintained deadline forecast](../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Active technical/operational reference; roadmap governs completion.
+<!-- project-doc-status:end -->
+
 Investments are a first-class part of the product, not a bolt-on. The investment ledger is the only truth; every holding, cost basis, and performance figure is derived from it ([ADR-06](DECISIONS.md#adr-06--holdings-are-derived-cached-and-rebuildable)).
 
 ## 1. Instruments

@@ -1,5 +1,11 @@
 # Independently measured tier eligibility — 7 November 2026
 
+<!-- project-doc-status:start -->
+> **Project status reviewed 12 November 2026:** Phases 0–7 complete; Phase 8 quality/release review open; Phase 9 built but live AI disabled. Selected provider: DeepInfra direct.
+> **Current references:** [Project state](../../PROJECT-STATE.md) · [Roadmap](../ROADMAP.md) · [Maintained deadline forecast](../../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Dated evidence below retains its original findings and scores; this annotation is a current navigation update.
+<!-- project-doc-status:end -->
+
 The same model can now have separate measured entries for several application tiers. Shared declarations supply physical capabilities and a default tier; they do not supply another tier's quality scores. This extends the earlier [tier-provenance correction](2026-11-07-ai-tier-provenance.md) while retaining its isolation guarantees.
 
 ## Contract

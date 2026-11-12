@@ -1,5 +1,11 @@
 # Architecture
 
+<!-- project-doc-status:start -->
+> **Project status reviewed 12 November 2026:** Phases 0–7 complete; Phase 8 quality/release review open; Phase 9 built but live AI disabled. Selected provider: DeepInfra direct.
+> **Current references:** [Project state](../PROJECT-STATE.md) · [Roadmap](ROADMAP.md) · [Maintained deadline forecast](../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Active technical/operational reference; roadmap governs completion.
+<!-- project-doc-status:end -->
+
 ## 1. Product architecture
 
 A private, single-user financial command centre. Six top-level areas, each with one job.
@@ -21,7 +27,7 @@ Settings     currency, categories, market-data providers, security, export, back
 4. A price that is stale, missing, or manually entered is labelled as such at the point of display.
 5. The AI never changes data. It proposes; the user confirms; application code writes.
 
-**Explicitly out of scope** (do not build without an explicit request): brokerage execution, automated trading, bank sync, automatic statement import, tax filing, robo-advisory, multi-user, social, native mobile, derivatives/options engines.
+**Approved integrations (ADR-50):** statement/CAS and bank-alert imports through review, Groww read reconciliation, and exact-order confirmation with fresh authentication. These are remaining delivery work, not active autonomous capabilities. Account Aggregator bank sync, automated trading, autonomous brokerage execution, other brokers, tax filing, robo-advisory, multi-user, social, native mobile and derivatives/options engines remain out of scope.
 
 ## 2. Layering
 

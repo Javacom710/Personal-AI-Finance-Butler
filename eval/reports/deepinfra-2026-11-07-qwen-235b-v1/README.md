@@ -1,5 +1,11 @@
 # DeepInfra Qwen lineup review — 7 November 2026
 
+<!-- project-doc-status:start -->
+> **Project status reviewed 12 November 2026:** Phases 0–7 complete; Phase 8 quality/release review open; Phase 9 built but live AI disabled. Selected provider: DeepInfra direct.
+> **Current references:** [Project state](../../../PROJECT-STATE.md) · [Roadmap](../../../docs/ROADMAP.md) · [Maintained deadline forecast](../../../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Dated evidence below retains its original findings and scores; this annotation is a current navigation update.
+<!-- project-doc-status:end -->
+
 All **17 planned entries / 420 cases** were attempted: **419 answers, one document timeout**. The current-contract Qwen candidates do not qualify under the existing gates. **Recommendation: hold all promotions.** Nothing was recorded in the database or added to a production routing order.
 
 | Tier | Candidate | Answered / attempted | Schema | Tools | Other evidence | Recommendation |

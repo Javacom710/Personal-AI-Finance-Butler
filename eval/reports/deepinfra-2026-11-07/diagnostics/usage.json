@@ -141,8 +141,8 @@
     },
     {
       "at": "2026-11-07T10:11:36.658Z",
-      "model": "openai/gpt-oss-120b",
       "caseId": "analysis-001",
+      "model": "openai/gpt-oss-120b",
       "reservedUsd": 0.0038715799999999995,
       "accountedUsd": 0.000362181,
       "status": 200,
@@ -151,8 +151,8 @@
     },
     {
       "at": "2026-11-07T10:12:15.104Z",
-      "model": "openai/gpt-oss-120b",
       "caseId": "analysis-006",
+      "model": "openai/gpt-oss-120b",
       "reservedUsd": 0.00340085,
       "accountedUsd": 0.000102101,
       "status": 200,
@@ -161,13 +161,163 @@
     },
     {
       "at": "2026-11-07T10:12:26.191Z",
-      "model": "openai/gpt-oss-120b",
       "caseId": "analysis-015",
+      "model": "openai/gpt-oss-120b",
       "reservedUsd": 0.00444108,
       "accountedUsd": 0.00033599499999999996,
       "status": 200,
       "promptTokens": 3255,
       "completionTokens": 1268
+    },
+    {
+      "at": "2026-11-12T05:46:21.263Z",
+      "model": "zai-org/GLM-5.3-Flash",
+      "caseId": "injection-020",
+      "reservedUsd": 0.008968,
+      "accountedUsd": 0.0005562999999999999,
+      "status": 200,
+      "promptTokens": 3302,
+      "completionTokens": 122
+    },
+    {
+      "at": "2026-11-12T05:46:25.039Z",
+      "model": "openai/gpt-oss-120b",
+      "caseId": "injection-007",
+      "reservedUsd": 0.00292383,
+      "accountedUsd": 0.000073682,
+      "status": 200,
+      "promptTokens": 1486,
+      "completionTokens": 110
+    },
+    {
+      "at": "2026-11-12T05:46:27.504Z",
+      "model": "openai/gpt-oss-120b",
+      "caseId": "injection-015",
+      "reservedUsd": 0.0030528599999999997,
+      "accountedUsd": 0.00013808899999999999,
+      "status": 200,
+      "promptTokens": 1637,
+      "completionTokens": 456
+    },
+    {
+      "at": "2026-11-12T05:46:38.551Z",
+      "model": "openai/gpt-oss-120b",
+      "caseId": "injection-020",
+      "reservedUsd": 0.0030491199999999998,
+      "accountedUsd": 0.000140861,
+      "status": 200,
+      "promptTokens": 1643,
+      "completionTokens": 471
+    },
+    {
+      "at": "2026-11-12T05:46:48.213Z",
+      "model": "openai/gpt-oss-120b",
+      "caseId": "injection-022",
+      "reservedUsd": 0.00304963,
+      "accountedUsd": 0.000129914,
+      "status": 200,
+      "promptTokens": 1632,
+      "completionTokens": 409
+    },
+    {
+      "at": "2026-11-12T05:46:57.167Z",
+      "model": "openai/gpt-oss-120b",
+      "caseId": "injection-024",
+      "reservedUsd": 0.00305218,
+      "accountedUsd": 0.00014679599999999998,
+      "status": 200,
+      "promptTokens": 1638,
+      "completionTokens": 507
+    },
+    {
+      "at": "2026-11-12T05:47:10.908Z",
+      "model": "openai/gpt-oss-120b",
+      "caseId": "injection-025",
+      "reservedUsd": 0.0029845199999999996,
+      "accountedUsd": 0.000134721,
+      "status": 200,
+      "promptTokens": 1523,
+      "completionTokens": 461
+    },
+    {
+      "at": "2026-11-12T05:47:29.664Z",
+      "model": "zai-org/GLM-5.3-Flash",
+      "caseId": "parse-033",
+      "reservedUsd": 0.003182,
+      "accountedUsd": 0.00016895,
+      "status": 200,
+      "promptTokens": 413,
+      "completionTokens": 214
+    },
+    {
+      "at": "2026-11-12T05:47:32.939Z",
+      "model": "zai-org/GLM-5.3-Flash",
+      "caseId": "tool-select-009",
+      "reservedUsd": 0.0085205,
+      "accountedUsd": 0.00048314999999999995,
+      "status": 200,
+      "promptTokens": 3081,
+      "completionTokens": 42
+    },
+    {
+      "at": "2026-11-12T05:47:34.243Z",
+      "model": "zai-org/GLM-5.3-Flash",
+      "caseId": "grounding-002",
+      "reservedUsd": 0.009843,
+      "accountedUsd": 0.00065245,
+      "status": 200,
+      "promptTokens": 3853,
+      "completionTokens": 149
+    },
+    {
+      "at": "2026-11-12T05:47:37.351Z",
+      "model": "zai-org/GLM-5.3-Flash",
+      "caseId": "robustness-003",
+      "reservedUsd": 0.008915,
+      "accountedUsd": 0.0005165999999999999,
+      "status": 200,
+      "promptTokens": 3274,
+      "completionTokens": 51
+    },
+    {
+      "at": "2026-11-12T05:47:38.191Z",
+      "model": "openai/gpt-oss-120b",
+      "caseId": "parse-033",
+      "reservedUsd": 0.00108188,
+      "accountedUsd": 0.00006851499999999999,
+      "status": 200,
+      "promptTokens": 455,
+      "completionTokens": 304
+    },
+    {
+      "at": "2026-11-12T05:47:47.006Z",
+      "model": "openai/gpt-oss-120b",
+      "caseId": "tool-select-009",
+      "reservedUsd": 0.00289697,
+      "accountedUsd": 0.00012608299999999998,
+      "status": 200,
+      "promptTokens": 1409,
+      "completionTokens": 435
+    },
+    {
+      "at": "2026-11-12T05:47:56.104Z",
+      "model": "openai/gpt-oss-120b",
+      "caseId": "grounding-002",
+      "reservedUsd": 0.00334662,
+      "accountedUsd": 0.00014361899999999997,
+      "status": 200,
+      "promptTokens": 2177,
+      "completionTokens": 371
+    },
+    {
+      "at": "2026-11-12T05:48:02.888Z",
+      "model": "openai/gpt-oss-120b",
+      "caseId": "robustness-003",
+      "reservedUsd": 0.0030311,
+      "accountedUsd": 0.000077339,
+      "status": 200,
+      "promptTokens": 1617,
+      "completionTokens": 103
     }
   ]
 }

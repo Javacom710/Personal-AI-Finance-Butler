@@ -1,5 +1,11 @@
 # DeepInfra Phase 8 approval report — 7 November 2026
 
+<!-- project-doc-status:start -->
+> **Project status reviewed 12 November 2026:** Phases 0–7 complete; Phase 8 quality/release review open; Phase 9 built but live AI disabled. Selected provider: DeepInfra direct.
+> **Current references:** [Project state](../../../PROJECT-STATE.md) · [Roadmap](../../../docs/ROADMAP.md) · [Maintained deadline forecast](../../../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Dated evidence below retains its original findings and scores; this annotation is a current navigation update.
+<!-- project-doc-status:end -->
+
 **Historical scorer:** these results used grounding/robustness/analysis v2. The later [numeric presentation correction](diagnostics/numeric-presentation.md) moves those three suites to v3. No historical score was rewritten; a fresh named campaign is required for current-version measurements. The promotion hold remains in force.
 
 All **23 planned model/tier/suite entries and 610 case measurements** were attempted in the complete batch: **607 answered, 3 timed out**. Coverage completion is not a quality pass. No database measurement was recorded, no production order was changed, and no model was promoted.

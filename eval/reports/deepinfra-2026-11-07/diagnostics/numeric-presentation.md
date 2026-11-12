@@ -1,5 +1,11 @@
 # Numeric presentation correction — 7 November 2026
 
+<!-- project-doc-status:start -->
+> **Project status reviewed 12 November 2026:** Phases 0–7 complete; Phase 8 quality/release review open; Phase 9 built but live AI disabled. Selected provider: DeepInfra direct.
+> **Current references:** [Project state](../../../../PROJECT-STATE.md) · [Roadmap](../../../../docs/ROADMAP.md) · [Maintained deadline forecast](../../../../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Dated evidence below retains its original findings and scores; this annotation is a current navigation update.
+<!-- project-doc-status:end -->
+
 Fixed a deterministic scorer defect: a supported answer passed in plain text but failed when LaTeX represented a thousands comma as `{,}` or a percentage sign as `\%`. The parser split the monetary amount into unrelated fragments or treated the percentage as money.
 
 `normalizeNumericPresentation()` now renders only those two numeric punctuation forms. It does not change digits, signs, decimal precision, units, words, financial arithmetic or tool calls. Grounding traceability, required/forbidden figures, contradiction checks and analysis metric bindings use the same rendered positions. Wrong amounts, swapped metrics, wrong signs, invented totals, unsupported metrics and unnecessary tool calls remain rejected.

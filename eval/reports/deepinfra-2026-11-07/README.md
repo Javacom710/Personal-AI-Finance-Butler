@@ -1,5 +1,11 @@
 # DeepInfra measurement archive — 7 November 2026
 
+<!-- project-doc-status:start -->
+> **Project status reviewed 12 November 2026:** Phases 0–7 complete; Phase 8 quality/release review open; Phase 9 built but live AI disabled. Selected provider: DeepInfra direct.
+> **Current references:** [Project state](../../../PROJECT-STATE.md) · [Roadmap](../../../docs/ROADMAP.md) · [Maintained deadline forecast](../../../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Dated evidence below retains its original findings and scores; this annotation is a current navigation update.
+<!-- project-doc-status:end -->
+
 Two independent campaigns originally used this README path. Both original reports are preserved byte-for-byte:
 
 - [Claude's original report](claude-original-README.md), merged in PR #50, links to its timestamped reports in the parent directory.
