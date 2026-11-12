@@ -132,4 +132,35 @@ describe('exportAllData', () => {
     // Another user's allowance is untouched.
     must(await exportAllData(other.ctx));
   });
+
+  it('cannot be overrun by simultaneous requests', async () => {
+    // Four used; three requests at once. Exactly one may go through.
+    for (let i = 0; i < EXPORT_LIMIT_PER_DAY - 1; i += 1) {
+      await rawSql(
+        `insert into audit_log (user_id, actor, action, entity_type, entity_id) values ($1, 'user', 'data.export', 'user', $1)`,
+        [fixture.userId],
+      );
+    }
+    // Slow the audit insert so the requests genuinely overlap: without the
+    // lock, each would count four before any of them had committed a fifth.
+    // (Checked: with the lock removed, this test fails.)
+    await rawSql(`create function test_slow_audit() returns trigger language plpgsql as $$
+                  begin perform pg_sleep(0.4); return new; end $$`);
+    await rawSql(`create trigger test_slow_audit before insert on audit_log
+                  for each row execute function test_slow_audit()`);
+    let results;
+    try {
+      results = await Promise.all([exportAllData(fixture.ctx), exportAllData(fixture.ctx), exportAllData(fixture.ctx)]);
+    } finally {
+      await rawSql('drop trigger test_slow_audit on audit_log');
+      await rawSql('drop function test_slow_audit()');
+    }
+    expect(results.filter((r) => r.ok)).toHaveLength(1);
+
+    const { rows } = (await rawSql(
+      `select count(*)::int as n from audit_log where user_id = $1 and action = 'data.export'`,
+      [fixture.userId],
+    )) as { rows: { n: number }[] };
+    expect(rows[0]!.n).toBe(EXPORT_LIMIT_PER_DAY);
+  });
 });

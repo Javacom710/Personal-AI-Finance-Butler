@@ -160,26 +160,32 @@ function tableQuery(table: ExportedTable, userId: string): SQL {
 }
 
 /**
- * Build the export, record it in the audit log, and count it against the daily
- * limit — all in one transaction, so a refused or failed export leaves no audit
- * row and does not use up an allowance.
+ * Build the export.
+ *
+ * Two transactions, in this order, and the order is the point:
+ *
+ * 1. **Reserve.** Under a per-user advisory lock, count today's exports and, if
+ *    one is left, write its audit row. The lock makes count-then-insert atomic:
+ *    two simultaneous requests are served one after the other, and the second
+ *    sees the first's row. A refused request writes nothing.
+ * 2. **Read.** A `REPEATABLE READ, READ ONLY` transaction reads every table
+ *    from one snapshot.
+ *
+ * They cannot be one transaction. A `REPEATABLE READ` snapshot is taken when its
+ * first statement starts — so a lock acquired inside it would still leave the
+ * count reading a snapshot from before the other request committed, which is
+ * exactly the race the lock exists to close.
+ *
+ * A reservation is spent even if the read then fails. That errs towards fewer
+ * full-database reads, which is what the limit is for.
  */
 export async function exportAllData(ctx: RequestCtx): Promise<Result<DataExport, DomainError>> {
-  return withWriteCtx(ctx, async (w) => {
-    // REPEATABLE READ: every table below is read from the same snapshot.
-    await w.tx.execute(sql`set transaction isolation level repeatable read`);
+  const reserved = await reserveExport(ctx);
+  if (!reserved.ok) return reserved;
 
-    const since = new Date(ctx.now.getTime() - DAY_MS);
-    const { rows: used } = await w.tx.execute<{ n: string }>(sql`
-      select count(*)::text as n from audit_log
-       where user_id = ${ctx.userId} and action = ${AUDIT_ACTION} and at > ${since.toISOString()}
-    `);
-    if (Number(used[0]?.n ?? '0') >= EXPORT_LIMIT_PER_DAY) {
-      return err({
-        code: 'conflict',
-        message: `At most ${EXPORT_LIMIT_PER_DAY} exports a day. Try again tomorrow.`,
-      } as const);
-    }
+  return ctx.beginTransaction(async (tx) => {
+    await tx.execute(sql`set transaction isolation level repeatable read, read only`);
+    const w = { tx };
 
     const { rows: accounts } = await w.tx.execute<{ id: string; email: string; totp_enabled: boolean; created_at: string }>(sql`
       select id::text as id, email::text as email, totp_enabled, to_jsonb(created_at) #>> '{}' as created_at
@@ -195,16 +201,6 @@ export async function exportAllData(ctx: RequestCtx): Promise<Result<DataExport,
       tables[table.name] = rows.map((r) => r.row);
       rowCounts[table.name] = rows.length;
     }
-
-    await w.audit.record({
-      actor: 'user',
-      action: AUDIT_ACTION,
-      entityType: 'user',
-      entityId: ctx.userId,
-      // Counts only. The audit row records that an export happened, not a
-      // second copy of what it contained.
-      after: { version: EXPORT_VERSION, rowCounts },
-    });
 
     return ok({
       format: EXPORT_FORMAT,
@@ -226,5 +222,35 @@ export async function exportAllData(ctx: RequestCtx): Promise<Result<DataExport,
       rowCounts,
       tables,
     });
+  });
+}
+
+/** Step 1 of {@link exportAllData}: atomically spend one of today's allowances. */
+async function reserveExport(ctx: RequestCtx): Promise<Result<null, DomainError>> {
+  return withWriteCtx(ctx, async (w) => {
+    // Serialises exports per user for the rest of this short transaction.
+    await w.tx.execute(sql`select pg_advisory_xact_lock(hashtext(${AUDIT_ACTION}), hashtext(${ctx.userId}))`);
+
+    const since = new Date(ctx.now.getTime() - DAY_MS);
+    const { rows: used } = await w.tx.execute<{ n: string }>(sql`
+      select count(*)::text as n from audit_log
+       where user_id = ${ctx.userId} and action = ${AUDIT_ACTION} and at > ${since.toISOString()}
+    `);
+    if (Number(used[0]?.n ?? '0') >= EXPORT_LIMIT_PER_DAY) {
+      return err({
+        code: 'conflict',
+        message: `At most ${EXPORT_LIMIT_PER_DAY} exports a day. Try again tomorrow.`,
+      } as const);
+    }
+
+    // That an export happened, not a second copy of what it contained.
+    await w.audit.record({
+      actor: 'user',
+      action: AUDIT_ACTION,
+      entityType: 'user',
+      entityId: ctx.userId,
+      after: { version: EXPORT_VERSION },
+    });
+    return ok(null);
   });
 }
