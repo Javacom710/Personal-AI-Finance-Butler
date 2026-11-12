@@ -12,7 +12,7 @@ export interface TransactionInterpretation {
   readonly errors: Record<string, string[]>;
 }
 /** Pure AI interpretation: no writes, IDs, tools, or provider-specific model names. */
-export async function interpretTransaction(orchestrator: Orchestrator, context: ParseContext, text: string): Promise<Result<TransactionInterpretation, AiFailure>> {
+export async function interpretTransaction(orchestrator: Pick<Orchestrator, 'run'>, context: ParseContext, text: string): Promise<Result<TransactionInterpretation, AiFailure>> {
   const messages = parseTransactionMessages(context, text);
   const schema = { name: 'transaction_proposal', schema: toJsonSchema(TransactionProposal, 'transaction_proposal') };
   const first = await orchestrator.run({ capability: 'parseTransaction', messages, schema });
