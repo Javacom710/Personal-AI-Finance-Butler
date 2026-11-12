@@ -1,5 +1,11 @@
 # Phase 8 failure diagnostics — 7 November 2026
 
+<!-- project-doc-status:start -->
+> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21/22/23 remain open. DeepInfra direct is selected.
+> **Current references:** [Project state](../../../../PROJECT-STATE.md) · [Roadmap](../../../../docs/ROADMAP.md) · [Maintained deadline forecast](../../../../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Dated evidence; original score and finding body retained, source contracts may be historical.
+<!-- project-doc-status:end -->
+
 **Follow-up:** [numeric presentation correction and fresh campaigns](numeric-presentation.md). The preservation checks below describe the original diagnostics at their recorded time; the subsequent scorer fix deliberately changes the active source fingerprint and versions three suites. Historical artifacts remain unchanged.
 
 Built `npm run ai:diagnose:deepinfra` to explain failed analysis and document cases without retaining response text, reasoning, tool arguments, extracted values or validation-error messages. It reuses the existing suites, provider adapter, production output limits and authoritative scorers. Fixed reason codes and numeric counts provide observations, not an alternative scoring policy.

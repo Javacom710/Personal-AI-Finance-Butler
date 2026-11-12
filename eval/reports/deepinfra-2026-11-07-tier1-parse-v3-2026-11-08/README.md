@@ -1,5 +1,11 @@
 # Shared parsing clarification and fresh Tier 1 evaluation — 8 November 2026
 
+<!-- project-doc-status:start -->
+> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21/22/23 remain open. DeepInfra direct is selected.
+> **Current references:** [Project state](../../../PROJECT-STATE.md) · [Roadmap](../../../docs/ROADMAP.md) · [Maintained deadline forecast](../../../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Dated evidence; original score and finding body retained, source contracts may be historical.
+<!-- project-doc-status:end -->
+
 Continues the [quality investigation and proposed clarification](../deepinfra-2026-11-08-tier1-diagnostics/README.md), whose PR #60 passed CI on PostgreSQL 17 and 18 at `1d4421f`. Implementation commit `e655b4c` applies the shared production prompt change for every model:
 
 - For income, `accountHint` identifies the receiving account and `toAccountHint` remains null.

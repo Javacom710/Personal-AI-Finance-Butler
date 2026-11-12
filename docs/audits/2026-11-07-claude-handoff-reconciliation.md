@@ -1,5 +1,11 @@
 # Claude handoff reconciliation — 7 November 2026
 
+<!-- project-doc-status:start -->
+> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21/22/23 remain open. DeepInfra direct is selected.
+> **Current references:** [Project state](../../PROJECT-STATE.md) · [Roadmap](../ROADMAP.md) · [Maintained deadline forecast](../../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Dated evidence; original score and finding body retained, source contracts may be historical.
+<!-- project-doc-status:end -->
+
 This isolated integration combines the documentation refresh in Claude PR #52 (`f932d7f`) and test-isolation fix in #53 (`ae472e4`) with the verified assistant continuation #55 (`fa62ca2`). Both incoming heads remain merge parents. No original Claude branch or main was modified. This is a consolidated review path for the overlapping #52/#53 work; do not independently apply duplicate conflicting patches after accepting it.
 
 ## Preserved history and resolved overlap

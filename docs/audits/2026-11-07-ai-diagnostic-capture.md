@@ -1,5 +1,11 @@
 # Diagnostic capture and layout comparisons — 7 November 2026
 
+<!-- project-doc-status:start -->
+> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21/22/23 remain open. DeepInfra direct is selected.
+> **Current references:** [Project state](../../PROJECT-STATE.md) · [Roadmap](../ROADMAP.md) · [Maintained deadline forecast](../../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Dated evidence; original score and finding body retained, source contracts may be historical.
+<!-- project-doc-status:end -->
+
 Phase 8's saved reason counts did not distinguish layout-sensitive matching from other failures. Added bounded comparisons and automatic diagnostic capture to make future full campaigns explainable without retaining model responses or making extra provider calls.
 
 ## Implementation

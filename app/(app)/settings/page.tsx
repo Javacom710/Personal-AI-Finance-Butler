@@ -49,10 +49,12 @@ export default async function SettingsPage() {
           {active.map((s) => (
             <li key={s.id} className="flex flex-wrap items-baseline justify-between gap-2 px-4 py-3 text-sm">
               <div className="min-w-0">
-                <p className="truncate">
-                  {s.userAgent ?? 'Unknown client'}
+                {/* The badge sits beside the truncating text, not inside it: a long
+                    client string would otherwise clip "this device" off a phone. */}
+                <p className="flex items-baseline gap-2">
+                  <span className="min-w-0 truncate">{s.userAgent ?? 'Unknown client'}</span>
                   {s.isCurrent ? (
-                    <span className="ml-2 rounded-full border border-border bg-surface-raised px-2 py-0.5 text-xs text-ink-muted">
+                    <span className="shrink-0 rounded-full border border-border bg-surface-raised px-2 py-0.5 text-xs text-ink-muted">
                       this device
                     </span>
                   ) : null}

@@ -1,5 +1,11 @@
 # Tier 1 selection and scorer-contract reconciliation — 7 November 2026
 
+<!-- project-doc-status:start -->
+> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21/22/23 remain open. DeepInfra direct is selected.
+> **Current references:** [Project state](../../PROJECT-STATE.md) · [Roadmap](../ROADMAP.md) · [Maintained deadline forecast](../../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Dated evidence; original score and finding body retained, source contracts may be historical.
+<!-- project-doc-status:end -->
+
 Claude PR #54 at `cd5e65e` records owner pop-up approval of two scorer corrections and Tier 1 selection **GLM-5.3-Flash → GPT-OSS-120B** on DeepInfra. This isolated integration carries that selection onto the verified #56 handoff without treating its historical measurements as measurements of the merged source. No original branch or main is modified.
 
 ## Configuration, scorer versions and evidence

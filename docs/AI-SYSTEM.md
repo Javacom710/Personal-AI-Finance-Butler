@@ -1,5 +1,11 @@
 # AI System
 
+<!-- project-doc-status:start -->
+> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21/22/23 remain open. DeepInfra direct is selected.
+> **Current references:** [Project state](../PROJECT-STATE.md) · [Roadmap](ROADMAP.md) · [Maintained deadline forecast](../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Technical/operational reference; current state and roadmap govern completion.
+<!-- project-doc-status:end -->
+
 The AI layer interprets, retrieves, reasons, and drafts. It is **not** a source of financial truth and **cannot** write to the database.
 
 Phase 8 provider (owner decision, 2026-11-07): **DeepInfra direct**, `https://api.deepinfra.com/v1/openai`, configured through `AI_API_KEY` / `AI_BASE_URL`. Google and Anthropic models are excluded under the owner's stated retention-policy exception. OpenRouter is not selected. Measurements are bound to the normalized endpoint; a provider switch requires fresh suites, even for identical model identifiers. [Current DeepInfra evidence](../eval/reports/deepinfra-2026-11-07/progress.json) is separate from historical Groq and NVIDIA evidence. No results are recorded or tier orders accepted before owner approval. The original NVIDIA integration details below describe the reusable OpenAI-compatible adapter and historical catalogue, not the active measurement provider.

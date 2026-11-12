@@ -1,5 +1,11 @@
 # Missing-amount prompt clarification and parse-v4 evidence — 8 November 2026
 
+<!-- project-doc-status:start -->
+> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21/22/23 remain open. DeepInfra direct is selected.
+> **Current references:** [Project state](../../PROJECT-STATE.md) · [Roadmap](../ROADMAP.md) · [Maintained deadline forecast](../../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Dated evidence; original score and finding body retained, source contracts may be historical.
+<!-- project-doc-status:end -->
+
 Implementation `dcde44e` continues the measured [v3 failure investigation](../../eval/reports/deepinfra-2026-11-08-tier1-v3-failures/README.md). GPT-OSS twice returned high confidence and no ambiguity warning for an omitted amount. The frozen corpus already requires null amount, confidence below high and a nonempty warning for that input.
 
 The shared production prompt now says that an omitted amount makes the draft incomplete even if its kind/date/account are clear: confidence must be medium or low and ambiguities must explain that the amount is missing. The same prompt serves every model and evaluation case. Parse advances **v3 → v4**. No case, expected value, scorer, output schema, budget, model order, request profile or routing gate changes. In particular, the competing-amount expectation remains unchanged and its product-policy decision stays open.

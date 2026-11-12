@@ -1,5 +1,11 @@
 # Original Claude Tier 1 decision record
 
+<!-- project-doc-status:start -->
+> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21/22/23 remain open. DeepInfra direct is selected.
+> **Current references:** [Project state](../../PROJECT-STATE.md) · [Roadmap](../ROADMAP.md) · [Maintained deadline forecast](../../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Dated evidence; original score and finding body retained, source contracts may be historical.
+<!-- project-doc-status:end -->
+
 Verbatim section from PR #54 at `cd5e65e0d3d03035ce97e301a03fcae1696ec075`. Its ADR-53 number belongs to that branch; the reconciled decision is ADR-55 because ADR-53 already names independent tier eligibility here. Original relative links below retain their original context.
 
 Source: https://github.com/Javacom710/Personal-AI-Finance-Butler/blob/cd5e65e0d3d03035ce97e301a03fcae1696ec075/docs/DECISIONS.md

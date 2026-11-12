@@ -1,5 +1,11 @@
 # DeepInfra Phase 8 approval report — current v3 campaign
 
+<!-- project-doc-status:start -->
+> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21/22/23 remain open. DeepInfra direct is selected.
+> **Current references:** [Project state](../../../PROJECT-STATE.md) · [Roadmap](../../../docs/ROADMAP.md) · [Maintained deadline forecast](../../../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Dated evidence; original score and finding body retained, source contracts may be historical.
+<!-- project-doc-status:end -->
+
 All **23 model/tier/suite entries and 610 cases** were attempted on 7 November 2026: **603 answered, seven timed out** (one Tier 2 analysis case, six Tier 4 document cases). Coverage completion is not a quality pass. **No candidate is proposed for promotion.** Nothing was recorded in the production database or added to a routing order.
 
 | Tier | Candidate | Answered / attempted | Schema | Tools | Other evidence | Recommendation |

@@ -1,5 +1,11 @@
 # Groq measurements — 2026-11-02
 
+<!-- project-doc-status:start -->
+> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21/22/23 remain open. DeepInfra direct is selected.
+> **Current references:** [Project state](../../../PROJECT-STATE.md) · [Roadmap](../../../docs/ROADMAP.md) · [Maintained deadline forecast](../../../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Dated evidence; original score and finding body retained, source contracts may be historical.
+<!-- project-doc-status:end -->
+
 Provider: `https://api.groq.com/openai/v1`. Base: merged PR #37 (`faa20f9`). All live commands use `--no-record`. No tier order, gate, prompt, scorer or golden suite was changed.
 
 ## Completed access evidence

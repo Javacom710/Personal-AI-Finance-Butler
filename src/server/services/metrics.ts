@@ -51,6 +51,12 @@ export interface FinancialMetrics {
   readonly expenseRatio: Metric<Rate>;
   /** The net-worth `cash` group: cash, bank and wallet balances in credit. Excludes brokerage cash. */
   readonly liquidCash: MoneyValue;
+  /**
+   * Cash balances left out of `liquidCash` for want of an exchange rate. When
+   * non-zero, `liquidCash` is incomplete and both ratios built on it are
+   * unavailable with `no_fx_rate`.
+   */
+  readonly cashExcludedCount: number;
   readonly trailing: {
     readonly range: DateRange;
     readonly months: number;
@@ -95,6 +101,12 @@ export async function financialMetrics(
 
   const liquidCash =
     netWorth.value.result.groups.find((g) => g.group === 'cash')?.total ?? Money.zero(ctx.base);
+  // A cash balance in a currency with no rate is left out of the group and
+  // listed here. `liquidCash` is then a floor, not the figure, and a ratio on
+  // it would understate the cover — or read as zero when all cash is foreign.
+  const cashExcludedCount = netWorth.value.result.excluded.filter(
+    (e) => e.group === 'cash' && e.side === 'asset',
+  ).length;
 
   // A recurring amount is in its account's currency; coverage is a base figure.
   const currencyOf = new Map(accounts.map((a) => [a.id, a.currency]));
@@ -131,12 +143,14 @@ export async function financialMetrics(
       expenses: trailing.expenses,
       averageMonthlyExpenses: average,
     },
-    runwayMonths: runwayMonths(liquidCash, average),
+    cashExcludedCount,
+    runwayMonths: cashExcludedCount > 0 ? unavailable('no_fx_rate') : runwayMonths(liquidCash, average),
     commitments: {
       ...coverage,
       // A ratio against a total known to be missing an obligation would
       // overstate the cover, so it is withheld rather than shown partial.
-      coverage: unconvertedCount > 0 ? unavailable('no_fx_rate') : coverage.coverage,
+      coverage:
+        unconvertedCount > 0 || cashExcludedCount > 0 ? unavailable('no_fx_rate') : coverage.coverage,
       windowDays,
       unconvertedCount,
     },

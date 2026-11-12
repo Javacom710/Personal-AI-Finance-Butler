@@ -1,5 +1,11 @@
 # Financial Domain Model
 
+<!-- project-doc-status:start -->
+> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21/22/23 remain open. DeepInfra direct is selected.
+> **Current references:** [Project state](../PROJECT-STATE.md) · [Roadmap](ROADMAP.md) · [Maintained deadline forecast](../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Technical/operational reference; current state and roadmap govern completion.
+<!-- project-doc-status:end -->
+
 Everything in this document is deterministic application code. No model output participates in any calculation described here.
 
 ## 0. Entities owned by this domain
@@ -424,6 +430,7 @@ commitmentCoverage = max(liquidCash, 0) / Σ pending recurring expenses due with
 - **Commitment coverage does not net off expected income.** It answers "could I meet these if nothing else arrived?". Only `pending` occurrences of `expense` rules count; recurring transfers and income do not.
 - `runwayMonths` and `commitmentCoverage` are multiples (4.5 months, 3.2×) carried as a `Rate`. They are not percentages.
 - Each is `null` with a reason, never zero ([§10.3](#103-missing-data-propagates-as-null-never-as-zero)): no income → `divide_by_zero`; no entries in the trailing window → `no_data`; entries but nothing spent, or nothing due → `divide_by_zero`; a commitment in a currency with no rate → `no_fx_rate`, because a ratio against a total known to be short would overstate the cover.
+- **A cash balance with no exchange rate makes `liquidCash` a floor, not the figure.** The net-worth composer leaves it out and lists it; `cashExcludedCount` reports how many, and runway and coverage are then `no_fx_rate` rather than a ratio on cash known to be short — which would read as zero months for someone whose cash is all in another currency.
 - An overdrawn cash total gives a runway and a coverage of `0`, and a `surplus` that keeps the true shortfall.
 
 ## 9. Net worth

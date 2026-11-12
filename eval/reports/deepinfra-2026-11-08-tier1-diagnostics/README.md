@@ -1,5 +1,11 @@
 # Tier 1 quality diagnostics — 8 November 2026
 
+<!-- project-doc-status:start -->
+> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21/22/23 remain open. DeepInfra direct is selected.
+> **Current references:** [Project state](../../../PROJECT-STATE.md) · [Roadmap](../../../docs/ROADMAP.md) · [Maintained deadline forecast](../../../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Dated evidence; original score and finding body retained, source contracts may be historical.
+<!-- project-doc-status:end -->
+
 Follow-up to the [complete qualification campaign](../deepinfra-2026-11-07-tier1-current-2026-11-08/README.md). PR #59 at `5bc44b0` passed CI on PostgreSQL 17 and 18. Passing routing thresholds does not settle its exact parsing, grounding, robustness or injection failures.
 
 ## Scope and evidence
