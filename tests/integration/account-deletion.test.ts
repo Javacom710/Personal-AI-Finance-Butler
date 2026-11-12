@@ -164,6 +164,20 @@ describe('deleteAccount', () => {
     await rawSql(`update users set failed_attempts = 0, locked_until = null where id = $1`, [victim.userId]);
   });
 
+  it('refuses a code that a sign-in consumes while the password is being checked', async () => {
+    const at = new Date();
+    const step = BigInt(Math.floor(at.getTime() / 30_000));
+    const pending = deleteAccount(victim.userId, { password: TEST_PASSWORD, code: totpCode(victim, at), confirmation: DELETION_PHRASE }, NO_CONTEXT);
+    // Argon2 takes ~300 ms; a sign-in with the same code lands inside it.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    await rawSql('update users set last_totp_step = $2 where id = $1', [victim.userId, step.toString()]);
+
+    expect((await pending).status).toBe('invalid_code');
+    expect((await ownedRowCounts(victim.userId))['users']).toBe(1);
+    await rawSql(`delete from auth_events where user_id = $1`, [victim.userId]);
+    await rawSql(`update users set failed_attempts = 0, locked_until = null where id = $1`, [victim.userId]);
+  });
+
   it('deletes every row the user owns, in every table, and nothing of anyone else’s', async () => {
     const before = await ownedRowCounts(victim.userId);
     // The fixture really did reach these tables, or the test below proves nothing.
@@ -173,7 +187,8 @@ describe('deleteAccount', () => {
     }
     const bystanderBefore = await ownedRowCounts(bystander.userId);
 
-    const result = await deleteAccount(victim.userId, { password: TEST_PASSWORD, code: totpCode(victim), confirmation: ` ${DELETION_PHRASE} ` }, NO_CONTEXT);
+    // One step ahead: the current step was consumed by the race test above.
+    const result = await deleteAccount(victim.userId, { password: TEST_PASSWORD, code: totpCode(victim, new Date(Date.now() + 30_000)), confirmation: ` ${DELETION_PHRASE} ` }, NO_CONTEXT);
     expect(result.status).toBe('deleted');
 
     const after = await ownedRowCounts(victim.userId);

@@ -38,7 +38,7 @@ import 'server-only';
  * with the user id and nothing else: the record that the deletion happened.
  */
 
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, isNull, lt, or, sql } from 'drizzle-orm';
 
 import { db } from '../db/client';
 import { users } from '../db/schema';
@@ -114,9 +114,21 @@ export async function deleteAccount(
     return { status: 'invalid_code' };
   }
 
-  // Consumed before deleting, as at login, so a code seen during a deletion
-  // that then fails cannot be replayed within its window.
-  await db().update(users).set({ lastTotpStep: totp.step }).where(eq(users.id, userId));
+  // Claim the code atomically, before deleting. `verifyTotp` compared it with
+  // the step read at the top; a sign-in may have used the same code while the
+  // password was being hashed. The update succeeds only if the stored step is
+  // still older, so a code is spent exactly once — and one seen during a
+  // deletion that then fails cannot be replayed either.
+  const claimed = await db()
+    .update(users)
+    .set({ lastTotpStep: totp.step })
+    .where(and(eq(users.id, userId), or(isNull(users.lastTotpStep), lt(users.lastTotpStep, totp.step))))
+    .returning({ id: users.id });
+  if (claimed.length === 0) {
+    await registerFailure(userId);
+    await recordAuthEvent('totp_failure', userId, ctx);
+    return { status: 'invalid_code' };
+  }
 
   await deleteInOrder(userId);
 
