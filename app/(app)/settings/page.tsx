@@ -4,6 +4,8 @@ import { EmptyState, PageHeader, Section } from '../../_components/page-shell';
 import { requireSession } from '@/server/auth/guards';
 import { listActiveSessions } from '@/server/auth/session-store';
 import { recentEventsForUser } from '@/server/auth/events';
+import { DELETION_PHRASE } from '@/server/auth/account-deletion';
+import { DeleteEverythingForm } from './_delete-form';
 
 export const metadata: Metadata = { title: 'Settings' };
 
@@ -67,8 +69,8 @@ export default async function SettingsPage() {
           ))}
         </ul>
         <p className="text-xs text-ink-faint">
-          Revoking an individual session, changing your password, and deleting your data arrive with
-          the Settings work in Phase 10.
+          Revoking an individual session and changing your password arrive with the Settings work in
+          Phase 10.
         </p>
       </Section>
 
@@ -103,6 +105,7 @@ export default async function SettingsPage() {
             server.
           </p>
         </div>
+        <DeleteEverythingForm phrase={DELETION_PHRASE} />
       </Section>
 
       <Section title="Everything else">
@@ -110,8 +113,7 @@ export default async function SettingsPage() {
           <p>
             Base currency, locale, timezone and fiscal year exist as settings from day one and are
             editable once the screens that read them exist. Market-data providers arrive in Phase 6,
-            AI configuration and its daily budget in Phase 7, and backup status and complete deletion in
-            Phase 10.
+            AI configuration and its daily budget in Phase 7, and backup status in Phase 13.
           </p>
         </EmptyState>
       </Section>

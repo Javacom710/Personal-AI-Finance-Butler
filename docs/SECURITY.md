@@ -210,6 +210,14 @@ Nightly `pg_dump --format=custom`, compressed, encrypted with **age** to a key t
 ### Deletion
 `Settings → Data → Delete everything` requires password + TOTP re-authentication and typing a confirmation phrase. It executes `DELETE FROM users WHERE id = $1`, which cascades to every user-owned table. Then it purges AI conversation content, revokes all sessions, and writes a final terminal entry to an operational log outside the user tables. Backups are listed with their retention dates so the user knows when the last copy expires; on request, backups are deleted immediately.
 
+**Built 2026-11-12** (`src/server/auth/account-deletion.ts`, Settings → Data). As built, with one correction to the description above:
+
+- **Not one statement.** Six foreign keys between the user's own tables are `ON DELETE RESTRICT` (entries and investment transactions → accounts, transactions → categories, child → parent category, investment transactions → instruments, a liability → its linked account), so a bare `DELETE FROM users` fails as soon as the cascade reaches an account before its entries. The constraints stay. In **one transaction**, transactions, investment transactions, liabilities and categories (leaves first) are deleted, then the user row, whose cascade takes the rest — sessions, AI conversations and the audit log included. A failure at any step rolls everything back; a test forces the last step to fail and checks every row is still there.
+- **Re-authentication:** the exact phrase `DELETE EVERYTHING` (checked first, before any Argon2 work), the password, and a fresh TOTP code. A recovery code is **not** accepted. Wrong password or code counts toward the same lockout and rate limits as login. The code is consumed before deleting, so one seen during a deletion that then fails cannot be replayed.
+- **Terminal record:** one `account deleted` line in the operational log with the user id only.
+- **Verified:** `tests/integration/account-deletion.test.ts` populates a user across ledger, investments, net worth, AI and sessions, deletes, and asserts zero rows remain for that user in every exported table plus `sessions` and `users`, no orphaned child rows, and a second user's counts unchanged.
+- **Not built:** listing or deleting backups — there are no backups until Phase 13.
+
 ## 10. Auditability
 
 - `audit_log` records every mutation: actor (`user` | `system` | `ai_confirmed`), action, entity type and ID, full before/after, correlation ID.
