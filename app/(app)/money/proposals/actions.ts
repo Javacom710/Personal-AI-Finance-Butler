@@ -4,11 +4,20 @@ import { requireSession } from '@/server/auth/guards';
 import { applyTransactionProposal, createReadCtx, rejectTransactionProposal } from '@/server/services';
 import { failure, success, type ActionState } from '../form-state';
 import type { ProposalReviewState, ReviewEdits } from './review-state';
+import { redirect } from 'next/navigation';
+import { isTier1GenerationReleased } from '@/server/ai-feature-release';
+import { composeTier1Features } from '@/server/ai-tier1-features';
 
 /** Hard release boundary: no runtime/provider is composed before lineup approval. */
-export async function draftTransactionAction(_previous: ActionState, _form: FormData): Promise<ActionState> {
-  await requireSession('/money/proposals');
-  return { status: 'error', message: 'Natural-language drafts are awaiting setup approval. Please use manual entry for now.', fieldErrors: {} };
+export async function draftTransactionAction(_previous: ActionState, form: FormData): Promise<ActionState> {
+  const session = await requireSession('/money/proposals');
+  if (!isTier1GenerationReleased()) return { status: 'error', message: 'Natural-language drafts are awaiting setup approval. Please use manual entry for now.', fieldErrors: {} };
+  const ctx = await createReadCtx(session.userId);
+  if (!ctx.ok) return failure(ctx.error);
+  const result = await composeTier1Features(ctx.value).draftTransaction(form instanceof FormData ? form.get('text') : null);
+  if (!result.ok) return failure(result.error);
+  revalidatePath('/money/proposals');
+  redirect('/money/proposals');
 }
 export async function confirmTransactionProposalAction(previous: ProposalReviewState, form: FormData): Promise<ProposalReviewState> {
   const session = await requireSession('/money/proposals');

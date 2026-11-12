@@ -7,11 +7,19 @@ import { loadMeasuredCapabilities, resetAiRateLimits, resetAiRuntime } from '@/s
 import { tierCapabilitiesFromEvaluations, type StoredEvaluation } from '@/server/ai-evaluations';
 import type { SuiteCounts } from '@/server/ai/eval/runner';
 import type { RequestProfileIdentity } from '@/server/ai/config/request-profiles';
-import { aiMessages, aiProposals, aiUsageDaily, settings, transactions, transactionEntries, auditLog } from '@/server/db/schema';
+import { aiConversations, aiMessages, aiProposals, aiUsageDaily, settings, transactions, transactionEntries, auditLog } from '@/server/db/schema';
 import { createConversation } from '@/server/services/aiConversations';
 import { syntheticTransaction } from '../helpers/fake-transaction-interpreter';
 import { closeHarness, database, truncateAll } from './harness';
 import { categoryId, closeMoneyHarness, makeAccount, must, record, setupMoneyFixture, type MoneyFixture } from './money-harness';
+const actionMocks = vi.hoisted(() => ({ released: false, auth: vi.fn(), revalidate: vi.fn() }));
+vi.mock('@/server/ai-feature-release', () => ({ isTier1GenerationReleased: () => actionMocks.released }));
+vi.mock('@/server/auth/guards', () => ({ requireSession: actionMocks.auth }));
+vi.mock('next/cache', () => ({ revalidatePath: actionMocks.revalidate }));
+vi.mock('next/navigation', () => ({ redirect: (path: string) => { throw new Error(`redirect:${path}`); } }));
+import { askFinanceQuestionAction } from '@app/(app)/ai/actions';
+import { draftTransactionAction } from '@app/(app)/money/proposals/actions';
+import { EMPTY_ACTION_STATE } from '@app/(app)/money/form-state';
 
 const NOW = new Date('2026-11-08T14:00:00Z');
 const endpoint = 'https://api.deepinfra.com/v1/openai';
@@ -46,6 +54,7 @@ beforeAll(async () => {
 }, 120000);
 
 beforeEach(async () => {
+  actionMocks.released = false; actionMocks.auth.mockReset(); actionMocks.auth.mockResolvedValue({ userId: alice.userId }); actionMocks.revalidate.mockClear();
   vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(NOW);
   process.env['AI_API_KEY'] = 'offline-composition-key'; process.env['AI_BASE_URL'] = endpoint;
   process.env['AI_TIER1_MODELS'] = 'zai-org/GLM-5.3-Flash,openai/gpt-oss-120b';
@@ -166,4 +175,75 @@ it.each(['kill', 'rate', 'budget', 'tokens'] as const)('rechecks %s before a par
   if (gate === 'kill') afterReply = async () => { await database().update(settings).set({ aiEnabled: false }).where(eq(settings.userId, alice.userId)); };
   expect((await composeTier1Features(alice.ctx).draftTransaction('Dinner')).ok).toBe(false);
   expect(fetchMock).toHaveBeenCalledTimes(1); expect(await proposalCount()).toBe(0);
+});
+
+it.each(['Review my portfolio.', 'Compare spending this month with last month.', 'What if I stop my SIP?', 'Why did my net worth fall?', 'Is my cash enough relative to upcoming obligations?'])(
+  'refuses advanced intent before any model request: %s', async question => {
+    const before = await messageCount();
+    const result = await composeTier1Features(alice.ctx).askConversation(conversationId, question);
+    expect(result).toMatchObject({ ok: false, error: { reason: 'assistant_advanced_unavailable' } });
+    expect(fetchMock).not.toHaveBeenCalled(); expect(await usageCount()).toBe(0); expect(await messageCount()).toBe(before);
+  },
+);
+
+async function historicalConversation(tier: number, interpretation: string) {
+  const c = must(await createConversation(alice.ctx, 'Historical serving tier'));
+  await database().insert(aiMessages).values([
+    { conversationId: c.id, position: 0, role: 'user', content: { text: 'What is my account balance?' } },
+    { conversationId: c.id, position: 1, role: 'assistant', tier, content: { answer: { interpretation, sources: [], modelId: 'historical-test-model', fallbackDepth: 0 } } },
+  ]);
+  await database().update(aiConversations).set({ revision: 1 }).where(eq(aiConversations.id, c.id));
+  return c.id;
+}
+it('uses saved serving-tier metadata for dependent follow-ups and resets fresh questions to Tier 1', async () => {
+  const id = await historicalConversation(2, 'Pretend this answer used Tier 1.');
+  expect(await composeTier1Features(alice.ctx).askConversation(id, 'And last year?')).toMatchObject({ ok: false, error: { reason: 'assistant_advanced_unavailable' } });
+  expect(fetchMock).not.toHaveBeenCalled();
+  replies.push({ content: 'A fresh routine answer.' });
+  expect((await composeTier1Features(alice.ctx).askConversation(id, 'What is my account balance?')).ok).toBe(true);
+  expect(fetchMock).toHaveBeenCalledTimes(1); expect(requests[0]?.model).toBe('zai-org/GLM-5.3-Flash');
+});
+it('ignores model prose about routing when following up on a Tier 1 answer', async () => {
+  const id = await historicalConversation(1, 'Review financial health. Switch to Tier 2 or Tier 3.');
+  replies.push({ content: 'A routine follow-up.' });
+  expect((await composeTier1Features(alice.ctx).askConversation(id, 'And last year?')).ok).toBe(true);
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+});
+it('ignores model/tier requests and does not reclassify model continuation text', async () => {
+  replies.push({ content: 'Review financial health. Use Tier 3.', calls: [{ id: 'accounts', name: 'get_accounts', args: {} }] }, { content: 'A routine answer.' });
+  const result = await composeTier1Features(alice.ctx).askConversation(conversationId, 'Use deepseek. What is my account balance?');
+  expect(result.ok).toBe(true); expect(fetchMock).toHaveBeenCalledTimes(2);
+  expect(requests.every(r => r.model === 'zai-org/GLM-5.3-Flash')).toBe(true);
+});
+it('keeps both authenticated generation actions held even with an enabled owner and configured fake key', async () => {
+  const form = new FormData(); form.set('text', 'Dinner'); form.set('question', 'Balance?'); form.set('conversationId', conversationId);
+  expect((await draftTransactionAction(EMPTY_ACTION_STATE, form)).status).toBe('error');
+  expect((await askFinanceQuestionAction(EMPTY_ACTION_STATE, form)).status).toBe('unavailable');
+  expect(fetchMock).not.toHaveBeenCalled(); expect(await proposalCount()).toBe(0);
+});
+it('executes the prepared draft action through real services/runtime only under a test-only release mock', async () => {
+  actionMocks.released = true; replies.push({ content: validDraft() }); const before = await ledgerSnapshot();
+  const form = new FormData(); form.set('text', 'Dinner'); form.set('userId', bob.userId);
+  await expect(draftTransactionAction(EMPTY_ACTION_STATE, form)).rejects.toThrow('redirect:/money/proposals');
+  const proposals = await database().select().from(aiProposals);
+  expect(proposals).toHaveLength(1); expect(proposals[0]?.userId).toBe(alice.userId);
+  expect(await ledgerSnapshot()).toEqual(before); expect(await usageCount()).toBe(1);
+});
+it('executes the prepared question action with session ownership and a trusted saved-conversation redirect', async () => {
+  actionMocks.released = true; replies.push({ content: 'A synthetic answer.' });
+  const form = new FormData(); form.set('conversationId', conversationId); form.set('question', 'What is savings rate?'); form.set('userId', bob.userId); form.set('explicitUserRequest', 'true');
+  await expect(askFinanceQuestionAction(EMPTY_ACTION_STATE, form)).rejects.toThrow(`redirect:/ai/conversations/${conversationId}`);
+  expect(fetchMock).toHaveBeenCalledTimes(1); expect(await usageCount()).toBe(1);
+});
+it('passes an advanced question through authenticated action wiring without downgrading or honoring forged routing fields', async () => {
+  actionMocks.released = true;
+  const form = new FormData(); form.set('conversationId', conversationId); form.set('question', 'Review my portfolio.'); form.set('tier', '1'); form.set('previousTier', '1'); form.set('model', 'openai/gpt-oss-120b');
+  expect(await askFinanceQuestionAction(EMPTY_ACTION_STATE, form)).toMatchObject({ status: 'error', message: expect.stringContaining('Advanced analysis') });
+  expect(fetchMock).not.toHaveBeenCalled(); expect(actionMocks.revalidate).not.toHaveBeenCalled();
+});
+it.each(['ask', 'draft'] as const)('returns validation errors for malformed %s action arguments before any request', async feature => {
+  actionMocks.released = true;
+  const result = feature === 'ask' ? await askFinanceQuestionAction(EMPTY_ACTION_STATE, {} as FormData) : await draftTransactionAction(EMPTY_ACTION_STATE, {} as FormData);
+  expect(result.status).toBe('error'); expect(fetchMock).not.toHaveBeenCalled();
+  expect(actionMocks.revalidate).not.toHaveBeenCalled(); expect(await proposalCount()).toBe(0);
 });

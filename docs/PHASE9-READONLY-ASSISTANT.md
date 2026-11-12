@@ -55,3 +55,9 @@ This verifies data flow and source presentation, **not a real model's understand
 ## Guarded runtime adapter preparation — 2026-11-08
 
 The [Tier 1 composition follow-up](audits/2026-11-08-tier1-runtime-composition.md) prepares an owner-bound application adapter that sends each model turn, including parsing repairs, through `runAiCapability`. It preserves the existing feature services and release hold: no action/UI invokes it, no model is activated and no measurement is recorded. Fake HTTP/real-runtime integration checks cover budgets, rate limits, the kill switch, metering, ownership and financial immutability. Existing intent routing and reviewed action composition remain release prerequisites.
+
+## Intent routing and authenticated action preparation — 2026-11-08
+
+The [intent/action follow-up](audits/2026-11-08-tier1-intent-actions.md) connects the existing question classifier to original user text and authoritative previous serving-tier metadata. Advanced questions are refused before egress in this Tier 1 composition; self-contained routine questions reset independently. Saved model-choice notices derive from the original question.
+
+Both authenticated generation actions now have session-bound adapter wiring and trusted redirects behind a centralized code-only hold that remains **false before context creation**. Generation controls stay disabled. Test-only release mocks verify the prepared actions through real services/runtime with fake HTTP, including owner isolation, unsupported intent, malformed arguments and draft-only financial immutability. Active form wiring, concrete owner release review, evidence recording and activation remain ahead.
