@@ -124,8 +124,8 @@ export function CoverageNote({
       {unpriced.length > 0 ? (
         <>
           <strong className="font-medium text-ink">{coveragePct} of cost basis priced.</strong>{' '}
-          {unpriced.length} holding{unpriced.length === 1 ? '' : 's'} unpriced and excluded from every
-          total — {unpriced.map((i) => i.symbol).join(', ')}.{' '}
+          {unpriced.length} holding{unpriced.length === 1 ? '' : 's'} unpriced and excluded from market
+          value and allocation — {unpriced.map((i) => i.symbol).join(', ')}.{' '}
         </>
       ) : null}
       {stale.length > 0 ? <>Stale prices, used and marked: {stale.map((i) => i.symbol).join(', ')}.</> : null}

@@ -147,6 +147,18 @@ describe('parse corpus — prompt and schema', () => {
     expect(parseTransactionSystemPrompt({ today: '2028-02-29', baseCurrency: 'INR' })).toContain('(Tuesday)');
   });
 
+  it.each(['parse-031', 'parse-032'])('%s: the shared v4 prompt makes an omitted amount explicit without changing its expectation', id => {
+    const c = PARSE_CASES.find(c => c.id === id)!;
+    expect(PARSE_SUITE_VERSION).toBe(4);
+    expect(c.expected.amount).toBeNull(); expect(c.expected.flagged).toBe(true);
+    expect(parseSuite().every(test => test.messages[0]?.content?.includes('confidence must be medium or low, and ambiguities must say the amount is missing.'))).toBe(true);
+    const ideal = idealProposal(c.expected);
+    for (const confidence of ['medium', 'low'] as const) expect(scoreParseOutput(json({ ...ideal, confidence }), c.expected)).toBe(true);
+    expect(scoreParseOutput(json({ ...ideal, confidence: 'high' }), c.expected)).toBe(false);
+    expect(scoreParseOutput(json({ ...ideal, ambiguities: [] }), c.expected)).toBe(false);
+    expect(PARSE_CASES.find(test => test.id === 'parse-035')?.expected.amount).toEqual(['1250', '1350']);
+  });
+
   it('sends the strict production schema with every case, and no tools', () => {
     const cases = parseSuite();
     expect(cases).toHaveLength(40);

@@ -43,3 +43,33 @@ Tests cover a 40-case proposal corpus, fake-provider generation and bounded repa
 The complete CI pipeline passed on PostgreSQL 17 and 18 at code commit `0e3855f` ([run](https://github.com/Javacom710/Personal-AI-Finance-Butler/actions/runs/41487036592)): all unit/property/integration suites, migration/seed, financial invariants, typecheck, lint, production build, client-secret scan and dependency audits. This validates the disabled transaction-proposal slice; it does not authorize live activation or complete the remaining Phase 9 scope.
 
 Rejected confirmations retain the exact raw user edits and remount a fresh review form, requiring confirmation again. The page passes an absolute expiry instant to a client timer so an open draft visibly expires without refresh. PostgreSQL still enforces the expiry boundary independently of browser time. A local headless Chromium interaction check with fake actions verified preservation of amount precision, account, description and notes after rejection, then deadline disabling.
+
+## Guarded runtime adapter preparation — 2026-11-08
+
+The [Tier 1 composition follow-up](audits/2026-11-08-tier1-runtime-composition.md) prepares an owner-bound application adapter that sends each model turn, including parsing repairs, through `runAiCapability`. It preserves the existing feature services and release hold: no action/UI invokes it, no model is activated and no measurement is recorded. Fake HTTP/real-runtime integration checks cover budgets, rate limits, the kill switch, metering, ownership and financial immutability. Existing intent routing and reviewed action composition remain release prerequisites.
+
+## Intent routing and authenticated action preparation — 2026-11-08
+
+The [intent/action follow-up](audits/2026-11-08-tier1-intent-actions.md) connects the existing question classifier to original user text and authoritative previous serving-tier metadata. Advanced questions are refused before egress in this Tier 1 composition; self-contained routine questions reset independently. Saved model-choice notices derive from the original question.
+
+Both authenticated generation actions now have session-bound adapter wiring and trusted redirects behind a centralized code-only hold that remains **false before context creation**. Generation controls stay disabled. Test-only release mocks verify the prepared actions through real services/runtime with fake HTTP, including owner isolation, unsupported intent, malformed arguments and draft-only financial immutability. Active form wiring, concrete owner release review, evidence recording and activation remain ahead.
+
+## Generation forms and concrete release review — 2026-11-08
+
+The [form follow-up](audits/2026-11-08-tier1-generation-forms.md) wires transaction descriptions and questions inside saved conversations, with controlled text retained after failed actions, pending states and accessible errors. Archived/full conversations cannot submit questions. Page and action release checks share the same code-only hold, which remains **false**; client flags cannot release server generation.
+
+All 2,544 unit/65 property tests and build/static/integrity checks pass. Chromium verifies actual component hooks with fake actions and authenticated production held workflows, including forced client submission refusal, with zero generated records and synthetic fixture cleanup. Base PR #63 is CI-green on PostgreSQL 17/18. The [concrete release-review packet](audits/2026-11-08-tier1-release-review.md) lists the measured quality concerns and reviewed evidence-recording work still needed before separately approved activation. No model is called or activated by this follow-up.
+
+## Retained Tier 1 evidence import preparation — 2026-11-08
+
+The [import preparation](audits/2026-11-08-tier1-evidence-import.md) adds an offline preview of the exact twelve deployment evaluation rows and a separately invoked operator write mode bound to the reviewed manifest digest. It reuses retained case verdicts and the normal row encoder, preserving provenance, counts, failures, timings and current contract/profile/budget validation. The production capability aggregator/selector reproduces the selected Tier 1 pair in memory.
+
+The transactional import is idempotent for an exact batch and refuses conflicts, partial batches and newer matching evidence. Tests write only the disposable integration database. Deployment evidence remains unrecorded and generation stays disabled; acceptance of remaining model-quality failures, evidence-write approval and activation remain owner decisions.
+
+## Current parsing-failure investigation — 2026-11-08
+
+The [fifteen-probe follow-up](../eval/reports/deepinfra-2026-11-08-tier1-v3-failures/README.md) distinguishes null amounts from different or unsupported non-null values using fixed counters, without retaining output values. Both models return null for two unconfirmed candidate amounts, with uncertainty flagged; both still fail the frozen candidate-amount expectation. Existing proposal resolution leaves null for user correction and refuses missing-amount confirmation. This exposes a product-policy decision before any prompt/scorer change; no expectation is relaxed. GPT-OSS's separate missing-amount confidence/ambiguity failure also repeats. No generation, schema or confirmation behavior changes.
+
+## Current v4 evidence and release review — 2026-11-09
+
+The [missing-amount prompt update](audits/2026-11-08-parse-prompt-v4.md) clarifies existing confidence/ambiguity expectations and advances parse to v4, without changing the corpus, scorer, competing-amount policy or other contracts. All 380 fresh cases answer; both models pass the omitted-amount cases and unchanged routing gates. Remaining quality failures are retained. The [separate v4 manifest](audits/2026-11-08-tier1-parse-v4-evidence-preview.json) prepares the current twelve-row write; the archived v3 evidence/manifest are unchanged and stale for qualification. Generation and deployment recording remain off pending owner quality/evidence/release review.

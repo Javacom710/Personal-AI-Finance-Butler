@@ -4,11 +4,20 @@ import { redirect } from 'next/navigation';
 import { createReadCtx, createConversation, renameConversation, archiveConversation, deleteConversation } from '@/server/services';
 import { failure, success, type ActionState } from '../money/form-state';
 import { requireSession } from '@/server/auth/guards';
+import { isTier1GenerationReleased } from '@/server/ai-feature-release';
+import { composeTier1Features } from '@/server/ai-tier1-features';
+type QuestionActionState = ActionState | { status: 'unavailable'; message: string };
 
 /** No runtime is composed before the owner accepts a measured lineup. */
-export async function askFinanceQuestionAction(): Promise<{ status: 'unavailable'; message: string }> {
-  await requireSession('/ai');
-  return { status: 'unavailable', message: 'The financial assistant is awaiting setup approval. Your question has not been sent to a model.' };
+export async function askFinanceQuestionAction(_previous?: QuestionActionState, form?: FormData): Promise<QuestionActionState> {
+  const session = await requireSession('/ai');
+  if (!isTier1GenerationReleased()) return { status: 'unavailable', message: 'The financial assistant is awaiting setup approval. Your question has not been sent to a model.' };
+  const ctx = await createReadCtx(session.userId);
+  if (!ctx.ok) return failure(ctx.error);
+  const result = await composeTier1Features(ctx.value).askConversation(form instanceof FormData ? form.get('conversationId') : null, form instanceof FormData ? form.get('question') : null);
+  if (!result.ok) return failure(result.error);
+  revalidatePath('/ai', 'layout');
+  redirect(`/ai/conversations/${result.value.conversationId}`);
 }
 
 /** Conversation metadata/content management never invokes a model. */

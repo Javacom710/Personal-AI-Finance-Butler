@@ -12,7 +12,9 @@ A phase is complete only when every box is ticked — including tests, type chec
 
 ---
 
-## Where the project stands — 2026-11-07
+**Consolidated continuation — 2026-11-11:** the review branch combines #67, #68 and #69 without merging `main` or activating AI. The financial-engine-first strategy remains: keep model arithmetic out of financial truth, finish the OD-21 return-cohort correction, then batch new scenario/metrics tool registration and affected evaluation-contract updates with Tier 2 work before paying for another campaign. The current UI withholds incomplete aggregate returns consistently; the engine defect remains open. [Audit and verification](audits/2026-11-11-claude-continuation.md).
+
+## Where the project stands — 2026-11-11
 
 | Phase | Status |
 |---|---|
@@ -20,27 +22,46 @@ A phase is complete only when every box is ticked — including tests, type chec
 | 1 — Architecture | ✅ complete, **approved** |
 | 2 — Foundation | ✅ complete, verified |
 | 3 — Financial Core | ✅ complete, verified |
-| 4 — Investment Engine | ✅ complete, verified (TWR wired to `portfolio()` 2026-11-11 — OD-18) |
+| 4 — Investment Engine | ✅ implemented and verified; TWR wired 2026-11-11 (OD-18). OD-21's partial-pricing return correction remains open; the UI now withholds the affected aggregate figures |
 | 5 — Net Worth at Cost | ✅ complete, verified |
 | 6 — Market Data | ✅ complete, steps 6.0–6.11 (6.10 closed unbuilt); equities need `TWELVE_DATA_API_KEY` (OD-3) |
 | 7 — AI Infrastructure | ✅ complete, steps 7.0–7.7 |
-| 8 — Model Evaluation | 🔶 **in progress — Tier 1 lineup selected (ADR-55); awaiting its current-contract measurements (OD-20, partially resolved).** All suites, the runner, storage and per-tier eligibility (ADR-53) are built. The Tier 1 selection recorded in #54 is GLM-5.3-Flash → GPT-OSS-120B (ADR-55). Current merged-contract measurements, fallback completeness, remaining tiers and release composition remain outstanding. Nothing is recorded or activated |
-| 9 — AI Features | 🔶 **built, disabled.** Every non-scenario slice is merged (PRs #39, #40, #43–#48) and tested with fake providers; live generation stays hard-disabled until the selected lineup has complete current-contract measured eligibility and a reviewed activation. Scenario analysis waits on OD-18 |
-| 10–15 | not started |
+| 8 — Model Evaluation | 🔶 **in progress — selected Tier 1 pair has complete parse-v4 evidence.** GLM-5.3-Flash → GPT-OSS-120B answered all 380 cases; both pass schema/tool routing gates. Exact parsing, grounding and injection failures remain visible for release review. Remaining tiers, deployment recording and reviewed activation are outstanding. Nothing is recorded or activated |
+| 9 — AI Features | 🔶 **built, disabled.** Non-scenario slices are merged. A guarded Tier 1 composition adapter is prepared and fake-response/real-runtime tested, with every model turn and repair passing through runtime controls. Existing question-intent routing and authenticated action wiring are prepared behind a code-only hold that remains false before context creation. Client forms are prepared with retained text, pending/error states and archived/full blocking. Concrete owner quality/release review and deployment evidence recording remain; a digest-pinned importer and exact-row preview are prepared for review. No activation. Scenario analysis waits on OD-18 |
+| 10–14 | not started |
 
 **Provider:** DeepInfra direct ([ADR-54](DECISIONS.md#adr-54--deepinfra-direct-is-the-phase-8-provider-google-and-anthropic-models-are-excluded)). Groq ([ADR-52](DECISIONS.md#adr-52--the-model-provider-is-any-openai-compatible-api-groq-replaces-nvidia-builds-free-tier)) and NVIDIA Build are historical; OpenRouter is built (#41/#42) but not selected.
 
+**Consolidated verification (2026-11-11):** 3,398 tests pass — 2,635 unit, 68 property, 695 PostgreSQL 17 integration — plus typecheck, lint, production build, client-secret scan and integrity (35 passing, 0 failing). Signed-in production browser checks pass at 1280px/390px, including scenario submission and missing-price/inactive-holding cases. Source Claude #68/#69 pass PostgreSQL 17/18 CI; consolidated-branch CI follows the draft PR.
+
 **Historical verification (2026-11-07, PR #51 runtime-source head `b651867`):** 2,476 unit and property tests and 619 integration tests pass; typecheck, lint, production build and the client-secret scan are clean; `verify:integrity` reports 35 passing, 0 failing. PostgreSQL 17 and 18 CI is green. The full per-phase record is in [PROJECT-STATE.md](../PROJECT-STATE.md).
 
-**Latest verified follow-ups:** final-head #51 CI [42385230550](https://github.com/Javacom710/Personal-AI-Finance-Butler/actions/runs/42385230550) passes on PostgreSQL 17/18 at `93de4c2`. Assistant evidence PR #55 verifies twelve real-engine workloads plus ledger immutability and visible partial-result labels with fake providers; it does not complete real-model question quality. The current handoff combines #52/#53 documentation and provider-test isolation, without importing #54's scorer or scores.
+**Historical verified follow-ups (2026-11-07):** final-head #51 CI [42385230550](https://github.com/Javacom710/Personal-AI-Finance-Butler/actions/runs/42385230550) passes on PostgreSQL 17/18 at `93de4c2`. Assistant evidence PR #55 verifies twelve real-engine workloads plus ledger immutability and visible partial-result labels with fake providers; it does not complete real-model question quality. At that checkpoint the handoff combined #52/#53 documentation and provider-test isolation, without importing #54's scorer or scores.
 
-**Next, in order (2026-11-07):**
-1. A fresh, complete DeepInfra campaign of the selected Tier 1 lineup (GLM-5.3-Flash → GPT-OSS-120B) on the current suite contracts: parse/classify v2, tool-select v3, injection v4, grounding/robustness/analysis v5. Reconcile #54's external spend first. Both models need zero unanswered cases.
-2. Owner review of those results, then `--record` and a reviewed activation of the Phase 9 features that Tier 1 serves.
+**Earlier Tier 1 evidence (parse v2, 2026-11-08):** the [fresh source-bound campaign](../eval/reports/deepinfra-2026-11-07-tier1-current-2026-11-08/README.md) completed 380/380 answered cases after ADR-56's external-spend reconciliation. Each model has schema 100/100 and tools 53/57 (92.98%). Exact parsing is 36/40 vs 30/40, grounding 21/25 vs 20/25 and injection 24/25 vs 19/25. The unchanged proposer retains GLM → GPT-OSS. Campaign ledger estimate: US$0.0702; project accounted total US$1.8602 of US$10. Passing routing gates does not complete the release-quality checks below.
+
+**Earlier quality follow-up (2026-11-08):** PR #59 is CI-green on PostgreSQL 17/18. A [separate nine-probe diagnostic run](../eval/reports/deepinfra-2026-11-08-tier1-diagnostics/README.md) reproduced ambiguity/confidence failures in both models and field mismatches in two other parse cases. Three injection probes passed this time; earlier failures remain unresolved. Diagnostics do not replace qualification scores. Project accounted spending at that checkpoint was US$1.8617. The linked review packet includes a concrete shared parsing-prompt proposal, without changing any production contract.
+
+**Earlier parse-v3 evidence (2026-11-08):** the shared clarification is implemented and the [fresh full campaign](../eval/reports/deepinfra-2026-11-07-tier1-parse-v3-2026-11-08/README.md) answers all 380 cases. Schema is 100/100 each, tools 54/57 vs 53/57, parsing 36/40 vs 33/40, grounding 22/25 vs 21/25, robustness 6/10 each and injection 25/25 vs 21/25. Both models now pass the targeted ambiguity case; remaining field and injection failures stay visible. The existing proposer and an in-memory production evidence/selection check retain GLM → GPT-OSS. Earlier parse-v2 evidence is stale for the changed prompt. All 130 parse/injection responses have retained diagnostics; completed resume makes no egress. All 3,214 full-suite tests plus two new actual-report regressions and build/type/lint/integrity/secret checks pass. Project accounted spending is US$1.9325 of US$10. No recording or activation occurred.
+
+**Earlier intent/action preparation (2026-11-08):** existing routing now classifies original questions with authoritative serving-tier history; advanced intent is refused before egress in the Tier 1 composition. Authenticated actions use session-bound adapters behind a code-only hold that remains false before context creation. All **3,262 local tests**, typecheck, lint, production build and client-secret scan pass; integrity is 35 passing, 0 failing. No inference spending or activation occurred. See the [audit and remaining release work](audits/2026-11-08-tier1-intent-actions.md).
+
+**Earlier form/review preparation (2026-11-08):** client transaction-description and saved-question forms are wired behind the false release hold. All 2,544 unit/65 property tests and build/static/integrity checks pass, with Chromium fake-action interaction checks and authenticated production held-action checks. Base #63 is CI-green on PostgreSQL 17/18. The [concrete release packet](audits/2026-11-08-tier1-release-review.md) records quality limitations and the reviewed evidence-import step still needed; generation stays disabled.
+
+**Earlier retained-evidence preparation (2026-11-08):** the [importer and pinned preview](audits/2026-11-08-tier1-evidence-import.md) reconstruct and validate the twelve deployment rows from the retained campaign, then verify production Tier 1 selection. Operator write mode is explicit and digest-bound, atomic/idempotent and conflict-refusing. All 3,311 unit/property/PostgreSQL 17 tests and build/static/integrity checks pass; PostgreSQL 18 remains the follow-up CI check. No deployment evidence write or activation has occurred.
+
+**Earlier targeted failure investigation (2026-11-08):** [fifteen fresh parse/injection probes](../eval/reports/deepinfra-2026-11-08-tier1-v3-failures/README.md) answered completely: five prior failures did not recur and ten repeated. Both models returned conservative nulls for competing unconfirmed amounts; these still fail the unchanged expectation accepting either candidate. The fallback again repeated two tool-result canaries. Original qualification scores and the import manifest are unchanged. The probe accounts for US$0.0018446, bringing total development inference spending to US$1.934365649 of US$10. No recording or activation occurred.
+
+**Current v4 qualification and review preparation (2026-11-09):** the [shared missing-amount clarification and fresh evidence](../eval/reports/deepinfra-2026-11-07-tier1-parse-v4-2026-11-08/README.md) answer all 380 cases. Both models pass the targeted missing-amount checks and unchanged schema/tool gates. Parsing is 38/40 vs 33/40; grounding/robustness/injection and other field failures remain visible. The importer targets a separate fresh v4 manifest; earlier v3 reports/preview are preserved and stale for the new prompt. Campaign cost US$0.071546806; project accounted total US$2.005912455 of US$10. All 3,322 local tests and build/static/integrity checks pass; PostgreSQL 18 remains the follow-up CI check. No recording or activation occurred.
+
+**Tier 1 release follow-up (recorded 2026-11-09; consolidated build order above):**
+1. Decide the ambiguous-amount draft policy before a prompt/scorer change, and review the [concrete Tier 1 release scope and remaining v4 quality failures](audits/2026-11-08-tier1-release-review.md). Forms and authenticated action wiring are prepared; the code-only hold remains false.
+2. Review the prepared exact-row evidence manifest and recording code; execute deployment recording only after owner approval. Activation remains a separate reviewed step for the two prepared Tier 1 workflows.
 3. Tiers 2–4 have no selected models. Advanced analysis, scenarios and documents stay off until each has its own measured lineup.
-4. Independently of the AI work: OD-18 and OD-19 (the Overview page). **OD-18 update 2026-11-11:** the scenario engine and the three missing metrics are built, with a Scenarios tab under Investments and health figures on the Money page. TWR is wired into `portfolio()` as well, with the frozen grounding results unchanged. What remains of OD-18 is registering the two AI tools, which changes what tool-select measures and so waits for the owner's timing against the Tier 1 measurements.
+4. Deterministic work: Overview (OD-19), scenarios, metrics and TWR engine wiring (OD-18) are now integrated. Fix portfolio returns with unpriced holdings (OD-21). Register the scenario/metrics AI tools together with Tier 2 work, following the owner's recorded timing decision.
 
-**What unblocks the rest:** OD-20 (Phase 8 lineup) gates Phase 9 activation and so every later phase's AI checks. OD-18's engine work is done (2026-11-11): scenarios, metrics and TWR wiring. The TWR wiring left the frozen grounding results unchanged, so no suite version advanced. OD-19 (the Overview page) is product work that can proceed independently.
+
+**What unblocks the rest:** OD-20 (Phase 8 lineup) gates Phase 9 activation and so every later phase's AI checks. OD-18's engine work is done (2026-11-11): scenarios, metrics and TWR wiring. The TWR wiring left the frozen grounding results unchanged, so no suite version advanced. OD-19 (the Overview page) is built and integrated in the consolidated branch.
 
 ### Historical Phase 5 checkpoint — 2026-08-15
 
@@ -381,7 +402,7 @@ is normative in `AI-SYSTEM.md` §8 — *an AI capability exists only where a det
 capability already exists or has an explicitly approved implementation path.* **AI must not become a
 substitute for missing financial-engine functionality.**
 
-**The Overview page stays a Phase-2 placeholder for now** — **OD-19, deferred 2026-08-30** as a
+**The Overview page is built (2026-11-11, OD-19 resolved).** *Earlier record:* it stayed a Phase-2 placeholder — **OD-19, deferred 2026-08-30** as a
 product/UI work item scheduled with the Phase 9 UX pass. It does not block Phase 7.
 
 | Step | Delivers | Needs the key? |
@@ -425,7 +446,7 @@ product/UI work item scheduled with the Phase 9 UX pass. It does not block Phase
 
 ---
 
-## Phase 8 — Model Evaluation — 🔶 in progress: Tier 1 selected (ADR-55), measurements on current contracts outstanding
+## Phase 8 — Model Evaluation — 🔶 in progress: Tier 1 measured on parse v4, quality/release review and other tiers outstanding
 
 - Golden task suites: `parse`, `classify`, `tool-select`, `grounding`, `analysis`, `scenario`, `document`, `injection`, `robustness`
   - *Progress (one PR per suite):* `parse` ✅ built — 40 cases, `src/server/ai/eval/tasks/parse.ts`. `classify` ✅ built — 60 cases, `tasks/classify.ts`. `tool-select` ✅ built — 30 cases, `tasks/tool-select.ts`. `routing` ✅ built — 86 cases, `tasks/routing.ts`, scoring the deterministic escalation classifier (`orchestrator/escalation.ts`), 86/86. `grounding` ✅ built — 25 cases, `tasks/grounding.ts`, over tool results frozen from the production handlers (`tasks/grounding-results.json`, proved by `tests/integration/ai-eval-grounding.test.ts`); its pass rate is `retrievalGrounding`. `injection` ✅ built — 25 cases, `tasks/injection.ts`, deterministic strict-schema and exact-call/argument checks plus an output canary; separate routing/ADR-48/Tier 3 guard tests. `robustness` ✅ built — 10 cases, `tasks/robustness.ts`. `document` ✅ built — 20 generated receipt/statement images, `tasks/document.ts`; NVIDIA image input is sent as OpenAI-compatible `image_url` data URLs, and proposals are scored by strict schema plus exact transaction fields. `analysis` ✅ built — 15 portfolio, health, period and cross-domain reviews in `tasks/analysis.ts`; deterministic grounding checks plus exact figures and required findings, with general prose quality unscored and no LLM-as-judge. `scenario` waits on OD-18 because its deterministic engine/tool is not implemented. `ai:eval` runs `analysis` for Tiers 2–3 (ranked as financial reasoning) and `document` for Tier 4 (schema-only proposal gate). Two complete Tier 4 document runs are checked in: Nano Omni 1/20 with schema adherence 0.65; Super VL 9/20 with schema adherence 0.95, both without unanswered cases. Neither proposes a routing change; no database measurements have been stored. Tier 1 Lightning also completed a 190-case v1 baseline (schema 0.66, tools 0.7586); the Tier 3 Ultra attempt covered 105 cases with 27 unanswered requests. Neither qualifies for routing. Text-suite remeasurement under the production-budget contract merged in PR #30 remains outstanding.

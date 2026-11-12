@@ -32,6 +32,7 @@
     "ai:measure:deepinfra": "node --conditions=react-server --import tsx scripts/ai-measure-deepinfra.ts",
     "ai:diagnose:deepinfra": "node --conditions=react-server --import tsx scripts/ai-diagnose-deepinfra.ts",
     "ai:eval:budgeted": "node --import tsx scripts/ai-eval-budgeted-run.ts",
+    "ai:evidence:tier1": "node --conditions=react-server --import tsx scripts/ai-tier1-evidence.ts",
     "ai:eval": "node --conditions=react-server --import tsx scripts/ai-eval.ts",
     "smoke:market-data": "node --conditions=react-server --import tsx scripts/smoke-market-data.ts",
     "verify:integrity": "tsx scripts/verify-integrity.ts",

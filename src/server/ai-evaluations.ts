@@ -25,7 +25,7 @@ import 'server-only';
 import { sql } from 'drizzle-orm';
 import { isOpenRouterEndpoint } from './ai/provider/openrouter-policy';
 
-import { db } from './db/client';
+import { db, type DbExecutor } from './db/client';
 import { aiModelEvaluations } from './db/schema';
 import { DECLARED_CAPABILITIES, type ModelCapabilities, type TierMeasuredCapabilities } from './ai/config/capabilities';
 import { maxTokensFor, MODEL_SUITES, TIER_SUITES, type EvalRun, type ModelSuite, type SuiteCounts } from './ai/eval/runner';
@@ -57,15 +57,14 @@ export interface EvaluationDetail extends SuiteCounts {
 }
 
 /**
- * Store a run: one row per model and suite. A wire check (`--limit`) is refused
+ * Encode a run: one row per model and suite. A wire check (`--limit`) is refused
  * here as well as in the script, because a row is what the router believes.
  */
-export async function recordEvaluationRun(run: EvalRun): Promise<number> {
+export function evaluationRowsForRun(run: EvalRun, providerIdentity: string) {
   if (run.limit !== null) throw new Error('A partial run (--limit) is a wire check and is never stored.');
-  const providerIdentity = evaluationProviderIdentity(aiProviderSettings(env()).baseUrl);
   assertEvaluationRecordingSupported(providerIdentity);
   if (run.providerIdentity !== providerIdentity) throw new Error('Missing or mismatched evaluation provider provenance.');
-  const rows = run.models.flatMap((m) =>
+  return run.models.flatMap((m) =>
     m.suites.map((s) => {
       const profile = requestProfileById(m.modelId, m.requestProfile?.id ?? DEFAULT_REQUEST_PROFILE.id);
       if (!matchesRequestProfile(m.requestProfile, profile)) throw new Error('Invalid evaluation request-profile provenance.');
@@ -95,8 +94,15 @@ export async function recordEvaluationRun(run: EvalRun): Promise<number> {
       };
     }),
   );
+}
+
+/** The same provenance checks and row encoder, optionally inside an application transaction. */
+export async function recordEvaluationRun(run: EvalRun, executor?: DbExecutor): Promise<number> {
+  if (run.limit !== null) throw new Error('A partial run (--limit) is a wire check and is never stored.');
+  const providerIdentity = evaluationProviderIdentity(aiProviderSettings(env()).baseUrl);
+  const rows = evaluationRowsForRun(run, providerIdentity);
   if (rows.length === 0) return 0;
-  await db().insert(aiModelEvaluations).values(rows);
+  await (executor ?? db()).insert(aiModelEvaluations).values(rows);
   return rows.length;
 }
 

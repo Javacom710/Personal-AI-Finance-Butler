@@ -51,3 +51,33 @@ A clipped financial source now shows **partial results** in its collapsed summar
 Twelve real-engine workload regressions now exercise scripted fake-provider calls through the orchestrator and real dispatcher into source rendering: previous-month spending, category totals, a bounded transaction list, month comparison, savings rate, an unavailable savings rate, balances, cost net worth, history levels, portfolio performance gaps, holdings and allocation. The bounded list deliberately excludes the largest expense, proving why its three recent rows cannot establish a complete ranking. Exact money/rate strings, source dates, missing-price/metric reasons, transfer exclusion and another owner's isolation survive the full path. A thirteenth case compares the entire money ledger, investment ledger and audit history before/after the corpus.
 
 This verifies data flow and source presentation, **not a real model's understanding, arithmetic, prose quality or answers to every roadmap question**. The scripted final explanation does not pretend to derive figures. Unsupported annual contributions, scenarios and other missing deterministic capabilities remain outside this check. No live provider call, prompt/scorer/gate change or feature activation occurred. See the [continuation audit](audits/2026-11-07-assistant-workload-evidence.md) for exact verification and release boundaries.
+
+## Guarded runtime adapter preparation — 2026-11-08
+
+The [Tier 1 composition follow-up](audits/2026-11-08-tier1-runtime-composition.md) prepares an owner-bound application adapter that sends each model turn, including parsing repairs, through `runAiCapability`. It preserves the existing feature services and release hold: no action/UI invokes it, no model is activated and no measurement is recorded. Fake HTTP/real-runtime integration checks cover budgets, rate limits, the kill switch, metering, ownership and financial immutability. Existing intent routing and reviewed action composition remain release prerequisites.
+
+## Intent routing and authenticated action preparation — 2026-11-08
+
+The [intent/action follow-up](audits/2026-11-08-tier1-intent-actions.md) connects the existing question classifier to original user text and authoritative previous serving-tier metadata. Advanced questions are refused before egress in this Tier 1 composition; self-contained routine questions reset independently. Saved model-choice notices derive from the original question.
+
+Both authenticated generation actions now have session-bound adapter wiring and trusted redirects behind a centralized code-only hold that remains **false before context creation**. Generation controls stay disabled. Test-only release mocks verify the prepared actions through real services/runtime with fake HTTP, including owner isolation, unsupported intent, malformed arguments and draft-only financial immutability. Active form wiring, concrete owner release review, evidence recording and activation remain ahead.
+
+## Generation forms and concrete release review — 2026-11-08
+
+The [form follow-up](audits/2026-11-08-tier1-generation-forms.md) wires transaction descriptions and questions inside saved conversations, with controlled text retained after failed actions, pending states and accessible errors. Archived/full conversations cannot submit questions. Page and action release checks share the same code-only hold, which remains **false**; client flags cannot release server generation.
+
+All 2,544 unit/65 property tests and build/static/integrity checks pass. Chromium verifies actual component hooks with fake actions and authenticated production held workflows, including forced client submission refusal, with zero generated records and synthetic fixture cleanup. Base PR #63 is CI-green on PostgreSQL 17/18. The [concrete release-review packet](audits/2026-11-08-tier1-release-review.md) lists the measured quality concerns and reviewed evidence-recording work still needed before separately approved activation. No model is called or activated by this follow-up.
+
+## Retained Tier 1 evidence import preparation — 2026-11-08
+
+The [import preparation](audits/2026-11-08-tier1-evidence-import.md) adds an offline preview of the exact twelve deployment evaluation rows and a separately invoked operator write mode bound to the reviewed manifest digest. It reuses retained case verdicts and the normal row encoder, preserving provenance, counts, failures, timings and current contract/profile/budget validation. The production capability aggregator/selector reproduces the selected Tier 1 pair in memory.
+
+The transactional import is idempotent for an exact batch and refuses conflicts, partial batches and newer matching evidence. Tests write only the disposable integration database. Deployment evidence remains unrecorded and generation stays disabled; acceptance of remaining model-quality failures, evidence-write approval and activation remain owner decisions.
+
+## Current injection-failure investigation — 2026-11-08
+
+The [targeted follow-up](../eval/reports/deepinfra-2026-11-08-tier1-v3-failures/README.md) reprobes the fallback's four full-campaign injection failures once each. Its legitimate-read failure and one model-selection canary do not recur; transaction-description and category-label canary repetitions do recur. No disallowed call is observed. These selected observations do not replace the full campaign's 21/25 result or certify instruction isolation. The production prompt, scorer, runtime controls and generation hold remain unchanged.
+
+## Current v4 evidence and release review — 2026-11-09
+
+The [missing-amount prompt update](audits/2026-11-08-parse-prompt-v4.md) clarifies existing confidence/ambiguity expectations and advances parse to v4, without changing the corpus, scorer, competing-amount policy or other contracts. All 380 fresh cases answer; both models pass the omitted-amount cases and unchanged routing gates. Remaining quality failures are retained. The [separate v4 manifest](audits/2026-11-08-tier1-parse-v4-evidence-preview.json) prepares the current twelve-row write; the archived v3 evidence/manifest are unchanged and stale for qualification. Generation and deployment recording remain off pending owner quality/evidence/release review.

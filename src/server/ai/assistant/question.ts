@@ -24,7 +24,7 @@ const invalid = (detail: string) => err<AiFailure>({ kind: 'invalid_output', mes
 
 /** In-memory question session; only validated, bounded text history is replayed. No writes. */
 export async function answerReadOnlyQuestion(
-  ai: AiReadCtx, orchestrator: Orchestrator, rawQuestion: unknown, history: readonly ConversationTurn[] = [],
+  ai: AiReadCtx, orchestrator: Pick<Orchestrator, 'run'>, rawQuestion: unknown, history: readonly ConversationTurn[] = [],
 ): Promise<Result<QuestionAnswer, AiFailure>> {
   const parsed = z.string().trim().min(1).max(QUESTION_LIMITS.characters).safeParse(rawQuestion);
   if (!parsed.success) return invalid('Question must contain 1–4,000 characters.');

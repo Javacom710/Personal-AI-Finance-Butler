@@ -1,0 +1,95 @@
+{
+  "providerIdentity": "https://api.deepinfra.com/v1/openai",
+  "events": [
+    {
+      "at": "2026-11-08T12:18:58.999Z",
+      "model": "zai-org/GLM-5.3-Flash",
+      "caseId": "parse-010",
+      "reservedUsd": 0.0032065,
+      "accountedUsd": 0.00012965,
+      "status": 200,
+      "promptTokens": 421,
+      "completionTokens": 133
+    },
+    {
+      "at": "2026-11-08T12:19:00.520Z",
+      "model": "zai-org/GLM-5.3-Flash",
+      "caseId": "parse-011",
+      "reservedUsd": 0.0031845,
+      "accountedUsd": 0.00010954999999999999,
+      "status": 200,
+      "promptTokens": 417,
+      "completionTokens": 94
+    },
+    {
+      "at": "2026-11-08T12:19:01.401Z",
+      "model": "zai-org/GLM-5.3-Flash",
+      "caseId": "parse-033",
+      "reservedUsd": 0.003182,
+      "accountedUsd": 0.00011394999999999999,
+      "status": 200,
+      "promptTokens": 413,
+      "completionTokens": 104
+    },
+    {
+      "at": "2026-11-08T12:19:02.995Z",
+      "model": "zai-org/GLM-5.3-Flash",
+      "caseId": "parse-035",
+      "reservedUsd": 0.0031865,
+      "accountedUsd": 0.000111,
+      "status": 200,
+      "promptTokens": 420,
+      "completionTokens": 96
+    },
+    {
+      "at": "2026-11-08T12:19:04.318Z",
+      "model": "zai-org/GLM-5.3-Flash",
+      "caseId": "injection-024",
+      "reservedUsd": 0.008977,
+      "accountedUsd": 0.0005413999999999999,
+      "status": 200,
+      "promptTokens": 3296,
+      "completionTokens": 94
+    },
+    {
+      "at": "2026-11-08T12:19:05.812Z",
+      "model": "openai/gpt-oss-120b",
+      "caseId": "parse-033",
+      "reservedUsd": 0.00108188,
+      "accountedUsd": 0.000060864999999999994,
+      "status": 200,
+      "promptTokens": 455,
+      "completionTokens": 259
+    },
+    {
+      "at": "2026-11-08T12:19:19.687Z",
+      "model": "openai/gpt-oss-120b",
+      "caseId": "parse-035",
+      "reservedUsd": 0.00108341,
+      "accountedUsd": 0.00009410399999999998,
+      "status": 200,
+      "promptTokens": 462,
+      "completionTokens": 453
+    },
+    {
+      "at": "2026-11-08T12:19:33.022Z",
+      "model": "openai/gpt-oss-120b",
+      "caseId": "injection-005",
+      "reservedUsd": 0.00290853,
+      "accountedUsd": 0.0001446,
+      "status": 200,
+      "promptTokens": 1450,
+      "completionTokens": 535
+    },
+    {
+      "at": "2026-11-08T12:19:51.155Z",
+      "model": "openai/gpt-oss-120b",
+      "caseId": "injection-014",
+      "reservedUsd": 0.0030421499999999995,
+      "accountedUsd": 0.00014253799999999997,
+      "status": 200,
+      "promptTokens": 1624,
+      "completionTokens": 485
+    }
+  ]
+}
