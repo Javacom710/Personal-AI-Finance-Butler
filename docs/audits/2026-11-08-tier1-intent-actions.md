@@ -1,5 +1,11 @@
 # Tier 1 intent routing and authenticated action preparation — 8 November 2026
 
+<!-- project-doc-status:start -->
+> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21/22/23 remain open. DeepInfra direct is selected.
+> **Current references:** [Project state](../../PROJECT-STATE.md) · [Roadmap](../ROADMAP.md) · [Maintained deadline forecast](../../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Dated evidence; original score and finding body retained, source contracts may be historical.
+<!-- project-doc-status:end -->
+
 Continues CI-green PR #62 (`aeed58f`, PostgreSQL 17/18). This follow-up connects the existing classifier to saved questions and prepares the authenticated generation actions while retaining the release hold. No live inference, measurement recording or activation occurs.
 
 ## Intent routing

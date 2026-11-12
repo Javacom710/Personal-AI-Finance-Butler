@@ -1,5 +1,11 @@
 # Tier 1 parse-v3 failure investigation — 8 November 2026
 
+<!-- project-doc-status:start -->
+> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21/22/23 remain open. DeepInfra direct is selected.
+> **Current references:** [Project state](../../PROJECT-STATE.md) · [Roadmap](../ROADMAP.md) · [Maintained deadline forecast](../../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Dated evidence; original score and finding body retained, source contracts may be historical.
+<!-- project-doc-status:end -->
+
 Continues CI-green PR #65 (`17904bc`, PostgreSQL 17/18) without accepting model-quality failures, recording deployment evidence or releasing generation. The importer and the twelve-row manifest remain ready for owner review. This follow-up investigates the remaining parse/injection failures in the current full campaign.
 
 ## Fixed probe plan

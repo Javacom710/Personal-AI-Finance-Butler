@@ -1,5 +1,11 @@
 # Groq measurement workflow
 
+<!-- project-doc-status:start -->
+> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21/22/23 remain open. DeepInfra direct is selected.
+> **Current references:** [Project state](../../PROJECT-STATE.md) · [Roadmap](../../docs/ROADMAP.md) · [Maintained deadline forecast](../../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Dated evidence; original score and finding body retained, source contracts may be historical.
+<!-- project-doc-status:end -->
+
 Status: offline reports finalized. 48/610 results retained; 562 cases unattempted; 1 unanswered.
 
 | Tier | Model | Suite | Results | Passed / answered | Unanswered | Coverage |

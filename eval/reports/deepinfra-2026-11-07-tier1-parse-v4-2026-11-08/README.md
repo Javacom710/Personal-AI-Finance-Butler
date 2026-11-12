@@ -1,5 +1,11 @@
 # Missing-amount clarification and fresh Tier 1 parse-v4 campaign — 8 November 2026 UTC
 
+<!-- project-doc-status:start -->
+> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21/22/23 remain open. DeepInfra direct is selected.
+> **Current references:** [Project state](../../../PROJECT-STATE.md) · [Roadmap](../../../docs/ROADMAP.md) · [Maintained deadline forecast](../../../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Dated evidence; original score and finding body retained, source contracts may be historical.
+<!-- project-doc-status:end -->
+
 Implementation `dcde44e` makes the existing missing-amount expectation explicit in the shared production prompt: keep amount null, use medium/low confidence and explain that the amount is missing, even when kind/date/account are clear. Parsing advances to **v4**. The corpus, scorer, competing-amount expectation, schema, model order, profiles, token budgets and routing gates are unchanged.
 
 ## Complete fresh evidence

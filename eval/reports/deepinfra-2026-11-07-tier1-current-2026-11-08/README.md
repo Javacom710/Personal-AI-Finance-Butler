@@ -1,5 +1,11 @@
 # Current-contract Tier 1 qualification — 8 November 2026
 
+<!-- project-doc-status:start -->
+> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21/22/23 remain open. DeepInfra direct is selected.
+> **Current references:** [Project state](../../../PROJECT-STATE.md) · [Roadmap](../../../docs/ROADMAP.md) · [Maintained deadline forecast](../../../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Dated evidence; original score and finding body retained, source contracts may be historical.
+<!-- project-doc-status:end -->
+
 This campaign measures the selected **GLM-5.3-Flash → GPT-OSS-120B** pair on DeepInfra direct, using the reconciled ADR-55 contracts: parse/classify v2, tool-select v3, grounding/robustness v5 and injection v4. Each model receives all six suites (190 cases), with the existing production request profiles and output budgets. Only synthetic evaluation fixtures are sent. Historical reports remain unchanged; no scores are imported or rescored.
 
 The runner now supports an explicit `--selected-tier1` plan, requiring a named campaign. Its default Qwen candidate plan is preserved. The plan and its entries participate in the source fingerprint, so changing plans cannot overwrite or resume another campaign. Reports cover only the selected tier; no advanced or vision eligibility is implied.

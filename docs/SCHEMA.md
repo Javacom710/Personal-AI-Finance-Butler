@@ -1,5 +1,11 @@
 # Database Schema
 
+<!-- project-doc-status:start -->
+> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21/22/23 remain open. DeepInfra direct is selected.
+> **Current references:** [Project state](../PROJECT-STATE.md) · [Roadmap](ROADMAP.md) · [Maintained deadline forecast](../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Technical/operational reference; current state and roadmap govern completion.
+<!-- project-doc-status:end -->
+
 PostgreSQL 17. Written as DDL sketches — the authoritative definitions will be the Drizzle table files under `src/server/db/schema/`, from which `drizzle-kit` generates the checked-in migrations.
 
 ## Conventions

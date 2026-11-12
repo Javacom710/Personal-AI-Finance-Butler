@@ -1,5 +1,11 @@
 # Market Data — Phase 6 architecture and provider review
 
+<!-- project-doc-status:start -->
+> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21/22/23 remain open. DeepInfra direct is selected.
+> **Current references:** [Project state](../PROJECT-STATE.md) · [Roadmap](ROADMAP.md) · [Maintained deadline forecast](../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Design/review reference; canonical implementation docs govern.
+<!-- project-doc-status:end -->
+
 **Status:** design and provider review complete 2026-08-18. **Phase 6 implementation has NOT
 started.** No provider package installed, no adapter written, no source file, schema, migration, API
 or UI changed by this review.

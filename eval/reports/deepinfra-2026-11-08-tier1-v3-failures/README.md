@@ -1,5 +1,11 @@
 # Tier 1 current-contract failure follow-up — 8 November 2026
 
+<!-- project-doc-status:start -->
+> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21/22/23 remain open. DeepInfra direct is selected.
+> **Current references:** [Project state](../../../PROJECT-STATE.md) · [Roadmap](../../../docs/ROADMAP.md) · [Maintained deadline forecast](../../../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Dated evidence; original score and finding body retained, source contracts may be historical.
+<!-- project-doc-status:end -->
+
 A fixed fifteen-case diagnostic follow-up to the [parse-v3 qualification campaign](../deepinfra-2026-11-07-tier1-parse-v3-2026-11-08/README.md). It investigates that campaign's remaining parse and injection failures without changing prompts, scorers, versions, budgets, profiles or model order. Each selected failure receives one fresh request. Original qualification results remain authoritative and unchanged; these selected-case observations are not pooled into a new score or a reliability estimate.
 
 Implementation commit `f1acc50` adds the finite plan and output-free counters. The [diagnostic report](2026-11-08T14-52-22-109Z.json) binds source fingerprint `cd64f2aaacfd0f68f9e0cb931a229d7f07c7187f88cf85b406101ae52da8fd1b`, the named plan, provider/profile, parse v3 or injection v4, production token budget and case ID. All **15/15 requests answered**, with five passing observations and ten repeated failures. No request was retried. No model text, reasoning, returned field value or tool arguments are retained.

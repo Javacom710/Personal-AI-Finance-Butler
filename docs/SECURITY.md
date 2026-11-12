@@ -1,5 +1,11 @@
 # Security & Privacy
 
+<!-- project-doc-status:start -->
+> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21/22/23 remain open. DeepInfra direct is selected.
+> **Current references:** [Project state](../PROJECT-STATE.md) · [Roadmap](ROADMAP.md) · [Maintained deadline forecast](../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Technical/operational reference; current state and roadmap govern completion.
+<!-- project-doc-status:end -->
+
 This application holds a complete picture of one person's finances. The threat model is: a remote attacker on the public internet, a compromised browser extension, a leaked credential, a lost backup, and a prompt-injection payload arriving inside the user's own data.
 
 ## 0. Authentication ≠ Authorization

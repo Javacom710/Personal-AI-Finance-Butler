@@ -70,6 +70,9 @@ export function PriceDot({ price }: { price: PriceResult }) {
       : [freshnessTone(price.freshness), `${describeAge(price)}, from ${price.source}`];
 
   return (
+    // `relative`: the screen-reader text is absolutely positioned, and without a
+    // positioned ancestor inside the table's scroll container it escapes that
+    // container and widens the whole page on a phone.
     <span className="relative inline-flex items-center gap-1.5">
       <span className={`inline-block size-1.5 rounded-full ${tone}`} title={title} aria-hidden="true" />
       <span className="sr-only">{title}</span>

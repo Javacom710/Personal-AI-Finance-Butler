@@ -1,5 +1,11 @@
 # Read-only assistant workload evidence — 7 November 2026
 
+<!-- project-doc-status:start -->
+> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21/22/23 remain open. DeepInfra direct is selected.
+> **Current references:** [Project state](../../PROJECT-STATE.md) · [Roadmap](../ROADMAP.md) · [Maintained deadline forecast](../../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Dated evidence; original score and finding body retained, source contracts may be historical.
+<!-- project-doc-status:end -->
+
 Status inspection confirmed that reconciliation PR #51 remains open and mergeable without outstanding review threads, and final-head CI run [42385230550](https://github.com/Javacom710/Personal-AI-Finance-Butler/actions/runs/42385230550) passes on PostgreSQL 17 and 18. No lineup is accepted on this branch; recording and activation remain blocked. This continuation is limited to the already-approved Phase 9 assistant slice and is stacked on #51.
 
 ## Change

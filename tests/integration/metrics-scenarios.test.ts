@@ -134,6 +134,7 @@ describe('financialMetrics', () => {
     expect(rToDbString(m.commitments.coverage.value!)).toBe('5.8571714286');
     expect(toDbString(m.commitments.surplus)).toBe('170001.0000');
     expect(m.commitments.unconvertedCount).toBe(0);
+    expect(m.cashExcludedCount).toBe(0);
   });
 
   it('counts every pending expense, past the display list\'s row cap', async () => {
@@ -162,6 +163,37 @@ describe('financialMetrics', () => {
     // 10 Aug … 9 Sep inclusive is 31 days × 8 expense rules × ₹10.
     expect(m.commitments.commitmentCount).toBe(248);
     expect(toDbString(m.commitments.commitmentsDue)).toBe('2480.0000');
+  });
+
+  it('withholds runway and coverage when a cash balance has no exchange rate', async () => {
+    const bank = await makeAccount(fixture.ctx, { name: 'Bank', openingBalance: '90000' });
+    // A dollar account with money in it and no USD rate loaded.
+    await makeAccount(fixture.ctx, { name: 'US Bank', currencyCode: 'USD', openingBalance: '5000' });
+    await record(fixture.ctx, { kind: 'expense', accountId: bank, categoryId: food, amount: '30000', bookedOn: '2026-07-10' });
+    must(
+      await write(fixture.ctx, (w) =>
+        createRule(w, {
+          name: 'Rent',
+          template: { kind: 'expense', accountId: bank, categoryId: housing, amount: '35000', description: 'Rent' },
+          rrule: 'FREQ=MONTHLY;BYMONTHDAY=1',
+          startsOn: '2026-09-01',
+          endsOn: null,
+          autoPost: false,
+        }),
+      ),
+    );
+    must(await write(fixture.ctx, (w) => materialiseOccurrences(w)));
+
+    const m = must(await financialMetrics(fixture.ctx));
+    // The rupee balance is still reported, as a floor, and flagged incomplete.
+    expect(toDbString(m.liquidCash)).toBe('60000.0000');
+    expect(m.cashExcludedCount).toBe(1);
+    // Neither ratio is stated on a cash figure known to be short.
+    expect(m.runwayMonths.value).toBeNull();
+    expect(m.runwayMonths.reason).toBe('no_fx_rate');
+    expect(m.commitments.coverage.value).toBeNull();
+    expect(m.commitments.coverage.reason).toBe('no_fx_rate');
+    expect(toDbString(m.commitments.commitmentsDue)).toBe('35000.0000');
   });
 
   it('widens both windows on request', async () => {

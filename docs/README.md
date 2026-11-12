@@ -1,5 +1,11 @@
 # Documentation Index
 
+<!-- project-doc-status:start -->
+> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21/22/23 remain open. DeepInfra direct is selected.
+> **Current references:** [Project state](../PROJECT-STATE.md) · [Roadmap](ROADMAP.md) · [Maintained deadline forecast](../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Documentation navigation and current status.
+<!-- project-doc-status:end -->
+
 Durable technical reference for the Personal Finance & Investment OS. Read in this order when picking up implementation work.
 
 | Document | Contents |
@@ -13,6 +19,8 @@ Durable technical reference for the Personal Finance & Investment OS. Read in th
 | [SECURITY.md](SECURITY.md) | Auth, sessions, secrets, transport, headers, data boundaries, export/delete |
 | [TESTING.md](TESTING.md) | Test strategy, layers, fixtures, golden scenarios, coverage bar |
 | [DEPLOYMENT.md](DEPLOYMENT.md) | Environments, hosting, TLS, backup/restore, operations |
+| [../PROJECT-DEADLINE-FORECAST.md](../PROJECT-DEADLINE-FORECAST.md) | Maintained project-end forecast against actual progress; frozen baseline, current milestones and variance |
+| [DOCUMENTATION-STATUS.md](DOCUMENTATION-STATUS.md) | All-Markdown review inventory and historical-evidence preservation boundary |
 | [ROADMAP.md](ROADMAP.md) | Phased delivery plan with per-phase definition of done |
 | [RECOVERY-2026-10.md](RECOVERY-2026-10.md) | The October 2026 disk-failure recovery: what was rebuilt, the current blocker register, the order of remaining work, and how agents work from GitHub |
 | [AI-INFRASTRUCTURE-DESIGN.md](AI-INFRASTRUCTURE-DESIGN.md) | The Phase 7 design review: read-only AI boundary, routing, budgets, open decisions OD-17/OD-18 |
@@ -28,4 +36,4 @@ Durable technical reference for the Personal Finance & Investment OS. Read in th
 - `ADR-nn` — cross-reference into [DECISIONS.md](DECISIONS.md).
 - Code identifiers are written as they will appear in the repository.
 
-Status (2026-11-07): **Phases 0–7 are built and verified; Phase 8 (model evaluation) has a selected Tier 1 lineup awaiting current-contract measurements; Phase 9 is built but disabled.** [ROADMAP.md](ROADMAP.md) "Where the project stands" is the current summary and [PROJECT-STATE.md](../PROJECT-STATE.md) the full record. A design document describes shipped behaviour only where ROADMAP marks that phase complete.
+Status (12 November 2026): **Phases 0–7 are built; Phase 8 has complete selected Tier 1 parse-v4 evidence with quality/release review open; Phase 9 is built but live generation remains disabled.** Overview, deterministic Scenarios, Money health metrics and TWR are built. Phase 10 UX is partial; Phases 11–14 remain unfinished. OD-21/22 return correctness and OD-23 AI freshness disclosure remain open. [ROADMAP.md](ROADMAP.md) is the current summary; [PROJECT-STATE.md](../PROJECT-STATE.md) retains dated checkpoints. The [latest Claude reconciliation](audits/2026-11-12-claude-latest-handoff.md) records source pins and verification. The forecast is core **18 December 2026**, full scope **15 January 2027**, low confidence. A design describes shipped behaviour only where the roadmap and implementation confirm it.

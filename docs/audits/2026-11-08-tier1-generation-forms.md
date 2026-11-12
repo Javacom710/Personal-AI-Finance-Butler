@@ -1,5 +1,11 @@
 # Tier 1 generation-form preparation — 8 November 2026
 
+<!-- project-doc-status:start -->
+> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21/22/23 remain open. DeepInfra direct is selected.
+> **Current references:** [Project state](../../PROJECT-STATE.md) · [Roadmap](../ROADMAP.md) · [Maintained deadline forecast](../../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Dated evidence; original score and finding body retained, source contracts may be historical.
+<!-- project-doc-status:end -->
+
 Continues CI-green PR #63 at `4627153` (PostgreSQL 17/18). Adds actual client forms for transaction descriptions and questions inside owner-loaded saved conversations, with the production release hold still false. The home assistant view directs a future released user to create/open a conversation; its current held view remains disabled.
 
 Both forms submit only the existing action arguments: description text, or question text and conversation identifier. Owner/model/tier fields and financial confirmation are absent. The server actions independently authenticate and check the code-only hold before context creation. A client boolean cannot authorize generation. No provider/runtime/service implementation, prompt, classifier, scorer, schema, gate value, model order, report or budget configuration changes.

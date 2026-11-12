@@ -1,5 +1,11 @@
 # Phase 8 reconciliation after the PR merges — 7 November 2026
 
+<!-- project-doc-status:start -->
+> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21/22/23 remain open. DeepInfra direct is selected.
+> **Current references:** [Project state](../../PROJECT-STATE.md) · [Roadmap](../ROADMAP.md) · [Maintained deadline forecast](../../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Dated evidence; original score and finding body retained, source contracts may be historical.
+<!-- project-doc-status:end -->
+
 The previously uncommitted DeepInfra evaluation implementation and evidence were reconciled onto main `44e53ce86aaeb1a4178a25a3efaff0b83866809c` in an isolated worktree, preserving the original checkout. This brings the finite no-record coordinator, bounded output-free diagnostics, current prompt contracts, numeric-presentation scoring correction and independent model/tier eligibility together with the merged disabled Phase 9 features and unactivated OpenRouter infrastructure.
 
 ## Evidence and integration boundaries

@@ -1,5 +1,11 @@
 # Testing Strategy
 
+<!-- project-doc-status:start -->
+> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21/22/23 remain open. DeepInfra direct is selected.
+> **Current references:** [Project state](../PROJECT-STATE.md) · [Roadmap](ROADMAP.md) · [Maintained deadline forecast](../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Technical/operational reference; current state and roadmap govern completion.
+<!-- project-doc-status:end -->
+
 The bar: **a feature is not done until the calculation behind it is tested, including its edge cases.** Coverage percentage is not the target; coverage of the financial engine's edge cases is.
 
 ## 1. Layers

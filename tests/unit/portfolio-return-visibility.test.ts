@@ -6,6 +6,7 @@ import { Money, currency } from '@/lib/decimal/money';
 import { Rate } from '@/lib/decimal/rate';
 import { isoDate } from '@/lib/date';
 import { metric } from '@/lib/metric';
+import type { PortfolioTwrResult } from '@/server/services/portfolio';
 import { canShowPortfolioReturns } from '@app/(app)/investments/_return-visibility';
 
 const mocks = vi.hoisted(() => ({ portfolio: vi.fn(), instruments: vi.fn() }));
@@ -46,6 +47,10 @@ import InvestmentsPage from '@app/(app)/investments/page';
 import PerformancePage from '@app/(app)/investments/performance/page';
 
 const money = (value: string) => Money.fromDbString(value, currency('INR'));
+const twrDetail = (staleToday = false, staleValuations = 0) => metric<PortfolioTwrResult>({
+  twr: Rate.of('0.25'), annualised: false, subPeriods: 2, days: 50,
+  valuations: 3, staleValuations, staleToday,
+});
 const base = () => ({
   asOf: isoDate('2026-11-11'),
   investedCapital: money('1000'),
@@ -72,7 +77,7 @@ const base = () => ({
 
 beforeEach(() => {
   mocks.instruments.mockResolvedValue([{ id: 'instrument' }]);
-  mocks.portfolio.mockResolvedValue({ ok: true, value: { summary: base(), holdings: [] } });
+  mocks.portfolio.mockResolvedValue({ ok: true, value: { summary: base(), holdings: [], twr: twrDetail() } });
 });
 
 it.each([InvestmentsPage, PerformancePage])(
@@ -94,7 +99,7 @@ it.each([InvestmentsPage, PerformancePage])(
   async (page) => {
     mocks.portfolio.mockResolvedValue({
       ok: true,
-      value: { summary: { ...base(), unpricedInstruments: [], marketValue: money('0') }, holdings: [] },
+      value: { summary: { ...base(), unpricedInstruments: [], marketValue: money('0') }, holdings: [], twr: twrDetail() },
     });
     const html = renderToStaticMarkup(await page());
     expect(html).toContain('return:999%');
@@ -102,6 +107,25 @@ it.each([InvestmentsPage, PerformancePage])(
     expect(html).not.toContain('Needs every holding priced');
   },
 );
+
+it.each([false, true])('discloses historical TWR staleness without weakening the missing-price guard (stale today: %s)', async staleToday => {
+  mocks.portfolio.mockResolvedValue({ ok: true, value: {
+    summary: { ...base(), unpricedInstruments: [] }, holdings: [], twr: twrDetail(staleToday, 1),
+  } });
+  const priced = renderToStaticMarkup(await PerformancePage());
+  expect(priced).toContain('return:999%');
+  expect(priced).toContain('1 of 3 valuations used a');
+  expect(priced).toContain('stale');
+  expect(priced.includes('not to today')).toBe(staleToday);
+
+  mocks.portfolio.mockResolvedValue({ ok: true, value: {
+    summary: base(), holdings: [], twr: twrDetail(staleToday, 1),
+  } });
+  const partial = renderToStaticMarkup(await PerformancePage());
+  expect(partial).toContain('Needs every holding priced');
+  expect(partial).not.toContain('return:999%');
+  expect(partial).not.toContain('1 of 3 valuations used a');
+});
 
 it('does not infer complete coverage from the cost percentage for a zero-cost unpriced holding', () => {
   expect(canShowPortfolioReturns(base())).toBe(false);

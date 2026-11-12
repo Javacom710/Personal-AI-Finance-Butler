@@ -1,0 +1,154 @@
+{
+  "reviewDate": "2026-11-12",
+  "sources": {
+    "main": "50b604a87c8d0f4bbe3b67b96cd03ec41c78b77e",
+    "claude": "259fa9107d6e13185e2f715fd1b6c229f5207d3b",
+    "retainedIndependentEvidence": "7037372ca82afbd46d19f395c733b29a056bb182"
+  },
+  "local": {
+    "unitProperty": 2705,
+    "integrationPostgres17": 706,
+    "totalTests": 3411,
+    "typecheck": "pass",
+    "lint": "pass",
+    "productionBuild": "pass",
+    "clientSecretScan": "pass",
+    "integrity": {
+      "passed": 35,
+      "failed": 0,
+      "warnings": 0
+    },
+    "browserChecks": [
+      {
+        "workflow": "password + TOTP + authenticated redirect",
+        "passed": true
+      },
+      {
+        "route": "/",
+        "width": 1280,
+        "passed": true
+      },
+      {
+        "route": "/money",
+        "width": 1280,
+        "passed": true
+      },
+      {
+        "route": "/investments",
+        "width": 1280,
+        "passed": true
+      },
+      {
+        "route": "/investments/holdings",
+        "width": 1280,
+        "passed": true
+      },
+      {
+        "route": "/investments/performance",
+        "width": 1280,
+        "passed": true
+      },
+      {
+        "route": "/investments/scenarios",
+        "width": 1280,
+        "passed": true
+      },
+      {
+        "route": "/settings",
+        "width": 1280,
+        "passed": true
+      },
+      {
+        "route": "/",
+        "width": 375,
+        "passed": true
+      },
+      {
+        "route": "/money",
+        "width": 375,
+        "passed": true
+      },
+      {
+        "route": "/investments",
+        "width": 375,
+        "passed": true
+      },
+      {
+        "route": "/investments/holdings",
+        "width": 375,
+        "passed": true
+      },
+      {
+        "route": "/investments/performance",
+        "width": 375,
+        "passed": true
+      },
+      {
+        "route": "/investments/scenarios",
+        "width": 375,
+        "passed": true
+      },
+      {
+        "route": "/settings",
+        "width": 375,
+        "passed": true
+      },
+      {
+        "workflow": "real GET scenario form with 0% assumptions",
+        "passed": true
+      },
+      {
+        "workflow": "invalid scenario form handled without server error",
+        "passed": true
+      },
+      {
+        "workflow": "partial pricing withholds aggregate returns",
+        "route": "/",
+        "passed": true
+      },
+      {
+        "workflow": "partial pricing withholds aggregate returns",
+        "route": "/investments",
+        "passed": true
+      },
+      {
+        "workflow": "partial pricing withholds aggregate returns",
+        "route": "/investments/performance",
+        "passed": true
+      }
+    ],
+    "browserPageErrors": 0
+  },
+  "preservation": {
+    "markdown": 119,
+    "navigationLinks": 357,
+    "historicalBodies": 86,
+    "unchangedMachineReadableEvidenceFiles": 204,
+    "retainedJsonFiles": 16,
+    "diagnosticLedgerEvents": 33,
+    "instructionsIdentical": true,
+    "claudeServiceAndIntegrationFilesUnchanged": true,
+    "aiRuntimeConfigSuitesFixturesUnchanged": true
+  },
+  "v4Preview": {
+    "rows": 12,
+    "digest": "0b576c87529b09d01ac1411a5fb9974359f0f7787fa265155d5f62c27d591e9b",
+    "networkDenied": true
+  },
+  "spending": {
+    "newPaidRequests": 0,
+    "accountedUsd": 2.07957372,
+    "remainingUsd": 7.92042628,
+    "capUsd": 10
+  },
+  "release": {
+    "generationHoldEnabled": false,
+    "deploymentEvidenceRecorded": false,
+    "openFindings": [
+      "OD-21",
+      "OD-22",
+      "OD-23"
+    ]
+  },
+  "combinedBranchCi": "Tracked separately in the pull request; local results do not assert CI completion."
+}

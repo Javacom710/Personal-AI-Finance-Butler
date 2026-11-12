@@ -1,5 +1,11 @@
 # Development Roadmap
 
+<!-- project-doc-status:start -->
+> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21/22/23 remain open. DeepInfra direct is selected.
+> **Current references:** [Project state](../PROJECT-STATE.md) · [Roadmap](ROADMAP.md) · [Maintained deadline forecast](../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Technical/operational reference; current state and roadmap govern completion.
+<!-- project-doc-status:end -->
+
 Canonical phase map: **`Workflow Setup.txt`, Phases 0–14** ([ADR-20](DECISIONS.md#adr-20--workflow-setuptxt-is-the-canonical-phase-map)).
 
 Ordering principle: the financial engine is built and tested before any UI depends on it, and the AI is built after every number it can read is already correct.
@@ -12,9 +18,9 @@ A phase is complete only when every box is ticked — including tests, type chec
 
 ---
 
-**Consolidated continuation — 2026-11-11:** the review branch combines #67, #68 and #69 without merging `main` or activating AI. The financial-engine-first strategy remains: keep model arithmetic out of financial truth, finish the OD-21 return-cohort correction, then batch new scenario/metrics tool registration and affected evaluation-contract updates with Tier 2 work before paying for another campaign. The current UI withholds incomplete aggregate returns consistently; the engine defect remains open. [Audit and verification](audits/2026-11-11-claude-continuation.md).
+**Previous consolidated continuation — 2026-11-11:** the review branch combines #67, #68 and #69 without merging `main` or activating AI. The financial-engine-first strategy remains: keep model arithmetic out of financial truth, finish the OD-21 return-cohort correction, then batch new scenario/metrics tool registration and affected evaluation-contract updates with Tier 2 work before paying for another campaign. The current UI withholds incomplete aggregate returns consistently; the engine defect remains open. [Audit and verification](audits/2026-11-11-claude-continuation.md).
 
-## Where the project stands — 2026-11-11
+## Where the project stands — 2026-11-12
 
 | Phase | Status |
 |---|---|
@@ -28,11 +34,14 @@ A phase is complete only when every box is ticked — including tests, type chec
 | 7 — AI Infrastructure | ✅ complete, steps 7.0–7.7 |
 | 8 — Model Evaluation | 🔶 **in progress — selected Tier 1 pair has complete parse-v4 evidence.** GLM-5.3-Flash → GPT-OSS-120B answered all 380 cases; both pass schema/tool routing gates. Exact parsing, grounding and injection failures remain visible for release review. Remaining tiers, deployment recording and reviewed activation are outstanding. Nothing is recorded or activated |
 | 9 — AI Features | 🔶 **built, disabled.** Non-scenario slices are merged. A guarded Tier 1 composition adapter is prepared and fake-response/real-runtime tested, with every model turn and repair passing through runtime controls. Existing question-intent routing and authenticated action wiring are prepared behind a code-only hold that remains false before context creation. Client forms are prepared with retained text, pending/error states and archived/full blocking. Concrete owner quality/release review and deployment evidence recording remain; a digest-pinned importer and exact-row preview are prepared for review. No activation. Scenario analysis waits on OD-18 |
-| 10–14 | not started |
+| 10 — Overview / UX | 🔶 partial: Overview built; phone-width fixes integrated; accessibility, tap targets, performance and live-AI UX acceptance remain |
+| 11–14 | unfinished: security closure, final end-to-end checks, production acceptance and approved bank/Groww integrations |
 
 **Provider:** DeepInfra direct ([ADR-54](DECISIONS.md#adr-54--deepinfra-direct-is-the-phase-8-provider-google-and-anthropic-models-are-excluded)). Groq ([ADR-52](DECISIONS.md#adr-52--the-model-provider-is-any-openai-compatible-api-groq-replaces-nvidia-builds-free-tier)) and NVIDIA Build are historical; OpenRouter is built (#41/#42) but not selected.
 
-**Consolidated verification (2026-11-11):** 3,398 tests pass — 2,635 unit, 68 property, 695 PostgreSQL 17 integration — plus typecheck, lint, production build, client-secret scan and integrity (35 passing, 0 failing). Signed-in production browser checks pass at 1280px/390px, including scenario submission and missing-price/inactive-holding cases. Source Claude #68/#69 pass PostgreSQL 17/18 CI; consolidated-branch CI follows the draft PR.
+**Current reconciliation (2026-11-12):** `main` at `50b604a` plus Claude head `259fa91`; **3,411 local tests pass** (2,705 unit/property, 706 PostgreSQL 17 integration), with typecheck/lint/build/client-secret checks and integrity **35/0**. Current browser checks and PostgreSQL 17/18 branch CI are tracked in the [handoff audit](audits/2026-11-12-claude-latest-handoff.md). TWR now discloses stale valuations; incomplete cash withholds runway/coverage. OD-21 consistent return cohorts, OD-22 unmatched-transfer XIRR and OD-23 AI TWR freshness remain open; coordinate these and affected evaluation contracts before the next paid measurement. The [maintained forecast](../PROJECT-DEADLINE-FORECAST.md) retains core **18 Dec 2026**, full scope **15 Jan 2027**, low confidence. Accounted inference is **US$2.079573720 / US$10**, reconciled from both branches; no new paid requests here.
+
+**Historical consolidated verification (2026-11-11):** 3,398 tests pass — 2,635 unit, 68 property, 695 PostgreSQL 17 integration — plus typecheck, lint, production build, client-secret scan and integrity (35 passing, 0 failing). Signed-in production browser checks pass at 1280px/390px, including scenario submission and missing-price/inactive-holding cases. Source Claude #68/#69 pass PostgreSQL 17/18 CI; consolidated-branch CI follows the draft PR.
 
 **Historical verification (2026-11-07, PR #51 runtime-source head `b651867`):** 2,476 unit and property tests and 619 integration tests pass; typecheck, lint, production build and the client-secret scan are clean; `verify:integrity` reports 35 passing, 0 failing. PostgreSQL 17 and 18 CI is green. The full per-phase record is in [PROJECT-STATE.md](../PROJECT-STATE.md).
 
@@ -58,7 +67,7 @@ A phase is complete only when every box is ticked — including tests, type chec
 1. Decide the ambiguous-amount draft policy before a prompt/scorer change, and review the [concrete Tier 1 release scope and remaining v4 quality failures](audits/2026-11-08-tier1-release-review.md). Forms and authenticated action wiring are prepared; the code-only hold remains false.
 2. Review the prepared exact-row evidence manifest and recording code; execute deployment recording only after owner approval. Activation remains a separate reviewed step for the two prepared Tier 1 workflows.
 3. Tiers 2–4 have no selected models. Advanced analysis, scenarios and documents stay off until each has its own measured lineup.
-4. Deterministic work: Overview (OD-19), scenarios, metrics and TWR engine wiring (OD-18) are now integrated. Fix portfolio returns with unpriced holdings (OD-21). Register the scenario/metrics AI tools together with Tier 2 work, following the owner's recorded timing decision.
+4. Deterministic work: Overview (OD-19), scenarios, metrics and TWR engine wiring (OD-18) are now integrated. Fix consistent portfolio-return cohorts with unpriced holdings (OD-21), unmatched-transfer XIRR (OD-22), and AI TWR freshness (OD-23). Register the scenario/metrics AI tools together with Tier 2 work, following the owner's recorded timing decision.
 
 
 **What unblocks the rest:** OD-20 (Phase 8 lineup) gates Phase 9 activation and so every later phase's AI checks. OD-18's engine work is done (2026-11-11): scenarios, metrics and TWR wiring. The TWR wiring left the frozen grounding results unchanged, so no suite version advanced. OD-19 (the Overview page) is built and integrated in the consolidated branch.
@@ -515,7 +524,7 @@ product/UI work item scheduled with the Phase 9 UX pass. It does not block Phase
 **Done when**
 - [ ] Overview renders within target on a 5-year dataset without waiting on any AI call
 - [ ] Insights are deterministic and each links to its underlying records
-- [ ] Every page usable at 375 px
+- [ ] Every page usable at 375 px *(Progress 2026-11-11: all 31 signed-in routes plus `/login` audited at 375 px with seeded records. Two defects found and fixed — the Investments overview and Holdings pages scrolled sideways by about 265 px because the price dot's screen-reader text escaped the table's scroll container, and the Settings "this device" badge was clipped off-screen. No route overflows now. Not ticked: the Overview in PR #68 was not in this audit, small inline links were counted but not resized, and the AI pages were checked only in their disabled state.)*
 - [ ] Keyboard path for transaction entry verified end to end
 - [ ] All performance targets met, or an exception documented
 
