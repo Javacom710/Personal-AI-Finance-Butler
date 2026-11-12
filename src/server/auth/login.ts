@@ -14,7 +14,7 @@ import 'server-only';
  * wrong, or the account does not exist.
  */
 
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull, lt, or } from 'drizzle-orm';
 
 import { db } from '../db/client';
 import { users } from '../db/schema';
@@ -165,7 +165,24 @@ export async function verifySecondFactorStep(
   const result = verifyTotp(secret, user.email, code, user.lastTotpStep);
 
   if (result.ok) {
-    await db().update(users).set({ lastTotpStep: result.step }).where(eq(users.id, user.id));
+    // Claim the step atomically: two requests carrying the same code can both
+    // pass verifyTotp against the step they read, but only one can move the
+    // stored step forward. The loser is a replay and gets no session.
+    const claimed = await db()
+      .update(users)
+      .set({ lastTotpStep: result.step })
+      .where(
+        and(
+          eq(users.id, user.id),
+          or(isNull(users.lastTotpStep), lt(users.lastTotpStep, result.step)),
+        ),
+      )
+      .returning({ id: users.id });
+    if (claimed.length === 0) {
+      await recordAuthEvent('totp_failure', user.id, ctx);
+      log.warn('totp code replayed', { userId: user.id });
+      return { status: 'replayed' };
+    }
     return { status: 'ok', session: await completeLogin(user.id, ctx) };
   }
 

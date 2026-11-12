@@ -42,7 +42,7 @@ Neither question is ever answered by a model ([AI-SYSTEM.md §15](AI-SYSTEM.md#1
 - TOTP (RFC 6238), SHA-1, 6 digits, 30-second step, ±1 step drift window.
 - Secret encrypted at rest with AES-256-GCM using `APP_ENCRYPTION_KEY` (32 bytes, from the environment, never in the database).
 - 10 single-use recovery codes, stored as Argon2id hashes, shown once.
-- A used TOTP code is rejected for its remaining window (replay guard keyed on `user_id + code_window`).
+- A used TOTP code is rejected for its remaining window. The consumed step is stored in `users.last_totp_step`, and sign-in claims it atomically (a conditional `UPDATE … WHERE last_totp_step IS NULL OR last_totp_step < step`), so two concurrent requests carrying the same code cannot both get a session: only the one whose update matches a row is issued one, and the other is treated as a replay.
 - **Mandatory.** There is no "skip 2FA" path. A single-user finance app with a password-only login is one credential-stuffing hit from total compromise.
 
 ### Lockout

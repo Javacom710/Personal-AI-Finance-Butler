@@ -1,5 +1,6 @@
 import { Secret, TOTP } from 'otpauth';
 import { eq, sql } from 'drizzle-orm';
+import { Pool } from 'pg';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { createAccount } from '@/server/auth/account';
@@ -164,6 +165,34 @@ describe('login: second factor', () => {
     expect(replay.status).toBe('replayed');
     // The replay must not have produced a second session.
     expect(await db().select().from(sessions)).toHaveLength(1);
+  });
+
+  it('issues one session when the same code arrives twice concurrently', async () => {
+    const user = await createTestUser();
+    const code = totpCode(user.totpSecret, user.email);
+
+    // Hold each step write for 300 ms so both requests have read the old step
+    // before either commits — otherwise the race window is too narrow to hit.
+    const admin = new Pool({ connectionString: process.env['TEST_DATABASE_URL'], max: 1 });
+    await admin.query(`
+      create or replace function test_slow_totp_step() returns trigger language plpgsql as $$
+      begin perform pg_sleep(0.3); return new; end $$`);
+    await admin.query(`
+      create trigger test_slow_totp_step before update on users for each row
+      when (old.last_totp_step is distinct from new.last_totp_step)
+      execute function test_slow_totp_step()`);
+    try {
+      const results = await Promise.all([
+        verifySecondFactorStep(user.userId, code, NO_CONTEXT),
+        verifySecondFactorStep(user.userId, code, NO_CONTEXT),
+      ]);
+      expect(results.map((r) => r.status).sort()).toEqual(['ok', 'replayed']);
+      expect(await db().select().from(sessions)).toHaveLength(1);
+    } finally {
+      await admin.query('drop trigger if exists test_slow_totp_step on users');
+      await admin.query('drop function if exists test_slow_totp_step()');
+      await admin.end();
+    }
   });
 
   it('persists the consumed step, so a restart does not reopen the replay window', async () => {
