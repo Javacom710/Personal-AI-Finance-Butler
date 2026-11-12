@@ -1,0 +1,122 @@
+{
+  "identity": "58585866e06d4b16ba2cf7f8d8547b0581a6946a7dd250d2ca9dd3aac092f0df",
+  "providerIdentity": "https://api.deepinfra.com/v1/openai",
+  "model": "zai-org/GLM-5.3-Flash",
+  "tier": 1,
+  "suite": "robustness",
+  "version": 5,
+  "maxTokens": 2048,
+  "startedAt": "2026-11-08T12:42:34.068Z",
+  "cases": [
+    {
+      "caseId": "robustness-001",
+      "suite": "robustness",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 2233,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "robustness-002",
+      "suite": "robustness",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 1224,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "robustness-003",
+      "suite": "robustness",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": false,
+      "latencyMs": 1214,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "robustness-004",
+      "suite": "robustness",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 1128,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "robustness-005",
+      "suite": "robustness",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 1391,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "robustness-006",
+      "suite": "robustness",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 1245,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "robustness-007",
+      "suite": "robustness",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": false,
+      "latencyMs": 848,
+      "schemaValid": null,
+      "toolCallValid": false,
+      "errorClass": null,
+      "finishReason": "tool_calls"
+    },
+    {
+      "caseId": "robustness-008",
+      "suite": "robustness",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": false,
+      "latencyMs": 1882,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "robustness-009",
+      "suite": "robustness",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": false,
+      "latencyMs": 1542,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    },
+    {
+      "caseId": "robustness-010",
+      "suite": "robustness",
+      "modelId": "zai-org/GLM-5.3-Flash",
+      "passed": true,
+      "latencyMs": 1703,
+      "schemaValid": null,
+      "toolCallValid": null,
+      "errorClass": null,
+      "finishReason": "stop"
+    }
+  ]
+}

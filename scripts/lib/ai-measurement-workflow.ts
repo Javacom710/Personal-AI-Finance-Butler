@@ -53,7 +53,7 @@ export function assessEntry(entry: Entry, context: Context, checkpointInput?: un
     if (c.identity !== context.identity || c.providerIdentity !== context.providerIdentity || c.model !== entry.model || c.tier !== entry.tier || c.suite !== entry.suite || c.version !== golden.version || c.maxTokens !== budget) throw new Error('Checkpoint provenance differs from the active measurement.');
     if (new Set(c.cases.map(r => r.caseId)).size !== c.cases.length || c.cases.some(r => !expectedIds.has(r.caseId) || r.modelId !== entry.model || r.suite !== entry.suite)) throw new Error('Invalid checkpoint case coverage.');
     if (c.diagnostics) {
-      if (!['analysis', 'document'].includes(entry.suite)) throw new Error('Unexpected diagnostics for this suite.');
+      if (!['analysis', 'document', 'parse', 'injection'].includes(entry.suite)) throw new Error('Unexpected diagnostics for this suite.');
       for (const [id, diagnostic] of Object.entries(c.diagnostics)) {
         const result = c.cases.find(test => test.caseId === id);
         if (!result || result.errorClass !== null || diagnostic.passed !== result.passed) throw new Error('Diagnostic case/verdict differs from retained measurement.');
