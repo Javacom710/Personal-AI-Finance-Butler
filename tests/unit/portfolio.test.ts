@@ -25,7 +25,7 @@ import {
   type InstrumentRef,
 } from '@/server/domain/pricing/valuation';
 import { allocation, allocationTotal, concentration } from '@/server/domain/pricing/allocation';
-import { portfolioSummary, totalReturnByCashCrossCheck } from '@/server/domain/calc/portfolio';
+import { portfolioSummary, totalReturnByCashCrossCheck, type PortfolioInput } from '@/server/domain/calc/portfolio';
 import { unavailable } from '@/lib/metric';
 import { FIFO_INR, INR, buy, dividend, resetSequence, sell } from './_lot-fixtures';
 
@@ -263,7 +263,7 @@ describe('case 10 — an instrument with no price at all', () => {
 
   // OD-21: the unpriced holding's ₹4,000 cost must not read as a ₹4,000 loss.
   describe('OD-21 — returns over the priced cohort only', () => {
-    const base = {
+    const base: PortfolioInput = {
       baseCurrency: INR,
       asOf: isoDate('2026-08-11'),
       investedCapital: result.totalCostBasis, // ₹10,030, priced or not
@@ -279,7 +279,7 @@ describe('case 10 — an instrument with no price at all', () => {
       unpricedInstruments: result.unpriced,
       xirr: unavailable('no_data'),
       twr: unavailable('insufficient_price_history'),
-    } as const;
+    };
 
     it('reproduces the defect when the priced cost basis is not supplied', () => {
       // The pre-fix computation: 9,600 − 10,030 = −430, a loss that is not there.
