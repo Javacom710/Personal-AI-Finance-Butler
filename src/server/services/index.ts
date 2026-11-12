@@ -60,6 +60,7 @@ export * from './networth';
 export * from './budgets';
 export * from './cashflow';
 export * from './categories';
+export * from './dataExport';
 export * from './instruments';
 export * from './investments';
 export * from './portfolio';

@@ -189,6 +189,17 @@ The provider is DeepInfra direct, chosen by the owner, who also excluded Google 
 
 The export is generated server-side, streamed, and rate-limited. It is not emailed and not stored.
 
+**Built 2026-11-12** (`src/server/services/dataExport.ts`, `POST /settings/export`). As built:
+
+- **JSON only.** One document with every exported table. The per-table CSV and the single archive are **not built yet**; a zip writer was not worth a dependency for the first version, and the JSON is complete and round-trippable on its own.
+- **One snapshot.** Every table is read in one `REPEATABLE READ` transaction.
+- **Exact values.** Postgres renders each row; every top-level number becomes its exact text (`"1250.5000"`), and dates stay `YYYY-MM-DD`.
+- **No credentials.** The password hash, TOTP secret, recovery hashes and the `sessions` table (token hashes) are never exported. `users` contributes only id, email, TOTP-enabled and created-at.
+- **Coverage is tested.** `tests/integration/data-export.test.ts` reads the live schema and fails if a table is neither exported nor listed in `EXCLUDED_TABLES` with a reason.
+- **Limit and audit.** Five a day, counted from `audit_log` rows with action `data.export`, which record row counts only. A refused export writes nothing. Over the limit returns `429` with `Retry-After`.
+- **Same-origin POST.** Rejected with `403` when `Sec-Fetch-Site` is not `same-origin`, or, without that header, when `Origin` differs.
+- Not streamed: the document is built in memory. A personal ledger is a few megabytes; revisit if that stops being true.
+
 ### Backup
 Nightly `pg_dump --format=custom`, compressed, encrypted with **age** to a key the user holds, uploaded to off-site object storage. Details, retention, and the restore drill in [DEPLOYMENT.md](DEPLOYMENT.md). The controls that matter here:
 
