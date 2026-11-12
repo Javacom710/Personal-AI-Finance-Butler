@@ -515,7 +515,7 @@ product/UI work item scheduled with the Phase 9 UX pass. It does not block Phase
 **Done when**
 - [ ] Overview renders within target on a 5-year dataset without waiting on any AI call
 - [ ] Insights are deterministic and each links to its underlying records
-- [ ] Every page usable at 375 px
+- [ ] Every page usable at 375 px *(Progress 2026-11-11: all 31 signed-in routes plus `/login` audited at 375 px with seeded records. Two defects found and fixed — the Investments overview and Holdings pages scrolled sideways by about 265 px because the price dot's screen-reader text escaped the table's scroll container, and the Settings "this device" badge was clipped off-screen. No route overflows now. Not ticked: the Overview in PR #68 was not in this audit, small inline links were counted but not resized, and the AI pages were checked only in their disabled state.)*
 - [ ] Keyboard path for transaction entry verified end to end
 - [ ] All performance targets met, or an exception documented
 
