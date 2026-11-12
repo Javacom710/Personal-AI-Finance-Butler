@@ -1,4 +1,17 @@
-import { afterAll, beforeEach, expect, it } from 'vitest';
+import type * as EvalRunner from '@/server/ai/eval/runner';
+
+// Historical-only sandbox: preserve the archived importer integrity/atomicity
+// checks under its original suite versions. Separate production/CLI regressions use
+// the real current contracts and refuse this archive; it is never relabeled.
+vi.mock('@/server/ai/eval/runner', async importOriginal => {
+  const original = await importOriginal<typeof EvalRunner>();
+  return { ...original, MODEL_SUITES: { ...original.MODEL_SUITES,
+    grounding: { ...original.MODEL_SUITES.grounding, version: 5 },
+    robustness: { ...original.MODEL_SUITES.robustness, version: 5 },
+    analysis: { ...original.MODEL_SUITES.analysis, version: 5 },
+  } };
+});
+import { afterAll, beforeEach, expect, it, vi } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { resetEnvCache } from '@/lib/env';
 import { closeDb, db } from '@/server/db/client';

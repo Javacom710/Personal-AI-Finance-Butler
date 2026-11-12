@@ -1,7 +1,7 @@
 # Documentation status and review inventory
 
 <!-- project-doc-status:start -->
-> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21/22/23 remain open. DeepInfra direct is selected.
+> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21 is protected in the engine; OD-22/23 remain open. DeepInfra direct is selected.
 > **Current references:** [Project state](../PROJECT-STATE.md) · [Roadmap](ROADMAP.md) · [Maintained deadline forecast](../PROJECT-DEADLINE-FORECAST.md).
 > **Document role:** Complete documentation review inventory.
 <!-- project-doc-status:end -->
@@ -12,7 +12,11 @@ against actual progress. Root instructions, technical references, reviews, audit
 experiments and evaluation reports are included; dependencies, build output and
 Git internals are excluded.
 
-## Current reconciliation
+## Current continuation — OD-21
+
+The [OD-21 audit](audits/2026-11-12-incomplete-portfolio-returns.md) records the engine protection, preserved partial-value display and v6 financial-contract migration. Current state, roadmap, decisions, investment/AI references, index and forecast are updated. The earlier complete v4 campaign and pinned preview below remain historical: current qualification and import refuse their v5 financial suites. No historical report/audit body or retained campaign JSON is rewritten. This continuation adds one audit; the full 119-file review below remains a dated PR #73 inventory rather than a new all-file review.
+
+## Previous reconciliation — PR #73
 
 Verified published main `50b604a` and latest Claude `259fa91`, then integrated the
 latest TWR hardening with main's return-visibility guard. Overview, deterministic

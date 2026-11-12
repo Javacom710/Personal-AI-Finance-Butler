@@ -1,7 +1,7 @@
 # Investment & Portfolio Domain Model
 
 <!-- project-doc-status:start -->
-> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21/22/23 remain open. DeepInfra direct is selected.
+> **Status reviewed 12 November 2026:** Phase 8 quality/release review open; Phase 9 live AI disabled; Overview, Scenarios, metrics and TWR built; Phase 10 partial. OD-21 is protected in the engine; OD-22/23 remain open. DeepInfra direct is selected.
 > **Current references:** [Project state](../PROJECT-STATE.md) · [Roadmap](ROADMAP.md) · [Maintained deadline forecast](../PROJECT-DEADLINE-FORECAST.md).
 > **Document role:** Technical/operational reference; current state and roadmap govern completion.
 <!-- project-doc-status:end -->
@@ -393,7 +393,7 @@ All three are a single `divRound` over `bigint`s; no `number` appears. `mulQtyRa
 
 **A price is only usable when its currency matches the instrument's.** `instrument_quotes.currency_code ≠ instruments.currency_code` is a provider error, surfaced as `status: 'missing', reason: 'provider_error'` — never a silently mixed multiplication. The database cannot express this cross-table rule; the market-data layer and `verify:integrity` enforce it.
 
-**Unpriced holdings.** `marketValue` is `null`, the holding is excluded from portfolio totals and from `weightPct` denominators, and the portfolio summary reports `pricedValue`, `unpricedCount`, and `coverage = pricedCostBasis / totalCostBasis`. Rendering shows the holding with an explicit "no price" marker rather than a zero, because a zero would read as "worthless".
+**Unpriced holdings.** `marketValue` is `null`, the holding is excluded from priced valuation totals and from `weightPct` denominators, and the portfolio summary reports `pricedValue`, `unpricedCount`, and `coverage = pricedCostBasis / totalCostBasis`. Rendering shows the holding with an explicit "no price" marker rather than a zero, because a zero would read as "worthless".
 
 ### 5.1 Market value of a position as of a date
 
@@ -443,13 +443,13 @@ interface PortfolioSummary {
   costDeployed: Money;          // Σ (tax_lots.cost_total × lot.fx_rate_to_base) over ALL lots
                                 // ever opened, including closed — capital ever committed
   marketValue: Money;           // priced holdings only
-  unrealizedPnl: Money;         // marketValue − investedCapital
+  unrealizedPnl: Money | null;  // marketValue − investedCapital, only with complete pricing
   realizedPnl: Money;           // Σ lot_disposals.base_realized_pnl
   dividends: Money;             // GROSS declared, per I-12
   interest: Money;              // GROSS declared
   fees: Money;                  // Σ positions.fees_total  + portfolio-level fee rows (§6.2)
   taxes: Money;                 // Σ positions.taxes_total + portfolio-level tax rows (§6.2)
-  totalReturn: Money;           // unrealized + realized + dividends + interest − fees − taxes
+  totalReturn: Money | null;    // unrealized + realized + dividends + interest − fees − taxes
 
   unrealizedReturnPct: Rate | null;  // unrealizedPnl / investedCapital
   totalReturnPct: Rate | null;       // totalReturn / costDeployed
@@ -460,6 +460,8 @@ interface PortfolioSummary {
   staleInstruments: InstrumentRef[];
 }
 ```
+
+**Incomplete valuation (OD-21 / ADR-57).** Costs, realised history and cash flows retain the whole requested scope; market value is explicitly a priced subtotal. If any holding lacks a usable base market value, aggregate unrealised P&L and total return are null, and their percentages/XIRR are unavailable with `no_price`. This includes missing FX/corporate-action-suppressed prices and zero-cost unpriced holdings even when cost-weighted coverage is one. Known costs, realised gains, dividends/interest/charges, partial priced value and per-holding results remain available. Do not compare a priced subtotal with full cost or full XIRR cash flows, and do not report a priced-subset return without a matching complete history. Fully priced portfolios keep the calculations below. TWR independently requires its full historical valuation chain.
 
 ### Two denominators, and why using one for both is wrong
 

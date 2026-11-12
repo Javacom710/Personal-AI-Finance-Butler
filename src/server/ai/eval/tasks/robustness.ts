@@ -29,7 +29,7 @@ import 'server-only';
 import type { EvalCase } from '../harness';
 import { amountFor, CURRENT_PRICE, money, rate, replayCase, replaySuite, type GroundingGoldenCase } from './grounding';
 
-export const ROBUSTNESS_SUITE_VERSION = 5;
+export const ROBUSTNESS_SUITE_VERSION = 6;
 
 const r = replayCase('robustness');
 
@@ -116,10 +116,12 @@ export const ROBUSTNESS_CASES: readonly GroundingGoldenCase[] = [
     contradictions: [/\byour (?:car|auto|vehicle) loan(?:$| is| at| has| carries)/i, amountFor('(?:car|auto|vehicle) loan')],
   }),
 
-  // — A negative figure keeps its sign —
+  // — A partial terminal valuation cannot support whole-portfolio XIRR —
   r(10, 'What is my XIRR?', {
     calls: ['portfolio'],
-    required: [[rate('-0.2105550000')]],
+    mentions: [NO_VALUE, /unpriced|missing price|no price|incomplete|partial/i],
+    // No percentage is supplied for XIRR: a sourced-looking rate is still wrong.
+    contradictions: [/\bXIRR\b[^;.!?]{0,40}(?<!not )\b-?\d[\d,.]*\s?%/i],
   }),
 ];
 

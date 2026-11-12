@@ -38,6 +38,6 @@ describe('shared production prompt contracts', () => {
   });
   it('versions parsing while preserving every other suite contract', () => {
     expect(Object.fromEntries(Object.entries(MODEL_SUITES).map(([suite, definition]) => [suite, definition.version])))
-      .toEqual({ parse: 4, classify: 2, 'tool-select': 3, grounding: 5, robustness: 5, injection: 4, analysis: 5, document: 2 });
+      .toEqual({ parse: 4, classify: 2, 'tool-select': 3, grounding: 6, robustness: 6, injection: 4, analysis: 6, document: 2 });
   });
 });

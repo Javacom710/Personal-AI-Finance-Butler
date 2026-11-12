@@ -26,7 +26,7 @@ import {
 } from '@/server/domain/pricing/valuation';
 import { allocation, allocationTotal, concentration } from '@/server/domain/pricing/allocation';
 import { portfolioSummary, totalReturnByCashCrossCheck } from '@/server/domain/calc/portfolio';
-import { unavailable } from '@/lib/metric';
+import { metric, unavailable } from '@/lib/metric';
 import { FIFO_INR, INR, buy, dividend, resetSequence, sell } from './_lot-fixtures';
 
 const money = (m: Money | null): string | null => (m === null ? null : toDbString(m));
@@ -259,6 +259,55 @@ describe('case 10 — an instrument with no price at all', () => {
     expect(nothing.totalReturn).toBeNull();
     expect(nothing.unrealizedReturnPct.reason).toBe('no_price');
     expect(nothing.totalReturnPct.reason).toBe('no_price');
+  });
+
+  it.each([
+    ['partial prices', Rate.of('0.6'), [instrument()]],
+    // Coverage is cost-weighted: a missing zero-cost holding can leave it at 1.
+    ['unpriced zero-cost shares', Rate.one(), [instrument()]],
+    ['rounded coverage', Rate.of('0.9999999999'), []],
+  ] as const)('withholds whole-portfolio returns with %s, retaining known costs and realised income', (_label, coverage, unpricedInstruments) => {
+    const summary = portfolioSummary({
+      baseCurrency: INR, asOf: isoDate('2026-08-11'),
+      investedCapital: Money.of('10000', INR), costDeployed: Money.of('12000', INR),
+      marketValue: Money.of('9000', INR), realizedPnl: Money.of('1000', INR),
+      dividends: Money.of('100', INR), interest: Money.of('50', INR),
+      fees: Money.of('20', INR), taxes: Money.of('10', INR),
+      coverage, staleInstruments: [], unpricedInstruments,
+      // Even a caller supplying an apparently valid XIRR cannot bypass it.
+      xirr: metric(Rate.of('-0.1')), twr: unavailable('insufficient_price_history'),
+    });
+    expect(summary.unrealizedPnl).toBeNull();
+    expect(summary.totalReturn).toBeNull();
+    for (const result of [summary.unrealizedReturnPct, summary.totalReturnPct, summary.xirr]) {
+      expect(result).toEqual(unavailable('no_price'));
+    }
+    expect(money(summary.investedCapital)).toBe('10000.0000');
+    expect(money(summary.costDeployed)).toBe('12000.0000');
+    expect(money(summary.marketValue)).toBe('9000.0000');
+    expect(money(summary.realizedPnl)).toBe('1000.0000');
+    expect(money(summary.dividends)).toBe('100.0000');
+    expect(money(summary.interest)).toBe('50.0000');
+    expect(money(summary.fees)).toBe('20.0000');
+    expect(money(summary.taxes)).toBe('10.0000');
+  });
+
+  it.each([
+    ['empty', '0', '0', '0'],
+    ['fully sold', '1000', '200', '0.2'],
+  ])('keeps %s portfolios answerable without a current quote', (_label, deployed, realized, expectedRate) => {
+    const summary = portfolioSummary({
+      baseCurrency: INR, asOf: isoDate('2026-08-11'),
+      investedCapital: Money.zero(INR), costDeployed: Money.of(deployed!, INR),
+      marketValue: Money.zero(INR), realizedPnl: Money.of(realized!, INR),
+      dividends: Money.zero(INR), interest: Money.zero(INR), fees: Money.zero(INR), taxes: Money.zero(INR),
+      coverage: Rate.one(), staleInstruments: [], unpricedInstruments: [],
+      xirr: unavailable('no_data'), twr: unavailable('insufficient_price_history'),
+    });
+    expect(money(summary.unrealizedPnl)).toBe('0.0000');
+    expect(money(summary.totalReturn)).toBe(`${realized}.0000`);
+    expect(summary.xirr.reason).toBe('no_data');
+    expect(summary.totalReturnPct).toEqual(deployed === '0' ? unavailable('divide_by_zero') : metric(Rate.of(expectedRate!)));
   });
 });
 

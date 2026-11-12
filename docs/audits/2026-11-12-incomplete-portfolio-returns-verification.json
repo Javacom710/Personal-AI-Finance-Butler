@@ -1,0 +1,104 @@
+{
+  "formatVersion": 1,
+  "date": "2026-11-12",
+  "timezone": "Asia/Kolkata",
+  "sourceCommit": "89430d7d70891dcf144933cd3440ecd0a68dcd3f",
+  "baseCommit": "21108ac5452fcd7d207eff22ff644973dab615ef",
+  "pullRequest": "https://github.com/Javacom710/Personal-AI-Finance-Butler/pull/74",
+  "unit": {
+    "passed": 2647,
+    "files": 105
+  },
+  "property": {
+    "passed": 68,
+    "files": 7
+  },
+  "integrationPostgres17": {
+    "distinctVerified": 707,
+    "files": 44,
+    "initialRun": {
+      "passed": 690,
+      "failed": 17
+    },
+    "correctedCompositionRerun": {
+      "passed": 29,
+      "failed": 0
+    }
+  },
+  "integrationPostgres18": {
+    "passed": 100,
+    "files": 4,
+    "scope": "affected files only",
+    "disposableContainerRemoved": true
+  },
+  "distinctLocalCases": 3422,
+  "typecheck": "passed",
+  "lint": "passed",
+  "productionBuild": "passed",
+  "clientSecretScan": "passed",
+  "integrity": {
+    "passed": 35,
+    "failed": 0,
+    "warnings": 0
+  },
+  "browser": {
+    "checks": [
+      {
+        "width": 1280,
+        "route": "/",
+        "partialValueVisible": true,
+        "returnsWithheld": true
+      },
+      {
+        "width": 1280,
+        "route": "/investments",
+        "partialValueVisible": true,
+        "returnsWithheld": true
+      },
+      {
+        "width": 1280,
+        "route": "/investments/performance",
+        "partialValueVisible": true,
+        "returnsWithheld": true
+      },
+      {
+        "width": 375,
+        "route": "/",
+        "partialValueVisible": true,
+        "returnsWithheld": true
+      },
+      {
+        "width": 375,
+        "route": "/investments",
+        "partialValueVisible": true,
+        "returnsWithheld": true
+      },
+      {
+        "width": 375,
+        "route": "/investments/performance",
+        "partialValueVisible": true,
+        "returnsWithheld": true
+      },
+      {
+        "width": 1280,
+        "route": "/investments/performance",
+        "completeValueVisible": true,
+        "knownReturnRestored": true
+      },
+      {
+        "width": 375,
+        "route": "/investments/performance",
+        "completeValueVisible": true,
+        "knownReturnRestored": true
+      }
+    ],
+    "pageErrors": []
+  },
+  "syntheticBrowserUserRemoved": true,
+  "localDocumentationTargets": 573,
+  "retainedCampaignEvidenceChanged": false,
+  "paidInferenceCalls": 0,
+  "activation": false,
+  "deploymentRecording": false,
+  "branchCi": "pending; inspect PR checks independently"
+}

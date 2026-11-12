@@ -1,12 +1,12 @@
-import { readFileSync } from 'node:fs';
 import { afterAll, afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { resetEnvCache } from '@/lib/env';
 import { composeTier1Features } from '@/server/ai-tier1-features';
 import { loadMeasuredCapabilities, resetAiRateLimits, resetAiRuntime } from '@/server/ai-runtime';
 import { tierCapabilitiesFromEvaluations, type StoredEvaluation } from '@/server/ai-evaluations';
-import type { SuiteCounts } from '@/server/ai/eval/runner';
-import type { RequestProfileIdentity } from '@/server/ai/config/request-profiles';
+import { MODEL_SUITES, TIER_SUITES, maxTokensFor } from '@/server/ai/eval/runner';
+import { resolveModelConfig } from '@/server/ai/config/models';
+import { requestProfileIdentity } from '@/server/ai/config/request-profiles';
 import { aiConversations, aiMessages, aiProposals, aiUsageDaily, settings, transactions, transactionEntries, auditLog } from '@/server/db/schema';
 import { createConversation } from '@/server/services/aiConversations';
 import { syntheticTransaction } from '../helpers/fake-transaction-interpreter';
@@ -32,13 +32,25 @@ let afterReply: ((index: number) => Promise<void>) | undefined;
 let fetchMock: ReturnType<typeof vi.fn>;
 const requests: { model: string; messages: { role: string; content: unknown }[]; tools?: unknown[]; response_format?: unknown }[] = [];
 
+// Synthetic current-contract scores exercise runtime controls independently of
+// live quality. Actual retained reports are rejected in the archive regressions;
+// never relabel their versions to get a feature test through the gate.
 function freshMeasurements() {
-  const run = JSON.parse(readFileSync(new URL('../../eval/reports/deepinfra-2026-11-07-tier1-parse-v4-2026-11-08/tier1.json', import.meta.url), 'utf8'));
-  const rows: StoredEvaluation[] = run.models.flatMap((m: { modelId: string; requestProfile: RequestProfileIdentity; suites: { suite: string; version: number; passed: number; p50LatencyMs: number; p95LatencyMs: number; counts: SuiteCounts; failedCases: string[]; errors: Record<string, number>; maxTokens: number }[] }) => m.suites.map(s => ({
-    model: m.modelId, tier: run.tier, suite: s.suite, evalVersion: s.version, casesPassed: s.passed,
-    p50LatencyMs: s.p50LatencyMs, p95LatencyMs: s.p95LatencyMs, runAt: new Date(run.startedAt),
-    detail: { ...s.counts, failedCases: s.failedCases, errors: s.errors, providerIdentity: endpoint, requestProfile: m.requestProfile, maxTokens: s.maxTokens },
-  })));
+  const config = resolveModelConfig();
+  const rows: StoredEvaluation[] = config.candidates(1).flatMap(model => TIER_SUITES[1].map(suite => {
+    const definition = MODEL_SUITES[suite];
+    const corpus = definition.build();
+    const schemaApplicable = corpus.filter(c => c.schema !== undefined).length;
+    const toolCallApplicable = corpus.filter(c => c.tools !== undefined).length;
+    return {
+      model, tier: 1, suite, evalVersion: definition.version, casesPassed: corpus.length,
+      p50LatencyMs: 1, p95LatencyMs: 1, runAt: NOW,
+      detail: { answered: corpus.length, unanswered: 0, schemaApplicable, schemaValid: schemaApplicable,
+        toolCallApplicable, toolCallValid: toolCallApplicable, failedCases: [], errors: {},
+        providerIdentity: endpoint, requestProfile: requestProfileIdentity(config.requestProfiles.forModel(model)),
+        maxTokens: maxTokensFor(1, suite) },
+    };
+  }));
   const byTier = tierCapabilitiesFromEvaluations(rows, undefined, undefined, endpoint);
   return { byTier, declaredTier: Object.fromEntries(Object.entries(byTier).map(([model, tiers]) => [model, tiers[1]!])) };
 }
