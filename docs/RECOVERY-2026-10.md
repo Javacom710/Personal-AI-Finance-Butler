@@ -1,5 +1,11 @@
 # Recovery record — October 2026
 
+<!-- project-doc-status:start -->
+> **Project status reviewed 12 November 2026:** Phases 0–7 complete; Phase 8 quality/release review open; Phase 9 built but live AI disabled. Selected provider: DeepInfra direct.
+> **Current references:** [Project state](../PROJECT-STATE.md) · [Roadmap](ROADMAP.md) · [Maintained deadline forecast](../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Active technical/operational reference; roadmap governs completion.
+<!-- project-doc-status:end -->
+
 **Status as of 2026-10-26.** This file is the recovery record and the register of the blockers found on the way to Phase 8. `PROJECT-STATE.md` and `docs/ROADMAP.md` were brought up to date on 2026-10-26 (B-4), so they are current again.
 
 **Phase 7 (AI infrastructure) is complete. Phase 8 (Model Evaluation) has not started and is unblocked.** Every blocker from the [2026-09-24 entry-gate audit](audits/2026-09-24-phase8-entry-gate-audit.md) is closed by a pull request listed below; this file assumes those pull requests are merged.

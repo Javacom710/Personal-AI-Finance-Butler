@@ -1,5 +1,11 @@
 # AI System
 
+<!-- project-doc-status:start -->
+> **Project status reviewed 12 November 2026:** Phases 0–7 complete; Phase 8 quality/release review open; Phase 9 built but live AI disabled. Selected provider: DeepInfra direct.
+> **Current references:** [Project state](../PROJECT-STATE.md) · [Roadmap](ROADMAP.md) · [Maintained deadline forecast](../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Active technical/operational reference; roadmap governs completion.
+<!-- project-doc-status:end -->
+
 The AI layer interprets, retrieves, reasons, and drafts. It is **not** a source of financial truth and **cannot** write to the database.
 
 Phase 8 provider (owner decision, 2026-11-07): **DeepInfra direct**, `https://api.deepinfra.com/v1/openai`, configured through `AI_API_KEY` / `AI_BASE_URL`. Google and Anthropic models are excluded under the owner's stated retention-policy exception. OpenRouter is not selected. Measurements are bound to the normalized endpoint; a provider switch requires fresh suites, even for identical model identifiers. [Current Tier 1 campaign](../eval/reports/deepinfra-2026-11-07-tier1-current-2026-11-12/README.md) is separate from historical DeepInfra, Groq and NVIDIA evidence. No results are recorded or tier orders accepted before owner approval. The original NVIDIA integration details below describe the reusable OpenAI-compatible adapter and historical catalogue, not the active measurement provider.
@@ -664,6 +670,8 @@ Grounding, robustness and analysis advance to **v3** on 2026-11-07 for a numeric
 The subsequent **shared prompt clarification** on 2026-11-07 versions tool-select/injection to **v3**, grounding/robustness/analysis to **v4**, and document to **v2**. Parse/classify stay v2. The finance prompt explains serialized money/rates, preserves valuation qualifications, and continues legitimate reads after rejecting injected instructions; the document prompt requires evidence for hints/notes and preserves printed descriptions/order. These are task-wide production prompts, with no model-specific or benchmark-only branch. Scorers, thresholds, token budgets and profiles are unchanged. Earlier measurements remain historical and cannot authorize the changed contracts. [Implementation and diagnostic evidence](audits/2026-11-07-ai-prompt-contracts.md).
 
 DeepInfra campaigns now capture output-free diagnostics for answered analysis/document cases during the existing request. Strict metadata validation binds each diagnostic to its retained case/verdict; tier reports summarize reason counts. Analysis layout comparisons (whitespace and paired inline Markdown) are kept separate from authoritative scores and cannot certify a model. Their transformations can change claim association, so a passing comparison is only an investigation signal. The coordinator fingerprints the diagnostic helper and resumes without regeneration or extra calls. [Implementation and fresh probes](audits/2026-11-07-ai-diagnostic-capture.md).
+
+The standalone diagnostic CLI also offers a fixed `--tier1-failures` plan for the selected pair. A separate closed-schema helper explains existing parse, tool-selection, grounding, robustness and injection verdicts using counts only, including payload-marker repetition versus foreign-ID arguments and missing reads. These fresh partial probes are never merged into an earlier full campaign, rescored as its answers or used for measured eligibility. Historical responses were not retained, so fresh diagnoses do not establish their original causes. [Implementation, limits and observations](audits/2026-11-12-tier1-failure-diagnostics.md).
 
 
 

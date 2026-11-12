@@ -1,5 +1,11 @@
 # AI Infrastructure — Phase 7 architecture and model evaluation review
 
+<!-- project-doc-status:start -->
+> **Project status reviewed 12 November 2026:** Phases 0–7 complete; Phase 8 quality/release review open; Phase 9 built but live AI disabled. Selected provider: DeepInfra direct.
+> **Current references:** [Project state](../PROJECT-STATE.md) · [Roadmap](ROADMAP.md) · [Maintained deadline forecast](../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Design/review reference; canonical implementation docs govern.
+<!-- project-doc-status:end -->
+
 **Status:** design review complete 2026-08-29. Step 7.0 (pre-implementation corrections) applied
 2026-08-30 — see [§21](#21-disposition-of-f-1-f-2-and-f-3--2026-08-30). **Phase 7 infrastructure
 implemented 2026-08-30: steps 7.1-7.6 built and verified; 7.7 ran once `NVIDIA_API_KEY` was configured, closing OD-1. Phase 7 complete 2026-10-26 (see ROADMAP).** Two design points

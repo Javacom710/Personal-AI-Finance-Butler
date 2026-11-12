@@ -1,5 +1,11 @@
 > **Historical record — recovered 2026-10-17.** Written 2026-09-24 against `H:\Claude\AI Enabled Personal Finance`, outside the repository, and rebuilt byte-for-byte from the session transcript after that drive failed. Commit ids and line numbers refer to the H: copy: the authoritative line then was `a6d0d20`. Since then `1515eb1` added 73 lines to `PROJECT-STATE.md` and moved `docs/ROADMAP.md` (Phase 7 "Done when" now starts at L377), so look items up by their text. Current status of each blocker: [RECOVERY-2026-10.md](../RECOVERY-2026-10.md#blocker-status).
 
+<!-- project-doc-status:start -->
+> **Project status reviewed 12 November 2026:** Phases 0–7 complete; Phase 8 quality/release review open; Phase 9 built but live AI disabled. Selected provider: DeepInfra direct.
+> **Current references:** [Project state](../../PROJECT-STATE.md) · [Roadmap](../ROADMAP.md) · [Maintained deadline forecast](../../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Dated evidence below retains its original findings and scores; this annotation is a current navigation update.
+<!-- project-doc-status:end -->
+
 # Phase 8 Entry-Gate Audit
 
 Repository `H:\Claude\AI Enabled Personal Finance` · Git `C:\Program Files\Git\cmd\git.exe` 2.55.0.windows.5

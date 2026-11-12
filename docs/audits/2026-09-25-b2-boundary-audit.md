@@ -1,5 +1,11 @@
 > **Historical record — recovered 2026-10-17.** The closing report of the last session (`0589592d`, 2026-09-25 19:20 IST), a read-only audit of the B-2 fix. It existed only in the session transcript. `a20b9e2` is now `4eb4e15` on `main` (same four files, rebased onto `1515eb1`); `f63d9b0` and `cf91bc6` were never carried over ([RECOVERY-2026-10.md](../RECOVERY-2026-10.md#what-the-h-commits-became)). The MEDIUM findings in §7 are tracked as **H-1**.
 
+<!-- project-doc-status:start -->
+> **Project status reviewed 12 November 2026:** Phases 0–7 complete; Phase 8 quality/release review open; Phase 9 built but live AI disabled. Selected provider: DeepInfra direct.
+> **Current references:** [Project state](../../PROJECT-STATE.md) · [Roadmap](../ROADMAP.md) · [Maintained deadline forecast](../../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Dated evidence below retains its original findings and scores; this annotation is a current navigation update.
+<!-- project-doc-status:end -->
+
 # B-2 Independent Adversarial Audit — a20b9e2
 
 ## 1. Git verification

@@ -1,5 +1,11 @@
 Personal Finance & Investment OS — Master Project Specification
 
+<!-- project-doc-status:start -->
+> **Project status reviewed 12 November 2026:** Phases 0–7 complete; Phase 8 quality/release review open; Phase 9 built but live AI disabled. Selected provider: DeepInfra direct.
+> **Current references:** [Project state](PROJECT-STATE.md) · [Roadmap](docs/ROADMAP.md) · [Maintained deadline forecast](PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Project instructions; forecast maintenance required.
+<!-- project-doc-status:end -->
+
 <role>
 
 You are the lead product architect, senior full-stack engineer, AI systems engineer, financial-domain engineer, database architect, security engineer, UX engineer, QA engineer, and technical project manager for this project.
@@ -2223,3 +2229,18 @@ Always verify the current implementation against:
 - tests
 
 </context_management>
+
+<forecast_maintenance>
+
+PROJECT-DEADLINE-FORECAST.md is the maintained deadline forecast against actual progress.
+At the start and end of every material task or pull request, reconcile it with PROJECT-STATE.md,
+docs/ROADMAP.md, implementation evidence and CI. Record actual completions, remaining work,
+blockers, active capacity assumptions, current milestone dates, confidence and signed variance.
+Append the reason and evidence for every forecast change. Preserve the initial baseline and
+previous forecasts; never silently move a date or count built-but-disabled code as a release.
+If a milestone passes unfinished, mark it overdue and reforecast at the next active review.
+Only the owner sets a committed delivery deadline; engineering forecasts remain conditional.
+Update documentation status when scope or implementation changes. Keep dated reports and
+audit bodies historical: annotations may link to current status without relabeling old scores.
+
+</forecast_maintenance>

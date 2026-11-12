@@ -1,5 +1,11 @@
 # Market-Value Net Worth — Phase 6.11 architecture and design review
 
+<!-- project-doc-status:start -->
+> **Project status reviewed 12 November 2026:** Phases 0–7 complete; Phase 8 quality/release review open; Phase 9 built but live AI disabled. Selected provider: DeepInfra direct.
+> **Current references:** [Project state](../PROJECT-STATE.md) · [Roadmap](ROADMAP.md) · [Maintained deadline forecast](../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Design/review reference; canonical implementation docs govern.
+<!-- project-doc-status:end -->
+
 **Status:** design review complete 2026-08-21; **OD-14, OD-15 and OD-16 resolved and applied to the
 canonical documents the same day.** **Implemented and verified 2026-08-27** — 1,396 tests passing,
 `verify:integrity` 33 passed / 0 failed / 19 engine-enforced / 2 deferred, **no schema change and no

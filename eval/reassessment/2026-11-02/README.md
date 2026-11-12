@@ -1,5 +1,11 @@
 # NVIDIA reassessment — source frozen
 
+<!-- project-doc-status:start -->
+> **Project status reviewed 12 November 2026:** Phases 0–7 complete; Phase 8 quality/release review open; Phase 9 built but live AI disabled. Selected provider: DeepInfra direct.
+> **Current references:** [Project state](../../../PROJECT-STATE.md) · [Roadmap](../../../docs/ROADMAP.md) · [Maintained deadline forecast](../../../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Dated evidence below retains its original findings and scores; this annotation is a current navigation update.
+<!-- project-doc-status:end -->
+
 The user requested a clean reassessment of NVIDIA accounts/API keys and model choices on 2026-11-02. Application source is frozen. This workspace is outside the application repository.
 
 ## Current state

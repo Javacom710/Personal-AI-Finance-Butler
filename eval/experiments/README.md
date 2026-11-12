@@ -1,5 +1,11 @@
 # Experimental evaluation profiles
 
+<!-- project-doc-status:start -->
+> **Project status reviewed 12 November 2026:** Phases 0–7 complete; Phase 8 quality/release review open; Phase 9 built but live AI disabled. Selected provider: DeepInfra direct.
+> **Current references:** [Project state](../../PROJECT-STATE.md) · [Roadmap](../../docs/ROADMAP.md) · [Maintained deadline forecast](../../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Dated evidence below retains its original findings and scores; this annotation is a current navigation update.
+<!-- project-doc-status:end -->
+
 These artifacts are exploratory and must not be imported as production capability measurements. The `experimental` and `productionCompatible` envelope fields describe the request profile; limited runs also retain the evaluator's routing-proposal and storage guards.
 
 ## Lightning thinking-disabled probe — 2026-11-02

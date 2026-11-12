@@ -1,9 +1,17 @@
 # Documentation Index
 
+<!-- project-doc-status:start -->
+> **Project status reviewed 12 November 2026:** Phases 0–7 complete; Phase 8 quality/release review open; Phase 9 built but live AI disabled. Selected provider: DeepInfra direct.
+> **Current references:** [Project state](../PROJECT-STATE.md) · [Roadmap](ROADMAP.md) · [Maintained deadline forecast](../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Documentation navigation and current status.
+<!-- project-doc-status:end -->
+
 Durable technical reference for the Personal Finance & Investment OS. Read in this order when picking up implementation work.
 
 | Document | Contents |
 |---|---|
+| [PROJECT-DEADLINE-FORECAST.md](../PROJECT-DEADLINE-FORECAST.md) | Maintained core/full-scope completion forecasts, frozen baseline, actual milestones, variance, assumptions, blockers and update rules |
+| [DOCUMENTATION-STATUS.md](DOCUMENTATION-STATUS.md) | Complete Markdown review inventory; active references versus dated evidence; latest documentation maintenance scope |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Product architecture, technical stack, layering, module map, UI information architecture |
 | [DECISIONS.md](DECISIONS.md) | Numbered ADRs — every material decision with rationale and rejected alternatives |
 | [SCHEMA.md](SCHEMA.md) | Full database schema, invariants, indexes, migration policy |

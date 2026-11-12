@@ -1,5 +1,11 @@
 # Security & Privacy
 
+<!-- project-doc-status:start -->
+> **Project status reviewed 12 November 2026:** Phases 0–7 complete; Phase 8 quality/release review open; Phase 9 built but live AI disabled. Selected provider: DeepInfra direct.
+> **Current references:** [Project state](../PROJECT-STATE.md) · [Roadmap](ROADMAP.md) · [Maintained deadline forecast](../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Active technical/operational reference; roadmap governs completion.
+<!-- project-doc-status:end -->
+
 This application holds a complete picture of one person's finances. The threat model is: a remote attacker on the public internet, a compromised browser extension, a leaked credential, a lost backup, and a prompt-injection payload arriving inside the user's own data.
 
 ## 0. Authentication ≠ Authorization
@@ -108,7 +114,7 @@ Enforcement:
   base-uri 'none';
   object-src 'none'
   ```
-  `connect-src 'self'` matters: the browser never talks to NVIDIA Build or a market-data provider directly, so a CSP that forbids it is both correct and a guard against accidental client-side calls. If a future change ever needs a browser→provider call, the CSP breaks first — which is the desired failure order.
+  `connect-src 'self'` matters: the browser never talks to the configured AI provider (currently DeepInfra direct) or a market-data provider directly, so this CSP also guards against accidental client-side provider calls. Any future browser→provider path requires an explicit architecture/security review.
 - `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Permissions-Policy` denying camera, microphone, geolocation, payment, USB.
 - `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Resource-Policy: same-origin`.
 - Cookies as described in §1.

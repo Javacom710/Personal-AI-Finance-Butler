@@ -1,4 +1,4 @@
-/** Six synthetic probes, output-free diagnostics, no promotion or recording. */
+/** Finite synthetic probes, output-free diagnostics, no promotion or recording. */
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { mkdir, open, readFile, rename, unlink, writeFile } from 'node:fs/promises';
@@ -6,7 +6,7 @@ import path from 'node:path';
 import { z } from 'zod';
 import { aiProviderSettings, env, loadDotEnv } from '../src/lib/env';
 import { evaluationProviderIdentity } from '../src/server/ai-evaluations';
-import { DEEPINFRA_MEASUREMENT_MODELS } from '../src/server/ai/config/models';
+import { DEEPINFRA_MEASUREMENT_MODELS, resolveModelConfig } from '../src/server/ai/config/models';
 import { resolveRequestProfiles } from '../src/server/ai/config/request-profiles';
 import { createNvidiaProvider } from '../src/server/ai/provider/nvidia-build';
 import { evaluateModel } from '../src/server/ai/eval/harness';
@@ -15,6 +15,7 @@ import { diagnoseAnalysis, diagnoseDocument, FailureDiagnosticsSchema, type Fail
 import { requestReserve } from './lib/ai-eval-budget';
 import { reserveInActiveLedger } from './lib/inference-budget';
 import { otherDeepinfraSpend } from './lib/deepinfra-accounting';
+import { diagnoseTier1, Tier1DiagnosticsSchema, type Tier1Diagnostics, type Tier1DiagnosticSuite } from './lib/ai-tier1-diagnostics';
 
 const endpoint = 'https://api.deepinfra.com/v1/openai';
 const root = path.resolve('eval/reports/deepinfra-2026-11-07');
@@ -28,18 +29,32 @@ async function save(file: string, body: unknown) {
 }
 async function main() {
   const analysisOnly = process.argv.includes('--analysis-only');
-  const argv = process.argv.slice(2).filter(a => a !== '--analysis-only');
+  const tier1Failures = process.argv.includes('--tier1-failures');
+  const argv = process.argv.slice(2).filter(a => !['--analysis-only', '--tier1-failures'].includes(a));
   if (process.argv.slice(2).filter(a => a === '--analysis-only').length > 1) throw new Error('Duplicate analysis-only flag.');
+  if (process.argv.slice(2).filter(a => a === '--tier1-failures').length > 1 || (analysisOnly && tier1Failures)) throw new Error('Choose one diagnostic plan, without duplicate flags.');
   const live = argv.length === 2 && argv.includes('--run') && argv.includes('--no-record');
   if (!live && !(argv.length === 1 && argv[0] === '--plan')) throw new Error('Use --plan or --run --no-record. Recording and arbitrary case/model overrides are unsupported.');
   loadDotEnv();
   const e = env(), ai = aiProviderSettings(e);
   if (evaluationProviderIdentity(ai.baseUrl) !== endpoint || (live && !ai.apiKey)) throw new Error('Require the direct DeepInfra endpoint and its key.');
   const profiles = resolveRequestProfiles(e.AI_REQUEST_PROFILES);
-  const plan = [
+  const selected = resolveModelConfig().candidates(1);
+  type Probe = { tier: 1 | 2 | 4; suite: Tier1DiagnosticSuite | 'analysis' | 'document'; id: string; model: string };
+  // A fixed diagnostic sample of the retained campaign's failures. New probes
+  // never replace or rescore its results and cannot qualify a model.
+  const probes: Probe[] = tier1Failures ? [
+    { tier: 1, suite: 'injection', id: 'injection-020', model: selected[0]! },
+    ...[7, 15, 20, 22, 24, 25].map(n => ({ tier: 1 as const, suite: 'injection' as const, id: `injection-${String(n).padStart(3, '0')}`, model: selected[1]! })),
+    ...selected.flatMap(model => ([['parse', 'parse-033'], ['tool-select', 'tool-select-009'],
+      ['grounding', 'grounding-002'], ['robustness', 'robustness-003']] as const)
+      .map(([suite, id]) => ({ tier: 1 as const, suite, id, model }))),
+  ] : [
     ...['analysis-001', 'analysis-006', 'analysis-015'].map(id => ({ tier: 2 as const, suite: 'analysis' as const, id, model: DEEPINFRA_MEASUREMENT_MODELS[2][0]! })),
     ...['doc-001', 'doc-002', 'doc-018'].map(id => ({ tier: 4 as const, suite: 'document' as const, id, model: DEEPINFRA_MEASUREMENT_MODELS[4][0]! })),
-  ].filter(r => !analysisOnly || r.suite === 'analysis').map(r => {
+  ];
+  if (tier1Failures && selected.length !== 2) throw new Error('The fixed Tier 1 diagnostic plan requires the selected pair.');
+  const plan = probes.filter(r => !analysisOnly || r.suite === 'analysis').map(r => {
     if (/^(google|anthropic)\//i.test(r.model)) throw new Error('Excluded model publisher.');
     const testCase = MODEL_SUITES[r.suite].build().find(c => c.id === r.id);
     if (!testCase) throw new Error('Diagnostic case is missing.');
@@ -67,8 +82,9 @@ async function main() {
     const ledger = prior === undefined ? { providerIdentity: endpoint, events: [] as Event[] } : z.object({ providerIdentity: z.literal(endpoint), events: z.array(z.object({ at: z.iso.datetime(), caseId: z.string(), model: z.string(), reservedUsd: amount, accountedUsd: amount, status: z.number().int().optional(), promptTokens: amount.optional(), completionTokens: amount.optional() })) }).parse(prior);
     const spent = () => ledger.events.reduce((n, event) => n + event.accountedUsd, 0);
     const files = execFileSync('git', ['ls-files', '-z', 'src/server/ai', 'src/lib/env.ts', 'src/server/ai-evaluations.ts']).toString().split('\0').filter(Boolean).sort();
-    files.push('scripts/ai-diagnose-deepinfra.ts', 'scripts/lib/ai-failure-diagnostics.ts', 'scripts/lib/ai-eval-budget.ts', 'scripts/lib/deepinfra-accounting.ts', 'scripts/lib/inference-budget.ts');
+    files.push('scripts/ai-diagnose-deepinfra.ts', 'scripts/lib/ai-failure-diagnostics.ts', 'scripts/lib/ai-tier1-diagnostics.ts', 'scripts/lib/ai-eval-budget.ts', 'scripts/lib/deepinfra-accounting.ts', 'scripts/lib/inference-budget.ts');
     const hash = createHash('sha256');
+    hash.update(JSON.stringify(plan.map(({ testCase: _testCase, ...probe }) => { void _testCase; return probe; })));
     for (const f of files) hash.update(f).update(await readFile(f));
     const startedAt = new Date().toISOString();
     const report = { diagnosticOnly: true, completeMeasurement: false, recorded: false, productionEligible: false, provider: 'DeepInfra', providerIdentity: endpoint, startedAt, sourceFingerprint: hash.digest('hex'), timeoutMs: e.AI_REQUEST_TIMEOUT_MS, stop: 'running', rows: [] as object[] };
@@ -101,15 +117,16 @@ async function main() {
           await save(ledgerPath, ledger);
           return response;
         } });
-        let diagnostics: FailureDiagnostics | null = null;
+        let diagnostics: FailureDiagnostics | Tier1Diagnostics | null = null;
         let shape: { contentCharacters: number; reasoningCharacters: number; toolCalls: number } | null = null;
         const observed = { ...provider, chat: async (...args: Parameters<typeof provider.chat>) => {
           const response = await provider.chat(...args);
           if (response.ok) {
             const { content, toolCalls, reasoning } = response.value;
             shape = { contentCharacters: content?.length ?? 0, reasoningCharacters: reasoning?.length ?? 0, toolCalls: toolCalls.length };
-            diagnostics = r.suite === 'analysis' ? diagnoseAnalysis(r.id, content, toolCalls) : diagnoseDocument(r.id, content);
-            FailureDiagnosticsSchema.parse(diagnostics);
+            diagnostics = r.suite === 'analysis' ? diagnoseAnalysis(r.id, content, toolCalls)
+              : r.suite === 'document' ? diagnoseDocument(r.id, content) : diagnoseTier1(r.suite, r.id, content, toolCalls);
+            (r.tier === 1 ? Tier1DiagnosticsSchema : FailureDiagnosticsSchema).parse(diagnostics);
           }
           return response;
         } };

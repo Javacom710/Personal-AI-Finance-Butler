@@ -1,8 +1,16 @@
 # Testing Strategy
 
+<!-- project-doc-status:start -->
+> **Project status reviewed 12 November 2026:** Phases 0–7 complete; Phase 8 quality/release review open; Phase 9 built but live AI disabled. Selected provider: DeepInfra direct.
+> **Current references:** [Project state](../PROJECT-STATE.md) · [Roadmap](ROADMAP.md) · [Maintained deadline forecast](../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Active technical/operational reference; roadmap governs completion.
+<!-- project-doc-status:end -->
+
 The bar: **a feature is not done until the calculation behind it is tested, including its edge cases.** Coverage percentage is not the target; coverage of the financial engine's edge cases is.
 
 ## 1. Layers
+
+The speed values below are design targets, not measurements of today's full suite. On 12 November the combined local unit/property run passed **2,647 tests across 102 files in 142.71 seconds** with one worker. Parent PR #71's PostgreSQL 17/18 CI is green; the current continuation's [CI status](https://github.com/Javacom710/Personal-AI-Finance-Butler/actions?query=branch%3Acodex%2Ftier1-failure-diagnostics) is tracked separately. Test volume and duration do not imply production readiness or a project completion date; the maintained forecast uses remaining exit conditions instead.
 
 | Layer | Tool | Scope | Speed | Run |
 |---|---|---|---|---|
@@ -319,7 +327,7 @@ Two notes where the suite differs from the sketch above:
 - **Routing and gates (I-56):** `tests/unit/ai-routing.test.ts` — the capability gate in **both** directions (an incapable model is unreachable; a capable one is reachable, so the filter is not simply excluding everything), refusal of a declared entry for a score-gated route, **cross-tier downgrade impossible** with a capable Tier 1 model deliberately present and not offered, Tier 3 unreachable by escalation, breaker open/half-open/close, attempt ceiling, fail-closed short-circuit.
 - **Tools and structured output (I-57):** `tests/unit/ai-tools.test.ts` — no tool input accepts a user identifier, swept across the whole registry; `additionalProperties: false` on every schema; unknown tool, non-JSON arguments, invented argument and malformed date all rejected before a handler runs; a handler that throws becomes a readable tool failure rather than ending the turn. Structured output across eight malformed shapes, with exactly one repair then rejection.
 - **Kill switch, rate limit and isolation (I-58):** `tests/integration/ai-infrastructure.test.ts` — `ai_enabled = false` produces zero egress and is recorded as a refusal; failing closed with no settings row; other features still work while disabled; per-user rate limiting; **user isolation swept across every tool** against two users' real data, including every spelling of a `userId` argument a model might invent; figures projected as tagged strings, breakdown `additivity` carried, and a domain error stripped of the entity id that for a settings error *is* the user id.
-- **The deterministic suite never calls NVIDIA.** `npm run ai:smoke` is opt-in, network-using and never in CI — the same shape as `smoke:market-data`. With no key it exits 0 and prints local configuration instructions.
+- **The deterministic suite never calls a live AI provider.** `npm run ai:smoke` is opt-in, network-using and never in CI — the same shape as `smoke:market-data`. With no key it exits 0 and prints local configuration instructions.
 - **Breakdown additivity (I-54):** `tests/unit/breakdown-contract.test.ts` — property tests over generated two-level trees assert `Σ folded === Σ direct` exactly, that every input id lands in exactly one row, and that no emitted row is a descendant of another. `tests/integration/golden-g1.test.ts` asserts the partition at **both** depths against the golden figures. A consumer cannot read a complete breakdown as an additive flat list, because a non-partitioning row set declares itself ([ADR-37](DECISIONS.md#adr-37--a-breakdown-declares-whether-its-rows-partition-its-total)).
 - **Double-confirm:** applying the same proposal twice concurrently produces exactly one transaction. Asserted against a real Postgres with two parallel calls — the compare-and-swap must lose one, and the partial unique index must catch it even with the CAS stubbed out.
 - **Expired proposal:** confirming after `expires_at` writes nothing and returns a typed error.

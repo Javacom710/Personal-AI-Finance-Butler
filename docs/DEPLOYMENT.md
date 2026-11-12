@@ -1,32 +1,39 @@
 # Deployment & Operations
 
+<!-- project-doc-status:start -->
+> **Project status reviewed 12 November 2026:** Phases 0–7 complete; Phase 8 quality/release review open; Phase 9 built but live AI disabled. Selected provider: DeepInfra direct.
+> **Current references:** [Project state](../PROJECT-STATE.md) · [Roadmap](ROADMAP.md) · [Maintained deadline forecast](../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Active technical/operational reference; roadmap governs completion.
+<!-- project-doc-status:end -->
+
 ## 1. Environments
 
 | Environment | Purpose | Database | AI |
 |---|---|---|---|
 | `local` | Development on Windows | **Postgres 18.4 as the `postgresql-x64-18` Windows service** (decision **D-23**) | Real key, low daily budget |
-| `test` | CI and integration tests | Ephemeral Postgres container, per-run | Mocked; no network |
-| `cloud` | Claude Code cloud sessions (claude.ai/code, `claude --cloud`) | The VM's bundled Postgres (16), provisioned by `scripts/cloud-session-setup.sh` | Unset unless `NVIDIA_API_KEY` is added to the cloud environment |
-| `production` | The user's domain | Postgres on the same host | Real API key, real budget |
+| `test` | CI and integration tests | Ephemeral PostgreSQL **17 and 18** containers, per-run | Fake providers; no live inference |
+| `cloud` | Claude Code cloud sessions | VM PostgreSQL, selected by `PG_MAJOR` where configured; the bundled 16 setup is historical | Selected provider through server-side `AI_API_KEY` / `AI_BASE_URL`; no live feature activation |
+| `codex-cloud` | Current managed Codex workspace | Environment-specific startup provisioning; PostgreSQL 17/18 CI remains authoritative | DeepInfra direct scoped key is ready; only explicit synthetic evaluation/diagnostic scripts call it |
+| `production` | The user's domain — **not deployed yet** | Planned PostgreSQL on the same host | Separate production configuration and reviewed activation required |
 
-**Cloud sessions.** `.claude/settings.json` runs `scripts/cloud-session-setup.sh` at every session start. On a developer machine it exits at once (`CLAUDE_CODE_REMOTE` is never `true` locally). In a cloud VM it reproduces the CI setup: npm 11, `npm ci`, the `financeos_migrator`/`financeos_app` roles, the `financeos` and `financeos_test` databases, a throwaway git-ignored `.env` with VM-only secrets, migrations and seed. First start ≈ 25 s, later starts ≈ 2 s. The full suite (typecheck, unit, property, integration) passes there on Postgres 16; CI remains the gate on 17. Real third-party keys are never written to the repo — add them as environment variables on the cloud environment at claude.ai/code only when a session needs them.
+**Cloud sessions.** `.claude/settings.json` runs `scripts/cloud-session-setup.sh` for Claude cloud, exiting locally when `CLAUDE_CODE_REMOTE` is not true. It provisions npm 11, dependencies, separate application/migration roles, disposable development/test databases and a git-ignored environment file. Historical startup timings and PostgreSQL 16 results are not current readiness checks. Codex uses the attached environment's setup instead; inspect its status and existing checkout before running setup. CI gates every change on PostgreSQL 17 and 18. Credentials stay in environment settings/server-only configuration and never enter git. No production host, backup/restore rehearsal or personal-domain deployment is established by a successful development build.
 
 There is deliberately no staging environment. For a single-user application it would be a third copy of production data to secure and back up, for a rehearsal that a golden-scenario suite already covers.
 
 ## 2. Local development setup
 
-### Prerequisites (current machine state)
+### Prerequisites and verified workspace state — 12 November 2026
 
 | Requirement | Status | Action |
 |---|---|---|
-| Node.js ≥ 20 | ✅ v26.3.0 | none |
-| npm | ✅ 11.16.0 | none |
-| git | ✅ 2.55.0 | **`git init` — the project directory is not yet a repository** |
-| PostgreSQL | ✅ **18.4**, `postgresql-x64-18` service, `Automatic` | none |
-| Docker Desktop | ❌ not installed | **not required** — see D-4 below |
+| Node.js ≥ 22.12.0 | Current cloud **24.22.1**; CI uses Node 22 | Follow `package.json` engines |
+| npm | Current cloud **11.9.0**; repository/CI pin **11.19.1** | Use the pin for dependency installation; this continuation did not rewrite the lockfile |
+| git | Current cloud **2.52.0**; repository already initialized and connected | Use the existing checkout and a task branch; do not run `git init` |
+| PostgreSQL | Windows 18.4 is the recorded local setup; CI verifies 17 and 18 | Check actual runtime readiness before database work |
+| Docker | Environment-specific; CI uses containers | Windows Docker Desktop is not required for the recorded service setup |
 | AI provider key (`AI_API_KEY`) | ✅ set for DeepInfra direct ([ADR-54](DECISIONS.md#adr-54--deepinfra-direct-is-the-phase-8-provider-google-and-anthropic-models-are-excluded)); OD-1 closed | none |
 | Provider reachable | ✅ `api.deepinfra.com` (2026-11-07). NVIDIA Build and Groq are historical providers | none |
-| `ANTHROPIC_BASE_URL` | ⚠️ set in this shell | Claude Code's own config — the application must **not** read it |
+| Agent-specific provider variables | Not application configuration | The application must not read `ANTHROPIC_BASE_URL` |
 
 ### D-4: local database — settled
 

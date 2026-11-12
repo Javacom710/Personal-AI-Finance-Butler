@@ -1,6 +1,12 @@
 # Development Roadmap
 
-Canonical phase map: **`Workflow Setup.txt`, Phases 0–14** ([ADR-20](DECISIONS.md#adr-20--workflow-setuptxt-is-the-canonical-phase-map)).
+<!-- project-doc-status:start -->
+> **Project status reviewed 12 November 2026:** Phases 0–7 complete; Phase 8 quality/release review open; Phase 9 built but live AI disabled. Selected provider: DeepInfra direct.
+> **Current references:** [Project state](../PROJECT-STATE.md) · [Roadmap](ROADMAP.md) · [Maintained deadline forecast](../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Active technical/operational reference; roadmap governs completion.
+<!-- project-doc-status:end -->
+
+Canonical initial phase map: **`Workflow Setup.txt`** ([ADR-20](DECISIONS.md#adr-20--workflow-setuptxt-is-the-canonical-phase-map)). The current roadmap includes approved bank/broker integrations as Phase 14 (ADR-50), followed by ongoing Phase 15 continuous improvement. The maintained [deadline forecast](../PROJECT-DEADLINE-FORECAST.md) covers finite delivery through Phase 14 and records forecast-versus-actual variance; it does not alter scope or grant approvals.
 
 Ordering principle: the financial engine is built and tested before any UI depends on it, and the AI is built after every number it can read is already correct.
 
@@ -35,6 +41,8 @@ A phase is complete only when every box is ticked — including tests, type chec
 **Latest verified follow-ups:** final-head #51 CI [42385230550](https://github.com/Javacom710/Personal-AI-Finance-Butler/actions/runs/42385230550) passes on PostgreSQL 17/18 at `93de4c2`. Assistant evidence PR #55 verifies twelve real-engine workloads plus ledger immutability and visible partial-result labels with fake providers; it does not complete real-model question quality. The current handoff combines #52/#53 documentation and provider-test isolation, without importing #54's scorer or scores.
 
 **Latest continuation (2026-11-12):** the [selected Tier 1 campaign](../eval/reports/deepinfra-2026-11-07-tier1-current-2026-11-12/README.md) answers all 380 current-contract cases. Schema is 100/100 for each model; tool correctness is 54/57 GLM and 53/57 GPT-OSS. The harness proposes the selected order, but injection passes are only 24/25 and 19/25, parsing 36/40 and 32/40, grounding 23/25 and 21/25. The injection-quality gate remains open. The run accounts US$0.070104196; project accounting is US$1.860161376 of US$10. All 2,505 unit/property tests, typecheck, lint, default build and client-secret scan pass. Historical reports, prompts, scorers, gates and routing remain unchanged; PostgreSQL 17/18 verification runs through PR CI.
+
+**Failure investigation follow-up (2026-11-12):** [fifteen independent output-free probes](audits/2026-11-12-tier1-failure-diagnostics.md) distinguish missing legitimate/follow-up reads, wrong registered-tool selection, payload repetition and ambiguity/partial-result failures. Seven pass and eight fail; no earlier campaign verdict is replaced. Usage adds US$0.003557069, bringing accounting to US$1.863718445. All 2,647 local unit/property tests and the standard local build checks pass. No prompt/scorer/gate or live-release change occurred; the release-quality review remains open.
 
 **Next, in order (2026-11-12):**
 1. Review the current Tier 1 failures and release suitability, especially injection resistance. Current-contract coverage and fallback completeness are now established; numerical gate passage does not complete the injection-quality gate. No scored failure is retried automatically.
@@ -510,7 +518,7 @@ Audit against `CLAUDE.md <development_method>` Phase 10 and [SECURITY.md](SECURI
 - [ ] Auth, authorisation, endpoints, secrets, database access, input/output validation reviewed
 - [ ] AI tool permissions, prompt-injection resistance, mutation controls re-verified against the shipped code
 - [ ] Sensitive-logging review: no balances, amounts, holdings, tokens, or keys in logs
-- [ ] Third-party data exposure documented: exactly what goes to NVIDIA Build
+- [ ] Third-party data exposure documented: exactly what goes to the configured AI provider (currently DeepInfra direct)
 - [ ] Market-data and model failure paths re-verified
 - [ ] Rate limits verified under load
 - [ ] `npm audit` clean at high and critical

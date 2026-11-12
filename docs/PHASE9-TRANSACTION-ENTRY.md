@@ -1,5 +1,11 @@
 # Phase 9: transaction proposal entry
 
+<!-- project-doc-status:start -->
+> **Project status reviewed 12 November 2026:** Phases 0–7 complete; Phase 8 quality/release review open; Phase 9 built but live AI disabled. Selected provider: DeepInfra direct.
+> **Current references:** [Project state](../PROJECT-STATE.md) · [Roadmap](ROADMAP.md) · [Maintained deadline forecast](../PROJECT-DEADLINE-FORECAST.md).
+> **Document role:** Feature activation contract; live generation disabled.
+<!-- project-doc-status:end -->
+
 > **Status 2026-11-07:** merged into `main` (PRs #39–#48). Live generation stays hard-disabled. The owner has selected a Tier 1 lineup ([ADR-55](DECISIONS.md#adr-55--retain-the-tier-1-selection-recorded-in-claude-pr-54-current-contract-eligibility-remains-independent)), but activation still needs complete current-contract measurements and a reviewed release; features that need Tiers 2–4 also need those tiers selected ([OD-20](DECISIONS.md#open-decisions-requiring-the-user)). The PR-stacking notes below are the original build record.
 
 The owner authorized this slice on 2026-11-02 **in parallel with unfinished Phase 8** so application development can proceed while provider funding/evaluation waits. It includes natural-language money entry and human confirmation only. Assistant chat, analysis, scenarios, investments and documents are not implemented by this change; OD-18 remains blocked.
