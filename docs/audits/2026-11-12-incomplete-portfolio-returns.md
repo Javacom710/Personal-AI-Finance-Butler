@@ -77,7 +77,7 @@ Three new domain regression cases reproduced the phantom loss before the fix.
 Coverage includes partial/rounded coverage, zero-cost missing holdings, empty and
 fully sold portfolios, known realised history, real AI projections, scoped reads,
 restoring prices, ledger/audit immutability, UI partial-value retention, and
-rejection of historical evidence. Final suite totals and CI are appended below.
+rejection of historical evidence. Final suite totals and CI status are recorded below.
 
 Typecheck, lint, production build and client-secret scan pass. Integrity reports
 **35 passing / 0 failing / 0 warnings**. Eight one-off production Chromium checks
@@ -92,7 +92,7 @@ The initial concurrent regression attempt found outdated feature-fixture
 qualification and output expectations, now corrected. CPU contention also caused
 CLI/Argon2 test timeouts; no production timeout or gate is widened. The final
 regression uses one unit worker and avoids overlapping the heavy database suite.
-Local checks use PostgreSQL 17; PostgreSQL 18 is verified by the PR CI matrix.
+The complete local regression uses PostgreSQL 17; 100 affected integration checks also pass on a disposable PostgreSQL 18 instance. Full branch CI remains separate.
 
 ## Forecast and remaining work
 
@@ -106,3 +106,17 @@ Next: complete OD-22 and OD-23, register scenario/metrics tools with Tier 2 work
 finish the affected contract migration, then prepare one fresh bounded
 qualification campaign and a new reviewed import manifest. Quality acceptance,
 recording and activation remain distinct release steps.
+
+## Final local verification
+
+Runtime/source commit **`89430d7`**, draft [PR #74](https://github.com/Javacom710/Personal-AI-Finance-Butler/pull/74), stacked on #73:
+
+- **2,647 unit tests / 105 files**, final serial run, all pass (195.56 seconds).
+- **68 property tests / 7 files**, all pass.
+- **707 PostgreSQL 17 integration cases / 44 files**, all verified: initial complete run passes 690 and exposes 17 outdated composition-fixture failures; the corrected composition file passes all 29 cases (including those 17). No financial assertion or gate is relaxed to obtain that result.
+- **100 affected PostgreSQL 18 checks / 4 files**, all pass (33.70 seconds): investments, frozen-handler grounding, Tier 1 composition and historical import mechanics. The exact disposable database/container and its password file were removed afterward. These repeat affected cases, not 100 additional distinct product tests.
+- Final typecheck, lint, production build and client-secret scan pass. Integrity **35 passing / 0 failing / 0 warnings** after synthetic-user cleanup.
+- Eight authenticated production Chromium checks pass, with zero page errors and no overflow. The [verification record](2026-11-12-incomplete-portfolio-returns-verification.json) retains only safe outcomes and source/test metadata.
+- **573 local documentation targets** checked, instruction files remain identical, and retained campaign artifacts/manifests/usage files and the US$10 budget configuration remain unchanged.
+
+This is **3,422 distinct local unit/property/PostgreSQL 17 cases**, plus the second-version checks and one-off browser verification. Full PostgreSQL 17/18 PR CI is pending separately; local/source-parent results are not reported as this branch's CI. The first attempt to open the draft PR was rejected by automatic approval review; the owner explicitly approved draft creation before PR #74 was opened. No merge, activation or deployment was requested or performed.
