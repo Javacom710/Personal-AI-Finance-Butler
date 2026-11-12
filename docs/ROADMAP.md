@@ -633,7 +633,7 @@ Per `CLAUDE.md <production_definition_of_done>`:
 - [ ] Structured outputs validated; AI tools controlled; AI cannot mutate financial records
 - [ ] NL transaction entry works; answers grounded; no fabrication; injection cannot bypass security
 - [ ] Secrets server-side; authorisation deterministic; exposure minimised; rate limiting present
-- [ ] Backups, restore, export, and deletion all work
+- [ ] Backups, restore, export, and deletion all work *(Export (JSON only) and deletion built 2026-11-12 — SECURITY.md §9. CSV export, backups and restore remain.)*
 - [ ] Tests, type check, lint, and build pass; critical workflows verified
 - [ ] No known critical financial-integrity or security defects
 

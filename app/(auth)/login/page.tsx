@@ -35,6 +35,12 @@ export default async function LoginPage({
         </p>
       </div>
 
+      {params['deleted'] === '1' && !challenge ? (
+        <p role="status" className="rounded-md border border-border bg-surface-sunken px-3 py-2 text-sm">
+          The account and every record in it were deleted.
+        </p>
+      ) : null}
+
       {challenge ? <SecondFactorForm next={next} /> : <PasswordForm next={next} />}
 
       <p className="text-xs text-ink-faint">

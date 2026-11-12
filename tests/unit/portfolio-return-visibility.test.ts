@@ -69,10 +69,16 @@ const base = () => ({
   }],
   staleInstruments: [],
 });
+/**
+ * `PortfolioResult.twr` — the detail behind `summary.twr`, which the
+ * Performance page reads for its stale-price note. Fresh by default.
+ */
+const twrDetail = (stale = 0, staleToday = false) =>
+  metric({ twr: Rate.of('0'), annualised: false, subPeriods: 1, days: 30, valuations: 2, staleValuations: stale, staleToday });
 
 beforeEach(() => {
   mocks.instruments.mockResolvedValue([{ id: 'instrument' }]);
-  mocks.portfolio.mockResolvedValue({ ok: true, value: { summary: base(), holdings: [], twr: { value: null, reason: 'insufficient_price_history' } } });
+  mocks.portfolio.mockResolvedValue({ ok: true, value: { summary: base(), holdings: [], twr: twrDetail() } });
 });
 
 it.each([InvestmentsPage, PerformancePage])(
@@ -94,7 +100,7 @@ it.each([InvestmentsPage, PerformancePage])(
   async (page) => {
     mocks.portfolio.mockResolvedValue({
       ok: true,
-      value: { summary: { ...base(), unpricedInstruments: [], marketValue: money('0') }, holdings: [], twr: { value: null, reason: 'insufficient_price_history' } },
+      value: { summary: { ...base(), unpricedInstruments: [], marketValue: money('0') }, holdings: [], twr: twrDetail() },
     });
     const html = renderToStaticMarkup(await page());
     expect(html).toContain('return:999%');
@@ -102,6 +108,16 @@ it.each([InvestmentsPage, PerformancePage])(
     expect(html).not.toContain('Needs every holding priced');
   },
 );
+
+it('notes on the Performance page when the time-weighted return rests on a stale price', async () => {
+  mocks.portfolio.mockResolvedValue({
+    ok: true,
+    value: { summary: { ...base(), unpricedInstruments: [] }, holdings: [], twr: twrDetail(1, true) },
+  });
+  const html = renderToStaticMarkup(await PerformancePage());
+  expect(html).toContain('up to the last known prices, not to today');
+  expect(html).toContain('1 of 2 valuations used a stale price');
+});
 
 it('does not infer complete coverage from the cost percentage for a zero-cost unpriced holding', () => {
   expect(canShowPortfolioReturns(base())).toBe(false);

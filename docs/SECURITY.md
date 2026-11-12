@@ -189,6 +189,17 @@ The provider is DeepInfra direct, chosen by the owner, who also excluded Google 
 
 The export is generated server-side, streamed, and rate-limited. It is not emailed and not stored.
 
+**Built 2026-11-12** (`src/server/services/dataExport.ts`, `POST /settings/export`). As built:
+
+- **JSON only.** One document with every exported table. The per-table CSV and the single archive are **not built yet**; a zip writer was not worth a dependency for the first version, and the JSON is complete and round-trippable on its own.
+- **One snapshot.** Every table is read in one `REPEATABLE READ, READ ONLY` transaction.
+- **Exact values.** Postgres renders each row; every top-level number becomes its exact text (`"1250.5000"`), and dates stay `YYYY-MM-DD`.
+- **No credentials.** The password hash, TOTP secret, recovery hashes and the `sessions` table (token hashes) are never exported. `users` contributes only id, email, TOTP-enabled and created-at.
+- **Coverage is tested.** `tests/integration/data-export.test.ts` reads the live schema and fails if a table is neither exported nor listed in `EXCLUDED_TABLES` with a reason.
+- **Limit and audit.** Five a day, counted from `audit_log` rows with action `data.export`. The count and the audit insert run in their own short transaction under a per-user advisory lock, so simultaneous requests cannot each see a free slot; the snapshot read follows in a second, read-only transaction (one transaction cannot do both — a `REPEATABLE READ` snapshot predates any lock taken inside it). A refused export writes nothing; a reservation is spent even if the read then fails. Over the limit returns `429` with `Retry-After`.
+- **Same-origin POST.** Rejected with `403` when `Sec-Fetch-Site` is not `same-origin`, or, without that header, when `Origin` differs.
+- Not streamed: the document is built in memory. A personal ledger is a few megabytes; revisit if that stops being true.
+
 ### Backup
 Nightly `pg_dump --format=custom`, compressed, encrypted with **age** to a key the user holds, uploaded to off-site object storage. Details, retention, and the restore drill in [DEPLOYMENT.md](DEPLOYMENT.md). The controls that matter here:
 
@@ -198,6 +209,14 @@ Nightly `pg_dump --format=custom`, compressed, encrypted with **age** to a key t
 
 ### Deletion
 `Settings → Data → Delete everything` requires password + TOTP re-authentication and typing a confirmation phrase. It executes `DELETE FROM users WHERE id = $1`, which cascades to every user-owned table. Then it purges AI conversation content, revokes all sessions, and writes a final terminal entry to an operational log outside the user tables. Backups are listed with their retention dates so the user knows when the last copy expires; on request, backups are deleted immediately.
+
+**Built 2026-11-12** (`src/server/auth/account-deletion.ts`, Settings → Data). As built, with one correction to the description above:
+
+- **Not one statement.** Six foreign keys between the user's own tables are `ON DELETE RESTRICT` (entries and investment transactions → accounts, transactions → categories, child → parent category, investment transactions → instruments, a liability → its linked account), so a bare `DELETE FROM users` fails as soon as the cascade reaches an account before its entries. The constraints stay. In **one transaction**, transactions, investment transactions, liabilities and categories (leaves first) are deleted, then the user row, whose cascade takes the rest — sessions, AI conversations and the audit log included. A failure at any step rolls everything back; a test forces the last step to fail and checks every row is still there.
+- **Re-authentication:** the exact phrase `DELETE EVERYTHING` (checked first, before any Argon2 work), the password, and a fresh TOTP code. A recovery code is **not** accepted. Wrong password or code counts toward the same lockout and rate limits as login. The code is claimed with a conditional update (`last_totp_step < step`) before deleting, so it is spent exactly once: a code a sign-in uses while the password is being hashed is refused, and one seen during a deletion that then fails cannot be replayed. *(The login path, `verifySecondFactorStep`, still records the step unconditionally and has the same window between reading and writing it; that predates this work and is not changed here.)*
+- **Terminal record:** one `account deleted` line in the operational log with the user id only.
+- **Verified:** `tests/integration/account-deletion.test.ts` populates a user across ledger, investments, net worth, AI and sessions, deletes, and asserts zero rows remain for that user in every exported table plus `sessions` and `users`, no orphaned child rows, and a second user's counts unchanged.
+- **Not built:** listing or deleting backups — there are no backups until Phase 13.
 
 ## 10. Auditability
 

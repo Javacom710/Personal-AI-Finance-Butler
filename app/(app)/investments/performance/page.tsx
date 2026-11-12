@@ -28,6 +28,7 @@ export default async function PerformancePage() {
   const [result, disposals] = await Promise.all([portfolio(ctx), realizedDisposals(ctx, { limit: 50 })]);
   if (!result.ok) throw new Error(result.error.message);
   const { summary, twr } = result.value;
+  const showReturns = canShowPortfolioReturns(summary);
 
   // A stale price is used rather than withheld, so the return stands — but it
   // must not read as current when part of it is a last-known valuation.
@@ -37,7 +38,6 @@ export default async function PerformancePage() {
       : twr.value.staleToday
         ? ` Uses a stale price today, so this is up to the last known prices, not to today. ${twr.value.staleValuations} of ${twr.value.valuations} valuations used a stale price.`
         : ` ${twr.value.staleValuations} of ${twr.value.valuations} valuations used a price that was stale on its date.`;
-  const showReturns = canShowPortfolioReturns(summary);
 
   const metrics: readonly [string, string, string | undefined][] = [
     ['Invested capital', format.money(summary.investedCapital), 'Σ cost basis over open positions — capital currently at risk'],

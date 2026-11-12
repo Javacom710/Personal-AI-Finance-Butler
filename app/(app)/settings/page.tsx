@@ -4,6 +4,8 @@ import { EmptyState, PageHeader, Section } from '../../_components/page-shell';
 import { requireSession } from '@/server/auth/guards';
 import { listActiveSessions } from '@/server/auth/session-store';
 import { recentEventsForUser } from '@/server/auth/events';
+import { DELETION_PHRASE } from '@/server/auth/account-deletion';
+import { DeleteEverythingForm } from './_delete-form';
 
 export const metadata: Metadata = { title: 'Settings' };
 
@@ -67,8 +69,8 @@ export default async function SettingsPage() {
           ))}
         </ul>
         <p className="text-xs text-ink-faint">
-          Revoking an individual session, changing your password, and exporting or deleting your data
-          arrive with the Settings work in Phase 10.
+          Revoking an individual session and changing your password arrive with the Settings work in
+          Phase 10.
         </p>
       </Section>
 
@@ -85,13 +87,33 @@ export default async function SettingsPage() {
         </ul>
       </Section>
 
+      <Section title="Data">
+        <div className="space-y-2 rounded-lg border border-border px-4 py-3 text-sm">
+          <p>
+            Download everything you have recorded as one JSON file: accounts, transactions, budgets,
+            recurring rules, investments, assets, liabilities, AI conversations and the audit log.
+            Amounts are the exact stored values, as text. It holds no password, two-factor secret or
+            session token.
+          </p>
+          <form method="post" action="/settings/export">
+            <button type="submit" className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-ink">
+              Export my data
+            </button>
+          </form>
+          <p className="text-xs text-ink-faint">
+            Up to five exports a day. The file is built when you ask for it and is not kept on the
+            server.
+          </p>
+        </div>
+        <DeleteEverythingForm phrase={DELETION_PHRASE} />
+      </Section>
+
       <Section title="Everything else">
         <EmptyState title="Preferences, providers and data" arriving="Phases 3, 6, 7 and 10">
           <p>
             Base currency, locale, timezone and fiscal year exist as settings from day one and are
             editable once the screens that read them exist. Market-data providers arrive in Phase 6,
-            AI configuration and its daily budget in Phase 7, and export, backup status and complete
-            deletion in Phase 10.
+            AI configuration and its daily budget in Phase 7, and backup status in Phase 13.
           </p>
         </EmptyState>
       </Section>
