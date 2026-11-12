@@ -321,9 +321,21 @@ export interface PortfolioResult {
   readonly twr: Metric<PortfolioTwrResult>;
 }
 
+export interface PortfolioOptions {
+  /**
+   * Compute the time-weighted return (default `true`). Its cost grows with the
+   * number of flow dates — one market valuation per date — so a view that does
+   * not show it passes `false` and receives `not_computed`, never a number.
+   * Measured on a 5-year history with one actively traded instrument: about
+   * 1 s with it, against the Overview's 400 ms target.
+   */
+  readonly twr?: boolean;
+}
+
 export async function portfolio(
   ctx: ReadCtx,
   scope: PortfolioScope = {},
+  options: PortfolioOptions = {},
 ): Promise<Result<PortfolioResult, DomainError>> {
   const valuation = await holdings(ctx, scope);
   const totals = await aggregates(ctx, scope);
@@ -347,9 +359,11 @@ export async function portfolio(
   // the net-worth composition does not offer; it stays the documented reason
   // rather than a figure for a different scope (INVESTMENT-DOMAIN.md §8).
   const twrDetail: Metric<PortfolioTwrResult> =
-    scope.accountId === undefined && scope.instrumentId === undefined
-      ? await twrFromFlows(ctx, ledger)
-      : unavailable('insufficient_price_history');
+    options.twr === false
+      ? unavailable('not_computed')
+      : scope.accountId === undefined && scope.instrumentId === undefined
+        ? await twrFromFlows(ctx, ledger)
+        : unavailable('insufficient_price_history');
 
   const summary = buildSummary({
     baseCurrency: ctx.base,

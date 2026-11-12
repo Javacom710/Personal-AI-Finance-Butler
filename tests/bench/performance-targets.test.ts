@@ -9,7 +9,7 @@
  * Each figure is the median of nine runs after one warm-up.
  *
  * The history is larger than the target user's: ~3,800 money transactions,
- * ~800 investment transactions across 12 instruments with five years of
+ * ~800 investment transactions across 12 instruments plus one with exactly 500 with five years of
  * month-end and recent daily prices, one instrument left unpriced (OD-21's
  * path), budgets and a recurring rule.
  */
@@ -41,14 +41,17 @@ import {
   setupMoneyFixture,
   transfer,
   type MoneyFixture,
+  write,
 } from '../integration/money-harness';
 import { makeInstrument, recordBuy, recordDividend, recordSell, storeClose } from '../integration/investment-harness';
-import type { RequestCtx } from '@/server/services/_ctx';
+import { currentInvestmentLedgerVersion, type RequestCtx } from '@/server/services/_ctx';
+import { rebuildPosition } from '@/server/services';
 
 const NOW = new Date('2026-11-12T06:00:00Z');
 const MONTHS = 60;
 let fixture: MoneyFixture;
 let ctx: RequestCtx;
+let heavy: { accountId: string; instrumentId: string };
 const results: { operation: string; targetMs: number; medianMs: number }[] = [];
 
 /** Deterministic pseudo-random amounts, so two runs seed the same history. */
@@ -114,6 +117,15 @@ beforeAll(async () => {
     }
     if (m % 12 === 11) await recordSell(c, { accountId: broker, instrumentId: instruments[5]!, on: addDays(on, 12), qty: '40', price: (160 + m).toFixed(2), fees: '20' });
   }
+  // One instrument with exactly 500 ledger rows, for the position-rebuild target:
+  // 450 buys and 50 partial sells spread over five years.
+  const heavyId = await makeInstrument(c, { symbol: 'HEAVY', name: 'Heavily traded equity' });
+  for (let t = 0; t < 500; t++) {
+    const on = addDays(monthStart(0), Math.floor((t * 1790) / 500));
+    if (t % 10 === 9) await recordSell(c, { accountId: broker, instrumentId: heavyId, on, qty: '3', price: (220 + t * 0.2).toFixed(2), fees: '10' });
+    else await recordBuy(c, { accountId: broker, instrumentId: heavyId, on, qty: '5', price: (200 + t * 0.2).toFixed(2), fees: '10' });
+  }
+  heavy = { accountId: broker, instrumentId: heavyId };
   // Prices: month-end closes for five years, daily for the last three weeks.
   // BENCH11 is left unpriced on purpose.
   const priced = instruments.slice(0, 11);
@@ -135,7 +147,7 @@ afterAll(async () => {
   // Written directly: the test setup silences console output.
   process.stdout.write(
     `\nARCHITECTURE.md §9, median of 9 runs on a 5-year history:\n${results
-      .map((r) => `  ${r.operation.padEnd(30)} ${String(Math.round(r.medianMs)).padStart(5)} ms  (target < ${r.targetMs} ms) ${r.medianMs < r.targetMs ? 'met' : 'MISSED'}`)
+      .map((r) => `  ${r.operation.padEnd(30)} ${String(Math.round(r.medianMs)).padStart(5)} ms  ${Number.isFinite(r.targetMs) ? `(target < ${r.targetMs} ms) ${r.medianMs < r.targetMs ? 'met' : 'MISSED'}` : '(profile)'}`)
       .join('\n')}\n`,
   );
   await truncateAll();
@@ -151,7 +163,7 @@ it('Overview first render data: < 400 ms', async () => {
     const [, , invested] = await Promise.all([
       netWorthChange(ctx, addDays(ctx.today, -30), ctx.today),
       periodSummary(ctx, period),
-      portfolio(ctx),
+      portfolio(ctx, {}, { twr: false }),
       assetAllocation(ctx, 'asset_class'),
       upcomingCommitments(ctx, 14),
       listBudgetStatuses(ctx),
@@ -160,6 +172,28 @@ it('Overview first render data: < 400 ms', async () => {
   });
   results.push({ operation: 'Overview data', targetMs: 400, medianMs: ms });
   expect(ms).toBeLessThan(400);
+});
+
+it('profile: the Overview calls one at a time', async () => {
+  const period = periodContaining(ctx.today, 'monthly', ctx.fiscalYearStartMonth);
+  const calls: [string, () => Promise<unknown>][] = [
+    ['listAccounts', () => listAccounts(ctx)], ['listInstruments', () => listInstruments(ctx)],
+    ['netWorthReconciliation', () => netWorthReconciliation(ctx)],
+    ['netWorthChange', () => netWorthChange(ctx, addDays(ctx.today, -30), ctx.today)],
+    ['periodSummary', () => periodSummary(ctx, period)], ['portfolio', () => portfolio(ctx, {}, { twr: false })], ['portfolio with TWR', () => portfolio(ctx)],
+    ['assetAllocation', () => assetAllocation(ctx, 'asset_class')],
+    ['upcomingCommitments', () => upcomingCommitments(ctx, 14)], ['listBudgetStatuses', () => listBudgetStatuses(ctx)],
+  ];
+  for (const [name, fn] of calls) results.push({ operation: `  · ${name}`, targetMs: Infinity, medianMs: await median(fn) });
+});
+
+it('Position rebuild for one instrument with 500 transactions: < 100 ms', async () => {
+  const ms = await median(async () => {
+    const result = await write(ctx, async (w) => rebuildPosition(w, heavy, await currentInvestmentLedgerVersion(w)));
+    expect(result.ok).toBe(true);
+  });
+  results.push({ operation: 'Position rebuild (500 txns)', targetMs: 100, medianMs: ms });
+  expect(ms).toBeLessThan(100);
 });
 
 it('Transactions list, page of 100, filtered: < 150 ms', async () => {

@@ -17,7 +17,7 @@ export const metadata: Metadata = { title: 'Holdings' };
  */
 export default async function HoldingsPage() {
   const { ctx, format } = await loadMoneyContext('/investments/holdings');
-  const result = await portfolio(ctx, { includeClosed: true });
+  const result = await portfolio(ctx, { includeClosed: true }, { twr: false });
   if (!result.ok) throw new Error(result.error.message);
 
   const { summary, holdings } = result.value;

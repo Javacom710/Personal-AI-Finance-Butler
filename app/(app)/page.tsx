@@ -82,7 +82,8 @@ export default async function OverviewPage() {
   const [change, month, invested, allocation, upcoming, budgets] = await Promise.all([
     netWorthChange(ctx, monthAgo, ctx.today),
     periodSummary(ctx, period),
-    portfolio(ctx),
+    // The Overview does not show TWR, the one figure whose cost grows with trading days.
+    portfolio(ctx, {}, { twr: false }),
     assetAllocation(ctx, 'asset_class'),
     upcomingCommitments(ctx, UPCOMING_DAYS),
     listBudgetStatuses(ctx),
