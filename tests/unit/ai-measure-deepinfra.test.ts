@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, it } from 'vitest';
-import { DEEPINFRA_MEASUREMENT_MODELS } from '../../src/server/ai/config/models';
+import { DEEPINFRA_MEASUREMENT_MODELS, resolveModelConfig } from '../../src/server/ai/config/models';
 
 it('runs the full DeepInfra queue without storage, resumes offline, and rejects foreign checkpoints and recording', () => {
   const root = mkdtempSync(path.join(tmpdir(), 'deepinfra-eval-test-'));
@@ -15,7 +15,8 @@ it('runs the full DeepInfra queue without storage, resumes offline, and rejects 
     const directory = path.join(root, 'eval/reports/deepinfra-2026-11-07');
     mkdirSync(directory, { recursive: true });
     const endpoint = 'https://api.deepinfra.com/v1/openai';
-    const models = [...new Set(Object.values(DEEPINFRA_MEASUREMENT_MODELS).flat())];
+    const selectedModels = resolveModelConfig().candidates(1);
+    const models = [...new Set([...Object.values(DEEPINFRA_MEASUREMENT_MODELS).flat(), ...selectedModels])];
     writeFileSync(path.join(directory, 'catalogue.json'), JSON.stringify({ providerIdentity: endpoint, data: models.map(id => ({ id, metadata: { pricing: { input_tokens: 0.15, output_tokens: 0.6 } } })) }));
     const hook = path.join(root, 'fetch.mjs');
     writeFileSync(hook, `globalThis.fetch = async (url, init) => {
@@ -27,7 +28,7 @@ it('runs the full DeepInfra queue without storage, resumes offline, and rejects 
     const loader = fileURLToPath(import.meta.resolve('tsx'));
     const run = (...argv: string[]) => spawnSync(process.execPath, ['--conditions=react-server', '--import', hook, '--import', loader, path.join(repository, 'scripts/ai-measure-deepinfra.ts'), ...argv], {
       cwd: root, encoding: 'utf8', timeout: 30_000,
-      env: { ...process.env, AI_BASE_URL: endpoint, AI_API_KEY: 'offline-test-key', AI_REQUEST_PROFILES: '' },
+      env: { ...process.env, AI_BASE_URL: endpoint, AI_API_KEY: 'offline-test-key', AI_REQUEST_PROFILES: '', AI_TIER1_MODELS: 'unselected/environment-override' },
     });
     const live = run('--run', '--no-record');
     expect(live.status, live.stderr).toBe(0);
@@ -88,7 +89,31 @@ it('runs the full DeepInfra queue without storage, resumes offline, and rejects 
     expect(JSON.parse(readFileSync(path.join(fresh, 'progress.json'), 'utf8'))).toMatchObject({ campaign: 'format-v3', coverageComplete: true, accountCapUsd: 4.50 });
     expect(JSON.parse(readFileSync(path.join(fresh, 'usage.json'), 'utf8')).events).toHaveLength(420);
     expect(readFileSync(path.join(directory, 'usage.json'), 'utf8')).toBe(ledger);
+    // The selected lineup gets every current Tier 1 suite, independently of
+    // routing environment overrides. It never measures another tier or records.
+    const selected = path.join(root, 'eval/reports/deepinfra-2026-11-07-selected-tier1');
+    expect(run('--status', '--selected-tier1').status).toBe(1);
+    const selectedRun = run('--run', '--no-record', '--selected-tier1', '--campaign', 'selected-tier1');
+    expect(selectedRun.status, selectedRun.stderr).toBe(0);
+    const selectedProgress = JSON.parse(readFileSync(path.join(selected, 'progress.json'), 'utf8'));
+    expect(selectedProgress).toMatchObject({ coverageComplete: true, recorded: false, ownerApprovalRequired: true });
+    expect(selectedProgress.rows).toHaveLength(12);
+    expect([...new Set(selectedProgress.rows.map((r: { model: string }) => r.model))]).toEqual(selectedModels);
+    expect(selectedProgress.rows.every((r: { tier: number }) => r.tier === 1)).toBe(true);
+    const selectedLedger = readFileSync(path.join(selected, 'usage.json'), 'utf8');
+    expect(JSON.parse(selectedLedger).events).toHaveLength(380);
+    expect(readdirSync(selected).filter(f => /^tier\d.json$/.test(f))).toEqual(['tier1.json']);
+    const selectedReport = JSON.parse(readFileSync(path.join(selected, 'tier1.json'), 'utf8'));
+    expect(selectedReport.suiteVersions).toEqual({ parse: 2, classify: 2, 'tool-select': 3, grounding: 5, robustness: 5, injection: 4 });
+    expect(selectedReport.models.every((m: { unanswered: number }) => m.unanswered === 0)).toBe(true);
+    expect(readFileSync(path.join(directory, 'usage.json'), 'utf8')).toBe(ledger);
     writeFileSync(hook, 'globalThis.fetch = () => { throw new Error("Unexpected network call"); };');
+    expect(run('--run', '--no-record', '--selected-tier1', '--campaign', 'selected-tier1').status).toBe(0);
+    expect(readFileSync(path.join(selected, 'usage.json'), 'utf8')).toBe(selectedLedger);
+    const wrongPlan = run('--status', '--campaign', 'selected-tier1');
+    expect(wrongPlan.status).toBe(1);
+    expect(wrongPlan.stderr).toContain('Campaign source differs');
+    expect(readFileSync(path.join(selected, 'usage.json'), 'utf8')).toBe(selectedLedger);
     expect(run('--status', '--campaign', '../escape').status).toBe(1);
     expect(run('--status', '--campaign', 'one', '--campaign', 'two').status).toBe(1);
     expect(run('--run', '--record').status).toBe(1);
@@ -123,4 +148,4 @@ it('runs the full DeepInfra queue without storage, resumes offline, and rejects 
     expect(readdirSync(directory)).not.toContain('.measurement.lock');
     expect(readdirSync(path.dirname(directory))).not.toContain('.deepinfra-account.lock');
   } finally { rmSync(root, { recursive: true, force: true }); }
-}, 60_000);
+}, 90_000);

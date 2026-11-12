@@ -12,7 +12,7 @@ A phase is complete only when every box is ticked — including tests, type chec
 
 ---
 
-## Where the project stands — 2026-11-07
+## Where the project stands — 2026-11-12
 
 | Phase | Status |
 |---|---|
@@ -24,8 +24,8 @@ A phase is complete only when every box is ticked — including tests, type chec
 | 5 — Net Worth at Cost | ✅ complete, verified |
 | 6 — Market Data | ✅ complete, steps 6.0–6.11 (6.10 closed unbuilt); equities need `TWELVE_DATA_API_KEY` (OD-3) |
 | 7 — AI Infrastructure | ✅ complete, steps 7.0–7.7 |
-| 8 — Model Evaluation | 🔶 **in progress — Tier 1 lineup selected (ADR-55); awaiting its current-contract measurements (OD-20, partially resolved).** All suites, the runner, storage and per-tier eligibility (ADR-53) are built. The Tier 1 selection recorded in #54 is GLM-5.3-Flash → GPT-OSS-120B (ADR-55). Current merged-contract measurements, fallback completeness, remaining tiers and release composition remain outstanding. Nothing is recorded or activated |
-| 9 — AI Features | 🔶 **built, disabled.** Every non-scenario slice is merged (PRs #39, #40, #43–#48) and tested with fake providers; live generation stays hard-disabled until the selected lineup has complete current-contract measured eligibility and a reviewed activation. Scenario analysis waits on OD-18 |
+| 8 — Model Evaluation | 🔶 **in progress — selected Tier 1 pair measured on current contracts (ADR-55/OD-20).** The fresh 380-case campaign has zero unanswered cases and both models pass numerical schema/tool gates. Injection failures, remaining tiers and release review/composition remain outstanding. Nothing is recorded or activated |
+| 9 — AI Features | 🔶 **built, disabled.** Every non-scenario slice is merged (PRs #39, #40, #43–#48) and tested with fake providers; live generation stays hard-disabled pending review of the current measured lineup and activation. Scenario analysis waits on OD-18 |
 | 10–15 | not started |
 
 **Provider:** DeepInfra direct ([ADR-54](DECISIONS.md#adr-54--deepinfra-direct-is-the-phase-8-provider-google-and-anthropic-models-are-excluded)). Groq ([ADR-52](DECISIONS.md#adr-52--the-model-provider-is-any-openai-compatible-api-groq-replaces-nvidia-builds-free-tier)) and NVIDIA Build are historical; OpenRouter is built (#41/#42) but not selected.
@@ -34,9 +34,11 @@ A phase is complete only when every box is ticked — including tests, type chec
 
 **Latest verified follow-ups:** final-head #51 CI [42385230550](https://github.com/Javacom710/Personal-AI-Finance-Butler/actions/runs/42385230550) passes on PostgreSQL 17/18 at `93de4c2`. Assistant evidence PR #55 verifies twelve real-engine workloads plus ledger immutability and visible partial-result labels with fake providers; it does not complete real-model question quality. The current handoff combines #52/#53 documentation and provider-test isolation, without importing #54's scorer or scores.
 
-**Next, in order (2026-11-07):**
-1. A fresh, complete DeepInfra campaign of the selected Tier 1 lineup (GLM-5.3-Flash → GPT-OSS-120B) on the current suite contracts: parse/classify v2, tool-select v3, injection v4, grounding/robustness/analysis v5. Reconcile #54's external spend first. Both models need zero unanswered cases.
-2. Owner review of those results, then `--record` and a reviewed activation of the Phase 9 features that Tier 1 serves.
+**Latest continuation (2026-11-12):** the [selected Tier 1 campaign](../eval/reports/deepinfra-2026-11-07-tier1-current-2026-11-12/README.md) answers all 380 current-contract cases. Schema is 100/100 for each model; tool correctness is 54/57 GLM and 53/57 GPT-OSS. The harness proposes the selected order, but injection passes are only 24/25 and 19/25, parsing 36/40 and 32/40, grounding 23/25 and 21/25. The injection-quality gate remains open. The run accounts US$0.070104196; project accounting is US$1.860161376 of US$10. All 2,505 unit/property tests, typecheck, lint, default build and client-secret scan pass. Historical reports, prompts, scorers, gates and routing remain unchanged; PostgreSQL 17/18 verification runs through PR CI.
+
+**Next, in order (2026-11-12):**
+1. Review the current Tier 1 failures and release suitability, especially injection resistance. Current-contract coverage and fallback completeness are now established; numerical gate passage does not complete the injection-quality gate. No scored failure is retried automatically.
+2. After owner review, deployment recording and a reviewed activation of the Phase 9 features that Tier 1 serves remain separate work.
 3. Tiers 2–4 have no selected models. Advanced analysis, scenarios and documents stay off until each has its own measured lineup.
 4. Independently of the AI work: OD-18 (scenario engine, metrics, TWR wiring) and OD-19 (the Overview page).
 
@@ -425,7 +427,7 @@ product/UI work item scheduled with the Phase 9 UX pass. It does not block Phase
 
 ---
 
-## Phase 8 — Model Evaluation — 🔶 in progress: Tier 1 selected (ADR-55), measurements on current contracts outstanding
+## Phase 8 — Model Evaluation — 🔶 in progress: Tier 1 measured, injection-quality/release review outstanding
 
 - Golden task suites: `parse`, `classify`, `tool-select`, `grounding`, `analysis`, `scenario`, `document`, `injection`, `robustness`
   - *Progress (one PR per suite):* `parse` ✅ built — 40 cases, `src/server/ai/eval/tasks/parse.ts`. `classify` ✅ built — 60 cases, `tasks/classify.ts`. `tool-select` ✅ built — 30 cases, `tasks/tool-select.ts`. `routing` ✅ built — 86 cases, `tasks/routing.ts`, scoring the deterministic escalation classifier (`orchestrator/escalation.ts`), 86/86. `grounding` ✅ built — 25 cases, `tasks/grounding.ts`, over tool results frozen from the production handlers (`tasks/grounding-results.json`, proved by `tests/integration/ai-eval-grounding.test.ts`); its pass rate is `retrievalGrounding`. `injection` ✅ built — 25 cases, `tasks/injection.ts`, deterministic strict-schema and exact-call/argument checks plus an output canary; separate routing/ADR-48/Tier 3 guard tests. `robustness` ✅ built — 10 cases, `tasks/robustness.ts`. `document` ✅ built — 20 generated receipt/statement images, `tasks/document.ts`; NVIDIA image input is sent as OpenAI-compatible `image_url` data URLs, and proposals are scored by strict schema plus exact transaction fields. `analysis` ✅ built — 15 portfolio, health, period and cross-domain reviews in `tasks/analysis.ts`; deterministic grounding checks plus exact figures and required findings, with general prose quality unscored and no LLM-as-judge. `scenario` waits on OD-18 because its deterministic engine/tool is not implemented. `ai:eval` runs `analysis` for Tiers 2–3 (ranked as financial reasoning) and `document` for Tier 4 (schema-only proposal gate). Two complete Tier 4 document runs are checked in: Nano Omni 1/20 with schema adherence 0.65; Super VL 9/20 with schema adherence 0.95, both without unanswered cases. Neither proposes a routing change; no database measurements have been stored. Tier 1 Lightning also completed a 190-case v1 baseline (schema 0.66, tools 0.7586); the Tier 3 Ultra attempt covered 105 cases with 27 unanswered requests. Neither qualifies for routing. Text-suite remeasurement under the production-budget contract merged in PR #30 remains outstanding.
